@@ -39,21 +39,24 @@ static func get_reverse_range_for(p_array: Array) -> Array:
 ## The Camera will center around the node, but you can give it an offset in any direction in 
 ## relation to the centered camera and adjust zoom level through optional parameters.[br]
 static func add_debug_camera2D_to(
-		node2D: Node2D, 
-		percent_offset := Vector2(INF, INF), 
+		node2D: Node2D,
+		percent_offset := Vector2(INF, INF),
 		zoom_level := Vector2.ONE
 ) -> void:
 	var camera: = Camera2D.new()
 	camera.name = "DebugCamera2D"
-	camera.current = true
 	camera.zoom = zoom_level
 	if percent_offset != Vector2(INF, INF):
 		var viewport_size = node2D.get_viewport_rect().size
 		var total_offset = viewport_size * percent_offset
 		var centered_offset = total_offset / 2.0
 		camera.offset = centered_offset
-	
+
 	node2D.add_child(camera, true)
+	# camera.make_current() must be called AFTER the camera is in the scene
+	# tree (Godot 4.7 requires this). The original `camera.current = true`
+	# before add_child no longer works in newer Godot versions.
+	camera.make_current()
 
 
 ## Helper to connect signals with proper checking if it's not already connected.
