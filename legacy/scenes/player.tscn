@@ -1,0 +1,198 @@
+[gd_scene format=3 uid="uid://xvq4h30j4w4h"]
+
+[ext_resource type="Script" uid="uid://c78c80gbyu2bv" path="res://scripts/player.gd" id="1_3vyb7"]
+[ext_resource type="Script" path="res://scripts/hurt_box.gd" id="2_hurtbox"]
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_sprite"]
+size = Vector2(32, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(32, 48)
+
+[sub_resource type="Animation" id="Animation_3vyb7"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AttackPivot/AttackHitBox:visible")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AttackPivot/AttackHitBox:monitoring")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+
+[sub_resource type="Animation" id="Animation_dqkch"]
+resource_name = "attack"
+length = 0.3
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.1, 0.2, 0.4),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1.5, 0.8), Vector2(1.2, 0.9), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AttackPivot/AttackHitBox:visible")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AttackPivot/AttackHitBox:monitoring")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.25, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [false, true, true, false]
+}
+
+[sub_resource type="Animation" id="Animation_g2els"]
+resource_name = "idle"
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.16666667),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_qhqgy"]
+resource_name = "walk"
+length = 0.4
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2, 0.4),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(0.9, 1.1), Vector2(1, 1)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_dqkch"]
+_data = {
+&"RESET": SubResource("Animation_3vyb7"),
+&"attack": SubResource("Animation_dqkch"),
+&"idle": SubResource("Animation_g2els"),
+&"walk": SubResource("Animation_qhqgy")
+}
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wvhbo"]
+size = Vector2(80, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player_hurtbox"]
+size = Vector2(40, 55)
+
+[node name="Player" type="CharacterBody2D" unique_id=439089445]
+collision_layer = 1
+collision_mask = 18
+script = ExtResource("1_3vyb7")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=325862783]
+texture = SubResource("PlaceholderTexture2D_sprite")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1315437892]
+position = Vector2(0, 2)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=2103342494]
+position_smoothing_enabled = true
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=337797838]
+libraries/ = SubResource("AnimationLibrary_dqkch")
+
+[node name="AttackPivot" type="Node2D" parent="." unique_id=135460323]
+
+[node name="AttackHitBox" type="Area2D" parent="AttackPivot" unique_id=396899464]
+visible = false
+position = Vector2(50, 0)
+collision_layer = 128
+collision_mask = 8192
+monitoring = false
+
+[node name="HitBoxShape" type="CollisionShape2D" parent="AttackPivot/AttackHitBox" unique_id=1680841866]
+shape = SubResource("RectangleShape2D_wvhbo")
+
+[node name="DebugVisual" type="ColorRect" parent="AttackPivot/AttackHitBox" unique_id=1756618872]
+offset_left = -40.0
+offset_top = -30.0
+offset_right = 40.0
+offset_bottom = 30.0
+color = Color(0.6678365, 1.853034e-06, 4.813075e-07, 0.6156863)
+
+[node name="HurtBox" type="Area2D" parent="."]
+collision_layer = 4096
+collision_mask = 0
+monitorable = true
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
+shape = SubResource("RectangleShape2D_player_hurtbox")
+
+[node name="DebugVisual" type="ColorRect" parent="HurtBox"]
+visible = false
+offset_left = -20.0
+offset_top = -28.0
+offset_right = 20.0
+offset_bottom = 28.0
+color = Color(0.2, 1, 0.2, 0.4)
+
+[node name="HPLabel" type="Label" parent="."]
+offset_left = -60.0
+offset_top = -60.0
+offset_right = 60.0
+offset_bottom = -40.0
+horizontal_alignment = 1
+text = "HP: 100 / 100"

@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://cou1tgv2156sw"]
+
+[ext_resource type="PackedScene" uid="uid://xvq4h30j4w4h" path="res://scenes/player.tscn" id="1_o5qli"]
+[ext_resource type="PackedScene" uid="uid://bq4y8r2p12mn" path="res://scenes/target_dummy.tscn" id="2_dummy"]
+[ext_resource type="PackedScene" uid="uid://ryre03tmteai" path="res://scenes/enemy.tscn" id="3_enemy"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ibjym"]
+size = Vector2(1280, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jrdhs"]
+size = Vector2(40, 720)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_xeyld"]
+size = Vector2(1280, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_igqou"]
+size = Vector2(40, 720)
+
+[node name="Main" type="Node2D" unique_id=412680462]
+
+[node name="Background" type="ColorRect" parent="." unique_id=1461471676]
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.8679616, 0.6607159, 0.96171683, 1)
+
+[node name="Player" parent="." unique_id=439089445 instance=ExtResource("1_o5qli")]
+position = Vector2(400, 360)
+
+[node name="TargetDummy" parent="." unique_id=2144408743 instance=ExtResource("2_dummy")]
+position = Vector2(800, 360)
+
+[node name="Enemy" parent="." unique_id=641673784 instance=ExtResource("3_enemy")]
+position = Vector2(1000, 360)
+
+[node name="Walls" type="StaticBody2D" parent="." unique_id=1586025754]
+collision_layer = 2
+collision_mask = 0
+
+[node name="Top" type="CollisionShape2D" parent="Walls" unique_id=1987227656]
+position = Vector2(640, -20)
+shape = SubResource("RectangleShape2D_ibjym")
+
+[node name="Left" type="CollisionShape2D" parent="Walls" unique_id=307561731]
+position = Vector2(-20, 360)
+shape = SubResource("RectangleShape2D_jrdhs")
+
+[node name="Down" type="CollisionShape2D" parent="Walls" unique_id=238305065]
+position = Vector2(640, 740)
+shape = SubResource("RectangleShape2D_xeyld")
+
+[node name="Right" type="CollisionShape2D" parent="Walls" unique_id=1136955347]
+position = Vector2(1300, 360)
+shape = SubResource("RectangleShape2D_igqou")
