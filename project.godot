@@ -1,12 +1,27 @@
 ; Engine configuration file.
 ; It's best edited using the editor UI and not directly,
-; but it can also be edited via text if you know what you're doing.
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
 
 [application]
 
 config/name="轩辕剑叁外传：天之痕 - 学习项目"
-run/main_scene=""
+run/main_scene="res://scenes/test_stage.tscn"
 config/features=PackedStringArray("4.7")
+
+[autoload]
+
+BackgroundLoader="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/background_loader/background_loader.tscn"
+CombatSystem="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/quiver_combat_system.gd"
+Events="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/quiver_events.gd"
+HitFreeze="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/hit_freeze/hit_freeze.tscn"
+QuiverDebugLogger="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/debug_logger/quiver_debug_logger.tscn"
+ScreenTransitions="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/transitions/screen_transitions.tscn"
 
 [display]
 
@@ -14,6 +29,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep_height"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/quiver.beat_em_up/plugin.cfg")
 
 [input]
 
@@ -41,7 +60,36 @@ move_down={
 , Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":83,"key_label":0,"unicode":115,"location":0,"echo":false,"script":null)
 ]
 }
+attack={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":74,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+
+[layer_names]
+
+2d_physics/layer_1="players"
+2d_physics/layer_2="obstacles"
+2d_physics/layer_3="screen_limits"
+2d_physics/layer_4="ceiling_limits"
+2d_physics/layer_5="enemies"
+2d_physics/layer_8="world_hit_boxes"
+2d_physics/layer_9="player_hit_boxes"
+2d_physics/layer_10="enemy_hit_boxes"
+2d_physics/layer_11="player_grab_boxes"
+2d_physics/layer_12="enemy_grab_boxes"
+2d_physics/layer_13="player_hurt_boxes"
+2d_physics/layer_14="enemy_hurt_boxes"
 
 [physics]
 
 2d/default_gravity=3000.0
+
+[quiver]
+
+beat_em_up/gameplay/default_hit_lane_size=60
+beat_em_up/debug/logging_enabled=true
+beat_em_up/gameplay/fall_gravity_modifier=2.5
+beat_em_up/debug/disable_player_detector_on_editor=false
+beat_em_up/paths/custom_actions_folder="res://_beat_em_up/action_states/"
+beat_em_up/paths/custom_ai_folder="res://_beat_em_up/ai_states/"
