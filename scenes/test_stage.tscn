@@ -1,0 +1,55 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" uid="uid://cm37x41o0mhxi" path="res://characters/playable/chen_jingqiu/chen_jingqiu.tscn" id="1_chen"]
+
+[node name="TestStage" type="Node2D"]
+
+[node name="DebugReferences" type="Node2D" parent="."]
+
+[node name="Floor_Line" type="ColorRect" parent="DebugReferences"]
+offset_left = -2000.0
+offset_top = 0.0
+offset_right = 2000.0
+offset_bottom = 4.0
+color = Color(0.4, 0.4, 0.4, 1)
+
+[node name="Block_Red" type="ColorRect" parent="DebugReferences"]
+offset_left = -600.0
+offset_top = -300.0
+offset_right = -500.0
+offset_bottom = -200.0
+color = Color(0.8, 0.2, 0.2, 1)
+
+[node name="Block_Blue" type="ColorRect" parent="DebugReferences"]
+offset_left = 600.0
+offset_top = -300.0
+offset_right = 700.0
+offset_bottom = -200.0
+color = Color(0.2, 0.2, 0.8, 1)
+
+[node name="Block_Green" type="ColorRect" parent="DebugReferences"]
+offset_left = 800.0
+offset_top = 100.0
+offset_right = 900.0
+offset_bottom = 200.0
+color = Color(0.2, 0.8, 0.2, 1)
+
+[node name="Block_Yellow" type="ColorRect" parent="DebugReferences"]
+offset_left = -800.0
+offset_top = 300.0
+offset_right = -700.0
+offset_bottom = 400.0
+color = Color(0.8, 0.8, 0.2, 1)
+
+[node name="Block_Purple" type="ColorRect" parent="DebugReferences"]
+offset_left = 0.0
+offset_top = 500.0
+offset_right = 100.0
+offset_bottom = 600.0
+color = Color(0.5, 0.2, 0.8, 1)
+
+[node name="ChenJingqiu" parent="." instance=ExtResource("1_chen")]
+
+[node name="FollowCamera" type="Camera2D" parent="ChenJingqiu"]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
