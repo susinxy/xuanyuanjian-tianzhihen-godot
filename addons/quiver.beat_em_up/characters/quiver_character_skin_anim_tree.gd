@@ -54,6 +54,13 @@ func _get_configuration_warnings() -> PackedStringArray:
 	
 	return msgs
 
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EDITOR_POST_SAVE and Engine.is_editor_hint():
+		if is_instance_valid(_animation_tree) and _animation_tree.tree_root != null:
+			_animation_list.clear()
+			_populate_animation_list()
+
 ### -----------------------------------------------------------------------------------------------
 
 
