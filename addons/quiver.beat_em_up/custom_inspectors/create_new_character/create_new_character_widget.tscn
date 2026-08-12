@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/custom_inspectors/create_new_character/create_new_character_widget.gd" id="1_widget"]
+
+[node name="CreateNewCharacterWidget" type="VBoxContainer"]
+script = ExtResource("1_widget")
