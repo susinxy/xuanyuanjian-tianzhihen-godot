@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dfhclp7fjrv4q"
-path="res://.godot/imported/idle_03.png-bb1e973a787f5f02018dfa82e9a0c4c0.ctex"
+uid="uid://b0fg8eqh0j6cj"
+path="res://.godot/imported/idle_01_physical_180.png-a5f6e9fed44f6c5a7b18527a14489495.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://characters/playable/chen_jingchou/resources/sprites/idle/idle_03.png"
-dest_files=["res://.godot/imported/idle_03.png-bb1e973a787f5f02018dfa82e9a0c4c0.ctex"]
+source_file="res://characters/playable/_template/resources/sprites/idle/idle_01_physical_180.png"
+dest_files=["res://.godot/imported/idle_01_physical_180.png-a5f6e9fed44f6c5a7b18527a14489495.ctex"]
 
 [params]
 
