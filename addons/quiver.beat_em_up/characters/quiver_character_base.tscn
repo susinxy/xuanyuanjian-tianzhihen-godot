@@ -1,11 +1,11 @@
-[gd_scene load_steps=3 format=3 uid="uid://dkels061mhrsg"]
+[gd_scene format=3 uid="uid://dkels061mhrsg"]
 
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/quiver_character.gd" id="1_b0yrs"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/state_machines/quiver_state_machine.gd" id="1_u2nuf"]
+[ext_resource type="Script" uid="uid://cxla7vomiday2" path="res://addons/quiver.beat_em_up/characters/quiver_character.gd" id="1_b0yrs"]
+[ext_resource type="Script" uid="uid://cdimeia4h2sqe" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/state_machines/quiver_state_machine.gd" id="1_u2nuf"]
 
-[node name="QuiverBaseCharacter" type="CharacterBody2D"]
+[node name="QuiverBaseCharacter" type="CharacterBody2D" unique_id=893474563]
 collision_mask = 12
 script = ExtResource("1_b0yrs")
 
-[node name="StateMachine" type="Node" parent="."]
+[node name="StateMachine" type="Node" parent="." unique_id=9204098]
 script = ExtResource("1_u2nuf")
