@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="QuiverAttributes" format=3 uid="uid://edlchyssmk0g"]
+
+[ext_resource type="Script" uid="uid://c30cbdhmtp1po" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
+[ext_resource type="Texture2D" uid="uid://bbd403bd33kk7" path="res://characters/playable/chen_jingchou/resources/chen_jingchou_gradient.tres" id="1_4dxsn"]
+[ext_resource type="Texture2D" uid="uid://cxjona8ycbcvu" path="res://characters/playable/chen_jingchou/resources/sprites/chen_jingchou_profile.png" id="2_g3jjg"]
+
+[resource]
+script = ExtResource("1_1ikth")
+display_name = "陈靖仇"
+profile_texture = ExtResource("2_g3jjg")
+life_bar_gradient = ExtResource("1_4dxsn")
+speed_max = 500.0
