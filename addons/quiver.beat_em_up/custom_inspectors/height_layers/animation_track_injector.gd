@@ -233,7 +233,11 @@ func _inject_single_animation(
 		anim.track_insert_key(attack_track_idx, time, attack_arr)
 		
 		# 每帧插入 _sync_base_height method call
-		anim.method_track_insert_key(method_track_idx, time, METHOD_NAME_SYNC_BASE_HEIGHT)
+		# method track 键值格式: {"args": [], "method": &"method_name"}
+		anim.track_insert_key(method_track_idx, time, {
+			"args": [],
+			"method": StringName(METHOD_NAME_SYNC_BASE_HEIGHT)
+		})
 		
 		inserted_count += 1
 	
@@ -271,19 +275,22 @@ func _remove_old_height_tracks(anim: Animation) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
-## 添加 value track（discrete interp，update mode discontinuous）
+## 添加 value track（discrete interp，update mode discontinuous, loop wrap）
 func _add_value_track(anim: Animation, track_path: String) -> int:
 	var track_idx := anim.add_track(Animation.TYPE_VALUE)
 	anim.track_set_path(track_idx, track_path)
 	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
 	anim.value_track_set_update_mode(track_idx, Animation.UPDATE_DISCRETE)
+	anim.track_set_loop_wrap(track_idx, true)
 	return track_idx
 
 
-## 添加 method track
+## 添加 method track (discrete interp, loop wrap enabled)
 func _add_method_track(anim: Animation, track_path: String) -> int:
 	var track_idx := anim.add_track(Animation.TYPE_METHOD)
 	anim.track_set_path(track_idx, track_path)
+	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
+	anim.track_set_loop_wrap(track_idx, true)
 	return track_idx
 
 ### -----------------------------------------------------------------------------------------------
