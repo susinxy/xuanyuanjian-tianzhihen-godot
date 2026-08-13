@@ -234,8 +234,7 @@ func _inject_single_animation(
 		
 		# 每帧插入 _sync_base_height method call
 		# method track 键值格式: {"args": [], "method": &"method_name"}
-		# 注意：method track 必须使用专用 API method_track_insert_key
-		anim.method_track_insert_key(method_track_idx, time, {
+		anim.track_insert_key(method_track_idx, time, {
 			"args": [],
 			"method": StringName(METHOD_NAME_SYNC_BASE_HEIGHT)
 		})

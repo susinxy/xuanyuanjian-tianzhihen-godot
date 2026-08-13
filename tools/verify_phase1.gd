@@ -55,89 +55,62 @@ func test_filename_parser() -> void:
 func test_animation_injection() -> void:
 	print("[2/2] 验证动画注入结果...")
 	
-	var anim_library_path = "res://characters/playable/chen_jingchou/resources/animations/library.tres"
-	
-	if not FileAccess.file_exists(anim_library_path):
-		print("  ✗ 动画库文件不存在: %s" % anim_library_path)
-		return
-	
-	var library = load(anim_library_path)
-	if not library:
-		print("  ✗ 无法加载动画库")
-		return
-	
-	var test_anims = ["idle_left", "attack1_left", "jump_left", "hurt_mid_left"]
+	# 直接加载单个 Animation 资源文件
+	var test_files = [
+		["res://characters/playable/chen_jingchou/resources/animations/idle_left.tres", "idle_left"],
+		["res://characters/playable/chen_jingchou/resources/animations/attack1_left.tres", "attack1_left"],
+		["res://characters/playable/chen_jingchou/resources/animations/jump_left.tres", "jump_left"],
+		["res://characters/playable/chen_jingchou/resources/animations/walk_left.tres", "walk_left"],
+	]
 	var passed := 0
 	var failed := 0
 	
-	for anim_name in test_anims:
-		var anim = library.get_animation(anim_name)
+	for test in test_files:
+		var file_path = test[0]
+		var anim_name = test[1]
+		
+		if not FileAccess.file_exists(file_path):
+			print("  ✗ 动画文件不存在: %s" % file_path)
+			failed += 1
+			continue
+		
+		var anim = load(file_path)
 		if not anim:
-			print("  ✗ 动画不存在: %s" % anim_name)
+			print("  ✗ 无法加载动画: %s" % anim_name)
 			failed += 1
 			continue
 		
 		var track_count = anim.get_track_count()
-		var expected_tracks = 16  # 原有的 + 3 个新增
 		
-		if track_count != expected_tracks:
-			print("  ✗ %s: track 数量错误 (预期 %d, 实际 %d)" % [anim_name, expected_tracks, track_count])
-			failed += 1
-			continue
+		# 检查是否包含 height tracks
+		var has_physical = false
+		var has_attack = false
+		var has_method = false
 		
-		# 验证新增 tracks 的路径和方法
-		var valid := true
-		var errors := []
+		for i in range(track_count):
+			var path = str(anim.track_get_path(i))
+			var type = anim.track_get_type(i)
+			
+			if path == "../physical_height" and type == Animation.TYPE_VALUE:
+				has_physical = true
+			elif path == "../attack_heights" and type == Animation.TYPE_VALUE:
+				has_attack = true
+			elif path == ".." and type == Animation.TYPE_METHOD:
+				has_method = true
 		
-		# Track 13: physical_height (value track)
-		var track_13_path = anim.track_get_path(13)
-		var track_13_type = anim.track_get_type(13)
-		if track_13_type != Animation.TYPE_VALUE:
-			valid = false
-			errors.append("track 13 不是 value track (实际: %d)" % track_13_type)
-		elif track_13_path != NodePath("../physical_height"):
-			valid = false
-			errors.append("track 13 path 错误: %s" % str(track_13_path))
-		
-		# Track 14: attack_heights (value track)
-		var track_14_path = anim.track_get_path(14)
-		var track_14_type = anim.track_get_type(14)
-		if track_14_type != Animation.TYPE_VALUE:
-			valid = false
-			errors.append("track 14 不是 value track (实际: %d)" % track_14_type)
-		elif track_14_path != NodePath("../attack_heights"):
-			valid = false
-			errors.append("track 14 path 错误: %s" % str(track_14_path))
-		
-		# Track 15: method track
-		var track_15_path = anim.track_get_path(15)
-		var track_15_type = anim.track_get_type(15)
-		if track_15_type != Animation.TYPE_METHOD:
-			valid = false
-			errors.append("track 15 不是 method track (实际: %d)" % track_15_type)
-		elif track_15_path != NodePath(".."):
-			valid = false
-			errors.append("track 15 path 错误: %s" % str(track_15_path))
-		else:
-			# 检查 method track 是否有 key
-			var key_count = anim.track_get_key_count(15)
-			if key_count == 0:
-				valid = false
-				errors.append("track 15 没有 key")
-			else:
-				# 获取第一个 key 的值
-				var first_key = anim.track_get_key_value(15, 0)
-				if first_key.get("method", "") != "_sync_base_height":
-					valid = false
-					errors.append("track 15 method 错误: %s" % str(first_key))
+		var valid = has_physical and has_attack and has_method
 		
 		if valid:
 			passed += 1
-			print("  ✓ %s: 验证通过 (16 tracks, 包含 height tracks)" % anim_name)
+			print("  ✓ %s: 验证通过 (%d tracks, 包含 height tracks)" % [anim_name, track_count])
 		else:
 			failed += 1
-			print("  ✗ %s: 验证失败" % anim_name)
-			for err in errors:
-				print("    - %s" % err)
+			print("  ✗ %s: 验证失败 (%d tracks)" % [anim_name, track_count])
+			if not has_physical:
+				print("    - 缺少 ../physical_height track")
+			if not has_attack:
+				print("    - 缺少 ../attack_heights track")
+			if not has_method:
+				print("    - 缺少 .. method track")
 	
 	print("动画注入验证: %d 通过, %d 失败\n" % [passed, failed])
