@@ -153,24 +153,4 @@ static func parse_height_from_filename(filename: String) -> Dictionary:
 	return result
 
 
-## 验证数据完整性
-## 返回是否完整（每个动画每帧都有 physical 标注）
-func validate(required_physical_per_frame := true) -> bool:
-	if required_physical_per_frame:
-		for anim_name in frame_heights:
-			for frame_idx in frame_heights[anim_name]:
-				var data: Dictionary = frame_heights[anim_name][frame_idx]
-				if data.get("physical", -1.0) < 0.0:
-					var msg := "[Validation] %s frame %d: missing physical_height" % [
-						anim_name, frame_idx
-					]
-					parse_errors.append(msg)
-	
-	return parse_errors.is_empty()
-
-### -----------------------------------------------------------------------------------------------
-
-
-### Private Methods -------------------------------------------------------------------------------
-
 ### -----------------------------------------------------------------------------------------------
