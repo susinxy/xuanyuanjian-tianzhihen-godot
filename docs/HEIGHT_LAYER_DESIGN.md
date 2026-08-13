@@ -721,10 +721,6 @@ func remove_from_group(group: StringName) -> void:
     if str(group).begins_with(FACTION_PREFIX):
         _refresh_faction_cache()
 
-func set_groups(groups: Array) -> void:
-    super(groups)
-    _refresh_faction_cache()
-
 func _refresh_faction_cache() -> void:
     _faction_groups.clear()
     for group in get_groups():
@@ -753,7 +749,7 @@ static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
 
 **性能**：
 - `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
-- 重写 `add_to_group()`/`remove_from_group()`/`set_groups()`，捕获运行时的 group 变更
+- 重写 `add_to_group()`/`remove_from_group()`，捕获运行时的 group 变更
 - `are_factions_equal()` 只遍历缓存的 `_faction_groups`（通常 1-2 个），不再遍历所有 groups
 - `is_in_group()` 是 O(1) StringName 字典查找
 - 支持运行时动态修改 groups，缓存自动更新

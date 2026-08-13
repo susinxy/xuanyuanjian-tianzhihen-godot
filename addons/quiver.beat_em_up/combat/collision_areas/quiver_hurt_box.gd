@@ -66,12 +66,6 @@ func remove_from_group(group: StringName) -> void:
 		_refresh_faction_cache()
 
 
-## 重写 set_groups：捕获批量替换 groups 的情况
-func set_groups(groups: Array) -> void:
-	super(groups)
-	_refresh_faction_cache()
-
-
 func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := PackedStringArray()
 	
