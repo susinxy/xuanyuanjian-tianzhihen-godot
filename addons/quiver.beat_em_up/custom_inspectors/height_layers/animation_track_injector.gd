@@ -163,13 +163,6 @@ func _validate_and_set_root_node(anim_player: AnimationPlayer, errors: Array[Str
 			str(character_node.get_class()))
 		return false
 	
-	# 验证从 AnimationPlayer 使用 "../" 路径能到达 QuiverCharacter
-	var resolved_parent := anim_player.get_node_or_null(NodePath(".."))
-	if resolved_parent != character_node:
-		errors.append("AnimationPlayer 的父节点无法解析到 QuiverCharacter（预期：%s，实际：%s）" % 
-			[str(character_node.name), str(resolved_parent.name) if resolved_parent else "null"])
-		return false
-	
 	return true
 
 
