@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://du1mbjqmnfllh"
-path="res://.godot/imported/knockout_01_physical_180.png-cc2f20f9a6eef898269cdd629da219ff.ctex"
+path="res://.godot/imported/knockout_01_physical_180.png-e5708b2c43d5baed5867ecc64c9038ea.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/chen_jingchou/resources/sprites/knock_out/knockout_01_physical_180.png"
-dest_files=["res://.godot/imported/knockout_01_physical_180.png-cc2f20f9a6eef898269cdd629da219ff.ctex"]
+dest_files=["res://.godot/imported/knockout_01_physical_180.png-e5708b2c43d5baed5867ecc64c9038ea.ctex"]
 
 [params]
 

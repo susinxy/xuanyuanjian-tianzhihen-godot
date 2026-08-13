@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dkokditseie3u"
-path="res://.godot/imported/air_attack_00_physical_180_attack_70.png-93cd417beb0f3f768a20a6f313fbb275.ctex"
+path="res://.godot/imported/air_attack_00_physical_180_attack_70.png-a069dcc52876216699d59a86e93a6199.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/air_attack/air_attack_00_physical_180_attack_70.png"
-dest_files=["res://.godot/imported/air_attack_00_physical_180_attack_70.png-93cd417beb0f3f768a20a6f313fbb275.ctex"]
+dest_files=["res://.godot/imported/air_attack_00_physical_180_attack_70.png-a069dcc52876216699d59a86e93a6199.ctex"]
 
 [params]
 

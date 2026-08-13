@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cmim7esp24tok"
-path="res://.godot/imported/jump_02_physical_180.png-513c60d66e852f55f2a5aadb1eef4319.ctex"
+path="res://.godot/imported/jump_02_physical_180.png-6edca1c7bc32421315619b533197dbd4.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/jump/jump_02_physical_180.png"
-dest_files=["res://.godot/imported/jump_02_physical_180.png-513c60d66e852f55f2a5aadb1eef4319.ctex"]
+dest_files=["res://.godot/imported/jump_02_physical_180.png-6edca1c7bc32421315619b533197dbd4.ctex"]
 
 [params]
 

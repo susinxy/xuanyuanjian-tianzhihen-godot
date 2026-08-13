@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dmx18b8vmsymc"
-path="res://.godot/imported/turnaround_01_physical_180.png-cc219aad422e21a486b0a3fcb5faa67f.ctex"
+path="res://.godot/imported/turnaround_01_physical_180.png-2fb6d942aecd115d184560c4aaae1029.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/chen_jingchou/resources/sprites/turn_around/turnaround_01_physical_180.png"
-dest_files=["res://.godot/imported/turnaround_01_physical_180.png-cc219aad422e21a486b0a3fcb5faa67f.ctex"]
+dest_files=["res://.godot/imported/turnaround_01_physical_180.png-2fb6d942aecd115d184560c4aaae1029.ctex"]
 
 [params]
 

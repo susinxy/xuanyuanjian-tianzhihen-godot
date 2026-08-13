@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://mvmkid2o0soc"
-path="res://.godot/imported/punch1_00_physical_180_attack_80.png-2f4d128374977b26df30821abd914b7f.ctex"
+path="res://.godot/imported/punch1_00_physical_180_attack_80.png-e203d932505fee9a8176e703ca53cc7d.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/punches/punch1_00_physical_180_attack_80.png"
-dest_files=["res://.godot/imported/punch1_00_physical_180_attack_80.png-2f4d128374977b26df30821abd914b7f.ctex"]
+dest_files=["res://.godot/imported/punch1_00_physical_180_attack_80.png-e203d932505fee9a8176e703ca53cc7d.ctex"]
 
 [params]
 

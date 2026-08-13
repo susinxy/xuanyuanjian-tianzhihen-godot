@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://n5c8gpcbbxdm"
-path="res://.godot/imported/walk_07_physical_180.png-f9d85f4453d5930d79fac7b7acff2dd7.ctex"
+path="res://.godot/imported/walk_07_physical_180.png-26df3c8cb34b82580b9f9bb380642450.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/walk/walk_07_physical_180.png"
-dest_files=["res://.godot/imported/walk_07_physical_180.png-f9d85f4453d5930d79fac7b7acff2dd7.ctex"]
+dest_files=["res://.godot/imported/walk_07_physical_180.png-26df3c8cb34b82580b9f9bb380642450.ctex"]
 
 [params]
 

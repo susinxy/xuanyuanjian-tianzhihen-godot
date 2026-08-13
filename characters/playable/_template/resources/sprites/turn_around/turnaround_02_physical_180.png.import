@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cioubq684bvdt"
-path="res://.godot/imported/turnaround_02_physical_180.png-7b58a357efe05c84face3b2cea7bc333.ctex"
+path="res://.godot/imported/turnaround_02_physical_180.png-5ecc58ef89b719e2fb809859792c3277.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/turn_around/turnaround_02_physical_180.png"
-dest_files=["res://.godot/imported/turnaround_02_physical_180.png-7b58a357efe05c84face3b2cea7bc333.ctex"]
+dest_files=["res://.godot/imported/turnaround_02_physical_180.png-5ecc58ef89b719e2fb809859792c3277.ctex"]
 
 [params]
 

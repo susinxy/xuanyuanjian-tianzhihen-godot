@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://tl0nf7078j7a"
-path="res://.godot/imported/knockout_02_physical_180.png-f25b9f59e59c945fa77b1f56cc47d416.ctex"
+path="res://.godot/imported/knockout_02_physical_180.png-9c13e6f4ca029f0f3a7e8b0c2375c559.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/_template/resources/sprites/knock_out/knockout_02_physical_180.png"
-dest_files=["res://.godot/imported/knockout_02_physical_180.png-f25b9f59e59c945fa77b1f56cc47d416.ctex"]
+dest_files=["res://.godot/imported/knockout_02_physical_180.png-9c13e6f4ca029f0f3a7e8b0c2375c559.ctex"]
 
 [params]
 

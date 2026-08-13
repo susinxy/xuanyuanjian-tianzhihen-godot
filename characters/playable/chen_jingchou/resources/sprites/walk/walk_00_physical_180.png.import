@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://drqf5op7veipq"
-path="res://.godot/imported/walk_00_physical_180.png-15f4034faadad492d489c6c40b9fecd1.ctex"
+path="res://.godot/imported/walk_00_physical_180.png-742430f61511d7856c98bb5c2c228b88.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/chen_jingchou/resources/sprites/walk/walk_00_physical_180.png"
-dest_files=["res://.godot/imported/walk_00_physical_180.png-15f4034faadad492d489c6c40b9fecd1.ctex"]
+dest_files=["res://.godot/imported/walk_00_physical_180.png-742430f61511d7856c98bb5c2c228b88.ctex"]
 
 [params]
 

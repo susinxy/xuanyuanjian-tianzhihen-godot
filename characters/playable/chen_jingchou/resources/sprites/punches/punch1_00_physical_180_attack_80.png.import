@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxok8p2f0linv"
-path="res://.godot/imported/punch1_00_physical_180_attack_80.png-d3c19cd12ee1c2e440ee7b86de1510a2.ctex"
+path="res://.godot/imported/punch1_00_physical_180_attack_80.png-2a45c9358458a69ce56d96f0de82ac0c.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://characters/playable/chen_jingchou/resources/sprites/punches/punch1_00_physical_180_attack_80.png"
-dest_files=["res://.godot/imported/punch1_00_physical_180_attack_80.png-d3c19cd12ee1c2e440ee7b86de1510a2.ctex"]
+dest_files=["res://.godot/imported/punch1_00_physical_180_attack_80.png-2a45c9358458a69ce56d96f0de82ac0c.ctex"]
 
 [params]
 
