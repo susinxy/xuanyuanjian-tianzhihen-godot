@@ -704,8 +704,8 @@ QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制：
 # quiver_hurt_box.gd / quiver_hit_box.gd
 const FACTION_PREFIX = "area2d:"  # 仅定义在 QuiverHurtBox
 
-# 缓存机制
-var _faction_groups: Array[StringName] = []
+# 缓存机制（使用 Dictionary 实现 O(1) 查找）
+var _faction_dict: Dictionary = {}
 
 func _ready():
     # ... 其他初始化 ...
@@ -722,36 +722,51 @@ func remove_from_group(group: StringName) -> void:
         _refresh_faction_cache()
 
 func _refresh_faction_cache() -> void:
-    _faction_groups.clear()
+    _faction_dict.clear()
     for group in get_groups():
         if str(group).begins_with(FACTION_PREFIX):
-            _faction_groups.append(group)
+            _faction_dict[group] = true
 
 static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
-    # 优先使用缓存（QuiverHitBox/QuiverHurtBox 子类）
-    if hit_box is QuiverHitBox:
-        for faction in hit_box._faction_groups:
-            if hurt_box.is_in_group(faction):
-                return true
+    # 获取两侧的 faction Dictionary
+    var hit_dict := _get_faction_dict(hit_box)
+    var hurt_dict := _get_faction_dict(hurt_box)
+    
+    # 快速路径：任一方无 faction group，直接返回 false
+    if hit_dict.is_empty() or hurt_dict.is_empty():
         return false
-    if hit_box is QuiverHurtBox:
-        for faction in hit_box._faction_groups:
-            if hurt_box.is_in_group(faction):
+    
+    # 遍历小集合，查找大集合（优化性能）
+    if hit_dict.size() <= hurt_dict.size():
+        for faction in hit_dict:
+            if hurt_dict.has(faction):
                 return true
-        return false
-    # 回退：非 Quiver 类型，遍历所有 groups
-    for group in hit_box.get_groups():
-        if str(group).begins_with(FACTION_PREFIX):
-            if hurt_box.is_in_group(group):
+    else:
+        for faction in hurt_dict:
+            if hit_dict.has(faction):
                 return true
+    
     return false
+
+static func _get_faction_dict(node: Area2D) -> Dictionary:
+    if node is QuiverHitBox:
+        return node._faction_dict
+    elif node is QuiverHurtBox:
+        return node._faction_dict
+    else:
+        # 回退：非 Quiver 类型，实时构建 Dictionary
+        var dict := {}
+        for group in node.get_groups():
+            if str(group).begins_with(FACTION_PREFIX):
+                dict[group] = true
+        return dict
 ```
 
 **性能**：
 - `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
 - 重写 `add_to_group()`/`remove_from_group()`，捕获运行时的 group 变更
-- `are_factions_equal()` 只遍历缓存的 `_faction_groups`（通常 1-2 个），不再遍历所有 groups
-- `is_in_group()` 是 O(1) StringName 字典查找
+- `are_factions_equal()` 两侧都使用 Dictionary 缓存，自动选择小集合遍历，使用 `Dictionary.has()` 实现 O(1) 查找
+- 消除重复的类型检查分支，代码更简洁
 - 支持运行时动态修改 groups，缓存自动更新
 
 ### 8.5 自己打自己为什么不会触发

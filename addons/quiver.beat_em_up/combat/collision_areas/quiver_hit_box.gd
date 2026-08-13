@@ -35,8 +35,9 @@ var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
-## 阵营 group 缓存（只缓存 area2d: 前缀的 group，避免每次遍历所有 groups）
-var _faction_groups: Array[StringName] = []
+## 阵营 group 缓存（Dictionary 格式，key 为 faction name，value 为 true）
+## 使用 Dictionary 实现 O(1) 查找，比 Array 遍历更快
+var _faction_dict: Dictionary = {}
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -88,12 +89,12 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 ### Private Methods -------------------------------------------------------------------------------
 
-## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group）
+## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group，使用 Dictionary 存储）
 func _refresh_faction_cache() -> void:
-	_faction_groups.clear()
+	_faction_dict.clear()
 	for group in get_groups():
 		if str(group).begins_with(QuiverHurtBox.FACTION_PREFIX):
-			_faction_groups.append(group)
+			_faction_dict[group] = true
 
 
 func _handle_character_type_presets() -> void:

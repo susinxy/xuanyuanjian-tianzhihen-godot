@@ -29,8 +29,9 @@ var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
-## 阵营 group 缓存（只缓存 area2d: 前缀的 group，避免每次遍历所有 groups）
-var _faction_groups: Array[StringName] = []
+## 阵营 group 缓存（Dictionary 格式，key 为 faction name，value 为 true）
+## 使用 Dictionary 实现 O(1) 查找，比 Array 遍历更快
+var _faction_dict: Dictionary = {}
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -81,37 +82,55 @@ func _get_configuration_warnings() -> PackedStringArray:
 ### Public Methods --------------------------------------------------------------------------------
 
 ## 阵营检查：同一 area2d: 组的双方视为同阵营，攻击不造成伤害
-## 使用缓存的 _faction_groups 避免每次遍历所有 groups
+## 使用 Dictionary 缓存实现 O(1) 查找，自动选择小集合遍历
 static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
-	# 优先使用缓存（QuiverHitBox/QuiverHurtBox 子类）
-	if hit_box is QuiverHitBox:
-		for faction in hit_box._faction_groups:
-			if hurt_box.is_in_group(faction):
-				return true
+	# 获取两侧的 faction Dictionary
+	var hit_dict := _get_faction_dict(hit_box)
+	var hurt_dict := _get_faction_dict(hurt_box)
+	
+	# 快速路径：任一方无 faction group，直接返回 false
+	if hit_dict.is_empty() or hurt_dict.is_empty():
 		return false
-	if hit_box is QuiverHurtBox:
-		for faction in hit_box._faction_groups:
-			if hurt_box.is_in_group(faction):
+	
+	# 遍历小集合，查找大集合（优化性能）
+	if hit_dict.size() <= hurt_dict.size():
+		for faction in hit_dict:
+			if hurt_dict.has(faction):
 				return true
-		return false
-	# 回退：非 Quiver 类型，遍历所有 groups
-	for group in hit_box.get_groups():
-		if str(group).begins_with(FACTION_PREFIX):
-			if hurt_box.is_in_group(group):
+	else:
+		for faction in hurt_dict:
+			if hit_dict.has(faction):
 				return true
+	
 	return false
+
+
+## 辅助函数：获取节点的 faction Dictionary
+## 如果是 QuiverHitBox/QuiverHurtBox，使用缓存；否则实时构建
+static func _get_faction_dict(node: Area2D) -> Dictionary:
+	if node is QuiverHitBox:
+		return node._faction_dict
+	elif node is QuiverHurtBox:
+		return node._faction_dict
+	else:
+		# 回退：非 Quiver 类型，实时构建 Dictionary
+		var dict := {}
+		for group in node.get_groups():
+			if str(group).begins_with(FACTION_PREFIX):
+				dict[group] = true
+		return dict
 
 ### -----------------------------------------------------------------------------------------------
 
 
 ### Private Methods -------------------------------------------------------------------------------
 
-## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group）
+## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group，使用 Dictionary 存储）
 func _refresh_faction_cache() -> void:
-	_faction_groups.clear()
+	_faction_dict.clear()
 	for group in get_groups():
 		if str(group).begins_with(FACTION_PREFIX):
-			_faction_groups.append(group)
+			_faction_dict[group] = true
 
 
 func _on_area_entered(area: Area2D) -> void:
