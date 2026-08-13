@@ -697,13 +697,53 @@ func _all_height_layers_bitmask() -> int:
 
 **同一 `area2d:` 组的双方视为同阵营，攻击不造成伤害。**
 
-此函数放在 `quiver_hurt_box.gd` 内，作为 `static function`，因为 HurtBox 是检测入口：
+此函数放在 `quiver_hurt_box.gd` 内，作为 `static function`，因为 HurtBox 是检测入口。
+QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制：
 
 ```gdscript
-# quiver_hurt_box.gd
-const FACTION_PREFIX = "area2d:"
+# quiver_hurt_box.gd / quiver_hit_box.gd
+const FACTION_PREFIX = "area2d:"  # 仅定义在 QuiverHurtBox
+
+# 缓存机制
+var _faction_groups: Array[StringName] = []
+
+func _ready():
+    # ... 其他初始化 ...
+    _refresh_faction_cache()
+
+func add_to_group(group: StringName, persistent: bool = false) -> void:
+    super(group, persistent)
+    if str(group).begins_with(FACTION_PREFIX):
+        _refresh_faction_cache()
+
+func remove_from_group(group: StringName) -> void:
+    super(group)
+    if str(group).begins_with(FACTION_PREFIX):
+        _refresh_faction_cache()
+
+func set_groups(groups: Array) -> void:
+    super(groups)
+    _refresh_faction_cache()
+
+func _refresh_faction_cache() -> void:
+    _faction_groups.clear()
+    for group in get_groups():
+        if str(group).begins_with(FACTION_PREFIX):
+            _faction_groups.append(group)
 
 static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
+    # 优先使用缓存（QuiverHitBox/QuiverHurtBox 子类）
+    if hit_box is QuiverHitBox:
+        for faction in hit_box._faction_groups:
+            if hurt_box.is_in_group(faction):
+                return true
+        return false
+    if hit_box is QuiverHurtBox:
+        for faction in hit_box._faction_groups:
+            if hurt_box.is_in_group(faction):
+                return true
+        return false
+    # 回退：非 Quiver 类型，遍历所有 groups
     for group in hit_box.get_groups():
         if str(group).begins_with(FACTION_PREFIX):
             if hurt_box.is_in_group(group):
@@ -711,7 +751,12 @@ static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
     return false
 ```
 
-**性能**：外层遍历数量 ≤ 2（通常 1 个 `area2d:` 组），`is_in_group()` 是 O(1) StringName 字典查找。整体 O(1)。
+**性能**：
+- `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
+- 重写 `add_to_group()`/`remove_from_group()`/`set_groups()`，捕获运行时的 group 变更
+- `are_factions_equal()` 只遍历缓存的 `_faction_groups`（通常 1-2 个），不再遍历所有 groups
+- `is_in_group()` 是 O(1) StringName 字典查找
+- 支持运行时动态修改 groups，缓存自动更新
 
 ### 8.5 自己打自己为什么不会触发
 

@@ -581,11 +581,15 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 6. 发射 `Events.enemy_data_sent`（攻击者=玩家时，用于 HUD 显示）
 
 **阵营过滤机制**（`area2d:` group）:
-- 常量 `FACTION_PREFIX = "area2d:"`
-- 静态函数 `are_factions_equal(hit_box, hurt_box)`：遍历 hit_box 的 groups，找到 `area2d:` 前缀的 group，检查 hurt_box 是否也在同一 group
+- 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
+- 缓存机制：`_faction_groups: Array[StringName]` 只缓存 `area2d:` 前缀的 group
+- `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
+- 重写 `add_to_group()`/`remove_from_group()`/`set_groups()`，捕获运行时的 group 变更
+- 静态函数 `are_factions_equal(hit_box, hurt_box)`：优先使用缓存的 `_faction_groups`，回退到遍历所有 groups
 - 同阵营双方的 HitBox/HurtBox 不会互相造成伤害/抓取
 - 配置方式：在 .tscn 中为角色的所有战斗 Area2D 添加 `groups = ["area2d:角色名"]`
 - `_handle_grab_box()` 同样使用此检查
+- QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制
 
 ### 7.5 QuiverAttackData（攻击数据）
 

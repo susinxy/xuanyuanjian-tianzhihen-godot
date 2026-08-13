@@ -29,6 +29,9 @@ var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
+## 阵营 group 缓存（只缓存 area2d: 前缀的 group，避免每次遍历所有 groups）
+var _faction_groups: Array[StringName] = []
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -44,8 +47,29 @@ func _ready() -> void:
 	
 	var owner_path := owner.get_path()
 	add_to_group(StringName(owner_path))
+	_refresh_faction_cache()
 	
 	QuiverEditorHelper.connect_between(area_entered, _on_area_entered)
+
+
+## 重写 add_to_group：捕获运行时的 faction group 变更
+func add_to_group(group: StringName, persistent: bool = false) -> void:
+	super(group, persistent)
+	if str(group).begins_with(FACTION_PREFIX):
+		_refresh_faction_cache()
+
+
+## 重写 remove_from_group：捕获运行时的 faction group 变更
+func remove_from_group(group: StringName) -> void:
+	super(group)
+	if str(group).begins_with(FACTION_PREFIX):
+		_refresh_faction_cache()
+
+
+## 重写 set_groups：捕获批量替换 groups 的情况
+func set_groups(groups: Array) -> void:
+	super(groups)
+	_refresh_faction_cache()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -63,7 +87,20 @@ func _get_configuration_warnings() -> PackedStringArray:
 ### Public Methods --------------------------------------------------------------------------------
 
 ## 阵营检查：同一 area2d: 组的双方视为同阵营，攻击不造成伤害
+## 使用缓存的 _faction_groups 避免每次遍历所有 groups
 static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
+	# 优先使用缓存（QuiverHitBox/QuiverHurtBox 子类）
+	if hit_box is QuiverHitBox:
+		for faction in hit_box._faction_groups:
+			if hurt_box.is_in_group(faction):
+				return true
+		return false
+	if hit_box is QuiverHurtBox:
+		for faction in hit_box._faction_groups:
+			if hurt_box.is_in_group(faction):
+				return true
+		return false
+	# 回退：非 Quiver 类型，遍历所有 groups
 	for group in hit_box.get_groups():
 		if str(group).begins_with(FACTION_PREFIX):
 			if hurt_box.is_in_group(group):
@@ -74,6 +111,14 @@ static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
 
 
 ### Private Methods -------------------------------------------------------------------------------
+
+## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group）
+func _refresh_faction_cache() -> void:
+	_faction_groups.clear()
+	for group in get_groups():
+		if str(group).begins_with(FACTION_PREFIX):
+			_faction_groups.append(group)
+
 
 func _on_area_entered(area: Area2D) -> void:
 	if area is WallHitBox:

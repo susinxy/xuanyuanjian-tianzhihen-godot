@@ -35,6 +35,9 @@ var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
+## 阵营 group 缓存（只缓存 area2d: 前缀的 group，避免每次遍历所有 groups）
+var _faction_groups: Array[StringName] = []
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -49,6 +52,27 @@ func _ready() -> void:
 		return
 	
 	add_to_group(StringName(owner.get_path()))
+	_refresh_faction_cache()
+
+
+## 重写 add_to_group：捕获运行时的 faction group 变更
+func add_to_group(group: StringName, persistent: bool = false) -> void:
+	super(group, persistent)
+	if str(group).begins_with(QuiverHurtBox.FACTION_PREFIX):
+		_refresh_faction_cache()
+
+
+## 重写 remove_from_group：捕获运行时的 faction group 变更
+func remove_from_group(group: StringName) -> void:
+	super(group)
+	if str(group).begins_with(QuiverHurtBox.FACTION_PREFIX):
+		_refresh_faction_cache()
+
+
+## 重写 set_groups：捕获批量替换 groups 的情况
+func set_groups(groups: Array) -> void:
+	super(groups)
+	_refresh_faction_cache()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -69,6 +93,14 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 
 ### Private Methods -------------------------------------------------------------------------------
+
+## 刷新阵营 group 缓存（只缓存 area2d: 前缀的 group）
+func _refresh_faction_cache() -> void:
+	_faction_groups.clear()
+	for group in get_groups():
+		if str(group).begins_with(QuiverHurtBox.FACTION_PREFIX):
+			_faction_groups.append(group)
+
 
 func _handle_character_type_presets() -> void:
 	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
