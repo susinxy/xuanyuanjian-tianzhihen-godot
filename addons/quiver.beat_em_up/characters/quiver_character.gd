@@ -57,7 +57,9 @@ var is_on_air := false
 @export var physical_height: float = 0.0
 
 ## 攻击判定相对 base_height 的高度偏移数组（由 value track 写入）
-@export var attack_heights: Array[float] = []
+## 注意：必须使用 untyped Array（而非 Array[float]），因为 Godot 4 的 AnimationMixer
+## 对 typed array 属性的 track 解析支持有限，会报 "couldn't resolve track" 警告
+@export var attack_heights: Array = []
 
 # 高度层缓存（避免每帧重复设置 collision layer）
 var _cached_height_layers: Array[int] = []
