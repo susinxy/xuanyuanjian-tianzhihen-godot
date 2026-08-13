@@ -237,6 +237,8 @@ func _on_scan_pressed() -> void:
 	_preview_btn.disabled = true
 	_scan_btn.text = "⏳ 扫描并注入轨道中..."
 	_scan_btn.disabled = true
+	_scan_btn.toggle_mode = true  # 启用切换模式以显示按下状态
+	_scan_btn.button_pressed = true  # 显示为按下状态
 	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
@@ -277,6 +279,8 @@ func _on_scan_pressed() -> void:
 	_preview_btn.disabled = false
 	_scan_btn.text = "▶ 扫描并生成高度轨道"
 	_scan_btn.disabled = false  # 允许重新扫描
+	_scan_btn.button_pressed = false  # 恢复未按下状态
+	_scan_btn.toggle_mode = false  # 关闭切换模式
 	
 	if error_count == 0:
 		_status_label.text = "Status: ✅ 扫描完成，轨道已写入"
