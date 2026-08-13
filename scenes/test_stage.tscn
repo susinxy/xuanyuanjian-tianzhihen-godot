@@ -59,6 +59,7 @@ offset_bottom = 2000.0
 color = Color(0.3, 0.25, 0.2, 1)
 
 [node name="Ground" type="StaticBody2D" parent="Level"]
+collision_layer = 2
 position = Vector2(640, 680)
 
 [node name="GroundVisual" type="ColorRect" parent="Level/Ground"]
@@ -72,12 +73,14 @@ color = Color(0.4, 0.32, 0.25, 1)
 shape = SubResource("RectangleShape2D_ground")
 
 [node name="WallLeft" type="StaticBody2D" parent="Level"]
+collision_layer = 2
 position = Vector2(-50, 400)
 
 [node name="WallLeftCollision" type="CollisionShape2D" parent="Level/WallLeft"]
 shape = SubResource("RectangleShape2D_wall_left")
 
 [node name="WallRight" type="StaticBody2D" parent="Level"]
+collision_layer = 2
 position = Vector2(1330, 400)
 
 [node name="WallRightCollision" type="CollisionShape2D" parent="Level/WallRight"]
