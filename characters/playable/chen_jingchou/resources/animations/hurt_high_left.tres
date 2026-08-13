@@ -172,33 +172,3 @@ tracks/13/keys = {
 "update": 0,
 "values": [true]
 }
-tracks/14/type = "method"
-tracks/14/imported = false
-tracks/14/enabled = true
-tracks/14/path = NodePath("..")
-tracks/14/interp = 0
-tracks/14/loop_wrap = true
-tracks/14/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"values": [{
-"args": [],
-"method": &"_sync_base_height"
-}]
-}
-tracks/15/type = "method"
-tracks/15/imported = false
-tracks/15/enabled = true
-tracks/15/path = NodePath(".")
-tracks/15/interp = 1
-tracks/15/loop_wrap = true
-tracks/15/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"values": [{
-"args": [],
-"method": &"_sync_base_height"
-}]
-}
-metadata/mirrored_name = "hurt_high_left.tres"
-metadata/should_overwrite = true
