@@ -1192,5 +1192,5 @@ if current_layers != _cached_height_layers:
 **文档维护**：任何后续修改都必须更新以下文件，保持一致性
 - `docs/HEIGHT_LAYER_DESIGN.md` — 本设计文档
 - `docs/PLUGIN_ARCHITECTURE.md` — Quiver 插件架构文档（如修改 Quiver 源码）
-- `docs/PLUGIN_CHANGES.md` — Quiver 插件修改记录
+- `PLUGIN_CHANGES.md`（项目根目录）— Quiver 插件修改记录
 - `xuanyuan-sword/AGENTS.md` — Agent 开发指南（如影响开发流程）

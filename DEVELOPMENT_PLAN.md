@@ -366,7 +366,7 @@ xuanyuan-sword/
 
 任何对 `addons/quiver.beat_em_up/` 的修改必须：
 
-1. 在 `xuanyuan-sword/PLUGIN_CHANGES.md` 记录变更：
+1. 在 `PLUGIN_CHANGES.md`（项目根目录）记录变更：
    - 修改的类名/文件名
    - 修改原因（为什么不能在外面实现，必须改插件）
    - 修改内容
