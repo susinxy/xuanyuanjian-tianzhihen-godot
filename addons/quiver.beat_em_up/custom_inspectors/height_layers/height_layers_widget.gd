@@ -232,16 +232,18 @@ func _on_scan_pressed() -> void:
 	if _skin_node == null:
 		return
 	
-	# 扫描期间禁用两个按钮并改变文本
-	_preview_btn.text = "⏳ 预览中..."
+	# 立即禁用两个按钮并改变文本
 	_preview_btn.disabled = true
-	_scan_btn.text = "⏳ 扫描并注入轨道中..."
 	_scan_btn.disabled = true
-	_scan_btn.toggle_mode = true  # 启用切换模式以显示按下状态
-	_scan_btn.button_pressed = true  # 显示为按下状态
+	_scan_btn.text = "⏳ 扫描并注入轨道中..."
 	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
+	# 使用 call_deferred 让 UI 有机会渲染状态变化，然后再执行实际扫描
+	_execute_scan.call_deferred()
+
+
+func _execute_scan() -> void:
 	# 调用扫描器（实际执行）
 	var injector := AnimationTrackInjector.new()
 	var result := injector.run(_skin_node, false)  # false = 实际执行
@@ -275,12 +277,9 @@ func _on_scan_pressed() -> void:
 	_result_label.text = "\n".join(summary_lines)
 	
 	# 更新状态并重新启用按钮，恢复文本
-	_preview_btn.text = "🔍 预览"
 	_preview_btn.disabled = false
 	_scan_btn.text = "▶ 扫描并生成高度轨道"
 	_scan_btn.disabled = false  # 允许重新扫描
-	_scan_btn.button_pressed = false  # 恢复未按下状态
-	_scan_btn.toggle_mode = false  # 关闭切换模式
 	
 	if error_count == 0:
 		_status_label.text = "Status: ✅ 扫描完成，轨道已写入"
