@@ -23,12 +23,12 @@ const CharacterHeightData = preload(
 	+ "character_height_data.gd"
 )
 
-# 高度轨道路径（与 docs/HEIGHT_LAYER_DESIGN.md Section 6.2 一致）
-# AnimationPlayer 的 root_node 默认 = ".."（Skin 节点的父亲 = CharacterBody2D）
-# 用 "../" 向上找到 QuiverCharacter
-const TRACK_PATH_PHYSICAL_HEIGHT := "../physical_height"
-const TRACK_PATH_ATTACK_HEIGHTS := "../attack_heights"
-const TRACK_PATH_BASE_HEIGHT_METHOD := ".."
+# 高度轨道路径
+# AnimationPlayer.root_node 设置为 "../.."（QuiverCharacter 节点）
+# 轨道路径直接使用属性名，AnimationPlayer 会自动解析为完整路径
+const TRACK_PATH_PHYSICAL_HEIGHT := "physical_height"
+const TRACK_PATH_ATTACK_HEIGHTS := "attack_heights"
+const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # 指向 root_node（QuiverCharacter）
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
 ### -----------------------------------------------------------------------------------------------
@@ -38,13 +38,15 @@ const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
 ## 执行扫描和注入
 ## skin_node: QuiverCharacterSkinAnimTree 节点
-## 返回: { anim_count: int, frame_count: int, errors: Array[String], height_data: CharacterHeightData }
-func run(skin_node: Node) -> Dictionary:
+## dry_run: 如果为 true，只预览不实际写入文件
+## 返回: { anim_count: int, frame_count: int, errors: Array[String], height_data: CharacterHeightData, animations_to_modify: Array[String] }
+func run(skin_node: Node, dry_run: bool = false) -> Dictionary:
 	var result := {
 		"anim_count": 0,
 		"frame_count": 0,
 		"errors": [] as Array[String],
 		"height_data": CharacterHeightData.new(),
+		"animations_to_modify": [] as Array[String],
 	}
 	
 	# 1. 获取 AnimatedSprite2D.sprite_frames
@@ -57,14 +59,18 @@ func run(skin_node: Node) -> Dictionary:
 	if anim_player == null:
 		return result
 	
-	# 3. 预解析 SpriteFrames 里所有子动画的帧文件名
+	# 3. 验证场景树结构并设置 AnimationPlayer.root_node
+	if not _validate_and_set_root_node(anim_player, result.errors):
+		return result
+	
+	# 4. 预解析 SpriteFrames 里所有子动画的帧文件名
 	_collect_sprite_frame_heights(sprite_frames, result.height_data, result.errors)
 	result.anim_count = sprite_frames.get_animation_names().size()
 	for anim_name in sprite_frames.get_animation_names():
 		result.frame_count += sprite_frames.get_frame_count(anim_name)
 	
-	# 4. 注入轨道到每个 Animation 资源
-	_inject_to_library(anim_player, sprite_frames, result.height_data, result.errors)
+	# 5. 注入轨道到每个 Animation 资源
+	_inject_to_library(anim_player, sprite_frames, result.height_data, result.errors, result.animations_to_modify, dry_run)
 	
 	return result
 
@@ -93,6 +99,43 @@ func _get_animation_player(skin_node: Node, errors: Array[String]) -> AnimationP
 		errors.append("未找到 AnimationPlayer 子节点")
 		return null
 	return anim_player
+
+
+## 验证场景树结构并设置 AnimationPlayer.root_node
+## 预期结构：QuiverCharacter -> Skin -> AnimationPlayer
+## 设置 root_node 指向 QuiverCharacter（AnimationPlayer 的祖父节点）
+func _validate_and_set_root_node(anim_player: AnimationPlayer, errors: Array[String]) -> bool:
+	# 获取 AnimationPlayer 的父节点（应该是 Skin）
+	var skin_node := anim_player.get_parent()
+	if skin_node == null:
+		errors.append("AnimationPlayer 没有父节点（预期：Skin 节点）")
+		return false
+	
+	# 获取 Skin 的父节点（应该是 QuiverCharacter）
+	var character_node := skin_node.get_parent()
+	if character_node == null:
+		errors.append("Skin 节点没有父节点（预期：QuiverCharacter 节点）")
+		return false
+	
+	# 验证父节点是 QuiverCharacter（或继承自它）
+	if not (character_node is QuiverCharacter):
+		errors.append("AnimationPlayer 的祖父节点不是 QuiverCharacter（实际类型：%s）" % 
+			str(character_node.get_class()))
+		return false
+	
+	# 设置 AnimationPlayer.root_node 指向 QuiverCharacter
+	# get_path_to() 返回从 anim_player 到 character_node 的相对路径
+	var relative_path := anim_player.get_path_to(character_node)
+	anim_player.root_node = NodePath(relative_path)
+	
+	# 验证 root_node 解析正确
+	var resolved_node := anim_player.get_node(anim_player.root_node)
+	if resolved_node != character_node:
+		errors.append("AnimationPlayer.root_node 设置失败（预期：%s，实际：%s）" % 
+			[str(character_node.name), str(resolved_node.name) if resolved_node else "null"])
+		return false
+	
+	return true
 
 
 ## 预解析 SpriteFrames 的所有子动画帧文件名，填充到 CharacterHeightData
@@ -126,11 +169,15 @@ func _collect_sprite_frame_heights(
 
 
 ## 注入轨道到 AnimationLibrary 中所有 Animation 资源
+## animations_to_modify: 输出参数，记录会被修改的动画名称
+## dry_run: 如果为 true，只记录不实际修改
 func _inject_to_library(
 	anim_player: AnimationPlayer,
 	sprite_frames: SpriteFrames,
 	height_data: CharacterHeightData,
-	errors: Array[String]
+	errors: Array[String],
+	animations_to_modify: Array[String],
+	dry_run: bool
 ) -> void:
 	var lib_names := anim_player.get_animation_library_list()
 	if lib_names.is_empty():
@@ -160,15 +207,20 @@ func _inject_to_library(
 			if not height_data.has_animation(sprite_anim_name):
 				continue
 			
-			# 注入轨道
-			_inject_single_animation(
-				anim,
-				sprite_anim_name,
-				sprite_frames.get_animation_speed(sprite_anim_name),
-				sprite_frames.get_frame_count(sprite_anim_name),
-				height_data.get_animation_data(sprite_anim_name),
-				errors
-			)
+			# 记录会被修改的动画
+			animations_to_modify.append(anim_name)
+			
+			# 如果不是 dry_run，实际注入轨道
+			if not dry_run:
+				# 注入轨道
+				_inject_single_animation(
+					anim,
+					sprite_anim_name,
+					sprite_frames.get_animation_speed(sprite_anim_name),
+					sprite_frames.get_frame_count(sprite_anim_name),
+					height_data.get_animation_data(sprite_anim_name),
+					errors
+				)
 			modified_count += 1
 	
 	if modified_count == 0:
@@ -233,7 +285,7 @@ func _inject_single_animation(
 		anim.track_insert_key(attack_track_idx, time, attack_arr)
 		
 		# 每帧插入 _sync_base_height method call
-		# method track 键值格式: {"args": [], "method": &"method_name"}
+		# method track 键值格式: {"args": [], "method": "method_name"}
 		anim.track_insert_key(method_track_idx, time, {
 			"args": [],
 			"method": StringName(METHOD_NAME_SYNC_BASE_HEIGHT)
@@ -284,11 +336,11 @@ func _add_value_track(anim: Animation, track_path: String) -> int:
 	return track_idx
 
 
-## 添加 method track (discrete interp)
+## 添加 method track
+## method track 不需要设置 update mode 或插值类型
 func _add_method_track(anim: Animation, track_path: String) -> int:
 	var track_idx := anim.add_track(Animation.TYPE_METHOD)
 	anim.track_set_path(track_idx, track_path)
-	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
 	return track_idx
 
 ### -----------------------------------------------------------------------------------------------

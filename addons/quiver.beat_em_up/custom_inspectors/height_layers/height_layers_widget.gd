@@ -28,9 +28,13 @@ const AnimationTrackInjector = preload(
 
 var _skin_node: QuiverCharacterSkinAnimTree = null
 
+var _preview_btn: Button
 var _scan_btn: Button
 var _status_label: Label
+var _preview_label: RichTextLabel
 var _result_label: Label
+
+var _last_preview_result: Dictionary  # 保存预览结果，用于后续扫描
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -70,22 +74,44 @@ func _build_ui() -> void:
 	
 	# 描述
 	var desc := Label.new()
-	desc.text = "扫描动画帧文件名中的 physical_/attack_/speed_ 标注，生成高度轨道。"
+	desc.text = "扫描动画帧文件名中的 physical_/attack_/speed_ 标注，生成高度轨道。\n\n" + \
+				"1. 点击「预览」查看将要修改的动画\n2. 确认无误后点击「扫描」执行修改"
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	desc.add_theme_color_override("font_color", Color.GRAY)
 	add_child(desc)
 	
 	# 状态标签
 	_status_label = Label.new()
-	_status_label.text = "等待扫描..."
+	_status_label.text = "等待预览..."
 	_status_label.add_theme_color_override("font_color", Color.GRAY)
 	add_child(_status_label)
 	
+	# 按钮容器
+	var btn_container := HBoxContainer.new()
+	add_child(btn_container)
+	
+	# 预览按钮
+	_preview_btn = Button.new()
+	_preview_btn.text = "🔍 预览"
+	_preview_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_btn.pressed.connect(_on_preview_pressed)
+	btn_container.add_child(_preview_btn)
+	
 	# 扫描按钮
 	_scan_btn = Button.new()
-	_scan_btn.text = "扫描并生成高度轨道 ▶"
+	_scan_btn.text = "▶ 扫描并生成高度轨道"
+	_scan_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scan_btn.pressed.connect(_on_scan_pressed)
-	add_child(_scan_btn)
+	_scan_btn.disabled = true  # 必须先预览
+	btn_container.add_child(_scan_btn)
+	
+	# 预览展示（RichTextLabel 支持 BBCode）
+	_preview_label = RichTextLabel.new()
+	_preview_label.bbcode_enabled = true
+	_preview_label.fit_content = true
+	_preview_label.custom_minimum_size.y = 100
+	_preview_label.text = ""
+	add_child(_preview_label)
 	
 	# 结果展示
 	_result_label = Label.new()
@@ -96,18 +122,93 @@ func _build_ui() -> void:
 
 func _update_status() -> void:
 	# 防御性检查：UI 元素可能尚未初始化
-	if _status_label == null or _scan_btn == null:
+	if _status_label == null or _scan_btn == null or _preview_btn == null:
 		return
 	
 	if _skin_node == null:
 		_status_label.text = "Status: ⚠️ 未关联皮肤节点"
 		_status_label.add_theme_color_override("font_color", Color.ORANGE)
+		_preview_btn.disabled = true
 		_scan_btn.disabled = true
 		return
 	
 	_status_label.text = "Status: ✅ 已关联: %s" % _skin_node.name
 	_status_label.add_theme_color_override("font_color", Color.GREEN)
-	_scan_btn.disabled = false
+	_preview_btn.disabled = false
+	# 扫描按钮需要先完成预览
+	_scan_btn.disabled = (_last_preview_result == null or _last_preview_result.is_empty())
+
+
+func _on_preview_pressed() -> void:
+	if _skin_node == null:
+		return
+	
+	_status_label.text = "Status: 🔍 预览中..."
+	_status_label.add_theme_color_override("font_color", Color.CYAN)
+	_preview_btn.disabled = true
+	
+	# 调用扫描器（dry_run=true）
+	var injector := AnimationTrackInjector.new()
+	var result := injector.run(_skin_node, true)  # dry_run
+	
+	# 保存预览结果
+	_last_preview_result = result
+	
+	# 显示预览结果
+	_display_preview(result)
+	
+	# 更新状态
+	var error_count: int = result.errors.size()
+	if error_count == 0 and result.anim_count > 0:
+		_status_label.text = "Status: ✅ 预览完成，可以扫描"
+		_status_label.add_theme_color_override("font_color", Color.GREEN)
+		_scan_btn.disabled = false
+	elif result.anim_count == 0:
+		_status_label.text = "Status: ⚠️ 未找到可处理的动画"
+		_status_label.add_theme_color_override("font_color", Color.ORANGE)
+		_scan_btn.disabled = true
+	else:
+		_status_label.text = "Status: ⚠️ 预览完成，有 %d 个错误" % error_count
+		_status_label.add_theme_color_override("font_color", Color.ORANGE)
+		_scan_btn.disabled = true
+	
+	_preview_btn.disabled = false
+
+
+func _display_preview(result: Dictionary) -> void:
+	var lines := []
+	
+	if result.anim_count == 0:
+		lines.append("[color=orange]未找到可处理的动画[/color]")
+		_preview_label.text = "\n".join(lines)
+		return
+	
+	lines.append("[b]预览结果[/b]")
+	lines.append("")
+	lines.append("扫描到 [b]%d[/b] 个动画，共 [b]%d[/b] 帧" % [result.anim_count, result.frame_count])
+	lines.append("")
+	
+	# 统计会被修改的动画
+	var will_modify_count: int = 0
+	if result.has("animations_to_modify"):
+		will_modify_count = result.animations_to_modify.size()
+		if will_modify_count > 0:
+			lines.append("[b]将修改 %d 个动画：[/b]" % will_modify_count)
+			for anim_name in result.animations_to_modify.slice(0, 10):
+				lines.append("  • %s" % anim_name)
+			if will_modify_count > 10:
+				lines.append("  ... 还有 %d 个" % (will_modify_count - 10))
+	
+	lines.append("")
+	
+	if result.errors.size() > 0:
+		lines.append("[color=red][b]错误（%d 个）：[/b][/color]" % result.errors.size())
+		for i in range(min(5, result.errors.size())):
+			lines.append("  ❌ %s" % result.errors[i])
+		if result.errors.size() > 5:
+			lines.append("  ... 还有 %d 个" % (result.errors.size() - 5))
+	
+	_preview_label.text = "\n".join(lines)
 
 
 func _on_scan_pressed() -> void:
