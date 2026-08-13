@@ -285,6 +285,174 @@ move_and_slide()
 
 ---
 
+## 🔢 节点执行顺序
+
+### 树序（Tree Order）
+
+同一类型的回调（如 `_physics_process`），**按场景树的深度优先、先序遍历**执行：
+
+```
+场景树:
+  Root
+  ├── Player
+  │   ├── Skin
+  │   │   └── AnimationPlayer
+  │   └── StateMachine
+  │       └── Ground
+  └── Enemy
+      └── StateMachine
+
+_physics_process 执行顺序:
+  1. Root._physics_process()
+  2. Player._physics_process()        ← 父节点先执行
+  3. Skin._physics_process()          ← 子节点后执行
+  4. AnimationPlayer._physics_process()
+  5. StateMachine._physics_process()
+  6. Ground._physics_process()
+  7. Enemy._physics_process()
+  8. Enemy/StateMachine._physics_process()
+```
+
+**关键规则**：
+- **父节点先于子节点**执行同类型回调
+- **同级节点按场景树中的顺序**（先添加的先执行）
+- 可通过 `process_priority` 属性覆盖（数值小的先执行）
+- 也可通过 `process_physics_order` 设置为 `PARENT_FIRST`（默认）或 `PARENT_LAST`
+
+### 一帧内的完整执行顺序
+
+```
+┌─ 物理帧 (Physics Tick, 固定 60 TPS) ─────────────────────┐
+│                                                            │
+│  ① _input(event)          ← 所有节点（树序）              │
+│  ② _shortcut_input(event) ← 所有节点（树序）              │
+│  ③ _unhandled_input(event)← 所有节点（树序）              │
+│  ④ _physics_process(delta) ← 所有节点（树序）             │
+│  ⑤ 物理引擎步进             ← 碰撞检测、Area2D 信号触发    │
+│  ⑥ _process(delta)         ← 所有节点（树序）             │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+         ↓
+┌─ 渲染帧 (Render Frame, 随 FPS) ──────────────────────────┐
+│                                                            │
+│  ⑦ 渲染                                                    │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+**注意**：一个渲染帧内可能包含多个物理帧（低帧率时），也可能 0 个物理帧（高帧率时）。
+
+### 对项目的影响（高度层系统）
+
+```
+同一物理帧内：
+
+① QuiverCharacter._physics_process()     ← 父节点先
+   - 读取 _skin.base_height / physical_height / attack_heights
+   - 计算高度层 → 更新 collision layer
+
+② Skin.AnimationPlayer._process()        ← 子节点后
+   - value track 更新 physical_height / attack_heights
+   - method track 调用 _sync_base_height()
+
+③ JumpMidAir._physics_process()          ← 更深的子节点
+   - _move_and_apply_gravity() 更新 _skin.position.y
+```
+
+**结果**：collision layer 更新总是**滞后 1 帧**读取上一帧的动画数据。这是可接受的（16.67ms 远低于人类感知阈值 50-100ms）。
+
+---
+
+## 📡 信号（Signal）执行顺序
+
+### 直接 emit（同步）
+
+```gdscript
+signal my_signal
+
+func _physics_process(delta):
+    my_signal.emit()  # ← 立即执行所有连接的回调
+    print("B")        # ← 回调执行完后才到这里
+
+func _on_my_signal():
+    print("A")        # ← 在 emit() 调用处同步执行
+
+# 输出: A, B
+```
+
+**信号回调在 `emit()` 的位置同步执行**，就像直接调用函数一样。
+
+### 延迟 emit（call_deferred）
+
+```gdscript
+func _physics_process(delta):
+    my_signal.emit.call_deferred()  # ← 推迟到帧末
+    print("B")
+
+func _on_my_signal():
+    print("A")
+
+# 输出: B, A
+```
+
+### 多个回调的连接顺序
+
+同一个信号连接了多个回调时，**按连接顺序执行**：
+
+```gdscript
+my_signal.connect(callback_a)  # 先连接
+my_signal.connect(callback_b)  # 后连接
+
+my_signal.emit()
+# 执行顺序: callback_a → callback_b
+```
+
+### Area2D 信号的特殊性
+
+`area_entered` / `body_entered` 等物理信号**不是立即触发的**：
+
+```
+物理帧流程：
+  ④ _physics_process()  ← 所有节点执行 move_and_slide()
+  ⑤ 物理引擎步进        ← 碰撞检测在这里发生
+     ↓
+     area_entered 信号触发  ← 在 _physics_process 之后
+     ↓
+     _on_area_entered() 回调执行
+```
+
+**这意味着**：
+- `_on_area_entered()` 在物理引擎步进后触发
+- 回调内的代码（如 `CombatSystem.apply_damage()`）在**当前物理帧的末尾**执行
+- 伤害结果要到**下一帧**的 `_physics_process` 才能被状态机感知
+
+### 完整的一帧时序（项目实例）
+
+```
+物理帧 N:
+  ① Input: 玩家按 J 键
+  ② _unhandled_input(): Idle 状态接收 → transition_to("Ground/Combo1")
+  ③ _physics_process():
+     a. QuiverCharacter: 读取 Skin 的 base_height/physical_height → 更新 collision layer
+     b. AnimationPlayer: value track 更新 Skin.physical_height
+     c. AnimationPlayer: method track 调用 Skin._sync_base_height()
+     d. Combo1 状态: 设置 HitBox 为 active
+  ④ 物理引擎步进:
+     - Player HitBox 与 Enemy HurtBox 形状重叠检测
+     - area_entered 信号触发
+     - HurtBox._on_area_entered() → _handle_hit_box()
+       → are_factions_equal() 检查
+       → CombatSystem.apply_damage()
+       → CombatSystem.apply_knockback()
+
+物理帧 N+1:
+  ③ _physics_process():
+     a. QuiverCharacter: 读取新的碰撞层数据
+     b. Enemy 状态机: 检测到 hurt_requested 信号 → transition_to("Hurt")
+```
+
+---
+
 ## 📖 参考链接
 
 - [Godot 官方: Idle and Physics Processing](https://docs.godotengine.org/en/stable/tutorials/scripting/idle_and_physics_processing.html)
