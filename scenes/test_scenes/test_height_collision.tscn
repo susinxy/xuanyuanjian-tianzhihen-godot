@@ -1,0 +1,127 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" path="res://characters/playable/chen_jingchou/chen_jingchou.tscn" id="1_character"]
+[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
+
+[sub_resource type="RectangleShape2D" id="ground_shape"]
+size = Vector2(4000, 100)
+
+[sub_resource type="RectangleShape2D" id="short_wall_shape"]
+size = Vector2(60, 160)
+
+[sub_resource type="RectangleShape2D" id="tall_wall_shape"]
+size = Vector2(60, 400)
+
+[sub_resource type="RectangleShape2D" id="platform_shape"]
+size = Vector2(300, 40)
+
+[node name="TestHeightCollision" type="Node2D"]
+
+[node name="Background" type="ColorRect" parent="."]
+offset_left = -2000.0
+offset_top = -800.0
+offset_right = 6000.0
+offset_bottom = 2000.0
+color = Color(0.15, 0.18, 0.22, 1)
+
+[node name="Character" parent="." instance=ExtResource("1_character")]
+position = Vector2(200, 400)
+
+[node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
+offset = Vector2(0, -80)
+
+[node name="GroundVisual" type="ColorRect" parent="."]
+offset_left = -2000.0
+offset_top = 480.0
+offset_right = 6000.0
+offset_bottom = 2000.0
+color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(2000, 500)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("ground_shape")
+
+[node name="ShortWall" type="StaticBody2D" parent="."]
+position = Vector2(800, 440)
+collision_layer = 32768
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall"]
+shape = SubResource("short_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="ShortWall"]
+offset_left = -30.0
+offset_top = -80.0
+offset_right = 30.0
+offset_bottom = 80.0
+color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="Label" type="Label" parent="ShortWall"]
+offset_left = -40.0
+offset_top = -100.0
+offset_right = 40.0
+offset_bottom = -80.0
+text = "矮墙 80px"
+horizontal_alignment = 1
+
+[node name="TallWall" type="StaticBody2D" parent="."]
+position = Vector2(1400, 380)
+collision_layer = 32768
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall"]
+shape = SubResource("tall_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="TallWall"]
+offset_left = -30.0
+offset_top = -200.0
+offset_right = 30.0
+offset_bottom = 200.0
+color = Color(0.7, 0.3, 0.3, 1)
+
+[node name="Label" type="Label" parent="TallWall"]
+offset_left = -40.0
+offset_top = -220.0
+offset_right = 40.0
+offset_bottom = -200.0
+text = "高墙 200px"
+horizontal_alignment = 1
+
+[node name="Platform" type="StaticBody2D" parent="."]
+position = Vector2(1100, 420)
+collision_layer = 32768
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform"]
+shape = SubResource("platform_shape")
+
+[node name="Visual" type="ColorRect" parent="Platform"]
+offset_left = -150.0
+offset_top = -20.0
+offset_right = 150.0
+offset_bottom = 20.0
+color = Color(0.3, 0.7, 0.5, 1)
+
+[node name="Label" type="Label" parent="Platform"]
+offset_left = -60.0
+offset_top = -40.0
+offset_right = 60.0
+offset_bottom = -20.0
+text = "平台 40px"
+horizontal_alignment = 1
+
+[node name="DebugLabel" type="Label" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 800.0
+offset_bottom = 200.0
+text = "高度层碰撞测试场景
+
+角色: ChenJingchou (已集成 HeightLayerSystem)
+操作: WASD 移动, Space 跳跃, J 攻击
+
+测试内容:
+1. 跳跃穿过矮墙 (80px) - 高度层切换后应该能通过
+2. 撞击高墙 (200px) - 应该被阻挡
+3. 平台 (40px) - 应该能站在上面
+
+观察 Output 面板查看 HeightLayerSystem 的高度变化记录"

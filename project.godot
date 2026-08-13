@@ -98,6 +98,11 @@ pause={
 2d_physics/layer_12="enemy_grab_boxes"
 2d_physics/layer_13="player_hurt_boxes"
 2d_physics/layer_14="enemy_hurt_boxes"
+2d_physics/layer_15="height_ground"
+2d_physics/layer_16="height_low_air"
+2d_physics/layer_17="height_mid_air"
+2d_physics/layer_18="height_high_air"
+2d_physics/layer_19="height_very_high"
 
 [physics]
 
