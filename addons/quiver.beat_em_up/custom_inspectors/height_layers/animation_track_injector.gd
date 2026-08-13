@@ -75,6 +75,46 @@ func run(skin_node: Node, dry_run: bool = false) -> Dictionary:
 	return result
 
 
+## 增量执行扫描和注入（异步，不会阻塞编辑器界面）
+## skin_node: QuiverCharacterSkinAnimTree 节点
+## dry_run: 如果为 true，只预览不实际写入文件
+## callback_obj: 拥有 _on_progress(current, total, anim_name) 方法的对象，用于进度更新
+## 返回: { anim_count: int, frame_count: int, errors: Array[String], height_data: CharacterHeightData, animations_to_modify: Array[String] }
+func run_incremental(skin_node: Node, dry_run: bool = false, callback_obj: Object = null) -> Dictionary:
+	var result := {
+		"anim_count": 0,
+		"frame_count": 0,
+		"errors": [] as Array[String],
+		"height_data": CharacterHeightData.new(),
+		"animations_to_modify": [] as Array[String],
+	}
+	
+	# 1. 获取 AnimatedSprite2D.sprite_frames
+	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
+	if sprite_frames == null:
+		return result
+	
+	# 2. 获取 AnimationPlayer
+	var anim_player := _get_animation_player(skin_node, result.errors)
+	if anim_player == null:
+		return result
+	
+	# 3. 验证场景树结构并设置 AnimationPlayer.root_node
+	if not _validate_and_set_root_node(anim_player, result.errors):
+		return result
+	
+	# 4. 预解析 SpriteFrames 里所有子动画的帧文件名
+	_collect_sprite_frame_heights(sprite_frames, result.height_data, result.errors)
+	result.anim_count = sprite_frames.get_animation_names().size()
+	for anim_name in sprite_frames.get_animation_names():
+		result.frame_count += sprite_frames.get_frame_count(anim_name)
+	
+	# 5. 增量注入轨道到每个 Animation 资源（异步）
+	await _inject_to_library_incremental(anim_player, sprite_frames, result.height_data, result.errors, result.animations_to_modify, dry_run, callback_obj)
+	
+	return result
+
+
 ### Private Methods -------------------------------------------------------------------------------
 
 ## 获取 SpriteFrames
@@ -225,6 +265,88 @@ func _inject_to_library(
 	
 	if modified_count == 0:
 		errors.append("无 Animation 被修改（可能无 AnimatedSprite2D:animation track 或缺少高度标注）")
+
+
+## 增量注入轨道到 AnimationLibrary 中的所有 Animation 资源（异步，不会阻塞界面）
+## 每处理一个动画就 yield 一次，让编辑器有机会更新界面
+## callback_obj: 拥有 _on_progress(current, total, anim_name) 方法的对象，用于进度更新
+func _inject_to_library_incremental(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	height_data: CharacterHeightData,
+	errors: Array[String],
+	animations_to_modify: Array[String],
+	dry_run: bool,
+	callback_obj: Object
+) -> void:
+	var lib_names := anim_player.get_animation_library_list()
+	if lib_names.is_empty():
+		errors.append("AnimationPlayer 无任何 AnimationLibrary")
+		return
+	
+	# 先统计要处理的动画总数
+	var total_animations := 0
+	var animations_to_process := []
+	
+	for lib_name in lib_names:
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		var anim_names := library.get_animation_list()
+		for anim_name in anim_names:
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			# 找到此 Animation 引用的 SpriteFrames 子动画名
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty():
+				continue
+			
+			# 检查是否有高度数据
+			if not height_data.has_animation(sprite_anim_name):
+				continue
+			
+			animations_to_process.append({
+				"anim_name": anim_name,
+				"anim": anim,
+				"sprite_anim_name": sprite_anim_name
+			})
+			total_animations += 1
+	
+	if total_animations == 0:
+		errors.append("无 Animation 被修改（可能无 AnimatedSprite2D:animation track 或缺少高度标注）")
+		return
+	
+	# 增量处理每个动画
+	var current := 0
+	for anim_info in animations_to_process:
+		current += 1
+		
+		# 调用进度回调
+		if callback_obj != null and callback_obj.has_method("_on_progress"):
+			callback_obj._on_progress(current, total_animations, anim_info.anim_name)
+		
+		# 记录会被修改的动画
+		animations_to_modify.append(anim_info.anim_name)
+		
+		# 如果不是 dry_run，实际注入轨道
+		if not dry_run:
+			_inject_single_animation(
+				anim_info.anim,
+				anim_info.sprite_anim_name,
+				sprite_frames.get_animation_speed(anim_info.sprite_anim_name),
+				sprite_frames.get_frame_count(anim_info.sprite_anim_name),
+				height_data.get_animation_data(anim_info.sprite_anim_name),
+				errors
+			)
+		
+		# yield 一次，让编辑器有机会更新界面和响应用户输入
+		if callback_obj != null and callback_obj.has_method("get_tree"):
+			var tree = callback_obj.get_tree()
+			if tree != null:
+				await tree.process_frame
 
 
 ## 找到 Animation 引用的 SpriteFrames 子动画名
