@@ -239,18 +239,17 @@ func _on_scan_pressed() -> void:
 	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
-	# 强制执行一次完整的帧渲染，确保 UI 状态变化被渲染
+	# 等待两帧以确保 UI 状态变化被渲染
 	await get_tree().process_frame
-	await get_tree().process_frame  # 等待两帧以确保渲染完成
+	await get_tree().process_frame
 	
-	# 现在执行实际扫描
-	_execute_scan()
+	# 异步执行扫描（不会阻塞编辑器界面）
+	_execute_scan_async()
 
 
-func _execute_scan() -> void:
-	# 调用扫描器（实际执行）
+func _execute_scan_async() -> void:
 	var injector := AnimationTrackInjector.new()
-	var result := injector.run(_skin_node, false)  # false = 实际执行
+	var result = await injector.run_incremental(_skin_node, false, self)
 	
 	# 显示详细结果（所有动画和错误）
 	var error_count: int = result.errors.size()
@@ -294,5 +293,11 @@ func _execute_scan() -> void:
 	
 	# 通知 inspector_plugin
 	scan_completed.emit(result.anim_count, result.frame_count, error_count)
+
+
+## 进度回调（由 injector 调用）
+func _on_progress(current: int, total: int, anim_name: String) -> void:
+	_scan_btn.text = "⏳ 处理中: %d/%d (%s)" % [current, total, anim_name]
+	_status_label.text = "Status: ⏳ 正在处理动画 %d/%d: %s" % [current, total, anim_name]
 
 ### -----------------------------------------------------------------------------------------------
