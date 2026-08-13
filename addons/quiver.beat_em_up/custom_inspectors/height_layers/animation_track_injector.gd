@@ -24,11 +24,11 @@ const CharacterHeightData = preload(
 )
 
 # 高度轨道路径
-# AnimationPlayer.root_node 设置为 "../.."（QuiverCharacter 节点）
-# 轨道路径直接使用属性名，AnimationPlayer 会自动解析为完整路径
-const TRACK_PATH_PHYSICAL_HEIGHT := "physical_height"
-const TRACK_PATH_ATTACK_HEIGHTS := "attack_heights"
-const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # 指向 root_node（QuiverCharacter）
+# 不修改 AnimationPlayer.root_node（保持原有 Quiver 行为）
+# 使用 "../" 前缀从 AnimationPlayer 向上导航到 QuiverCharacter
+const TRACK_PATH_PHYSICAL_HEIGHT := "../physical_height"
+const TRACK_PATH_ATTACK_HEIGHTS := "../attack_heights"
+const TRACK_PATH_BASE_HEIGHT_METHOD := ".."  # 指向上级 QuiverCharacter
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
 ### -----------------------------------------------------------------------------------------------
@@ -141,9 +141,9 @@ func _get_animation_player(skin_node: Node, errors: Array[String]) -> AnimationP
 	return anim_player
 
 
-## 验证场景树结构并设置 AnimationPlayer.root_node
+## 验证场景树结构（不修改 root_node）
 ## 预期结构：QuiverCharacter -> Skin -> AnimationPlayer
-## 设置 root_node 指向 QuiverCharacter（AnimationPlayer 的祖父节点）
+## 高度轨道使用 "../" 路径前缀导航到 QuiverCharacter，不需要改 root_node
 func _validate_and_set_root_node(anim_player: AnimationPlayer, errors: Array[String]) -> bool:
 	# 获取 AnimationPlayer 的父节点（应该是 Skin）
 	var skin_node := anim_player.get_parent()
@@ -157,22 +157,17 @@ func _validate_and_set_root_node(anim_player: AnimationPlayer, errors: Array[Str
 		errors.append("Skin 节点没有父节点（预期：QuiverCharacter 节点）")
 		return false
 	
-	# 验证父节点是 QuiverCharacter（或继承自它）
+	# 验证祖父节点是 QuiverCharacter（或继承自它）
 	if not (character_node is QuiverCharacter):
 		errors.append("AnimationPlayer 的祖父节点不是 QuiverCharacter（实际类型：%s）" % 
 			str(character_node.get_class()))
 		return false
 	
-	# 设置 AnimationPlayer.root_node 指向 QuiverCharacter
-	# get_path_to() 返回从 anim_player 到 character_node 的相对路径
-	var relative_path := anim_player.get_path_to(character_node)
-	anim_player.root_node = NodePath(relative_path)
-	
-	# 验证 root_node 解析正确
-	var resolved_node := anim_player.get_node(anim_player.root_node)
-	if resolved_node != character_node:
-		errors.append("AnimationPlayer.root_node 设置失败（预期：%s，实际：%s）" % 
-			[str(character_node.name), str(resolved_node.name) if resolved_node else "null"])
+	# 验证从 AnimationPlayer 使用 "../" 路径能到达 QuiverCharacter
+	var resolved_parent := anim_player.get_node_or_null(NodePath(".."))
+	if resolved_parent != character_node:
+		errors.append("AnimationPlayer 的父节点无法解析到 QuiverCharacter（预期：%s，实际：%s）" % 
+			[str(character_node.name), str(resolved_parent.name) if resolved_parent else "null"])
 		return false
 	
 	return true

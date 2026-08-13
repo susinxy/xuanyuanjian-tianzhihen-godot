@@ -19,6 +19,16 @@ extends CharacterBody2D
 
 #--- constants ------------------------------------------------------------------------------------
 
+## Godot 4 中，layer N 对应 bit (N-1)：layer 15 = bit 14 = 1<<14
+## 这里使用 layer 编号（1-indexed），与 Godot Inspector 一致
+const HEIGHT_LAYER_DEFINITIONS = [
+	{ "min": 0,   "max": 30,   "layer": 15 },
+	{ "min": 30,  "max": 100,  "layer": 16 },
+	{ "min": 100, "max": 200,  "layer": 17 },
+	{ "min": 200, "max": 300,  "layer": 18 },
+	{ "min": 300, "max": INF,  "layer": 19 },
+]
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 var attributes: QuiverAttributes = null:
@@ -39,6 +49,22 @@ var attributes: QuiverAttributes = null:
 			get_tree().set_group(StringName(get_path()), "character_attributes", attributes)
 
 var is_on_air := false
+
+## 三大高度参数（由 AnimationPlayer 轨道每帧赋值）
+@export var base_height: float = 0.0
+
+## 物理身高，用于 Layer 扩展计算（随动作变化，由 value track 写入）
+@export var physical_height: float = 0.0
+
+## 攻击判定相对 base_height 的高度偏移数组（由 value track 写入）
+@export var attack_heights: Array[float] = []
+
+# 高度层缓存（避免每帧重复设置 collision layer）
+var _cached_height_layers: Array[int] = []
+
+# HurtBox/HitBox 缓存引用（从 Skin 获取，在 _ready 中初始化）
+var _hurtbox: QuiverHurtBox
+var _hitboxes: Array[QuiverHitBox] = []
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
@@ -99,6 +125,11 @@ func _ready() -> void:
 	
 	if attributes != null:
 		attributes.character_node = self
+	
+	# 高度层系统：从 Skin 缓存 HurtBox/HitBox 引用
+	if _skin:
+		_hurtbox = _skin.hurtbox
+		_hitboxes = _skin.hitboxes
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -122,6 +153,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 	
 	return warnings
 
+
+func _physics_process(_delta: float) -> void:
+	_update_collision_layers()
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -142,5 +177,92 @@ func _disable_collisions() -> void:
 
 func _enable_collisions() -> void:
 	_collision.set_deferred("disabled", false)
+
+
+## AnimationPlayer 的 method track 每帧调用此方法
+## 从 _skin.position.y 派生 base_height
+func _sync_base_height() -> void:
+	if is_instance_valid(_skin):
+		base_height = -_skin.position.y
+
+
+func _update_collision_layers() -> void:
+	# 角色整体占据的高度层 = base_height ~ base_height + physical_height
+	var current_layers := _calculate_range_layers(
+		base_height, base_height + physical_height
+	)
+	
+	# 只在层集合变化时更新（逐元素比较）
+	if current_layers != _cached_height_layers:
+		_cached_height_layers = current_layers
+		# 仅设置 layer 15-19，保留原有的 bits
+		for layer in range(15, 20):
+			set_collision_layer_value(layer, layer in current_layers)
+		_update_hurtbox_layers(_layers_to_bitmask(current_layers))
+	
+	_update_hitbox_layers()
+
+
+func _update_hurtbox_layers(character_bitmask: int) -> void:
+	if _hurtbox:
+		_hurtbox.collision_layer = character_bitmask
+		_hurtbox.collision_mask = _all_height_layers_bitmask()
+
+
+func _update_hitbox_layers() -> void:
+	var body_bitmask := _layers_to_bitmask(_cached_height_layers)
+	
+	if attack_heights.is_empty():
+		# 非攻击状态：HitBox 复位为身体高度层（防御性复位）
+		for hitbox in _hitboxes:
+			hitbox.collision_layer = body_bitmask
+		return
+	
+	# 攻击状态：根据 attack_heights 计算专属高度层
+	var layers := []
+	for attack_h in attack_heights:
+		var absolute_h := base_height + attack_h
+		layers.append_array(_height_to_layers(absolute_h))
+	layers = layers.deduplicate()
+	var attack_bitmask := _layers_to_bitmask(layers)
+	for hitbox in _hitboxes:
+		hitbox.collision_layer = attack_bitmask
+
+
+## 区间查询：角色 range [min_h, max_h] 与哪些层 (min, max] 有交集
+func _calculate_range_layers(min_h: float, max_h: float) -> Array[int]:
+	var result: Array[int] = []
+	for def in HEIGHT_LAYER_DEFINITIONS:
+		if min_h <= def["max"] and max_h > def["min"]:
+			result.append(def["layer"])
+	if result.is_empty():
+		result.append(15)
+	return result
+
+
+## 点查询：某个高度 h 属于哪些层 (min, max]
+func _height_to_layers(height: float) -> Array[int]:
+	var result: Array[int] = []
+	for def in HEIGHT_LAYER_DEFINITIONS:
+		if height > def["min"] and height <= def["max"]:
+			result.append(def["layer"])
+	if result.is_empty():
+		result.append(15)
+	return result
+
+
+## layer 编号转 bitmask：layer N 对应 bit (N-1)
+func _layers_to_bitmask(layers: Array) -> int:
+	var mask := 0
+	for layer in layers:
+		mask |= (1 << (layer - 1))
+	return mask
+
+
+func _all_height_layers_bitmask() -> int:
+	var mask := 0
+	for def in HEIGHT_LAYER_DEFINITIONS:
+		mask |= (1 << (def["layer"] - 1))
+	return mask
 
 ### -----------------------------------------------------------------------------------------------

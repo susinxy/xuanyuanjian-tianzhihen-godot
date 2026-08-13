@@ -22,7 +22,6 @@
 [ext_resource type="Script" uid="uid://bnqr88mjeh1ad" path="res://addons/quiver.beat_em_up/characters/action_states/air_actions/knockout_actions/quiver_action_mid_air.gd" id="20_n08m6"]
 [ext_resource type="Script" uid="uid://1wq0qlowff2i" path="res://addons/quiver.beat_em_up/characters/action_states/air_actions/knockout_actions/quiver_action_bounce.gd" id="21_knrf0"]
 [ext_resource type="Script" uid="uid://c1y2gu7vsf0j5" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_die.gd" id="22_twsvw"]
-[ext_resource type="Script" uid="uid://bhd71jxxgyvfk" path="res://scripts/height_layers/HeightLayerSystem.gd" id="23_hls01"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_4uueb"]
 radius = 20.0
@@ -44,10 +43,7 @@ metadata/collision_type = "default"
 [node name="ChenJingchouSkin" parent="." index="1" unique_id=1746682298 instance=ExtResource("2_1tk2w")]
 metadata/_edit_horizontal_guides_ = [-516.0, -281.0]
 
-[node name="HeightLayerSystem" type="Node" parent="." index="2" unique_id=89122345]
-script = ExtResource("23_hls01")
-
-[node name="StateMachine" parent="." index="3" unique_id=9204098]
+[node name="StateMachine" parent="." index="2" unique_id=9204098]
 initial_state = NodePath("Ground/Move/Idle")
 
 [node name="Ground" type="Node" parent="StateMachine" index="0" unique_id=1452121572]

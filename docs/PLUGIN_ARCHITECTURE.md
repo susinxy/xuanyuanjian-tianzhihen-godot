@@ -78,10 +78,51 @@ quiver.beat_em_up/
 ```gdscript
 var attributes: QuiverAttributes = null  # 角色数据（HP、速度等）
 var is_on_air := false                   # 空中状态
+
+# 高度层系统参数（由动画轨道每帧赋值）
+@export var base_height: float = 0.0       # 概念跳跃高度（由 _sync_base_height() 从 _skin.position.y 派生）
+@export var physical_height: float = 0.0   # 物理身高（由 value track 赋值）
+@export var attack_heights: Array[float] = []  # 攻击高度偏移数组（由 value track 赋值）
+
+var _cached_height_layers: Array[int] = []  # 高度层缓存（逐元素比较优化）
+var _hurtbox: QuiverHurtBox                 # 缓存的 HurtBox 引用
+var _hitboxes: Array[QuiverHitBox] = []     # 缓存的 HitBox 数组
+
 var _skin: QuiverCharacterSkin           # 皮肤引用（默认 "Skin" 子节点）
 var _collision: Node2D                   # 碰撞体引用（默认 "Collision" 子节点）
 var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $StateMachine）
 ```
+
+### 高度层系统
+
+**常量 `HEIGHT_LAYER_DEFINITIONS`**（5 个高度层，layer 15-19）:
+
+| Layer | 名称 | 区间 (min, max] |
+|-------|------|----------------|
+| 15 | height_ground | (0, 30] |
+| 16 | height_low_air | (30, 100] |
+| 17 | height_mid_air | (100, 200] |
+| 18 | height_high_air | (200, 300] |
+| 19 | height_very_high | (300, +∞] |
+
+**数据流**:
+1. 动画 value track 写入 `physical_height` 和 `attack_heights`（每帧）
+2. 动画 method track 调用 `_sync_base_height()`（每帧，`base_height = -_skin.position.y`）
+3. `_physics_process()` 计算角色占据的高度范围 `[base_height, base_height + physical_height]`，更新 CharacterBody2D collision layer 15-19
+4. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
+5. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
+
+**关键方法**:
+- `_sync_base_height()`: 动画 method track 每帧调用
+- `_physics_process(delta)`: 触发 `_update_collision_layers()`
+- `_update_collision_layers()`: 逐元素比较 + 更新
+- `_calculate_range_layers(min_h, max_h)`: 区间查询
+- `_height_to_layers(height)`: 点查询
+- `_layers_to_bitmask(layers)`: 编号转 bitmask
+
+**`_hurtbox` / `_hitboxes` 引用**:
+- 在 `_ready()` 中从 `_skin.hurtbox` / `_skin.hitboxes` 获取（基类声明，子类填充）
+- 缓存引用避免每帧遍历 children
 
 ### 基类场景结构 (`quiver_character_base.tscn`)
 
@@ -113,7 +154,13 @@ QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
 - 朝向枚举: `SkinDirection { LEFT = -1, RIGHT = 1 }`
 - 导出属性: `skin_direction`, `attributes`（自动同步给 tree group）
 - 抓取配置: `_path_grab_pivot`, `_path_grabbed_pivot`（Marker2D 引用）
+- 高度层战斗引用（由 `_runtime_ready()` 填充，QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 访问）:
+  - `@export_node_path var _path_hurtbox`（默认 `^"AnimatedSprite2D/HurtBox"`）
+  - `@export_node_path var _path_hitboxes_container`（默认 `^"Attacks"`）
+  - `var hurtbox: QuiverHurtBox`
+  - `var hitboxes: Array[QuiverHitBox]`
 - 虚函数: `transition_to()`（被子类实现）
+- `_runtime_ready()` 填充 HurtBox/HitBox 引用（从配置的 node path 获取）
 
 **子类 `QuiverCharacterSkinAnimTree`**:
 - 属性: `_path_animation_tree`（默认 "AnimationTree"）, `_path_playback`（默认 "parameters/StateMachine/playback"）

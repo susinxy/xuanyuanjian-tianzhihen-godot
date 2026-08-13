@@ -75,6 +75,13 @@ var _has_grabbed := true:
 		notify_property_list_changed()
 var _path_grabbed_pivot := ^"Positions/GrabbedPivot"
 
+# 高度层系统：战斗 Area2D 引用（由子类在 _runtime_ready() 中填充）
+@export_node_path("QuiverHurtBox") var _path_hurtbox := ^"AnimatedSprite2D/HurtBox"
+@export_node_path("Node2D") var _path_hitboxes_container := ^"Attacks"
+
+var hurtbox: QuiverHurtBox = null
+var hitboxes: Array[QuiverHitBox] = []
+
 var _animation_list: Array[StringName] = []
 
 @onready var _grab_pivot := get_node(_path_grab_pivot) as Marker2D if _has_grab else null
@@ -184,6 +191,14 @@ func _standalone_run_ready() -> void:
 ## the default value.
 func _runtime_ready() -> void:
 	_skin_direction_updated()
+	
+	# 高度层系统：填充战斗 Area2D 引用
+	hurtbox = get_node_or_null(_path_hurtbox) as QuiverHurtBox
+	var hitboxes_container := get_node_or_null(_path_hitboxes_container) as Node2D
+	if hitboxes_container:
+		for child in hitboxes_container.get_children():
+			if child is QuiverHitBox:
+				hitboxes.append(child)
 
 
 ## Virtual function to be overriden and check for valid states. The parameter is an [StringName] 
