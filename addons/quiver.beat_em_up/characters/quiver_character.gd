@@ -223,7 +223,7 @@ func _update_hitbox_layers() -> void:
 	# 攻击状态：根据 attack_heights 计算专属高度层
 	var layers := []
 	for attack_h in attack_heights:
-		var absolute_h := base_height + attack_h
+		var absolute_h: float = base_height + attack_h
 		layers.append_array(_height_to_layers(absolute_h))
 	
 	# 使用 Dictionary key 去重（GDScript Array 没有 .deduplicate() 方法）

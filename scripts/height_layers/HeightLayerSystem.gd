@@ -161,7 +161,7 @@ func _get_attack_covered_layers(current_height: float) -> Array[String]:
 	var covered: Array[String] = []
 	
 	for attack_offset in attack_heights:
-		var attack_height = current_height + attack_offset
+		var attack_height: float = current_height + attack_offset
 		for layer_name in HeightLayers.keys():
 			var layer_info = HeightLayers[layer_name]
 			if attack_height >= layer_info["start"] and attack_height < layer_info["end"]:
