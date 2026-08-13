@@ -108,44 +108,31 @@ func _build_ui() -> void:
 	_scan_btn.disabled = true  # 必须先预览
 	btn_container.add_child(_scan_btn)
 	
+	# 可折叠的结果展示面板
+	var result_container := VBoxContainer.new()
+	add_child(result_container)
+	
+	var collapse_btn := Button.new()
+	collapse_btn.text = "▼ 修改预览（点击展开/折叠）"
+	collapse_btn.pressed.connect(_on_collapse_toggle)
+	result_container.add_child(collapse_btn)
+	_collapse_btn_ref = collapse_btn
+	
+	var details_container := VBoxContainer.new()
+	result_container.add_child(details_container)
+	_details_container_ref = details_container
+	
 	# 预览展示（RichTextLabel 支持 BBCode）
 	_preview_label = RichTextLabel.new()
 	_preview_label.bbcode_enabled = true
-	_preview_label.fit_content = true
-	_preview_label.custom_minimum_size.y = 100
-	_preview_label.text = ""
-	add_child(_preview_label)
+	_preview_label.text = "[color=gray]请点击「预览」按钮查看可修改的动画[/color]"
+	_preview_label.custom_minimum_size = Vector2(0, 200)
+	details_container.add_child(_preview_label)
 	
-# 结果展示
-var result_container := VBoxContainer.new()
-add_child(result_container)
-
-# 可折叠的标题按钮
-var collapse_btn := Button.new()
-collapse_btn.text = "▼ 修改预览（点击展开/折叠）"
-collapse_btn.pressed.connect(_on_collapse_toggle)
-result_container.add_child(collapse_btn)
-
-# 折叠的内容容器
-var details_container := VBoxContainer.new()
-result_container.add_child(details_container)
-
-# 预览展示（RichTextLabel 支持 BBCode）
-_preview_label = RichTextLabel.new()
-_preview_label.bbcode_enabled = true
-_preview_label.text = "[color=gray]请点击「预览」按钮查看可修改的动画[/color]"
-_preview_label.custom_minimum_size = Vector2(0, 200)
-details_container.add_child(_preview_label)
-
-# 扫描结果标签
-_result_label = Label.new()
-_result_label.text = ""
-details_container.add_child(_result_label)
-
-# 折叠控件引用
-_collapse_btn_ref = collapse_btn
-_details_container_ref = details_container
-_is_collapsed = false
+	# 扫描结果标签
+	_result_label = Label.new()
+	_result_label.text = ""
+	details_container.add_child(_result_label)
 
 
 func _on_collapse_toggle() -> void:
