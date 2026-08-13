@@ -275,22 +275,20 @@ func _remove_old_height_tracks(anim: Animation) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
-## 添加 value track（discrete interp，update mode discontinuous, loop wrap）
+## 添加 value track（discrete interp，update mode discontinuous）
 func _add_value_track(anim: Animation, track_path: String) -> int:
 	var track_idx := anim.add_track(Animation.TYPE_VALUE)
 	anim.track_set_path(track_idx, track_path)
 	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
 	anim.value_track_set_update_mode(track_idx, Animation.UPDATE_DISCRETE)
-	anim.track_set_loop_wrap(track_idx, true)
 	return track_idx
 
 
-## 添加 method track (discrete interp, loop wrap enabled)
+## 添加 method track (discrete interp)
 func _add_method_track(anim: Animation, track_path: String) -> int:
 	var track_idx := anim.add_track(Animation.TYPE_METHOD)
 	anim.track_set_path(track_idx, track_path)
 	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
-	anim.track_set_loop_wrap(track_idx, true)
 	return track_idx
 
 ### -----------------------------------------------------------------------------------------------
