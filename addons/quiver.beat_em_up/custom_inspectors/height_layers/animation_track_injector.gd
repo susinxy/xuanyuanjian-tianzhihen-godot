@@ -383,8 +383,11 @@ func _inject_single_animation(
 	# 3. 计算 sprite 的帧间隔
 	var frame_duration: float = 1.0 / max(1.0, sprite_fps)
 	
-	# 4. 逐帧插入 keys
+	# 4. 逐帧插入 keys（优化：只在值变化时添加 keyframe）
 	var inserted_count := 0
+	var prev_physical = null  # 用于检测 physical_height 变化
+	var prev_attack = null    # 用于检测 attack_heights 变化
+	
 	for frame_idx in range(sprite_frame_count):
 		var data: Dictionary = frame_data.get(frame_idx, {})
 		if data.is_empty():
@@ -392,16 +395,22 @@ func _inject_single_animation(
 		
 		var time: float = float(frame_idx) * frame_duration
 		
-		# physical_height 关键帧
+		# physical_height 关键帧（只在值变化时插入）
 		if data.has("physical"):
-			anim.track_insert_key(physical_track_idx, time, data["physical"])
+			var current_physical = data["physical"]
+			if current_physical != prev_physical:
+				anim.track_insert_key(physical_track_idx, time, current_physical)
+				prev_physical = current_physical
 		
-		# attack_heights 关键帧（即使为空也插入，表示非攻击帧）
-		var attack_arr: Array = data.get("attack_heights", [])
-		anim.track_insert_key(attack_track_idx, time, attack_arr)
+		# attack_heights 关键帧（只在值变化时插入）
+		var current_attack: Array = data.get("attack_heights", [])
+		if current_attack != prev_attack:
+			anim.track_insert_key(attack_track_idx, time, current_attack)
+			prev_attack = current_attack
 		
 		# 每帧插入 _sync_base_height method call
 		# method track 键值格式: {"args": [], "method": "method_name"}
+		# 注意：_sync_base_height 必须每帧调用，因为 position.y 可能每帧都变化
 		anim.track_insert_key(method_track_idx, time, {
 			"args": [],
 			"method": StringName(METHOD_NAME_SYNC_BASE_HEIGHT)
