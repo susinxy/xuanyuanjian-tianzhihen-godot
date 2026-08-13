@@ -33,6 +33,9 @@ var _scan_btn: Button
 var _status_label: Label
 var _preview_label: RichTextLabel
 var _result_label: Label
+var _collapse_btn_ref: Button
+var _details_container_ref: VBoxContainer
+var _is_collapsed := false
 
 var _last_preview_result: Dictionary  # 保存预览结果，用于后续扫描
 
@@ -113,11 +116,42 @@ func _build_ui() -> void:
 	_preview_label.text = ""
 	add_child(_preview_label)
 	
-	# 结果展示
-	_result_label = Label.new()
-	_result_label.text = ""
-	_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	add_child(_result_label)
+# 结果展示
+var result_container := VBoxContainer.new()
+add_child(result_container)
+
+# 可折叠的标题按钮
+var collapse_btn := Button.new()
+collapse_btn.text = "▼ 修改预览（点击展开/折叠）"
+collapse_btn.pressed.connect(_on_collapse_toggle)
+result_container.add_child(collapse_btn)
+
+# 折叠的内容容器
+var details_container := VBoxContainer.new()
+result_container.add_child(details_container)
+
+# 预览展示（RichTextLabel 支持 BBCode）
+_preview_label = RichTextLabel.new()
+_preview_label.bbcode_enabled = true
+_preview_label.text = "[color=gray]请点击「预览」按钮查看可修改的动画[/color]"
+_preview_label.custom_minimum_size = Vector2(0, 200)
+details_container.add_child(_preview_label)
+
+# 扫描结果标签
+_result_label = Label.new()
+_result_label.text = ""
+details_container.add_child(_result_label)
+
+# 折叠控件引用
+_collapse_btn_ref = collapse_btn
+_details_container_ref = details_container
+_is_collapsed = false
+
+
+func _on_collapse_toggle() -> void:
+	_is_collapsed = not _is_collapsed
+	_details_container_ref.visible = not _is_collapsed
+	_collapse_btn_ref.text = "▶ 修改预览（点击展开/折叠）" if _is_collapsed else "▼ 修改预览（点击展开/折叠）"
 
 
 func _update_status() -> void:
@@ -211,15 +245,17 @@ func _on_scan_pressed() -> void:
 	if _skin_node == null:
 		return
 	
-	# 扫描期间禁用两个按钮
+	# 扫描期间禁用两个按钮并改变文本
+	_preview_btn.text = "⏳ 预览中..."
 	_preview_btn.disabled = true
+	_scan_btn.text = "⏳ 扫描并注入轨道中..."
 	_scan_btn.disabled = true
 	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
-	# 调用扫描器
+	# 调用扫描器（实际执行）
 	var injector := AnimationTrackInjector.new()
-	var result := injector.run(_skin_node)
+	var result := injector.run(_skin_node, false)  # false = 实际执行
 	
 	# 显示详细结果（所有动画和错误）
 	var error_count: int = result.errors.size()
@@ -249,8 +285,10 @@ func _on_scan_pressed() -> void:
 	
 	_result_label.text = "\n".join(summary_lines)
 	
-	# 更新状态并重新启用按钮
+	# 更新状态并重新启用按钮，恢复文本
+	_preview_btn.text = "🔍 预览"
 	_preview_btn.disabled = false
+	_scan_btn.text = "▶ 扫描并生成高度轨道"
 	_scan_btn.disabled = false  # 允许重新扫描
 	
 	if error_count == 0:
