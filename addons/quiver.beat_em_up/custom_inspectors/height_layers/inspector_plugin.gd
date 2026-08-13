@@ -19,17 +19,36 @@ const SCENE_WIDGET = preload(
 
 
 func _can_handle(object: Object) -> bool:
+	# 调试：记录被选中的对象
+	if object is Node:
+		var node := object as Node
+		var script = node.get_script()
+		var class_name := ""
+		if script:
+			class_name = script.get_global_name()
+		print("[HeightLayers] _can_handle - node: %s, class: %s" % [node.name, class_name])
+	
 	# 选中 QuiverCharacterSkinAnimTree 节点时激活
 	# 通过 class_name 检查，避免脚本未扫描时的失败
 	if object is Node and object.get_script():
 		var script = object.get_script()
 		if script and script.get_global_name() == "QuiverCharacterSkinAnimTree":
+			print("[HeightLayers] ✓ 匹配 QuiverCharacterSkinAnimTree")
 			return true
-	return object is QuiverCharacterSkinAnimTree
+	# Fallback type check
+	if object is QuiverCharacterSkinAnimTree:
+		print("[HeightLayers] ✓ 类型匹配 QuiverCharacterSkinAnimTree")
+		return true
+	return false
 
 
 func _parse_begin(object: Object) -> void:
+	print("[HeightLayers] _parse_begin 被调用")
 	var widget := SCENE_WIDGET.instantiate() as HeightLayersWidget
+	if widget == null:
+		print("[HeightLayers] ✗ Widget 实例化失败")
+		return
+	print("[HeightLayers] ✓ Widget 实例化成功")
 	widget.set_skin_node(object)
 	QuiverEditorHelper.connect_between(widget.scan_completed, _on_scan_completed)
 	add_custom_control(widget)
