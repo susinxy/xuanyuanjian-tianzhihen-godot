@@ -28,8 +28,8 @@ const CharacterHeightData = preload(
 # 在 chen_jingchou_skin.tscn 中 AnimationPlayer 是 ChenJingchouSkin 的子节点
 # root_node 默认值 = ".."（AnimationPlayer 的父节点 = ChenJingchouSkin）
 # track path 相对 root_node 解析：无前缀直接访问 Skin 节点自身的属性
-const TRACK_PATH_PHYSICAL_HEIGHT := "physical_height"
-const TRACK_PATH_ATTACK_HEIGHTS := "attack_heights"
+const TRACK_PATH_PHYSICAL_HEIGHT := ".:physical_height"
+const TRACK_PATH_ATTACK_HEIGHTS := ".:attack_heights"
 const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
@@ -429,15 +429,18 @@ func _inject_single_animation(
 func _remove_old_height_tracks(anim: Animation) -> void:
 	var tracks_to_remove := []
 	var target_paths := [
-		# 当前版本路径（无前缀，直接访问 Skin 自身属性）
-		TRACK_PATH_PHYSICAL_HEIGHT,
-		TRACK_PATH_ATTACK_HEIGHTS,
-		TRACK_PATH_BASE_HEIGHT_METHOD,
-		# 历史版本路径 1：../ 前缀（曾尝试 root_node=".."）
+		# 当前版本路径（.: 前缀，访问 root_node 自身属性）
+		TRACK_PATH_PHYSICAL_HEIGHT,      # ".:physical_height"
+		TRACK_PATH_ATTACK_HEIGHTS,       # ".:attack_heights"
+		TRACK_PATH_BASE_HEIGHT_METHOD,   # "."
+		# 历史版本路径 1：无前缀但缺少 . 前缀（当前错误）
+		"physical_height",
+		"attack_heights",
+		# 历史版本路径 2：../ 前缀（曾尝试 root_node=".."）
 		"../physical_height",
 		"../attack_heights",
 		"..",
-		# 历史版本路径 2：../../ 前缀（错误推导 root_node）
+		# 历史版本路径 3：../../ 前缀（错误推导 root_node）
 		"../../physical_height",
 		"../../attack_heights",
 		"../..",
