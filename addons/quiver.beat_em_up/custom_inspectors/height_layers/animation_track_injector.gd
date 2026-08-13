@@ -24,11 +24,11 @@ const CharacterHeightData = preload(
 )
 
 # 高度轨道路径
-# 不修改 AnimationPlayer.root_node（保持原有 Quiver 行为）
-# 使用 "../" 前缀从 AnimationPlayer 向上导航到 QuiverCharacter
-const TRACK_PATH_PHYSICAL_HEIGHT := "../physical_height"
-const TRACK_PATH_ATTACK_HEIGHTS := "../attack_heights"
-const TRACK_PATH_BASE_HEIGHT_METHOD := ".."  # 指向上级 QuiverCharacter
+# AnimationPlayer 在 Skin 节点下，需要向上两层到达 QuiverCharacter
+# .. 从 AnimationPlayer → Skin, 再 .. 从 Skin → QuiverCharacter
+const TRACK_PATH_PHYSICAL_HEIGHT := "../../physical_height"
+const TRACK_PATH_ATTACK_HEIGHTS := "../../attack_heights"
+const TRACK_PATH_BASE_HEIGHT_METHOD := "../.."  # 指向上两级 QuiverCharacter
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
 ### -----------------------------------------------------------------------------------------------
@@ -419,12 +419,22 @@ func _inject_single_animation(
 
 
 ## 移除旧的 height tracks（通过 path 匹配）
+## 同时清理当前版本路径和历史版本路径，避免残留
 func _remove_old_height_tracks(anim: Animation) -> void:
 	var tracks_to_remove := []
 	var target_paths := [
+		# 当前版本路径（../../ 前缀）
 		TRACK_PATH_PHYSICAL_HEIGHT,
 		TRACK_PATH_ATTACK_HEIGHTS,
 		TRACK_PATH_BASE_HEIGHT_METHOD,
+		# 历史版本路径（../ 前缀，v1.0 错误路径）
+		"../physical_height",
+		"../attack_heights",
+		"..",
+		# 更早版本路径（无前缀，依赖 root_node 修改）
+		"physical_height",
+		"attack_heights",
+		".",
 	]
 	
 	for track_idx in range(anim.get_track_count()):

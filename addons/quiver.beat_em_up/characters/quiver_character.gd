@@ -223,7 +223,13 @@ func _update_hitbox_layers() -> void:
 	for attack_h in attack_heights:
 		var absolute_h := base_height + attack_h
 		layers.append_array(_height_to_layers(absolute_h))
-	layers = layers.deduplicate()
+	
+	# 使用 Dictionary key 去重（GDScript Array 没有 .deduplicate() 方法）
+	var unique_layers: Dictionary = {}
+	for layer in layers:
+		unique_layers[layer] = true
+	layers = unique_layers.keys()
+	
 	var attack_bitmask := _layers_to_bitmask(layers)
 	for hitbox in _hitboxes:
 		hitbox.collision_layer = attack_bitmask
