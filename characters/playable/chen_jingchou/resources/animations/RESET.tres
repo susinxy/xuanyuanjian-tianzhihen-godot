@@ -286,10 +286,10 @@ tracks/22/path = NodePath("../physical_height")
 tracks/22/interp = 0
 tracks/22/loop_wrap = true
 tracks/22/keys = {
-"times": PackedFloat32Array(),
-"transitions": PackedFloat32Array(),
+"times": PackedFloat32Array(0, 0.125, 0.25, 0.375),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": []
+"values": [180.0, 180.0, 180.0, 180.0]
 }
 tracks/23/type = "value"
 tracks/23/imported = false
@@ -298,10 +298,10 @@ tracks/23/path = NodePath("../attack_heights")
 tracks/23/interp = 0
 tracks/23/loop_wrap = true
 tracks/23/keys = {
-"times": PackedFloat32Array(),
-"transitions": PackedFloat32Array(),
+"times": PackedFloat32Array(0, 0.125, 0.25, 0.375),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": []
+"values": [[], [], [], []]
 }
 tracks/24/type = "method"
 tracks/24/imported = false
@@ -310,7 +310,19 @@ tracks/24/path = NodePath("..")
 tracks/24/interp = 0
 tracks/24/loop_wrap = true
 tracks/24/keys = {
-"times": PackedFloat32Array(),
-"transitions": PackedFloat32Array(),
-"values": []
+"times": PackedFloat32Array(0, 0.125, 0.25, 0.375),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"values": [{
+"args": [],
+"method": &"_sync_base_height"
+}, {
+"args": [],
+"method": &"_sync_base_height"
+}, {
+"args": [],
+"method": &"_sync_base_height"
+}, {
+"args": [],
+"method": &"_sync_base_height"
+}]
 }

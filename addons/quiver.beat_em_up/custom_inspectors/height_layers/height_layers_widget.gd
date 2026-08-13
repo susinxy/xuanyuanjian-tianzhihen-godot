@@ -95,6 +95,10 @@ func _build_ui() -> void:
 
 
 func _update_status() -> void:
+	# 防御性检查：UI 元素可能尚未初始化
+	if _status_label == null or _scan_btn == null:
+		return
+	
 	if _skin_node == null:
 		_status_label.text = "Status: ⚠️ 未关联皮肤节点"
 		_status_label.add_theme_color_override("font_color", Color.ORANGE)
