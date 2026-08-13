@@ -23,10 +23,10 @@ func _can_handle(object: Object) -> bool:
 	if object is Node:
 		var node := object as Node
 		var script = node.get_script()
-		var class_name := ""
+		var script_class := ""
 		if script:
-			class_name = script.get_global_name()
-		print("[HeightLayers] _can_handle - node: %s, class: %s" % [node.name, class_name])
+			script_class = script.get_global_name()
+		print("[HeightLayers] _can_handle - node: %s, class: %s" % [node.name, script_class])
 	
 	# 选中 QuiverCharacterSkinAnimTree 节点时激活
 	# 通过 class_name 检查，避免脚本未扫描时的失败

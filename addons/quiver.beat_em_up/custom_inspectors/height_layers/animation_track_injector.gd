@@ -213,7 +213,7 @@ func _inject_single_animation(
 	var method_track_idx := _add_method_track(anim, TRACK_PATH_BASE_HEIGHT_METHOD)
 	
 	# 3. 计算 sprite 的帧间隔
-	var frame_duration := 1.0 / max(1.0, sprite_fps)
+	var frame_duration: float = 1.0 / max(1.0, sprite_fps)
 	
 	# 4. 逐帧插入 keys
 	var inserted_count := 0
@@ -222,7 +222,7 @@ func _inject_single_animation(
 		if data.is_empty():
 			continue
 		
-		var time := float(frame_idx) * frame_duration
+		var time: float = float(frame_idx) * frame_duration
 		
 		# physical_height 关键帧
 		if data.has("physical"):

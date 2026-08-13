@@ -41,6 +41,9 @@ func _ready() -> void:
 	if not Engine.is_editor_hint():
 		return
 	_build_ui()
+	# 如果 set_skin_node() 在 _ready() 之前被调用，此时 UI 已构建，重新更新状态
+	if _skin_node != null:
+		_update_status()
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -116,7 +119,7 @@ func _on_scan_pressed() -> void:
 	var result := injector.run(_skin_node)
 	
 	# 显示结果
-	var error_count := result.errors.size()
+	var error_count: int = result.errors.size()
 	var summary_lines := [
 		"扫描结果:",
 		"  - 动画数: %d" % result.anim_count,
