@@ -24,15 +24,13 @@ const CharacterHeightData = preload(
 )
 
 # 高度轨道路径
-# Godot 4 AnimationPlayer 默认 root_node=".."（父节点）
-# chen_jingchou_skin.tscn 中 AnimationPlayer 在 ChenJingchouSkin 下
-# 因此 root_node = ChenJingchouSkin (Node2D)
-# track path 相对 root_node 计算:
-# - "../physical_height" → Skin + ../physical_height → ChenJingchou/physical_height ✓
-# - ".." (method track) → Skin + .. → ChenJingchou (QuiverCharacter) ✓
-const TRACK_PATH_PHYSICAL_HEIGHT := "../physical_height"
-const TRACK_PATH_ATTACK_HEIGHTS := "../attack_heights"
-const TRACK_PATH_BASE_HEIGHT_METHOD := ".."  # 指向 QuiverCharacter
+# 高度层数据存放在 QuiverCharacterSkin 节点（AnimationPlayer 的根节点目标）
+# 在 chen_jingchou_skin.tscn 中 AnimationPlayer 是 ChenJingchouSkin 的子节点
+# root_node 默认值 = ".."（AnimationPlayer 的父节点 = ChenJingchouSkin）
+# track path 相对 root_node 解析：无前缀直接访问 Skin 节点自身的属性
+const TRACK_PATH_PHYSICAL_HEIGHT := "physical_height"
+const TRACK_PATH_ATTACK_HEIGHTS := "attack_heights"
+const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
 ### -----------------------------------------------------------------------------------------------
@@ -427,18 +425,18 @@ func _inject_single_animation(
 func _remove_old_height_tracks(anim: Animation) -> void:
 	var tracks_to_remove := []
 	var target_paths := [
-		# 当前版本路径（../ 前缀，root_node 默认值为 ".."）
+		# 当前版本路径（无前缀，直接访问 Skin 自身属性）
 		TRACK_PATH_PHYSICAL_HEIGHT,
 		TRACK_PATH_ATTACK_HEIGHTS,
 		TRACK_PATH_BASE_HEIGHT_METHOD,
-		# 历史错误版本路径（../../ 前缀，误判 root_node 推导）
+		# 历史版本路径 1：../ 前缀（曾尝试 root_node=".."）
+		"../physical_height",
+		"../attack_heights",
+		"..",
+		# 历史版本路径 2：../../ 前缀（错误推导 root_node）
 		"../../physical_height",
 		"../../attack_heights",
 		"../..",
-		# 更早版本路径（无前缀，依赖 root_node 修改）
-		"physical_height",
-		"attack_heights",
-		".",
 	]
 	
 	for track_idx in range(anim.get_track_count()):

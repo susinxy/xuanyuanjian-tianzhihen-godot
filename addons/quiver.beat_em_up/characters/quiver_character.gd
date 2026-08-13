@@ -50,17 +50,6 @@ var attributes: QuiverAttributes = null:
 
 var is_on_air := false
 
-## 三大高度参数（由 AnimationPlayer 轨道每帧赋值）
-@export var base_height: float = 0.0
-
-## 物理身高，用于 Layer 扩展计算（随动作变化，由 value track 写入）
-@export var physical_height: float = 0.0
-
-## 攻击判定相对 base_height 的高度偏移数组（由 value track 写入）
-## 注意：必须使用 untyped Array（而非 Array[float]），因为 Godot 4 的 AnimationMixer
-## 对 typed array 属性的 track 解析支持有限，会报 "couldn't resolve track" 警告
-@export var attack_heights: Array = []
-
 # 高度层缓存（避免每帧重复设置 collision layer）
 var _cached_height_layers: Array[int] = []
 
@@ -181,18 +170,17 @@ func _enable_collisions() -> void:
 	_collision.set_deferred("disabled", false)
 
 
-## AnimationPlayer 的 method track 每帧调用此方法
-## 从 _skin.position.y 派生 base_height
-func _sync_base_height() -> void:
-	if is_instance_valid(_skin):
-		base_height = -_skin.position.y
-
-
 func _update_collision_layers() -> void:
+	# 高度层数据存放在 Skin 节点（由 AnimationPlayer track 直接写入）
+	if not _skin:
+		return
+	
+	var bh: float = _skin.base_height
+	var ph: float = _skin.physical_height
+	var ah: Array = _skin.attack_heights
+	
 	# 角色整体占据的高度层 = base_height ~ base_height + physical_height
-	var current_layers := _calculate_range_layers(
-		base_height, base_height + physical_height
-	)
+	var current_layers := _calculate_range_layers(bh, bh + ph)
 	
 	# 只在层集合变化时更新（逐元素比较）
 	if current_layers != _cached_height_layers:
@@ -202,7 +190,7 @@ func _update_collision_layers() -> void:
 			set_collision_layer_value(layer, layer in current_layers)
 		_update_hurtbox_layers(_layers_to_bitmask(current_layers))
 	
-	_update_hitbox_layers()
+	_update_hitbox_layers(bh, ah)
 
 
 func _update_hurtbox_layers(character_bitmask: int) -> void:
@@ -211,10 +199,10 @@ func _update_hurtbox_layers(character_bitmask: int) -> void:
 		_hurtbox.collision_mask = _all_height_layers_bitmask()
 
 
-func _update_hitbox_layers() -> void:
+func _update_hitbox_layers(base_h: float, attack_hs: Array) -> void:
 	var body_bitmask := _layers_to_bitmask(_cached_height_layers)
 	
-	if attack_heights.is_empty():
+	if attack_hs.is_empty():
 		# 非攻击状态：HitBox 复位为身体高度层（防御性复位）
 		for hitbox in _hitboxes:
 			hitbox.collision_layer = body_bitmask
@@ -222,17 +210,17 @@ func _update_hitbox_layers() -> void:
 	
 	# 攻击状态：根据 attack_heights 计算专属高度层
 	var layers := []
-	for attack_h in attack_heights:
-		var absolute_h: float = base_height + attack_h
+	for attack_h in attack_hs:
+		var absolute_h: float = base_h + attack_h
 		layers.append_array(_height_to_layers(absolute_h))
 	
 	# 使用 Dictionary key 去重（GDScript Array 没有 .deduplicate() 方法）
 	var unique_layers: Dictionary = {}
 	for layer in layers:
 		unique_layers[layer] = true
-	layers = unique_layers.keys()
+	var deduplicated := Array(unique_layers.keys())
 	
-	var attack_bitmask := _layers_to_bitmask(layers)
+	var attack_bitmask := _layers_to_bitmask(deduplicated)
 	for hitbox in _hitboxes:
 		hitbox.collision_layer = attack_bitmask
 
