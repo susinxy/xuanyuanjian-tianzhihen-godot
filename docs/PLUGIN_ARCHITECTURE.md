@@ -573,11 +573,19 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 | `WallHitBox` | `_handle_wall_hit_box()` | `wall_bounced` 信号 |
 
 **`_handle_hit_box()` 完整流程**:
-1. `_can_be_attacked_by(hit_box)` 检查：非无敌 + 同一车道
-2. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
-3. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
-4. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
-5. 发射 `Events.enemy_data_sent`（攻击者=玩家时，用于 HUD 显示）
+1. **阵营检查** `are_factions_equal(hit_box, self)`：同阵营直接 return（`area2d:` group 前缀匹配）
+2. `_can_be_attacked_by(hit_box)` 检查：非无敌 + 同一车道
+3. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
+4. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
+5. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
+6. 发射 `Events.enemy_data_sent`（攻击者=玩家时，用于 HUD 显示）
+
+**阵营过滤机制**（`area2d:` group）:
+- 常量 `FACTION_PREFIX = "area2d:"`
+- 静态函数 `are_factions_equal(hit_box, hurt_box)`：遍历 hit_box 的 groups，找到 `area2d:` 前缀的 group，检查 hurt_box 是否也在同一 group
+- 同阵营双方的 HitBox/HurtBox 不会互相造成伤害/抓取
+- 配置方式：在 .tscn 中为角色的所有战斗 Area2D 添加 `groups = ["area2d:角色名"]`
+- `_handle_grab_box()` 同样使用此检查
 
 ### 7.5 QuiverAttackData（攻击数据）
 

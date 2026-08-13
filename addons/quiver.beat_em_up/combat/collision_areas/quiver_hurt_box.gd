@@ -11,6 +11,9 @@ extends Area2D
 
 #--- constants ------------------------------------------------------------------------------------
 
+## 阵营过滤前缀：同一 area2d: 组的双方视为同阵营，攻击不造成伤害
+const FACTION_PREFIX = "area2d:"
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 @export var character_type: CombatSystem.CharacterTypes = \
@@ -59,6 +62,14 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 ### Public Methods --------------------------------------------------------------------------------
 
+## 阵营检查：同一 area2d: 组的双方视为同阵营，攻击不造成伤害
+static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
+	for group in hit_box.get_groups():
+		if str(group).begins_with(FACTION_PREFIX):
+			if hurt_box.is_in_group(group):
+				return true
+	return false
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -99,6 +110,10 @@ func _can_be_grabbed_by(grabber: QuiverAttributes) -> bool:
 
 
 func _handle_hit_box(hit_box: QuiverHitBox) -> void:
+	# 阵营检查：同阵营不造成伤害
+	if are_factions_equal(hit_box, self):
+		return
+	
 	if _can_be_attacked_by(hit_box.character_attributes):
 #		print("hit_box: %s"%[hit_box.get_path()])
 		CombatSystem.apply_damage(hit_box.attack_data, character_attributes)
@@ -119,6 +134,10 @@ func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
 
 
 func _handle_grab_box(grab_box: QuiverGrabBox) -> void:
+	# 阵营检查：同阵营不造成伤害
+	if are_factions_equal(grab_box, self):
+		return
+	
 	if _can_be_grabbed_by(grab_box.character_attributes):
 		grab_box.character_attributes.grab_requested.emit(character_attributes)
 

@@ -1041,9 +1041,9 @@ if current_layers != _cached_height_layers:
 5. ✅ Layer 缓存与逐元素比较优化
 6. ✅ 在 `project.godot` 中注册 layer 15-19
 
-**待实施**：
-1. ⏳ 添加 `are_factions_equal()` 静态辅助函数（`area2d:` group 阵营过滤）
-2. ⏳ 修改 `quiver_hurt_box.gd` 调用阵营检查
+**已完成**：
+1. ✅ 添加 `are_factions_equal()` 静态辅助函数（`area2d:` group 阵营过滤）
+2. ✅ 修改 `quiver_hurt_box.gd` 调用阵营检查（`_handle_hit_box` + `_handle_grab_box`）
 
 ### Phase 4：测试场景 ⏳ 待实施
 
