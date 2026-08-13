@@ -1,8 +1,18 @@
 # Phase 2: ChenJingchou Character Setup
 
-## 概述
+> **⚠️ 已过时**：本文档描述的是旧方案（独立 HeightLayerSystem 节点），已被方案 C 替代。
+> 
+> **当前实现**：高度层属性直接集成到 `QuiverCharacterSkin` 基类，无需独立节点。
+> 
+> 请参考：
+> - `docs/HEIGHT_LAYER_DESIGN.md` — 最新设计文档（v3.0，方案 C）
+> - `docs/PLUGIN_ARCHITECTURE.md` — 插件架构（已更新）
+> - `PLUGIN_CHANGES.md` — 插件修改记录（已更新）
+
+## 概述（已过时）
 
 Phase 2 完成了将高度层系统（HeightLayerSystem）集成到陈靖仇（ChenJingchou）角色中。
+**注意**：此方案已被废弃，实际采用方案 C（属性在 Skin）。
 
 ## 完成的工作
 

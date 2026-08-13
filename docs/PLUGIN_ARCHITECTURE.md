@@ -1,7 +1,8 @@
 # Quiver Beat-em-up 插件架构源码分析
 
 > **分析日期**: 2026-08-11
-> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd)
+> **最后更新**: 2026-08-13
+> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统修改
 > **用途**: 记录插件所有系统的设计、实现细节和使用方式
 
 ---
@@ -79,11 +80,7 @@ quiver.beat_em_up/
 var attributes: QuiverAttributes = null  # 角色数据（HP、速度等）
 var is_on_air := false                   # 空中状态
 
-# 高度层系统参数（由动画轨道每帧赋值）
-@export var base_height: float = 0.0       # 概念跳跃高度（由 _sync_base_height() 从 _skin.position.y 派生）
-@export var physical_height: float = 0.0   # 物理身高（由 value track 赋值）
-@export var attack_heights: Array[float] = []  # 攻击高度偏移数组（由 value track 赋值）
-
+# 高度层系统（方案 C：数据在 Skin，碰撞层计算在 Character）
 var _cached_height_layers: Array[int] = []  # 高度层缓存（逐元素比较优化）
 var _hurtbox: QuiverHurtBox                 # 缓存的 HurtBox 引用
 var _hitboxes: Array[QuiverHitBox] = []     # 缓存的 HitBox 数组
@@ -93,7 +90,9 @@ var _collision: Node2D                   # 碰撞体引用（默认 "Collision" 
 var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $StateMachine）
 ```
 
-### 高度层系统
+### 高度层系统（方案 C）
+
+**设计决策**：高度层属性（`base_height`, `physical_height`, `attack_heights`）存放在 `QuiverCharacterSkin`，而非 `QuiverCharacter`。原因是 AnimationPlayer 位于 Skin 节点下，使用 `.:property` 路径可以直接访问 Skin 属性，避免 `../` 路径导致的 track 解析警告。
 
 **常量 `HEIGHT_LAYER_DEFINITIONS`**（5 个高度层，layer 15-19）:
 
@@ -106,22 +105,27 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 | 19 | height_very_high | (300, +∞] |
 
 **数据流**:
-1. 动画 value track 写入 `physical_height` 和 `attack_heights`（每帧）
-2. 动画 method track 调用 `_sync_base_height()`（每帧，`base_height = -_skin.position.y`）
-3. `_physics_process()` 计算角色占据的高度范围 `[base_height, base_height + physical_height]`，更新 CharacterBody2D collision layer 15-19
-4. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
-5. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
+1. 动画 value track `.:physical_height` 写入 `Skin.physical_height`（只在值变化时添加 keyframe）
+2. 动画 value track `.:attack_heights` 写入 `Skin.attack_heights`（只在值变化时添加 keyframe）
+3. 动画 method track `.` 调用 `Skin._sync_base_height()`（每帧，`base_height = -position.y`）
+4. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
+5. 更新 CharacterBody2D collision layer 15-19（逐元素比较，只在变化时更新）
+6. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
+7. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
 
-**关键方法**:
-- `_sync_base_height()`: 动画 method track 每帧调用
+**QuiverCharacter 关键方法**:
 - `_physics_process(delta)`: 触发 `_update_collision_layers()`
-- `_update_collision_layers()`: 逐元素比较 + 更新
+- `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layers(height)`: 点查询
 - `_layers_to_bitmask(layers)`: 编号转 bitmask
 
+**QuiverCharacterSkin 关键方法**:
+- `_sync_base_height()`: 动画 method track 每帧调用，`base_height = -position.y`
+
 **`_hurtbox` / `_hitboxes` 引用**:
-- 在 `_ready()` 中从 `_skin.hurtbox` / `_skin.hitboxes` 获取（基类声明，子类填充）
+- Skin 通过 `@export_node_path` + `_runtime_ready()` 填充引用
+- QuiverCharacter 在 `_ready()` 中从 `_skin.hurtbox` / `_skin.hitboxes` 缓存引用
 - 缓存引用避免每帧遍历 children
 
 ### 基类场景结构 (`quiver_character_base.tscn`)
@@ -154,12 +158,17 @@ QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
 - 朝向枚举: `SkinDirection { LEFT = -1, RIGHT = 1 }`
 - 导出属性: `skin_direction`, `attributes`（自动同步给 tree group）
 - 抓取配置: `_path_grab_pivot`, `_path_grabbed_pivot`（Marker2D 引用）
+- **高度层属性（方案 C，由 AnimationPlayer track 每帧赋值）**:
+  - `@export var base_height: float = 0.0` — 概念跳跃高度（由 `_sync_base_height()` 从 `position.y` 派生）
+  - `@export var physical_height: float = 0.0` — 物理身高（由 value track `.:physical_height` 赋值）
+  - `@export var attack_heights: Array = []` — 攻击高度偏移（由 value track `.:attack_heights` 赋值，必须 untyped Array）
 - 高度层战斗引用（由 `_runtime_ready()` 填充，QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 访问）:
   - `@export_node_path var _path_hurtbox`（默认 `^"AnimatedSprite2D/HurtBox"`）
   - `@export_node_path var _path_hitboxes_container`（默认 `^"Attacks"`）
   - `var hurtbox: QuiverHurtBox`
   - `var hitboxes: Array[QuiverHitBox]`
 - 虚函数: `transition_to()`（被子类实现）
+- `_sync_base_height()`: 动画 method track 每帧调用，`base_height = -position.y`
 - `_runtime_ready()` 填充 HurtBox/HitBox 引用（从配置的 node path 获取）
 
 **子类 `QuiverCharacterSkinAnimTree`**:
@@ -860,6 +869,55 @@ func _parse_begin(object: Object) -> void:
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
 | `collision_shape_types/` | Area2D 的 `collision_type` 元数据字段 | 提供碰撞预设下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`characters/playable/_template/character_template.tscn`） | **创建/删除角色** |
+| **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名，注入高度层轨道** |
+
+### Height Layers Inspector（新增）
+
+**触发方式**：
+1. 打开角色皮肤场景（如 `chen_jingchou_skin.tscn`）
+2. 选中根节点 `ChenJingchouSkin`（QuiverCharacterSkinAnimTree）
+3. Inspector 面板显示 "Height Layers Scanner" 区域
+
+**文件结构**：
+```
+custom_inspectors/height_layers/
+├── inspector_plugin.gd              # EditorInspectorPlugin 入口
+├── height_layers_widget.gd          # UI 组件（VBoxContainer, @tool）
+├── height_layers_widget.tscn        # Widget 场景
+├── animation_track_injector.gd      # 轨道注入核心（extends RefCounted）
+└── character_height_data.gd         # 帧高度数据解析（extends RefCounted）
+```
+
+**工作流程**：
+```
+用户点击 Scan / Scan (Dry Run)
+  ↓
+AnimationTrackInjector.run(skin_node, dry_run)
+  ↓
+1. 从 AnimatedSprite2D 获取 SpriteFrames
+2. 从 AnimationPlayer 获取 AnimationLibrary
+3. 验证场景树结构（AnimationPlayer 父节点必须是 QuiverCharacterSkin）
+4. 解析 SpriteFrames 每帧文件名（physical_Y, attack_Z, speed_X）
+5. 对每个 Animation：
+   a. 找到引用的 SpriteFrames 子动画名
+   b. 移除旧的 height tracks（保留原始 Quiver 方法）
+   c. 添加新 tracks（.:physical_height, .:attack_heights, . method）
+   d. 逐帧插入 keyframes（value tracks 只在值变化时添加）
+   e. 保存 Animation 资源
+  ↓
+显示结果（成功/失败/错误列表）
+```
+
+**轨道路径（方案 C）**：
+- `.:physical_height` — value track，写入 Skin.physical_height
+- `.:attack_heights` — value track，写入 Skin.attack_heights
+- `.` — method track，调用 Skin._sync_base_height()
+
+**关键特性**：
+- 保留原始 Quiver 方法（end_of_input_frames, end_of_skin_animation 等）
+- value tracks 只在值变化时添加 keyframe（优化冗余数据）
+- method track 每帧调用（与动画 FPS 同步）
+- 支持增量扫描（异步，不阻塞编辑器）
 
 ### Character Creator Inspector（新增）
 

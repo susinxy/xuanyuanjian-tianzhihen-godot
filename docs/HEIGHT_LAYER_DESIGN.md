@@ -1,14 +1,15 @@
 # 2.5D 高度层战斗系统 - 设计文档
 
-> **版本**: 2.3.0  
+> **版本**: 3.0.0  
 > **创建日期**: 2026-08-11  
-> **最后更新**: 2026-08-12  
-> **状态**: 设计完成，待实施  
+> **最后更新**: 2026-08-13  
+> **状态**: Phase 1-3 已实施（方案 C），Phase 4-5 待实施  
 > **变更记录**:
 > - v2.0 — 重构数据流架构，base_height 从 _skin.position.y 派生（method track 同步），移除 base_X 文件名标注，保留 Quiver _skin_velocity_y 机制
 > - v2.1 — 修复 Layer 公式为 `(min, max]`（无匹配默认 ground_level）；修复 CharacterBody2D collision_layer 覆盖原有 bits（只修改 15-19）；修复 `_update_hitbox_layers` 空状态复位；补充 `_get_hurtbox/hitboxes` 实现（基于 owner group）；明确 `are_factions_equal` 放在 `quiver_hurt_box.gd`；修正测试用例；CharacterBody2D.position.y 不再固定为 0；Collision Preset 预设为 ground_level（Section 8.8）；HitLane 系统保留（Section 8.7）
 > - v2.2 — HurtBox/HitBox 引用改为 Quiver 标准模式（@export_node_path + @onready）；Skin 通过 `_runtime_ready()` 填充 hitboxes 数组；QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 缓存引用；删除基于 group 的查找方法
 > - v2.3 — 移除场景 4 的"全局 Y"列（与 Layer 抽象冲突）；修正扩展计划版本号（v1.1.0/v2.0.0 → v2.3.0/v3.0.0）；重写 Phase 5 描述；强调 Phase 1.5 为必需前置任务；补充文档维护声明
+> - v3.0 — **方案 C 实施**：高度层属性从 QuiverCharacter 移到 QuiverCharacterSkin；AnimationPlayer track 路径从 `../` 改为 `.:`（无前缀直接访问 Skin 属性）；注入器优化（保留原始方法、keyframe 优化）；41 个动画文件已扫描应用
 
 ---
 
@@ -88,11 +89,15 @@
 
 ### 3.1 三大高度参数
 
-| 参数 | 类型 | 含义 | 来源 |
-|------|------|------|------|
-| `base_height` | float | 角色跳跃的概念高度 | 从 `_skin.position.y` 派生（method track） |
-| `physical_height` | float | 角色的物理身高（随动作变化） | 动画帧文件名（Inspector 工具生成 value track） |
-| `attack_heights[]` | Array[float] | 攻击判定的高度偏移数组 | 动画帧文件名（Inspector 工具生成 value track） |
+| 参数 | 类型 | 含义 | 存放位置 | 来源 |
+|------|------|------|----------|------|
+| `base_height` | float | 角色跳跃的概念高度 | **QuiverCharacterSkin** | 从 `position.y` 派生（method track） |
+| `physical_height` | float | 角色的物理身高（随动作变化） | **QuiverCharacterSkin** | 动画帧文件名（Inspector 工具生成 value track） |
+| `attack_heights[]` | Array（untyped） | 攻击判定的高度偏移数组 | **QuiverCharacterSkin** | 动画帧文件名（Inspector 工具生成 value track） |
+
+**方案 C 决策**：所有高度层属性存放在 `QuiverCharacterSkin`（Node2D），而非 `QuiverCharacter`（CharacterBody2D）。原因是 AnimationPlayer 位于 Skin 节点下，使用 `.:property` 路径可以直接访问 Skin 属性，避免 `../` 路径导致的 track 解析警告。
+
+**注意**：`attack_heights` 必须使用 untyped `Array`（而非 `Array[float]`），Godot 4 的 AnimationMixer 对 typed array 属性的 track 解析支持有限。
 
 ### 3.2 高度参数详解
 
@@ -289,13 +294,18 @@ value track → QuiverCharacter.physical_height / attack_heights  ← DIRECT（�
 AnimationPlayer 位于 Skin 节点下，其 `root_node` 默认 = `".."`（即 Skin 自身）。
 所有现有动画轨道均相对于 Skin 解析（如 `AnimatedSprite2D:frame`）。
 
-本系统新增的轨道使用 `".."` 路径，**向上导航到 QuiverCharacter**：
+本系统新增的轨道使用 **无前缀路径**（方案 C），**直接访问 Skin 节点属性**：
 
 | 轨道类型 | track path | 作用 |
 |---------|-----------|------|
-| value track | `"../physical_height"` | 写入 Character.physical_height |
-| value track | `"../attack_heights"` | 写入 Character.attack_heights |
-| method track | `".."` 调用 `_sync_base_height()` | 从 _skin.position.y 同步 base_height 到 Character |
+| value track | `".:physical_height"` | 写入 Skin.physical_height |
+| value track | `".:attack_heights"` | 写入 Skin.attack_heights |
+| method track | `"."` 调用 `_sync_base_height()` | 从 Skin.position.y 同步 base_height |
+
+**路径格式说明**：
+- `.:property` — 访问 root_node（Skin）自身的属性
+- `.` — 调用 root_node（Skin）自身的方法
+- 这与 Quiver 原有轨道（如 `AnimatedSprite2D:frame`）使用相同的 root_node 解析机制
 
 ### 6.3 完整数据流
 
@@ -306,23 +316,24 @@ AnimationPlayer 位于 Skin 节点下，其 `root_node` 默认 = `".."`（即 Sk
 2. 通过 SpriteFrames 获取每帧纹理文件名
 3. 解析文件名：physical_Y 和 attack_Z
 4. 若文件名含 speed_S：配置到 QuiverAttributes.jump_force（首帧一次）
-5. 清除旧的 height 轨道，重新生成：
-   - value track("../physical_height")  ← discrete keyframes
-   - value track("../attack_heights")   ← discrete keyframes
-   - method track("..") 调用 _sync_base_height()  ← 每帧一个 key
+5. 清除旧的 height 轨道（保留原始 Quiver 方法），重新生成：
+   - value track(".:physical_height")  ← discrete keyframes（只在值变化时添加）
+   - value track(".:attack_heights")   ← discrete keyframes（只在值变化时添加）
+   - method track(".") 调用 _sync_base_height()  ← 每帧一个 key
 6. 保存
 
 运行时
 ────────────────────────────────────────────────────────────
 AnimationPlayer._process（每帧）:
-   - value tracks 更新 QuiverCharacter.physical_height / attack_heights
-   - method track 调用 QuiverCharacter._sync_base_height()
-     → base_height = -_skin.position.y
+   - value tracks 更新 Skin.physical_height / Skin.attack_heights
+   - method track 调用 Skin._sync_base_height()
+     → Skin.base_height = -Skin.position.y
 
 QuiverCharacter._physics_process（每帧）:
-   - 读取 base_height, physical_height, attack_heights
+   - 从 _skin 读取 base_height, physical_height, attack_heights
    - 计算占据的高度层范围 [base_height, base_height + physical_height]
    - 仅在层集合变化时更新 collision_layer（逐元素比较优化）
+   - 更新 HurtBox/HitBox 的 collision layer
 ```
 
 ### 6.4 执行顺序与时序分析
@@ -358,25 +369,45 @@ Godot 同一帧内的处理顺序：
 
 ## 七、运行时流程（QuiverCharacter 扩展）
 
-### 7.1 QuiverCharacter 新增变量
+### 7.1 QuiverCharacterSkin 新增变量（方案 C）
+
+```gdscript
+# quiver_character_skin.gd 新增部分
+
+# 三大高度参数（由 AnimationPlayer 轨道每帧赋值，存放在 Skin 节点）
+@export var base_height: float = 0.0
+@export var physical_height: float = 0.0
+@export var attack_heights: Array = []  # 必须 untyped Array
+
+# 高度层系统：战斗 Area2D 引用
+@export_node_path("QuiverHurtBox") var _path_hurtbox := ^"AnimatedSprite2D/HurtBox"
+@export_node_path("Node2D") var _path_hitboxes_container := ^"Attacks"
+
+var hurtbox: QuiverHurtBox = null
+var hitboxes: Array[QuiverHitBox] = []
+
+
+func _sync_base_height() -> void:
+    base_height = -position.y  # 从 Skin.position.y 派生
+
+
+func _runtime_ready() -> void:
+    super()
+    # 填充 combat Area2D 引用
+    hurtbox = get_node_or_null(_path_hurtbox) as QuiverHurtBox
+    var hitboxes_container := get_node_or_null(_path_hitboxes_container) as Node2D
+    if hitboxes_container:
+        for child in hitboxes_container.get_children():
+            if child is QuiverHitBox:
+                hitboxes.append(child)
+```
+
+### 7.1.2 QuiverCharacter 新增变量
 
 ```gdscript
 # quiver_character.gd 新增部分
 
-# 三大高度参数（由 AnimationPlayer 轨道每帧赋值）
-@export var base_height: float = 0.0
-@export var physical_height: float = 0.0
-@export var attack_heights: Array[float] = []
-
-# 高度层缓存（避免每帧重复设置 collision layer）
-var _cached_height_layers: Array[int] = []
-
-# HurtBox/HitBox 缓存引用（从 Skin 获取，在 _ready 中初始化）
-var _hurtbox: QuiverHurtBox
-var _hitboxes: Array[QuiverHitBox] = []
-
-# Godot 4 中，layer N 对应 bit (N-1)：layer 15 = bit 14 = 1<<14
-# 这里使用 layer 编号（1-indexed），与 Godot Inspector 一致
+# 高度层定义常量
 const HEIGHT_LAYER_DEFINITIONS = [
     { "min": 0,   "max": 30,   "layer": 15 },
     { "min": 30,  "max": 100,  "layer": 16 },
@@ -384,6 +415,13 @@ const HEIGHT_LAYER_DEFINITIONS = [
     { "min": 200, "max": 300,  "layer": 18 },
     { "min": 300, "max": INF,  "layer": 19 },
 ]
+
+# 高度层缓存（避免每帧重复设置 collision layer）
+var _cached_height_layers: Array[int] = []
+
+# HurtBox/HitBox 缓存引用（从 Skin 获取，在 _ready 中初始化）
+var _hurtbox: QuiverHurtBox
+var _hitboxes: Array[QuiverHitBox] = []
 
 
 func _ready():
@@ -460,64 +498,74 @@ if _skin != null:
 ### 7.2 Method Track 回调
 
 ```gdscript
-# AnimationPlayer 的 method track 每帧调用此方法
-# 从 `_skin.position.y` 派生 base_height
-func _sync_base_height():
-    base_height = -_skin.position.y
+# AnimationPlayer 的 method track 每帧调用此方法（位于 QuiverCharacterSkin）
+# 从 Skin 自身的 position.y 派生 base_height
+func _sync_base_height() -> void:
+    base_height = -position.y
 ```
 
 ### 7.3 Collision Layer 更新
 
 ```gdscript
-func _physics_process(delta):
-    # QuiverCharacter 原本没有 _physics_process，
-    # 因此不需要 super(delta) 调用
+# 以下方法位于 QuiverCharacter
+
+func _physics_process(_delta: float) -> void:
     _update_collision_layers()
 
 
-func _update_collision_layers():
+func _update_collision_layers() -> void:
+    # 高度层数据存放在 Skin 节点（由 AnimationPlayer track 直接写入）
+    if not _skin:
+        return
+    
+    var bh: float = _skin.base_height
+    var ph: float = _skin.physical_height
+    var ah: Array = _skin.attack_heights
+    
     # 角色整体占据的高度层 = base_height ~ base_height + physical_height
-    var current_layers := _calculate_range_layers(
-        base_height, base_height + physical_height)
+    var current_layers := _calculate_range_layers(bh, bh + ph)
 
     # 只在层集合变化时更新（逐元素比较）
     if current_layers != _cached_height_layers:
         _cached_height_layers = current_layers
         # 仅设置 layer 15-19，保留原有的 bits（如 players = layer 1）
-        # set_collision_layer_value() 接受 layer 编号（1-indexed），内部处理 bit 移位
         for layer in range(15, 20):
             set_collision_layer_value(layer, layer in current_layers)
         _update_hurtbox_layers(_layers_to_bitmask(current_layers))
 
-    _update_hitbox_layers()
+    _update_hitbox_layers(bh, ah)
 
 
-func _update_hurtbox_layers(character_bitmask: int):
+func _update_hurtbox_layers(character_bitmask: int) -> void:
     # 使用 _ready 中缓存的 _hurtbox 引用
     if _hurtbox:
         _hurtbox.collision_layer = character_bitmask
         _hurtbox.collision_mask = _all_height_layers_bitmask()
 
 
-func _update_hitbox_layers():
+func _update_hitbox_layers(base_h: float, attack_hs: Array) -> void:
     # 默认 HitBox layer = 角色身体当前高度层
     var body_bitmask := _layers_to_bitmask(_cached_height_layers)
 
-    if attack_heights.is_empty():
-        # 非攻击状态：HitBox 复位为身体高度层
-        # 即使 Quiver 的 CollisionShape2D disabled 已经保证了碰撞安全，
-        # 这里做防御性复位，保证 layer 状态干净
+    if attack_hs.is_empty():
+        # 非攻击状态：HitBox 复位为身体高度层（防御性复位）
         for hitbox in _hitboxes:
             hitbox.collision_layer = body_bitmask
         return
 
     # 攻击状态：根据 attack_heights 计算专属高度层
     var layers := []
-    for attack_h in attack_heights:
-        var absolute_h := base_height + attack_h
+    for attack_h in attack_hs:
+        var absolute_h: float = base_h + attack_h
         layers.append_array(_height_to_layers(absolute_h))
-    layers = layers.deduplicate()
-    var attack_bitmask := _layers_to_bitmask(layers)
+    
+    # 使用 Dictionary key 去重（GDScript Array 没有 .deduplicate() 方法）
+    var unique_layers: Dictionary = {}
+    for layer in layers:
+        unique_layers[layer] = true
+    var deduplicated := Array(unique_layers.keys())
+    
+    var attack_bitmask := _layers_to_bitmask(deduplicated)
     for hitbox in _hitboxes:
         hitbox.collision_layer = attack_bitmask
 
@@ -561,13 +609,19 @@ func _all_height_layers_bitmask() -> int:
 
 ### 7.4 关键设计说明
 
+**方案 C 决策（属性在 Skin）**：
+- 高度层属性（`base_height`, `physical_height`, `attack_heights`）存放在 `QuiverCharacterSkin`
+- AnimationPlayer track 使用 `.:property` 路径直接访问 Skin 属性
+- 避免了 `../` 路径导致的 track 解析警告（"couldn't resolve track"）
+- `QuiverCharacter._physics_process()` 从 `_skin` 读取数据进行碰撞层计算
+
 **QuiverCharacter 不写 `_skin.position.y`**：
 - `_skin.position.y` 由 Quiver 原有逻辑管理（跳跃/击飞时由 `_move_and_apply_gravity()` 修改，普通状态保持 0）
-- QuiverCharacter 只从 `_skin.position.y` 派生 `base_height`
-- 因果方向：`_skin.position.y` → `base_height`（不是反过来）
+- Skin 的 `_sync_base_height()` 从自身 `position.y` 派生 `base_height`
+- 因果方向：`Skin.position.y` → `Skin.base_height`（不是反过来）
 
 **HurtBox/HitBox 引用遵循 Quiver 标准模式**：
-- Skin 通过 `@export_node_path` + `@onready` 直接持有 HurtBox 和 HitBox 引用
+- Skin 通过 `@export_node_path` + `_runtime_ready()` 直接持有 HurtBox 和 HitBox 引用
 - QuiverCharacter 在 `_ready()` 中从 `_skin.hurtbox` / `_skin.hitboxes` 缓存引用
 - 运行时 `physics_process` 直接访问缓存的成员变量，无 group 遍历开销
 - 节点结构在运行时固定，缓存引用永远有效
@@ -941,63 +995,69 @@ if current_layers != _cached_height_layers:
 
 ## 十三、实施计划
 
-### Phase 1：编辑器工具（5-6小时）
+### Phase 1：编辑器工具 ✅ 已完成
 
-1. 创建 `character_height_data.gd`（Resource）
+1. ✅ 创建 `character_height_data.gd`（Resource）
    - 解析后的帧高度数据字典结构
    - `parse_height_from_filename()` 方法
 
-2. 创建 Inspector 扫描工具（按钮触发）
+2. ✅ 创建 Inspector 扫描工具（按钮触发）
    - 遍历 AnimationPlayer 所有动画
    - 通过 SpriteFrames 获取每帧纹理文件名
-   - 解析高度数据，存入 `height_data.tres`
+   - 解析高度数据
    - 调用 `_inject_height_tracks()` 写入 discrete keyframes
    - 错误汇总显示
+   - 支持增量扫描（异步，不阻塞编辑器）
 
-3. 验证：扫描后检查 `.tres` 内容和 AnimationPlayer 轨道
+3. ✅ 验证：扫描后检查 `.tres` 内容和 AnimationPlayer 轨道
 
-### Phase 2：QuiverCharacter 扩展（3-4小时）
+### Phase 1.5：动画资源命名准备 ✅ 已完成
 
-1. 修改 `quiver_character.gd`
+- ✅ 动画帧文件名已按规范命名（`physical_Y`, `attack_Z`）
+- ✅ 运行 Inspector 扫描工具批量生成轨道
+- ✅ 41 个动画文件已扫描应用高度层轨道
+
+### Phase 2：QuiverCharacter/Skin 扩展 ✅ 已完成（方案 C）
+
+1. ✅ 修改 `quiver_character_skin.gd`
    - 添加 `@export var base_height / physical_height / attack_heights`
-   - 添加 `_sync_base_height()` 方法：`base_height = -_skin.position.y`
-   - 添加 `_physics_process(delta)` 读取三个变量并更新 collision layer
+   - 添加 `_sync_base_height()` 方法：`base_height = -position.y`
+   - 添加 combat Area2D 引用（hurtbox/hitboxes）
 
-2. 添加 `HEIGHT_LAYER_DEFINITIONS` 常量和辅助方法
+2. ✅ 修改 `quiver_character.gd`
+   - 添加 `HEIGHT_LAYER_DEFINITIONS` 常量和辅助方法
+   - 添加 `_physics_process()` 从 `_skin` 读取数据并更新 collision layer
+   - 在 `_ready()` 中缓存 HurtBox/HitBox 引用
 
-3. 记录到 PLUGIN_CHANGES.md
+3. ✅ 记录到 PLUGIN_CHANGES.md
 
-### Phase 3：碰撞层更新与阵营过滤（5-6小时）
+### Phase 3：碰撞层更新 ✅ 已完成 / 阵营过滤 ⏳ 待实施
 
-1. 在 `quiver_character.gd` 的 `_physics_process` 中实现：
-   - 角色高度层计算（base_height + physical_height 范围）
-   - CharacterBody2D collision_layer 动态更新
-   - HurtBox collision_layer + collision_mask 动态更新
-   - HitBox collision_layer 动态更新（基于 attack_heights）
-   - Layer 缓存与逐元素比较优化
+**已完成**：
+1. ✅ 角色高度层计算（base_height + physical_height 范围）
+2. ✅ CharacterBody2D collision_layer 动态更新
+3. ✅ HurtBox collision_layer + collision_mask 动态更新
+4. ✅ HitBox collision_layer 动态更新（基于 attack_heights）
+5. ✅ Layer 缓存与逐元素比较优化
+6. ✅ 在 `project.godot` 中注册 layer 15-19
 
-2. 添加 `are_factions_equal()` 静态辅助函数
-   - 遍历 `area2d:` group，检查同阵营
+**待实施**：
+1. ⏳ 添加 `are_factions_equal()` 静态辅助函数（`area2d:` group 阵营过滤）
+2. ⏳ 修改 `quiver_hurt_box.gd` 调用阵营检查
 
-3. 修改 `quiver_hurt_box.gd`
-   - `_handle_hit_box()` 中调用阵营检查
-   - `_can_be_grabbed_by()` 同样过滤
+### Phase 4：测试场景 ⏳ 待实施
 
-4. 在 `project.godot` 中注册 layer 15-19
-
-### Phase 4：测试场景（4-5小时）
-
-1. 创建测试关卡
+1. ⏳ 创建测试关卡
    - 矮墙 StaticBody2D（height=30，layer=bit 15）
    - 悬浮平台 StaticBody2D（height=100，layer=bit 16）
    - 高墙 StaticBody2D（height=200，layer=bits 15+16+17）
 
-2. 实现调试覆盖层
+2. ⏳ 实现调试覆盖层
    - 可视化 base_height 线
    - 可视化当前占据的高度层
    - 可视化攻击高度层
 
-### Phase 5：跳跃/击飞动画的 `speed_X` 配置（2-3 小时）
+### Phase 5：跳跃/击飞动画的 `speed_X` 配置 ⏳ 待实施
 
 #### 5.1 目标
 
@@ -1018,32 +1078,17 @@ if current_layers != _cached_height_layers:
 2. **修改动画文件名**
    - 为每个跳跃/击飞动画的**首帧**添加 `speed_X` 标注
    - 格式：`<动作名>_00_speed_<值>_physical_<值>_attack_<值>.png`
-   - 示例：
-     - `jump_00_speed_-800_physical_0_attack_0.png`（起跳冲量 -800）
-     - `knockback_launch_00_speed_-1200_physical_0_attack_0.png`（击退冲量 -1200）
 
 3. **验证物理行为**
    - 在测试场景中验证跳跃高度是否符合设计
    - 调整 speed 值直到达到预期效果
-   - 记录最终使用的 speed 值表
 
 #### 5.4 验收标准
 
 - [ ] 所有跳跃动画首帧都有 `speed_X` 标注
 - [ ] Inspector 工具能正确解析并生成 jump_force
-- [ ] 跳跃高度与 Game Design 文档一致（±5% 误差）
+- [ ] 跳跃高度符合设计预期
 - [ ] 不同跳跃类型有不同的高度峰值
-
-### Phase 1.5（必需前置）：动画资源命名准备
-
-**Phase 1 依赖此阶段**：必须先完成动画资源命名，才能运行 Inspector 扫描工具。
-
-- 美术按规范重命名动画帧文件名（`physical_Y`, `attack_Z`, `speed_X`）
-- 所有文件命名完成后，运行 Inspector 扫描工具批量生成轨道
-- 确认 `height_data.tres` 内容和轨道 keyframes 正确
-- 验证通过后才进入 Phase 2
-
-**总计时间**：14-19小时
 
 ---
 
@@ -1053,21 +1098,29 @@ if current_layers != _cached_height_layers:
 
 - [ ] 站立时 base_height = 0，layer = ground + low_air + mid_air
 - [ ] 跳跃时 base_height > 0，layer 随高度变化
-- [ ] 跳过矮墙（base_height > 30）✓
-- [ ] 钻过悬浮平台（base_height = 0）✓
-- [ ] 撞上高墙（layer 兼容且形状重叠）✓
-- [ ] 多高度攻击命中多层敌人 ✓
+- [ ] 跳过矮墙（base_height > 30）
+- [ ] 钻过悬浮平台（base_height = 0）
+- [ ] 撞上高墙（layer 兼容且形状重叠）
+- [ ] 多高度攻击命中多层敌人
 
 ### 性能验证
 
-- [ ] Layer 更新只在层集合变化时发生
-- [ ] 每 `physics_process` 开销 < 1ms
+- [x] Layer 更新只在层集合变化时发生（已实现逐元素比较优化）
+- [ ] 每 `physics_process` 开销 < 1ms（待 Phase 4 测试场景验证）
 
 ### 错误处理验证
 
-- [ ] 未标注帧 → 扫描时报告错误（不阻止运行，但缺失轨道数据）
-- [ ] 文件名格式错误 → 扫描时报告错误
-- [ ] 跳跃动画首帧无 `speed` → 扫描时警告（将使用 `jump_force` 默认值）
+- [x] 未标注帧 → 扫描时报告错误（已实现）
+- [x] 文件名格式错误 → 扫描时报告错误（已实现）
+- [ ] 跳跃动画首帧无 `speed` → 扫描时警告（待 Phase 5 实现）
+
+### 已完成验证
+
+- [x] 注入器正确生成 `.:property` 路径轨道
+- [x] 注入器保留原始 Quiver 方法（end_of_input_frames 等）
+- [x] value tracks 只在值变化时添加 keyframe（优化）
+- [x] 41 个动画文件成功扫描应用
+- [x] 转身/攻击/跳跃动画正常播放（无 track 解析警告）
 
 ---
 
@@ -1130,9 +1183,9 @@ if current_layers != _cached_height_layers:
 - ✅ 多高度攻击判定
 - ✅ 阵营过滤（`area2d:` group）
 
-**实施优先级**：Phase 1-3 为高优先级（基础设施），Phase 4-5 为中优先级（测试与配置）
+**实施优先级**：Phase 1-3 已完成（基础设施），Phase 4-5 为中优先级（测试与配置）
 
-**预期完成时间**：14-19小时
+**当前状态**：Phase 1-3 已完成（方案 C），Phase 4-5 待实施
 
 ---
 
