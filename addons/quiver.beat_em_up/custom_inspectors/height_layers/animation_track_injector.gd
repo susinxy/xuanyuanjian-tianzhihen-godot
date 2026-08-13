@@ -424,32 +424,55 @@ func _inject_single_animation(
 		errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
 
 
-## 移除旧的 height tracks（通过 path 匹配）
-## 同时清理当前版本路径和历史版本路径，避免残留
+## 移除旧的 height tracks
+## 对于 value tracks：通过路径匹配删除
+## 对于 method tracks：通过路径 + 方法名匹配，只删除 _sync_base_height，保留原始方法
 func _remove_old_height_tracks(anim: Animation) -> void:
 	var tracks_to_remove := []
-	var target_paths := [
+	
+	# value track 路径列表（当前版本 + 历史版本）
+	var value_track_paths := [
 		# 当前版本路径（.: 前缀，访问 root_node 自身属性）
 		TRACK_PATH_PHYSICAL_HEIGHT,      # ".:physical_height"
 		TRACK_PATH_ATTACK_HEIGHTS,       # ".:attack_heights"
-		TRACK_PATH_BASE_HEIGHT_METHOD,   # "."
-		# 历史版本路径 1：无前缀但缺少 . 前缀（当前错误）
+		# 历史版本路径 1：无前缀但缺少 . 前缀
 		"physical_height",
 		"attack_heights",
-		# 历史版本路径 2：../ 前缀（曾尝试 root_node=".."）
+		# 历史版本路径 2：../ 前缀
 		"../physical_height",
 		"../attack_heights",
-		"..",
-		# 历史版本路径 3：../../ 前缀（错误推导 root_node）
+		# 历史版本路径 3：../../ 前缀
 		"../../physical_height",
 		"../../attack_heights",
+	]
+	
+	# method track 路径列表（当前版本 + 历史版本）
+	var method_track_paths := [
+		TRACK_PATH_BASE_HEIGHT_METHOD,   # "."
+		"..",
 		"../..",
 	]
 	
 	for track_idx in range(anim.get_track_count()):
 		var track_path_str := str(anim.track_get_path(track_idx))
-		if track_path_str in target_paths:
+		var track_type := anim.track_get_type(track_idx)
+		
+		# 对于 value tracks，通过路径匹配
+		if track_type == Animation.TYPE_VALUE and track_path_str in value_track_paths:
 			tracks_to_remove.append(track_idx)
+			continue
+		
+		# 对于 method tracks，需要额外检查方法名
+		# 只删除我们的 _sync_base_height，保留原始方法（end_of_input_frames, end_of_skin_animation 等）
+		if track_type == Animation.TYPE_METHOD and track_path_str in method_track_paths:
+			var should_remove := false
+			for key_idx in range(anim.track_get_key_count(track_idx)):
+				var method_dict = anim.track_get_key_value(track_idx, key_idx)
+				if method_dict.get("method") == METHOD_NAME_SYNC_BASE_HEIGHT:
+					should_remove = true
+					break
+			if should_remove:
+				tracks_to_remove.append(track_idx)
 	
 	# 从后往前删除避免索引偏移
 	for i in range(tracks_to_remove.size() - 1, -1, -1):

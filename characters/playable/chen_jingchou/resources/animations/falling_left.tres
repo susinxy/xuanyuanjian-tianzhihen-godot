@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3 uid="uid://drvnws4ppul46"]
+[gd_resource type="Animation" format=3]
 
 [resource]
 resource_name = "falling_left"
@@ -124,41 +124,5 @@ tracks/9/keys = {
 "update": 1,
 "values": [0.0]
 }
-tracks/10/type = "value"
-tracks/10/imported = false
-tracks/10/enabled = true
-tracks/10/path = NodePath("physical_height")
-tracks/10/interp = 0
-tracks/10/loop_wrap = true
-tracks/10/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [180.0]
-}
-tracks/11/type = "value"
-tracks/11/imported = false
-tracks/11/enabled = true
-tracks/11/path = NodePath("attack_heights")
-tracks/11/interp = 0
-tracks/11/loop_wrap = true
-tracks/11/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [[]]
-}
-tracks/12/type = "method"
-tracks/12/imported = false
-tracks/12/enabled = true
-tracks/12/path = NodePath(".")
-tracks/12/interp = 1
-tracks/12/loop_wrap = true
-tracks/12/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"values": [{
-"args": [],
-"method": &"_sync_base_height"
-}]
-}
+metadata/mirrored_name = "falling_left.tres"
+metadata/should_overwrite = true
