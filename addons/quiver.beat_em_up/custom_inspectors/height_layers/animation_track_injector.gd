@@ -144,25 +144,29 @@ func _get_animation_player(skin_node: Node, errors: Array[String]) -> AnimationP
 
 
 ## 验证场景树结构（不修改 root_node）
-## 预期结构：QuiverCharacter -> Skin -> AnimationPlayer
-## 高度轨道使用 "../" 路径前缀导航到 QuiverCharacter，不需要改 root_node
+## 
+## 预期结构：
+##   Parent (任意节点或场景根) -> Skin (QuiverCharacterSkin) -> AnimationPlayer
+## 
+## 验证逻辑：
+##   1. AnimationPlayer 必须有父节点（即 Skin 节点）
+##   2. 该父节点必须是 QuiverCharacterSkin 或其子类
+## 
+## 不再要求 Skin 必须有 QuiverCharacter 父节点，因为：
+##   - 方案 C 使用无前缀路径（如 "physical_height"）
+##   - AnimationPlayer 默认 root_node = ".."（AnimationPlayer 的直接父节点）
+##   - 所以无前缀路径相对 Skin 解析，能直接访问 Skin 上的属性
 func _validate_and_set_root_node(anim_player: AnimationPlayer, errors: Array[String]) -> bool:
 	# 获取 AnimationPlayer 的父节点（应该是 Skin）
 	var skin_node := anim_player.get_parent()
 	if skin_node == null:
-		errors.append("AnimationPlayer 没有父节点（预期：Skin 节点）")
+		errors.append("AnimationPlayer 没有父节点（预期：QuiverCharacterSkin 节点）")
 		return false
 	
-	# 获取 Skin 的父节点（应该是 QuiverCharacter）
-	var character_node := skin_node.get_parent()
-	if character_node == null:
-		errors.append("Skin 节点没有父节点（预期：QuiverCharacter 节点）")
-		return false
-	
-	# 验证祖父节点是 QuiverCharacter（或继承自它）
-	if not (character_node is QuiverCharacter):
-		errors.append("AnimationPlayer 的祖父节点不是 QuiverCharacter（实际类型：%s）" % 
-			str(character_node.get_class()))
+	# 验证父节点是 QuiverCharacterSkin 或其子类
+	if not (skin_node is QuiverCharacterSkin):
+		errors.append("AnimationPlayer 的父节点不是 QuiverCharacterSkin（实际类型：%s）" % 
+			str(skin_node.get_class()))
 		return false
 	
 	return true

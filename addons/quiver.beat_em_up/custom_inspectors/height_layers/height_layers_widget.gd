@@ -185,12 +185,14 @@ func _on_preview_pressed() -> void:
 		_status_label.text = "Status: ✅ 预览完成，可以扫描"
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
 		_scan_btn.disabled = false
-	elif result.anim_count == 0:
-		_status_label.text = "Status: ⚠️ 未找到可处理的动画"
+	elif error_count > 0:
+		# 包括 anim_count == 0 且有错误的情况（如验证失败）
+		_status_label.text = "Status: ⚠️ 预览失败，有 %d 个错误（详见下方）" % error_count
 		_status_label.add_theme_color_override("font_color", Color.ORANGE)
 		_scan_btn.disabled = true
 	else:
-		_status_label.text = "Status: ⚠️ 预览完成，有 %d 个错误" % error_count
+		# anim_count == 0 且无错误
+		_status_label.text = "Status: ⚠️ 未找到可处理的动画"
 		_status_label.add_theme_color_override("font_color", Color.ORANGE)
 		_scan_btn.disabled = true
 	
@@ -200,8 +202,15 @@ func _on_preview_pressed() -> void:
 func _display_preview(result: Dictionary) -> void:
 	var lines := []
 	
-	if result.anim_count == 0:
+	# 即使 anim_count == 0，也要显示具体错误（如果有的话）
+	# 这样用户能看到验证失败的真正原因（如场景树结构不对）
+	if result.anim_count == 0 and result.errors.is_empty():
 		lines.append("[color=orange]未找到可处理的动画[/color]")
+		lines.append("")
+		lines.append("可能原因：")
+		lines.append("  • SpriteFrames 中的帧文件名缺少 _physical_ 标注")
+		lines.append("  • AnimationPlayer 中没有 AnimatedSprite2D:animation 轨道")
+		lines.append("  • 皮肤节点场景树结构不符合预期")
 		_preview_label.text = "\n".join(lines)
 		return
 	
