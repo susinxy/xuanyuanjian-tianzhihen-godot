@@ -232,15 +232,19 @@ func _on_scan_pressed() -> void:
 	if _skin_node == null:
 		return
 	
-	# 立即禁用两个按钮并改变文本
+	# 立即禁用两个按钮并改变文本和视觉状态
 	_preview_btn.disabled = true
 	_scan_btn.disabled = true
 	_scan_btn.text = "⏳ 扫描并注入轨道中..."
 	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
-	# 使用 call_deferred 让 UI 有机会渲染状态变化，然后再执行实际扫描
-	_execute_scan.call_deferred()
+	# 强制执行一次完整的帧渲染，确保 UI 状态变化被渲染
+	await get_tree().process_frame
+	await get_tree().process_frame  # 等待两帧以确保渲染完成
+	
+	# 现在执行实际扫描
+	_execute_scan()
 
 
 func _execute_scan() -> void:
