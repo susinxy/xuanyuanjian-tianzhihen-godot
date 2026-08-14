@@ -13,9 +13,13 @@ func _ready() -> void:
 	
 	_create_panel()
 	
+	if not character:
+		print("DebugHeightOverlay: character 为 null，尝试自动查找")
+		_auto_find_character()
+	
 	print("DebugHeightOverlay: character = ", character)
 	if not character:
-		_error_message = "❌ character: null (NodePath 未正确设置)"
+		_error_message = "❌ character: null (NodePath 未正确设置，且自动查找失败)"
 		print("DebugHeightOverlay: ", _error_message)
 		return
 	
@@ -27,8 +31,26 @@ func _ready() -> void:
 		print("DebugHeightOverlay: ", _error_message)
 		return
 	
+	_error_message = ""
 	print("DebugHeightOverlay: 初始化成功")
 	print("=== DebugHeightOverlay._ready() 完成 ===")
+
+
+func _auto_find_character() -> void:
+	var parent := get_parent()
+	if not parent:
+		print("DebugHeightOverlay: 无父节点，无法自动查找")
+		return
+	
+	print("DebugHeightOverlay: 在父节点 ", parent.name, " 的子节点中查找 CharacterBody2D")
+	for child in parent.get_children():
+		print("  - ", child.name, " (", child.get_class(), ")")
+		if child is CharacterBody2D:
+			character = child
+			print("DebugHeightOverlay: 自动找到 character: ", child.name)
+			return
+	
+	print("DebugHeightOverlay: 未找到 CharacterBody2D")
 
 
 func _create_panel() -> void:
