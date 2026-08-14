@@ -571,18 +571,11 @@ func _update_hitbox_layers(base_h: float, attack_hs: Array) -> void:
         return
 
     # 攻击状态：根据 attack_heights 计算专属高度层
-    var layers := []
+    var attack_bitmask := 0
     for attack_h in attack_hs:
         var absolute_h: float = base_h + attack_h
-        layers.append_array(_height_to_layers(absolute_h))
+        attack_bitmask |= (1 << (_height_to_layer(absolute_h) - 1))
     
-    # 使用 Dictionary key 去重（GDScript Array 没有 .deduplicate() 方法）
-    var unique_layers: Dictionary = {}
-    for layer in layers:
-        unique_layers[layer] = true
-    var deduplicated := Array(unique_layers.keys())
-    
-    var attack_bitmask := _layers_to_bitmask(deduplicated)
     for hitbox in _hitboxes:
         hitbox.collision_layer = attack_bitmask
 
@@ -598,15 +591,12 @@ func _calculate_range_layers(min_h: float, max_h: float) -> Array[int]:
     return result
 
 
-# 点查询：某个高度 h 属于哪些层 (min, max]
-func _height_to_layers(height: float) -> Array[int]:
-    var result: Array[int] = []
+# 点查询：某个高度 h 属于哪个层 (min, max]，返回单个层编号
+func _height_to_layer(height: float) -> int:
     for def in HEIGHT_LAYER_DEFINITIONS:
         if height > def["min"] and height <= def["max"]:
-            result.append(def["layer"])
-    if result.is_empty():
-        result.append(15)  # ground_level
-    return result
+            return def["layer"]
+    return 15  # ground_level
 
 
 # layer 编号转 bitmask：layer N 对应 bit (N-1)

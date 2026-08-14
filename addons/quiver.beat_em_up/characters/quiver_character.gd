@@ -62,9 +62,6 @@ var _hitboxes: Array[QuiverHitBox] = []
 # 高度层 bitmask 缓存（_ready 中计算一次，避免每帧循环）
 var _height_layers_all_mask: int = 0
 
-# HurtBox 原始 preset mask（_ready 中缓存，掩码操作只修改高度层位，保留其他位的配置）
-var _hurtbox_preset_mask: int = 0
-
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 ## This is also here as a "hack" for the lack of custom typed exports. It is private because I don't 
@@ -133,10 +130,6 @@ func _ready() -> void:
 	if _skin:
 		_hurtbox = _skin.hurtbox
 		_hitboxes = _skin.hitboxes
-	
-	# 缓存 HurtBox 原始 preset mask（用于保留对手检测层）
-	if _hurtbox:
-		_hurtbox_preset_mask = _hurtbox.collision_mask
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -216,33 +209,32 @@ func _update_collision_layers() -> void:
 
 func _update_hurtbox_layers(character_bitmask: int) -> void:
 	if _hurtbox:
-		_hurtbox.collision_layer = character_bitmask
-		_hurtbox.collision_mask = character_bitmask | _hurtbox_preset_mask
+		_hurtbox.collision_layer = (_hurtbox.collision_layer & ~_height_layers_all_mask) | character_bitmask
+		_hurtbox.collision_mask = (_hurtbox.collision_mask & ~_height_layers_all_mask) | character_bitmask
 
 
 func _update_hitbox_layers(base_h: float, attack_hs: Array, body_bitmask: int) -> void:
 	if attack_hs.is_empty():
 		# 非攻击状态：HitBox 复位为身体高度层（防御性复位）
 		for hitbox in _hitboxes:
-			hitbox.collision_layer = body_bitmask
+			hitbox.collision_layer = (hitbox.collision_layer & ~_height_layers_all_mask) | body_bitmask
 		return
 	
-	# 攻击状态：根据 attack_heights 计算专属高度层
-	# 使用 |= 天然去重（同一 bit 设置多次结果不变）
+	# 攻击状态：根据 attack_heights 计算专属高度层（点查询，只影响所在层）
 	var attack_bitmask := 0
 	for attack_h in attack_hs:
 		var absolute_h: float = base_h + attack_h
-		for layer in _height_to_layers(absolute_h):
-			attack_bitmask |= (1 << (layer - 1))
+		attack_bitmask |= (1 << (_height_to_layer(absolute_h) - 1))
 	for hitbox in _hitboxes:
-		hitbox.collision_layer = attack_bitmask
+		hitbox.collision_layer = (hitbox.collision_layer & ~_height_layers_all_mask) | attack_bitmask
 
 
 ## 高度层切换后，检测并推出与新激活层上障碍物的重叠
 ## 使用 move_and_collide(Vector2.ZERO) 让引擎自动计算最小推出向量
+## recovery_as_collision=true 使 depenetration 结果作为碰撞返回，确保循环能正确退出
 func _resolve_height_overlaps() -> void:
 	for i in range(4):
-		var collision := move_and_collide(Vector2.ZERO)
+		var collision := move_and_collide(Vector2.ZERO, false, 0.08, true)
 		if not collision:
 			break
 		position += collision.get_normal() * collision.get_depth()
@@ -259,15 +251,12 @@ func _calculate_range_layers(min_h: float, max_h: float) -> Array[int]:
 	return result
 
 
-## 点查询：某个高度 h 属于哪些层 (min, max]
-func _height_to_layers(height: float) -> Array[int]:
-	var result: Array[int] = []
+## 点查询：某个高度 h 属于哪个层 (min, max]，返回单个层编号
+func _height_to_layer(height: float) -> int:
 	for def in _height_definitions:
 		if height > def["min"] and height <= def["max"]:
-			result.append(def["layer"])
-	if result.is_empty():
-		result.append(HEIGHT_LAYER_FIRST)
-	return result
+			return def["layer"]
+	return HEIGHT_LAYER_FIRST
 
 
 ## layer 编号转 bitmask：layer N 对应 bit (N-1)
