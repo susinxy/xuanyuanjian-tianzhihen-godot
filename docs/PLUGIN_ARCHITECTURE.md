@@ -128,7 +128,7 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 - `_physics_process(delta)`: 触发 `_update_collision_layers()`
 - `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新 collision_layer 和 collision_mask
 - `_update_hurtbox_layers(character_bitmask)`: 使用 masked read-modify-write 更新 HurtBox 的 collision_layer 和 collision_mask（只修改高度层位，保留其他配置）
-- `_update_hitbox_layers(base_h, attack_hs, body_bitmask)`: 使用 masked read-modify-write 更新 HitBox 的 collision_layer（攻击时仅攻击层，非攻击时复位为身体层）
+- `_update_hitbox_layers(base_h, attack_hs, body_bitmask)`: 使用 `_cached_hitbox_height_bits` 缓存，只在目标值变化时执行 masked read-modify-write 更新 HitBox 的 collision_layer（攻击时仅攻击层，非攻击时复位为身体层）
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layer(height)`: 点查询，返回单个层编号（int）
 - `_layers_to_bitmask(layers)`: 编号转 bitmask

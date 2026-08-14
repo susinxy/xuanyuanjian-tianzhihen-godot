@@ -62,6 +62,9 @@ var _hitboxes: Array[QuiverHitBox] = []
 # 高度层 bitmask 缓存（_ready 中计算一次，避免每帧循环）
 var _height_layers_all_mask: int = 0
 
+# HitBox 高度层缓存（只在值变化时更新 collision_layer）
+var _cached_hitbox_height_bits: int = -1
+
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 ## This is also here as a "hack" for the lack of custom typed exports. It is private because I don't 
@@ -213,19 +216,19 @@ func _update_hurtbox_layers(character_bitmask: int) -> void:
 
 
 func _update_hitbox_layers(base_h: float, attack_hs: Array, body_bitmask: int) -> void:
+	var target_bits: int
 	if attack_hs.is_empty():
-		# 非攻击状态：HitBox 复位为身体高度层（防御性复位）
-		for hitbox in _hitboxes:
-			hitbox.collision_layer = (hitbox.collision_layer & ~_height_layers_all_mask) | body_bitmask
-		return
+		target_bits = body_bitmask
+	else:
+		target_bits = 0
+		for attack_h in attack_hs:
+			var absolute_h: float = base_h + attack_h
+			target_bits |= (1 << (_height_to_layer(absolute_h) - 1))
 	
-	# 攻击状态：根据 attack_heights 计算专属高度层（点查询，只影响所在层）
-	var attack_bitmask := 0
-	for attack_h in attack_hs:
-		var absolute_h: float = base_h + attack_h
-		attack_bitmask |= (1 << (_height_to_layer(absolute_h) - 1))
-	for hitbox in _hitboxes:
-		hitbox.collision_layer = (hitbox.collision_layer & ~_height_layers_all_mask) | attack_bitmask
+	if target_bits != _cached_hitbox_height_bits:
+		_cached_hitbox_height_bits = target_bits
+		for hitbox in _hitboxes:
+			hitbox.collision_layer = (hitbox.collision_layer & ~_height_layers_all_mask) | target_bits
 
 
 ## 区间查询：角色 range [min_h, max_h] 与哪些层 (min, max] 有交集
