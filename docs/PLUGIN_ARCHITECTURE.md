@@ -126,7 +126,10 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 
 **QuiverCharacter 关键方法**:
 - `_physics_process(delta)`: 触发 `_update_collision_layers()`
-- `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新 collision_layer 和 collision_mask
+- `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新 collision_layer 和 collision_mask + 推出重叠
+- `_update_hurtbox_layers(character_bitmask)`: 设置 HurtBox 的 collision_layer = 身体层，collision_mask = 身体层 + preset mask
+- `_update_hitbox_layers(base_h, attack_hs, body_bitmask)`: 设置 HitBox 的 collision_layer（攻击时仅攻击层，非攻击时复位为身体层）
+- `_resolve_height_overlaps()`: 层变化后使用 `move_and_collide(Vector2.ZERO)` 推出与新层障碍物的重叠
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layers(height)`: 点查询
 - `_layers_to_bitmask(layers)`: 编号转 bitmask

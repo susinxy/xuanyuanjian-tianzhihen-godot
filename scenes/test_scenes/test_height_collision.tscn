@@ -50,7 +50,7 @@ color = Color(0.3, 0.25, 0.2, 1)
 
 [node name="ShortWall" type="StaticBody2D" parent="." unique_id=2005990820]
 position = Vector2(600, 370)
-collision_layer = 49152
+collision_layer = 16384
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall" unique_id=1032706238]
 modulate = Color(0, 0.6, 0.7019608, 1)
@@ -74,7 +74,7 @@ horizontal_alignment = 1
 
 [node name="TallWall" type="StaticBody2D" parent="." unique_id=680297214]
 position = Vector2(2000, 250)
-collision_layer = 507904
+collision_layer = 16760832
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall" unique_id=1910036810]
 modulate = Color(0, 0.6, 0.7019608, 1)
