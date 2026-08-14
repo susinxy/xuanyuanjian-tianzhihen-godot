@@ -519,8 +519,8 @@ func _extract_and_apply_speed_values(
 	var knockout_data := {}
 	
 	for sprite_anim_name in height_data.frame_heights.keys():
-		var is_jump := sprite_anim_name.contains("jump") and not sprite_anim_name.contains("knockout")
-		var is_knockout := sprite_anim_name.contains("knockout")
+		var is_jump: bool = sprite_anim_name.contains("jump") and not sprite_anim_name.contains("knockout")
+		var is_knockout: bool = sprite_anim_name.contains("knockout")
 		
 		if not is_jump and not is_knockout:
 			continue
