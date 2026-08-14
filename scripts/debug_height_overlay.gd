@@ -41,7 +41,8 @@ func _ready() -> void:
 	_panel.add_child(_label)
 	
 	_draw_control = Control.new()
-	_draw_control.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_draw_control.anchor_right = 1.0
+	_draw_control.anchor_bottom = 1.0
 	_draw_control.draw.connect(_on_draw)
 	add_child(_draw_control)
 

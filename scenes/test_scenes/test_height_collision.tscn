@@ -110,6 +110,51 @@ offset_bottom = -20.0
 text = "平台 40px"
 horizontal_alignment = 1
 
+[node name="ShortWallGroundIndicator" type="ColorRect" parent="."]
+offset_left = 770.0
+offset_top = 470.0
+offset_right = 830.0
+offset_bottom = 480.0
+color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="Label" type="Label" parent="ShortWallGroundIndicator"]
+offset_left = -50.0
+offset_top = 10.0
+offset_right = 50.0
+offset_bottom = 30.0
+text = "→ 矮墙 (layer 15)"
+horizontal_alignment = 1
+
+[node name="PlatformGroundIndicator" type="ColorRect" parent="."]
+offset_left = 1070.0
+offset_top = 470.0
+offset_right = 1130.0
+offset_bottom = 480.0
+color = Color(0.3, 0.7, 0.5, 1)
+
+[node name="Label" type="Label" parent="PlatformGroundIndicator"]
+offset_left = -50.0
+offset_top = 10.0
+offset_right = 50.0
+offset_bottom = 30.0
+text = "→ 平台 (layer 16)"
+horizontal_alignment = 1
+
+[node name="TallWallGroundIndicator" type="ColorRect" parent="."]
+offset_left = 1370.0
+offset_top = 470.0
+offset_right = 1430.0
+offset_bottom = 480.0
+color = Color(0.7, 0.3, 0.3, 1)
+
+[node name="Label" type="Label" parent="TallWallGroundIndicator"]
+offset_left = -60.0
+offset_top = 10.0
+offset_right = 60.0
+offset_bottom = 30.0
+text = "→ 高墙 (layers 15+16+17)"
+horizontal_alignment = 1
+
 [node name="DebugLabel" type="Label" parent="."]
 offset_left = 10.0
 offset_top = 200.0
@@ -124,7 +169,7 @@ text = "=== 高度层碰撞测试 ===
 2. 钻过悬浮平台 (100px) - base_height = 0 时通过
 3. 撞击高墙 (200px) - 应该被阻挡
 
-观察右侧调试面板查看实时高度层信息"
+观察右上角调试面板查看实时高度层信息"
 
 [node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("3_debug_overlay")

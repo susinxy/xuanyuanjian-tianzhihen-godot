@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="轩辕剑叁外传：天之痕 - 学习项目"
-run/main_scene="res://scenes/test_stage.tscn"
+run/main_scene="res://scenes/test_scenes/test_height_collision.tscn"
 config/features=PackedStringArray("4.7")
 
 [autoload]
