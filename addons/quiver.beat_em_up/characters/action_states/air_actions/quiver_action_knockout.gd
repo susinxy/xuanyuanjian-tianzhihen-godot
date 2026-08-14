@@ -87,7 +87,7 @@ func _handle_bounce() -> void:
 
 func _launch_charater(launch_vector: Vector2) -> void:
 	var current_velocity := Vector2(_character.velocity.x, _air_state._skin_velocity_y)
-	var new_velocity = current_velocity + _attributes.knockback_amount * launch_vector
+	var new_velocity = current_velocity + _attributes.knockback_amount * _attributes.knockback_weight * launch_vector
 	new_velocity = new_velocity.limit_length(MAX_LAUNCH_SPEED)
 	
 	_character.velocity.x = new_velocity.x

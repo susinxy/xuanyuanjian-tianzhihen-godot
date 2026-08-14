@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://qdukurbhc4ny"
-path="res://.godot/imported/knockout_00_physical_180.png-b1668f5e75f54ebb1cb20780540fc1a9.ctex"
+path="res://.godot/imported/knockout_00_speed_2_physical_180.png-d5ee4eb92d92e4f5934ee4a8d90d3e25.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://characters/playable/chen_jingchou/resources/sprites/knock_out/knockout_00_physical_180.png"
-dest_files=["res://.godot/imported/knockout_00_physical_180.png-b1668f5e75f54ebb1cb20780540fc1a9.ctex"]
+source_file="res://characters/playable/chen_jingchou/resources/sprites/knock_out/knockout_00_speed_2_physical_180.png"
+dest_files=["res://.godot/imported/knockout_00_speed_2_physical_180.png-d5ee4eb92d92e4f5934ee4a8d90d3e25.ctex"]
 
 [params]
 

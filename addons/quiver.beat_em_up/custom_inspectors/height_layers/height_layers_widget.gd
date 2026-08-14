@@ -228,13 +228,23 @@ func _display_preview(result: Dictionary) -> void:
 	
 	lines.append("")
 	
-	# 显示跳跃 speed → jump_force 映射
+	# 显示跳跃和击飞 speed 映射
 	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
 		var info: Dictionary = result.jump_speed_info
-		lines.append("[b]跳跃力度映射：[/b]")
-		lines.append("  动画: %s" % info.get("anim_name", ""))
-		lines.append("  speed: %d → jump_force: %d" % [info.get("speed", 0), info.get("jump_force", 0)])
-		lines.append("")
+		
+		if info.has("jump"):
+			var jump_info: Dictionary = info["jump"]
+			lines.append("[b]跳跃力度映射：[/b]")
+			lines.append("  动画: %s" % jump_info.get("anim_name", ""))
+			lines.append("  speed: %d → jump_force: %d" % [jump_info.get("speed", 0), jump_info.get("jump_force", 0)])
+			lines.append("")
+		
+		if info.has("knockout"):
+			var ko_info: Dictionary = info["knockout"]
+			lines.append("[b]击飞权重映射：[/b]")
+			lines.append("  动画: %s" % ko_info.get("anim_name", ""))
+			lines.append("  speed: %.1f → knockback_weight: %.1f" % [ko_info.get("speed", 1.0), ko_info.get("knockback_weight", 1.0)])
+			lines.append("")
 	
 	if result.errors.size() > 0:
 		lines.append("[color=red][b]错误（%d 个）：[/b][/color]" % result.errors.size())
@@ -284,13 +294,23 @@ func _execute_scan_async() -> void:
 			summary_lines.append("  ✓ %s" % anim_name)
 		summary_lines.append("")
 	
-	# 显示跳跃 speed → jump_force 映射
+	# 显示跳跃和击飞 speed 映射
 	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
 		var info: Dictionary = result.jump_speed_info
-		summary_lines.append("[b]跳跃力度已更新：[/b]")
-		summary_lines.append("  %s: speed %d → jump_force %d" % [
-			info.get("anim_name", ""), info.get("speed", 0), info.get("jump_force", 0)])
-		summary_lines.append("")
+		
+		if info.has("jump"):
+			var jump_info: Dictionary = info["jump"]
+			summary_lines.append("[b]跳跃力度已更新：[/b]")
+			summary_lines.append("  %s: speed %d → jump_force %d" % [
+				jump_info.get("anim_name", ""), jump_info.get("speed", 0), jump_info.get("jump_force", 0)])
+			summary_lines.append("")
+		
+		if info.has("knockout"):
+			var ko_info: Dictionary = info["knockout"]
+			summary_lines.append("[b]击飞权重已更新：[/b]")
+			summary_lines.append("  %s: speed %.1f → knockback_weight %.1f" % [
+				ko_info.get("anim_name", ""), ko_info.get("speed", 1.0), ko_info.get("knockback_weight", 1.0)])
+			summary_lines.append("")
 	
 	# 显示所有错误
 	summary_lines.append("[color=%s]错误数量: %d[/color]" % [

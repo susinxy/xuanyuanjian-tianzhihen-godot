@@ -3,7 +3,7 @@
 > **版本**: 4.1.0  
 > **创建日期**: 2026-08-11  
 > **最后更新**: 2026-08-14  
-> **状态**: Phase 1-4 已实施（方案 C + 10 层配置化），Phase 5 部分完成（仅跳跃）  
+> **状态**: Phase 1-5 已完成（方案 C + 10 层配置化 + speed_X 跳跃/击飞配置）  
 > **变更记录**:
 > - v2.0 — 重构数据流架构，base_height 从 _skin.position.y 派生（method track 同步），移除 base_X 文件名标注，保留 Quiver _skin_velocity_y 机制
 > - v2.1 — 修复 Layer 公式为 `(min, max]`（无匹配默认 ground_level）；修复 CharacterBody2D collision_layer 覆盖原有 bits（只修改 15-19）；修复 `_update_hitbox_layers` 空状态复位；补充 `_get_hurtbox/hitboxes` 实现（基于 owner group）；明确 `are_factions_equal` 放在 `quiver_hurt_box.gd`；修正测试用例；CharacterBody2D.position.y 不再固定为 0；Collision Preset 预设为 ground_level（Section 8.8）；HitLane 系统保留（Section 8.7）
@@ -12,7 +12,7 @@
 > - v3.0 — **方案 C 实施**：高度层属性从 QuiverCharacter 移到 QuiverCharacterSkin；AnimationPlayer track 路径从 `../` 改为 `.:`（无前缀直接访问 Skin 属性）；注入器优化（保留原始方法、keyframe 优化）；41 个动画文件已扫描应用
 > - v3.1 — `base_height` 改为计算属性（`get: return -position.y`），移除 `_sync_base_height()` method track，解决跳跃时 base_height 不实时更新的问题
 > - v4.0 — **10 层配置化系统**：从 5 层扩展到 10 层（layers 15-24）；边界值从 `project.godot` 的 `standard_height` 运行时计算；每对 `*_low`/`*_high` 层区分标准跳跃能力；删除废弃的 `HeightLayerSystem.gd`
-> - v4.1 — **Phase 5 部分完成**：跳跃动画 `speed_X` 配置实现；Inspector 扫描工具自动提取 speed 值并写入 `QuiverAttributes.jump_force`；chen_jingchou 的 jump 动画已标注 `speed_1200`
+> - v4.1 — **Phase 5 完成**：跳跃和击飞动画 `speed_X` 配置实现；Inspector 扫描工具自动提取 speed 值并写入 `QuiverAttributes.jump_force`（跳跃）和 `QuiverAttributes.knockback_weight`（击飞权重）；chen_jingchou 的 jump 动画已标注 `speed_2400`，knockout 动画已标注 `speed_2`
 
 ---
 
@@ -1127,51 +1127,57 @@ if current_layers != _cached_height_layers:
    - 保留 layers 1-14，添加当前高度层 (15-19)
    - 使角色能够与高度层障碍物发生物理碰撞
 
-### Phase 5：跳跃/击飞动画的 `speed_X` 配置 ✅ 部分完成（仅跳跃）
+### Phase 5：跳跃/击飞动画的 `speed_X` 配置 ✅ 已完成
 
 #### 5.1 目标
 
-为跳跃动画的首帧配置 `speed_X` 标注，使 Inspector 扫描工具能自动提取跳跃初速度并写入 `QuiverAttributes.jump_force`。
-
-**当前状态**：仅实现跳跃动画（jump），击飞动画（knockout）待后续实施。
+为跳跃和击飞动画的首帧配置 `speed_X` 标注，使 Inspector 扫描工具能自动提取：
+- 跳跃动画 → `QuiverAttributes.jump_force`
+- 击飞动画 → `QuiverAttributes.knockback_weight`
 
 #### 5.2 为什么需要
 
-- `speed_X` 决定跳跃的**初始冲量**（`_skin_velocity_y` 的初值）
-- Inspector 工具会自动处理 `speed_X` → `jump_force` 的映射
-- 无需手动编辑 `.tres` 文件
+- **跳跃**：`speed_X` 决定跳跃的**初始冲量**（`_skin_velocity_y` 的初值）
+- **击飞**：`speed_X` 作为**击飞权重**，影响被击飞时的速度（`knockback_amount * knockback_weight * launch_vector`）
+- Inspector 工具会自动处理映射，无需手动编辑 `.tres` 文件
 
 #### 5.3 实现机制
 
 **文件名约定**：
 ```
-jump_01_speed_1200_physical_180.png
+jump_01_speed_2400_physical_180.png
          ↑
     speed_X（正数，表示跳跃力度）
+
+knockout_00_speed_2_physical_180.png
+           ↑
+    speed_X（正数，表示击飞权重）
 ```
 
 **映射规则**：
 - `speed_X` 使用正数（与 `physical_X`、`attack_X` 保持一致）
-- `jump_force = -speed`（正数 speed → 负数 jump_force，因为向上为负）
+- **跳跃**：`jump_force = -speed`（正数 speed → 负数 jump_force，因为向上为负）
+- **击飞**：`knockback_weight = speed`（直接作为权重，默认 1.0）
 
 **执行流程**：
 ```
 扫描时：
   1. 解析文件名 → 提取 speed 值
-  2. 找到跳跃动画（名称含 "jump"，排除 "knockout"）
+  2. 找到跳跃动画（名称含 "jump"，排除 "knockout"）或击飞动画（名称含 "knockout"）
   3. 读取首帧（frame 0）的 speed 值
   4. 导航到 QuiverCharacter.attributes
-  5. 设置 jump_force = -speed
+  5. 跳跃：设置 jump_force = -speed
+     击飞：设置 knockback_weight = speed
   6. 保存 QuiverAttributes 资源
 ```
 
 #### 5.4 验收标准
 
-- [x] 跳跃动画首帧有 `speed_X` 标注（chen_jingchou: `jump_01_speed_1200_physical_180.png`）
-- [x] Inspector 工具能正确解析并生成 jump_force
-- [x] UI 显示 speed → jump_force 映射（预览和扫描结果）
-- [ ] 击飞动画（knockout）的 speed_X 配置（待实施）
-- [ ] 在测试场景中验证跳跃高度是否符合设计
+- [x] 跳跃动画首帧有 `speed_X` 标注（chen_jingchou: `jump_01_speed_2400_physical_180.png`）
+- [x] 击飞动画首帧有 `speed_X` 标注（chen_jingchou: `knockout_00_speed_2_physical_180.png`）
+- [x] Inspector 工具能正确解析并生成 jump_force 和 knockback_weight
+- [x] UI 显示跳跃力度和击飞权重映射（预览和扫描结果）
+- [x] 在测试场景中验证跳跃高度和击飞距离是否符合设计
 
 ---
 
@@ -1266,9 +1272,9 @@ jump_01_speed_1200_physical_180.png
 - ✅ 多高度攻击判定
 - ✅ 阵营过滤（`area2d:` group）
 
-**实施优先级**：Phase 1-4 已完成（基础设施 + 测试场景 + 10 层配置化），Phase 5 为中优先级（动画配置）
+**实施优先级**：Phase 1-5 全部完成
 
-**当前状态**：Phase 1-4 已完成（方案 C + 10 层配置化），Phase 5 待实施
+**当前状态**：Phase 1-5 已完成（方案 C + 10 层配置化 + speed_X 跳跃/击飞配置）
 
 ---
 

@@ -76,7 +76,7 @@ func run(skin_node: Node, dry_run: bool = false) -> Dictionary:
 	_inject_to_library(anim_player, sprite_frames, result.height_data, result.errors, result.animations_to_modify, dry_run)
 	
 	# 6. 提取跳跃动画的 speed 值并写入 QuiverAttributes.jump_force
-	result.jump_speed_info = _extract_and_apply_jump_speed(skin_node, result.height_data, result.errors, dry_run)
+	result.jump_speed_info = _extract_and_apply_speed_values(skin_node, result.height_data, result.errors, dry_run)
 	
 	return result
 
@@ -120,7 +120,7 @@ func run_incremental(skin_node: Node, dry_run: bool = false, callback_obj: Objec
 	await _inject_to_library_incremental(anim_player, sprite_frames, result.height_data, result.errors, result.animations_to_modify, dry_run, callback_obj)
 	
 	# 6. 提取跳跃动画的 speed 值并写入 QuiverAttributes.jump_force
-	result.jump_speed_info = _extract_and_apply_jump_speed(skin_node, result.height_data, result.errors, dry_run)
+	result.jump_speed_info = _extract_and_apply_speed_values(skin_node, result.height_data, result.errors, dry_run)
 	
 	return result
 
@@ -496,16 +496,17 @@ func _add_value_track(anim: Animation, track_path: String) -> int:
 	return track_idx
 
 
-## 从跳跃动画首帧提取 speed 值，写入 QuiverAttributes.jump_force
+## 从跳跃和击飞动画首帧提取 speed 值，写入 QuiverAttributes
 ##
 ## 逻辑：
-## 1. 遍历 height_data，找到名称含 "jump" 的 SpriteFrames 子动画
+## 1. 遍历 height_data，找到名称含 "jump" 或 "knockout" 的 SpriteFrames 子动画
 ## 2. 检查首帧（frame 0）是否有 speed 标注
-## 3. 如果有，设置 jump_force = -speed（正数 speed → 负数 jump_force）
-## 4. 保存 QuiverAttributes 资源
+## 3. jump 动画：设置 jump_force = -speed（正数 speed → 负数 jump_force）
+## 4. knockout 动画：设置 knockback_weight = speed（直接作为权重）
+## 5. 保存 QuiverAttributes 资源
 ##
-## 返回：{ "anim_name": String, "speed": float, "jump_force": float } 或空字典
-func _extract_and_apply_jump_speed(
+## 返回：{ "jump": {...}, "knockout": {...} } 或空字典
+func _extract_and_apply_speed_values(
 	skin_node: Node,
 	height_data: CharacterHeightData,
 	errors: Array[String],
@@ -513,16 +514,15 @@ func _extract_and_apply_jump_speed(
 ) -> Dictionary:
 	var info := {}
 	
-	# 查找跳跃动画（名称含 "jump"，排除 "knockout"）
-	var jump_speed_value: float = 0.0
-	var jump_anim_name := ""
-	var jump_anim_found := false
+	# 收集 jump 和 knockout 的 speed 值
+	var jump_data := {}
+	var knockout_data := {}
 	
 	for sprite_anim_name in height_data.frame_heights.keys():
-		# 只处理跳跃动画（含 "jump" 但不含 "knockout"）
-		if not sprite_anim_name.contains("jump"):
-			continue
-		if sprite_anim_name.contains("knockout"):
+		var is_jump := sprite_anim_name.contains("jump") and not sprite_anim_name.contains("knockout")
+		var is_knockout := sprite_anim_name.contains("knockout")
+		
+		if not is_jump and not is_knockout:
 			continue
 		
 		# 检查首帧（frame 0）的 speed 值
@@ -533,25 +533,32 @@ func _extract_and_apply_jump_speed(
 		
 		var speed = frame_0.get("speed", null)
 		if speed == null:
-			errors.append("跳跃动画 '%s' 首帧缺少 speed 标注" % sprite_anim_name)
-			continue
+			continue  # 静默跳过，不报错（speed 是可选的）
 		
-		# speed 是正数，jump_force 是负数（向上）
-		jump_speed_value = float(speed)
-		jump_anim_name = sprite_anim_name
-		jump_anim_found = true
-		break  # 只取第一个找到的跳跃动画
+		var speed_value: float = float(speed)
+		
+		if is_jump:
+			jump_data = {
+				"anim_name": sprite_anim_name,
+				"speed": speed_value,
+				"jump_force": -abs(speed_value),
+			}
+		elif is_knockout:
+			knockout_data = {
+				"anim_name": sprite_anim_name,
+				"speed": speed_value,
+				"knockback_weight": speed_value,
+			}
 	
-	if not jump_anim_found:
-		# 没有找到跳跃动画或没有 speed 标注，静默跳过
+	# 如果没有找到任何 speed 标注，直接返回
+	if jump_data.is_empty() and knockout_data.is_empty():
 		return info
 	
 	# 记录 speed 信息（无论 dry_run 与否都返回）
-	info = {
-		"anim_name": jump_anim_name,
-		"speed": jump_speed_value,
-		"jump_force": -abs(jump_speed_value),
-	}
+	if not jump_data.is_empty():
+		info["jump"] = jump_data
+	if not knockout_data.is_empty():
+		info["knockout"] = knockout_data
 	
 	if dry_run:
 		# dry_run 模式只记录，不实际修改
@@ -568,24 +575,32 @@ func _extract_and_apply_jump_speed(
 		errors.append("QuiverCharacter.attributes 未配置")
 		return info
 	
-	# 设置 jump_force = -speed
-	var new_jump_force: float = -abs(jump_speed_value)
+	var needs_save := false
 	
-	# 检查是否需要更新
-	if is_equal_approx(attributes.jump_force, new_jump_force):
-		return info
+	# 设置 jump_force
+	if not jump_data.is_empty():
+		var new_jump_force: float = -abs(jump_data["speed"])
+		if not is_equal_approx(attributes.jump_force, new_jump_force):
+			attributes.jump_force = new_jump_force
+			needs_save = true
 	
-	attributes.jump_force = new_jump_force
+	# 设置 knockback_weight
+	if not knockout_data.is_empty():
+		var new_weight: float = knockout_data["speed"]
+		if not is_equal_approx(attributes.knockback_weight, new_weight):
+			attributes.knockback_weight = new_weight
+			needs_save = true
 	
 	# 保存 QuiverAttributes 资源
-	var resource_path := attributes.resource_path
-	if resource_path.is_empty():
-		errors.append("QuiverAttributes 无资源路径，无法保存 jump_force")
-		return info
-	
-	var err := ResourceSaver.save(attributes, resource_path)
-	if err != OK:
-		errors.append("QuiverAttributes 保存失败 (error=%d)" % err)
+	if needs_save:
+		var resource_path := attributes.resource_path
+		if resource_path.is_empty():
+			errors.append("QuiverAttributes 无资源路径，无法保存 speed 值")
+			return info
+		
+		var err := ResourceSaver.save(attributes, resource_path)
+		if err != OK:
+			errors.append("QuiverAttributes 保存失败 (error=%d)" % err)
 	
 	return info
 

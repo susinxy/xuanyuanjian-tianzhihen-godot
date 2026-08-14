@@ -64,6 +64,11 @@ const KNOCKBACK_VALUES = {
 ## same jump height as a lighter character.
 @export_range(0, 0, 1, "or_less") var jump_force := -1200
 
+## 击飞权重，影响被击飞时的速度
+## 默认值 1.0 保持原有行为，大于 1.0 增加击飞距离，小于 1.0 减少击飞距离
+## 由 knockout 动画首帧的 speed_X 标注自动设置
+@export_range(0.0, 10.0, 0.1, "or_greater") var knockback_weight := 1.0
+
 ## If you need to make the hit lanes broader or narrower for a specifi character you can use
 ## this property. Positive values will add to the default hit lane size defined in the Project
 ## Setting, while negative values will subtract from it. 

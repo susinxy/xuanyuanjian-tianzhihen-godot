@@ -243,7 +243,8 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export var health_max := 100           # 最大 HP（range 0-1, or_greater）
 @export var speed_max := 600            # 最大移动速度
 @export var air_control := 0.6          # 空中操控系数 (0.0-1.0)
-@export var jump_force := -1200         # 起跳力（负数=向上）
+@export var jump_force := -1200         # 起跳力（负数=向上，由 jump 动画 speed_X 设置）
+@export var knockback_weight := 1.0     # 击飞权重（由 knockout 动画 speed_X 设置）
 @export var hit_lane_offset := 0        # 车道大小偏移
 
 @export_group("Modifiers")
@@ -928,9 +929,11 @@ AnimationTrackInjector.run(skin_node, dry_run)
    c. 添加新 tracks（.:physical_height, .:attack_heights, . method）
    d. 逐帧插入 keyframes（value tracks 只在值变化时添加）
    e. 保存 Animation 资源
-6. 提取跳跃动画首帧的 speed_X，写入 QuiverAttributes.jump_force
+6. 提取跳跃和击飞动画首帧的 speed_X：
+   - jump 动画 → QuiverAttributes.jump_force = -speed
+   - knockout 动画 → QuiverAttributes.knockback_weight = speed
   ↓
-显示结果（成功/失败/错误列表/跳跃力度映射）
+显示结果（成功/失败/错误列表/跳跃力度映射/击飞权重映射）
 ```
 
 **轨道路径（方案 C）**：
