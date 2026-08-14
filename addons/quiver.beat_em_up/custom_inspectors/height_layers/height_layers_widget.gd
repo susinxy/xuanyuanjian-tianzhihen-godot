@@ -228,6 +228,14 @@ func _display_preview(result: Dictionary) -> void:
 	
 	lines.append("")
 	
+	# 显示跳跃 speed → jump_force 映射
+	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
+		var info: Dictionary = result.jump_speed_info
+		lines.append("[b]跳跃力度映射：[/b]")
+		lines.append("  动画: %s" % info.get("anim_name", ""))
+		lines.append("  speed: %d → jump_force: %d" % [info.get("speed", 0), info.get("jump_force", 0)])
+		lines.append("")
+	
 	if result.errors.size() > 0:
 		lines.append("[color=red][b]错误（%d 个）：[/b][/color]" % result.errors.size())
 		# 显示所有错误
@@ -274,6 +282,14 @@ func _execute_scan_async() -> void:
 		summary_lines.append("[b]已修改 %d 个动画：[/b]" % result.animations_to_modify.size())
 		for anim_name in result.animations_to_modify:
 			summary_lines.append("  ✓ %s" % anim_name)
+		summary_lines.append("")
+	
+	# 显示跳跃 speed → jump_force 映射
+	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
+		var info: Dictionary = result.jump_speed_info
+		summary_lines.append("[b]跳跃力度已更新：[/b]")
+		summary_lines.append("  %s: speed %d → jump_force %d" % [
+			info.get("anim_name", ""), info.get("speed", 0), info.get("jump_force", 0)])
 		summary_lines.append("")
 	
 	# 显示所有错误

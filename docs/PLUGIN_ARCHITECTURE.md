@@ -928,8 +928,9 @@ AnimationTrackInjector.run(skin_node, dry_run)
    c. 添加新 tracks（.:physical_height, .:attack_heights, . method）
    d. 逐帧插入 keyframes（value tracks 只在值变化时添加）
    e. 保存 Animation 资源
+6. 提取跳跃动画首帧的 speed_X，写入 QuiverAttributes.jump_force
   ↓
-显示结果（成功/失败/错误列表）
+显示结果（成功/失败/错误列表/跳跃力度映射）
 ```
 
 **轨道路径（方案 C）**：

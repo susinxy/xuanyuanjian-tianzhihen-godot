@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0yq2mfxovacb"
-path="res://.godot/imported/jump_01_physical_180.png-d952d8c5a59e56196bfb0b51190c07ab.ctex"
+path="res://.godot/imported/jump_01_speed_1200_physical_180.png-d7c98a2b4c721b8ae0c027beb92236c7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://characters/playable/chen_jingchou/resources/sprites/jump/jump_01_physical_180.png"
-dest_files=["res://.godot/imported/jump_01_physical_180.png-d952d8c5a59e56196bfb0b51190c07ab.ctex"]
+source_file="res://characters/playable/chen_jingchou/resources/sprites/jump/jump_01_speed_1200_physical_180.png"
+dest_files=["res://.godot/imported/jump_01_speed_1200_physical_180.png-d7c98a2b4c721b8ae0c027beb92236c7.ctex"]
 
 [params]
 
