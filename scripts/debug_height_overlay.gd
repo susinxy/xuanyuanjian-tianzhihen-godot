@@ -97,7 +97,7 @@ func _on_draw() -> void:
 	
 	var max_h := 350.0
 	for t in thresholds:
-		var y := bar_y + bar_height - (t["h"] / max_h * bar_height)
+		var y: float = bar_y + bar_height - (t["h"] / max_h * bar_height)
 		_draw_control.draw_line(Vector2(bar_x, y), Vector2(bar_x + bar_width, y), t["color"], 2.0)
 		var font := ThemeDB.fallback_font
 		_draw_control.draw_string(font, Vector2(bar_x + bar_width + 5, y + 5), t["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, t["color"])
