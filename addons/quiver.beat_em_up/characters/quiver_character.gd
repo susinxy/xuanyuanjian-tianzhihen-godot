@@ -62,6 +62,9 @@ var _hitboxes: Array[QuiverHitBox] = []
 # 高度层 bitmask 缓存（_ready 中计算一次，避免每帧循环）
 var _height_layers_all_mask: int = 0
 
+# 延迟重叠推出标记（层变化后下一帧开头执行，等待 broadphase 更新）
+var _pending_overlap_resolve: bool = false
+
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 ## This is also here as a "hack" for the lack of custom typed exports. It is private because I don't 
@@ -155,6 +158,9 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 
 func _physics_process(_delta: float) -> void:
+	if _pending_overlap_resolve:
+		_pending_overlap_resolve = false
+		_resolve_height_overlaps()
 	_update_collision_layers()
 
 ### -----------------------------------------------------------------------------------------------
@@ -202,7 +208,7 @@ func _update_collision_layers() -> void:
 		var height_bitmask := _layers_to_bitmask(current_layers)
 		collision_mask = (collision_mask & ~_height_layers_all_mask) | height_bitmask
 		_update_hurtbox_layers(height_bitmask)
-		_resolve_height_overlaps()
+		_pending_overlap_resolve = true
 	
 	_update_hitbox_layers(bh, ah, _layers_to_bitmask(_cached_height_layers))
 
@@ -230,14 +236,13 @@ func _update_hitbox_layers(base_h: float, attack_hs: Array, body_bitmask: int) -
 
 
 ## 高度层切换后，检测并推出与新激活层上障碍物的重叠
-## 使用 move_and_collide(Vector2.ZERO) 让引擎自动计算最小推出向量
-## recovery_as_collision=true 使 depenetration 结果作为碰撞返回，确保循环能正确退出
+## 延迟到下一帧开头执行（等待 broadphase 更新碰撞对列表）
+## move_and_collide 内部已通过 set_global_transform 更新 position，无需手动修正
 func _resolve_height_overlaps() -> void:
 	for i in range(4):
 		var collision := move_and_collide(Vector2.ZERO, false, 0.08, true)
 		if not collision:
 			break
-		position += collision.get_normal() * collision.get_depth()
 
 
 ## 区间查询：角色 range [min_h, max_h] 与哪些层 (min, max] 有交集

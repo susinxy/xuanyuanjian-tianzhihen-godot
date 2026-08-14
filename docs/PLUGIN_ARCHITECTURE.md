@@ -129,7 +129,7 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 - `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新 collision_layer 和 collision_mask + 推出重叠
 - `_update_hurtbox_layers(character_bitmask)`: 使用 masked read-modify-write 更新 HurtBox 的 collision_layer 和 collision_mask（只修改高度层位，保留其他配置）
 - `_update_hitbox_layers(base_h, attack_hs, body_bitmask)`: 使用 masked read-modify-write 更新 HitBox 的 collision_layer（攻击时仅攻击层，非攻击时复位为身体层）
-- `_resolve_height_overlaps()`: 层变化后使用 `move_and_collide(Vector2.ZERO, false, 0.08, true)` 推出与新层障碍物的重叠（`recovery_as_collision=true` 确保 depenetration 结果作为碰撞返回）
+- `_resolve_height_overlaps()`: 层变化后延迟到下一帧开头使用 `move_and_collide(Vector2.ZERO, false, 0.08, true)` 推出与新层障碍物的重叠（等待 broadphase 更新；`move_and_collide` 内部已更新 position，无需手动修正）
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layer(height)`: 点查询，返回单个层编号（int）
 - `_layers_to_bitmask(layers)`: 编号转 bitmask
