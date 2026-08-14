@@ -110,12 +110,13 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 3. 动画 method track `.` 调用 `Skin._sync_base_height()`（每帧，`base_height = -position.y`）
 4. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
 5. 更新 CharacterBody2D collision layer 15-19（逐元素比较，只在变化时更新）
-6. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
-7. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
+6. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层 15-19）
+7. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
+8. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
 
 **QuiverCharacter 关键方法**:
 - `_physics_process(delta)`: 触发 `_update_collision_layers()`
-- `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新
+- `_update_collision_layers()`: 从 `_skin` 读取数据，逐元素比较 + 更新 collision_layer 和 collision_mask
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layers(height)`: 点查询
 - `_layers_to_bitmask(layers)`: 编号转 bitmask
@@ -136,7 +137,7 @@ QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
   └─ StateMachine (Node, quiver_state_machine.gd)
 ```
 
-**重要**: `collision_mask=12`（layers 3+4: screen_limits + ceiling_limits）。继承场景必须设置为 `14`（layers 2+3+4）才能与障碍物碰撞。
+**重要**: `collision_mask=12`（layers 3+4: screen_limits + ceiling_limits）。继承场景必须设置为 `14`（layers 2+3+4）才能与障碍物碰撞。运行时 `_update_collision_layers()` 会动态添加当前高度层 (15-19) 到 collision_mask，使角色能够与高度层障碍物发生物理碰撞。
 
 ### 子类约定
 

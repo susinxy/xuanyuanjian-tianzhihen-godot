@@ -3,7 +3,7 @@
 > **版本**: 3.0.0  
 > **创建日期**: 2026-08-11  
 > **最后更新**: 2026-08-13  
-> **状态**: Phase 1-3 已实施（方案 C），Phase 4-5 待实施  
+> **状态**: Phase 1-4 已实施（方案 C），Phase 5 待实施  
 > **变更记录**:
 > - v2.0 — 重构数据流架构，base_height 从 _skin.position.y 派生（method track 同步），移除 base_X 文件名标注，保留 Quiver _skin_velocity_y 机制
 > - v2.1 — 修复 Layer 公式为 `(min, max]`（无匹配默认 ground_level）；修复 CharacterBody2D collision_layer 覆盖原有 bits（只修改 15-19）；修复 `_update_hitbox_layers` 空状态复位；补充 `_get_hurtbox/hitboxes` 实现（基于 owner group）；明确 `are_factions_equal` 放在 `quiver_hurt_box.gd`；修正测试用例；CharacterBody2D.position.y 不再固定为 0；Collision Preset 预设为 ground_level（Section 8.8）；HitLane 系统保留（Section 8.7）
@@ -1101,17 +1101,23 @@ if current_layers != _cached_height_layers:
 1. ✅ 添加 `are_factions_equal()` 静态辅助函数（`area2d:` group 阵营过滤）
 2. ✅ 修改 `quiver_hurt_box.gd` 调用阵营检查（`_handle_hit_box` + `_handle_grab_box`）
 
-### Phase 4：测试场景 ⏳ 待实施
+### Phase 4：测试场景 ✅ 已完成
 
-1. ⏳ 创建测试关卡
-   - 矮墙 StaticBody2D（height=30，layer=bit 15）
-   - 悬浮平台 StaticBody2D（height=100，layer=bit 16）
-   - 高墙 StaticBody2D（height=200，layer=bits 15+16+17）
+1. ✅ 创建测试关卡
+   - 矮墙 StaticBody2D（height=30，layer=bit 15 = 16384）
+   - 悬浮平台 StaticBody2D（height=100，layer=bit 16 = 32768）
+   - 高墙 StaticBody2D（height=200，layer=bits 15+16+17 = 114688）
 
-2. ⏳ 实现调试覆盖层
-   - 可视化 base_height 线
+2. ✅ 实现调试覆盖层
+   - `scripts/debug_height_overlay.gd`：运行时调试面板
+   - 可视化 base_height、physical_height、attack_heights
    - 可视化当前占据的高度层
-   - 可视化攻击高度层
+   - 可视化高度阈值线（30, 100, 200, 300）
+
+3. ✅ 动态 collision_mask 更新
+   - `QuiverCharacter._update_collision_layers()` 同步更新 collision_mask
+   - 保留 layers 1-14，添加当前高度层 (15-19)
+   - 使角色能够与高度层障碍物发生物理碰撞
 
 ### Phase 5：跳跃/击飞动画的 `speed_X` 配置 ⏳ 待实施
 
@@ -1239,9 +1245,9 @@ if current_layers != _cached_height_layers:
 - ✅ 多高度攻击判定
 - ✅ 阵营过滤（`area2d:` group）
 
-**实施优先级**：Phase 1-3 已完成（基础设施），Phase 4-5 为中优先级（测试与配置）
+**实施优先级**：Phase 1-4 已完成（基础设施 + 测试场景），Phase 5 为中优先级（动画配置）
 
-**当前状态**：Phase 1-3 已完成（方案 C），Phase 4-5 待实施
+**当前状态**：Phase 1-4 已完成（方案 C），Phase 5 待实施
 
 ---
 

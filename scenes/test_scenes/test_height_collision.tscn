@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://characters/playable/chen_jingchou/chen_jingchou.tscn" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(4000, 100)
@@ -45,7 +46,7 @@ shape = SubResource("ground_shape")
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(800, 440)
-collision_layer = 32768
+collision_layer = 16384
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall"]
 shape = SubResource("short_wall_shape")
@@ -67,7 +68,7 @@ horizontal_alignment = 1
 
 [node name="TallWall" type="StaticBody2D" parent="."]
 position = Vector2(1400, 380)
-collision_layer = 32768
+collision_layer = 114688
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall"]
 shape = SubResource("tall_wall_shape")
@@ -111,17 +112,20 @@ horizontal_alignment = 1
 
 [node name="DebugLabel" type="Label" parent="."]
 offset_left = 10.0
-offset_top = 10.0
-offset_right = 800.0
-offset_bottom = 200.0
-text = "高度层碰撞测试场景
+offset_top = 200.0
+offset_right = 400.0
+offset_bottom = 350.0
+text = "=== 高度层碰撞测试 ===
 
-角色: ChenJingchou (已集成 HeightLayerSystem)
 操作: WASD 移动, Space 跳跃, J 攻击
 
 测试内容:
-1. 跳跃穿过矮墙 (80px) - 高度层切换后应该能通过
-2. 撞击高墙 (200px) - 应该被阻挡
-3. 平台 (40px) - 应该能站在上面
+1. 跳跃穿过矮墙 (30px) - base_height > 30 时通过
+2. 钻过悬浮平台 (100px) - base_height = 0 时通过
+3. 撞击高墙 (200px) - 应该被阻挡
 
-观察 Output 面板查看 HeightLayerSystem 的高度变化记录"
+观察右侧调试面板查看实时高度层信息"
+
+[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_debug_overlay")
+character = NodePath("../Character")

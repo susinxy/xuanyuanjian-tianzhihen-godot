@@ -188,6 +188,10 @@ func _update_collision_layers() -> void:
 		# 仅设置 layer 15-19，保留原有的 bits
 		for layer in range(15, 20):
 			set_collision_layer_value(layer, layer in current_layers)
+		# 同步更新 collision_mask，包含当前高度层（用于与高度层障碍物碰撞）
+		# 保留 layers 1-14，添加当前高度层 (15-19)
+		var height_bitmask := _layers_to_bitmask(current_layers)
+		collision_mask = (collision_mask & 0x3FFF) | height_bitmask
 		_update_hurtbox_layers(_layers_to_bitmask(current_layers))
 	
 	_update_hitbox_layers(bh, ah)
