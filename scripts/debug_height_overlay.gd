@@ -6,22 +6,32 @@ var _skin: QuiverCharacterSkin
 var _panel: Panel
 var _label: Label
 var _draw_control: Control
+var _error_message: String = ""
 
 func _ready() -> void:
+	print("=== DebugHeightOverlay._ready() 开始 ===")
+	
+	_create_panel()
+	
+	print("DebugHeightOverlay: character = ", character)
 	if not character:
+		_error_message = "❌ character: null (NodePath 未正确设置)"
+		print("DebugHeightOverlay: ", _error_message)
 		return
 	
-	_skin = character.get_node_or_null("ChenJingchouSkin")
-	if not _skin:
-		for child in character.get_children():
-			if child is QuiverCharacterSkin:
-				_skin = child
-				break
+	_find_skin()
 	
+	print("DebugHeightOverlay: _skin = ", _skin)
 	if not _skin:
-		push_warning("DebugHeightOverlay: 未找到 QuiverCharacterSkin")
+		_error_message = "❌ skin: 未找到 QuiverCharacterSkin"
+		print("DebugHeightOverlay: ", _error_message)
 		return
 	
+	print("DebugHeightOverlay: 初始化成功")
+	print("=== DebugHeightOverlay._ready() 完成 ===")
+
+
+func _create_panel() -> void:
 	_panel = Panel.new()
 	_panel.position = Vector2(10, 10)
 	_panel.size = Vector2(350, 180)
@@ -44,9 +54,35 @@ func _ready() -> void:
 	_draw_control.size = get_viewport().get_visible_rect().size
 	_draw_control.draw.connect(_on_draw)
 	add_child(_draw_control)
+	
+	print("DebugHeightOverlay: 面板创建成功")
+
+
+func _find_skin() -> void:
+	_skin = character.get_node_or_null("ChenJingchouSkin")
+	if _skin:
+		print("DebugHeightOverlay: 通过 get_node_or_null 找到 skin")
+		return
+	
+	print("DebugHeightOverlay: get_node_or_null 失败，尝试遍历 children")
+	for child in character.get_children():
+		print("  - ", child.name, " (", child.get_class(), ")")
+		if child is QuiverCharacterSkin:
+			_skin = child
+			print("DebugHeightOverlay: 通过遍历找到 skin: ", child.name)
+			return
+	
+	print("DebugHeightOverlay: 未找到 QuiverCharacterSkin")
 
 
 func _process(_delta: float) -> void:
+	if not _panel or not _label:
+		return
+	
+	if _error_message != "":
+		_label.text = "=== 高度层调试信息 ===\n" + _error_message
+		return
+	
 	if not character or not _skin:
 		return
 	
