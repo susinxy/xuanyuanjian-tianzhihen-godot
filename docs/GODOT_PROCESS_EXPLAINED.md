@@ -348,12 +348,11 @@ _physics_process 执行顺序:
 同一物理帧内：
 
 ① QuiverCharacter._physics_process()     ← 父节点先
-   - 读取 _skin.base_height / physical_height / attack_heights
+   - 读取 _skin.base_height（计算属性）/ physical_height / attack_heights
    - 计算高度层 → 更新 collision layer
 
 ② Skin.AnimationPlayer._process()        ← 子节点后
    - value track 更新 physical_height / attack_heights
-   - method track 调用 _sync_base_height()
 
 ③ JumpMidAir._physics_process()          ← 更深的子节点
    - _move_and_apply_gravity() 更新 _skin.position.y
@@ -432,11 +431,10 @@ my_signal.emit()
 物理帧 N:
   ① Input: 玩家按 J 键
   ② _unhandled_input(): Idle 状态接收 → transition_to("Ground/Combo1")
-  ③ _physics_process():
-     a. QuiverCharacter: 读取 Skin 的 base_height/physical_height → 更新 collision layer
-     b. AnimationPlayer: value track 更新 Skin.physical_height
-     c. AnimationPlayer: method track 调用 Skin._sync_base_height()
-     d. Combo1 状态: 设置 HitBox 为 active
+   ③ _physics_process():
+      a. QuiverCharacter: 读取 Skin 的 base_height（计算属性）/physical_height → 更新 collision layer
+      b. AnimationPlayer: value track 更新 Skin.physical_height
+      c. Combo1 状态: 设置 HitBox 为 active
   ④ 物理引擎步进:
      - Player HitBox 与 Enemy HurtBox 形状重叠检测
      - area_entered 信号触发

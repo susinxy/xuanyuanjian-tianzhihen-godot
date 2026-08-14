@@ -107,7 +107,7 @@
 - **单位**：像素（px）
 - **范围**：[0, +∞)
 - **来源**：**从 `_skin.position.y` 实时派生**，`base_height = -_skin.position.y`
-- **机制**：AnimationPlayer 使用 method track 每帧调用 `_sync_base_height()`，自动同步
+- **机制**：计算属性（getter），每次读取时自动计算 `-position.y`，无需动画 track 驱动
 - **示例**：
   - 跳跃中 `_skin.position.y = -120` → `base_height = 120`
   - 地面站立 `_skin.position.y = 0` → `base_height = 0`
@@ -300,11 +300,11 @@ AnimationPlayer 位于 Skin 节点下，其 `root_node` 默认 = `".."`（即 Sk
 |---------|-----------|------|
 | value track | `".:physical_height"` | 写入 Skin.physical_height |
 | value track | `".:attack_heights"` | 写入 Skin.attack_heights |
-| method track | `"."` 调用 `_sync_base_height()` | 从 Skin.position.y 同步 base_height |
+
+> **注意**：`base_height` 是计算属性（`get: return -position.y`），无需动画 track 驱动。
 
 **路径格式说明**：
 - `.:property` — 访问 root_node（Skin）自身的属性
-- `.` — 调用 root_node（Skin）自身的方法
 - 这与 Quiver 原有轨道（如 `AnimatedSprite2D:frame`）使用相同的 root_node 解析机制
 
 ### 6.3 完整数据流
@@ -319,15 +319,12 @@ AnimationPlayer 位于 Skin 节点下，其 `root_node` 默认 = `".."`（即 Sk
 5. 清除旧的 height 轨道（保留原始 Quiver 方法），重新生成：
    - value track(".:physical_height")  ← discrete keyframes（只在值变化时添加）
    - value track(".:attack_heights")   ← discrete keyframes（只在值变化时添加）
-   - method track(".") 调用 _sync_base_height()  ← 每帧一个 key
 6. 保存
 
 运行时
 ────────────────────────────────────────────────────────────
 AnimationPlayer._process（每帧）:
    - value tracks 更新 Skin.physical_height / Skin.attack_heights
-   - method track 调用 Skin._sync_base_height()
-     → Skin.base_height = -Skin.position.y
 
 QuiverCharacter._physics_process（每帧）:
    - 从 _skin 读取 base_height, physical_height, attack_heights
@@ -342,14 +339,12 @@ Godot 同一帧内的处理顺序：
 
 ```
 ① QuiverCharacter._physics_process(delta)      ← 父节点先执行
-   - 读取 physical_height / attack_heights ← 上一帧 AnimationPlayer 写入的值
-   - 读取 base_height                       ← 上一帧 method track 同步的值
-   - 计算并更新 collision layer             ← lag 1 frame
+    - 读取 physical_height / attack_heights ← 上一帧 AnimationPlayer 写入的值
+    - 读取 base_height                       ← 计算属性，实时返回 -position.y
+    - 计算并更新 collision layer
 
 ② Skin.AnimationPlayer._process(delta)        ← 子节点后执行
    - value track 更新 physical_height / attack_heights
-   - method track 调用 _sync_base_height()
-        base_height = -_skin.position.y
 
 ③ 跳跃状态 JumpMidAir._physics_process(delta) ← 子节点后执行
    - _move_and_apply_gravity() 更新 _skin.position.y（物理模拟）
@@ -374,10 +369,13 @@ Godot 同一帧内的处理顺序：
 ```gdscript
 # quiver_character_skin.gd 新增部分
 
-# 三大高度参数（由 AnimationPlayer 轨道每帧赋值，存放在 Skin 节点）
-@export var base_height: float = 0.0
-@export var physical_height: float = 0.0
-@export var attack_heights: Array = []  # 必须 untyped Array
+# 三大高度参数（存放在 Skin 节点）
+# base_height 是计算属性，从 position.y 实时派生
+var base_height: float:
+    get:
+        return -position.y
+@export var physical_height: float = 0.0  # 由 AnimationPlayer value track 赋值
+@export var attack_heights: Array = []  # 必须 untyped Array，由 AnimationPlayer value track 赋值
 
 # 高度层系统：战斗 Area2D 引用
 @export_node_path("QuiverHurtBox") var _path_hurtbox := ^"AnimatedSprite2D/HurtBox"
@@ -385,10 +383,6 @@ Godot 同一帧内的处理顺序：
 
 var hurtbox: QuiverHurtBox = null
 var hitboxes: Array[QuiverHitBox] = []
-
-
-func _sync_base_height() -> void:
-    base_height = -position.y  # 从 Skin.position.y 派生
 
 
 func _runtime_ready() -> void:
@@ -495,13 +489,14 @@ if _skin != null:
 - `_skin: QuiverCharacterSkin` 可以直接访问基类声明的 `hurtbox` 和 `hitboxes`，不触发类型错误
 - 不使用 `_skin` 的子类（如果有）也不会报错，只是 `hurtbox == null` 和 `hitboxes == []`
 
-### 7.2 Method Track 回调
+### 7.2 base_height 计算属性
 
 ```gdscript
-# AnimationPlayer 的 method track 每帧调用此方法（位于 QuiverCharacterSkin）
-# 从 Skin 自身的 position.y 派生 base_height
-func _sync_base_height() -> void:
-    base_height = -position.y
+# QuiverCharacterSkin 中的计算属性
+# 从 Skin 自身的 position.y 实时派生 base_height，无需动画 track 驱动
+var base_height: float:
+    get:
+        return -position.y
 ```
 
 ### 7.3 Collision Layer 更新
@@ -617,7 +612,7 @@ func _all_height_layers_bitmask() -> int:
 
 **QuiverCharacter 不写 `_skin.position.y`**：
 - `_skin.position.y` 由 Quiver 原有逻辑管理（跳跃/击飞时由 `_move_and_apply_gravity()` 修改，普通状态保持 0）
-- Skin 的 `_sync_base_height()` 从自身 `position.y` 派生 `base_height`
+- Skin 的 `base_height` 是计算属性（`get: return -position.y`），从自身 `position.y` 实时派生
 - 因果方向：`Skin.position.y` → `Skin.base_height`（不是反过来）
 
 **HurtBox/HitBox 引用遵循 Quiver 标准模式**：
@@ -920,8 +915,8 @@ _skin.position.y     ← SOURCE（皮肤的物理位置）
   - 普通状态：无人修改，保持为 0
   - 跳跃/击飞：_move_and_apply_gravity() 物理模拟修改
         ↓
-base_height          ← DERIVED（从皮肤位置派生，用于 Layer 计算）
-  由 method track 调用 _sync_base_height() 同步
+base_height          ← DERIVED（计算属性，从皮肤位置实时派生，用于 Layer 计算）
+  var base_height: float: get: return -position.y
 ```
 
 **绝对不能用 `base_height` 反推 `_skin.position.y`**。否则：
@@ -937,7 +932,7 @@ Quiver 的跳跃系统（`_skin_velocity_y + gravity`）**保留不动**。这�
 - 地面状态（Idle/Walk/Attack/Hurt/Die）不调用
 
 **我们新增的机制：**
-- `_sync_base_height()` method track，每帧将 `_skin.position.y` 同步到 `base_height`
+- `base_height` 计算属性（`get: return -position.y`），实时感知当前高度
 - 这使 Layer 系统能感知当前高度，而无需修改 Quiver 的任何文件
 
 **Quiver 原有文件无需修改**——`_skin_velocity_y` 在跳跃/击飞状态中正常工作，
@@ -968,18 +963,18 @@ if current_layers != _cached_height_layers:
 
 **注意**：`_update_hitbox_layers()` 每帧都会执行（因为 `attack_heights` 可能每帧变化），但只做简单赋值，开销极低。
 
-### 10.2 Method Track 开销
+### 10.2 base_height 计算属性开销
 
-**问题**：每帧调用 `_sync_base_height()` 是否有性能影响？
+**问题**：每次读取 `base_height` 都执行 getter 是否有性能影响？
 
-**结论**：可忽略。方法调用仅做 `base_height = -_skin.position.y`，一次赋值操作，开销 < 1μs。
+**结论**：可忽略。getter 仅做 `return -position.y`，一次取反操作，开销 < 1μs。且 `_update_collision_layers()` 每帧只读取一次。
 
 ### 10.3 AnimationPlayer Track 开销
 
-**问题**：每个动画额外 2-3 条轨道是否影响性能？
+**问题**：每个动画额外 2 条轨道是否影响性能？
 
 **结论**：可忽略。AnimationPlayer 的 track 更新是引擎层 C++ 实现的高效操作。
-每条 value track 每帧仅写入一个变量，method track 仅触发一次方法调用。
+每条 value track 每帧仅写入一个变量。
 
 ---
 
@@ -1076,8 +1071,8 @@ if current_layers != _cached_height_layers:
 ### Phase 2：QuiverCharacter/Skin 扩展 ✅ 已完成（方案 C）
 
 1. ✅ 修改 `quiver_character_skin.gd`
-   - 添加 `@export var base_height / physical_height / attack_heights`
-   - 添加 `_sync_base_height()` 方法：`base_height = -position.y`
+   - 添加 `base_height`（计算属性，`get: return -position.y`）
+   - 添加 `@export var physical_height / attack_heights`
    - 添加 combat Area2D 引用（hurtbox/hitboxes）
 
 2. ✅ 修改 `quiver_character.gd`

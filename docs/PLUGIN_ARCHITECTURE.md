@@ -107,7 +107,7 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 **数据流**:
 1. 动画 value track `.:physical_height` 写入 `Skin.physical_height`（只在值变化时添加 keyframe）
 2. 动画 value track `.:attack_heights` 写入 `Skin.attack_heights`（只在值变化时添加 keyframe）
-3. 动画 method track `.` 调用 `Skin._sync_base_height()`（每帧，`base_height = -position.y`）
+3. `Skin.base_height` 是计算属性（getter），从 `position.y` 实时派生：`base_height = -position.y`
 4. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
 5. 更新 CharacterBody2D collision layer 15-19（逐元素比较，只在变化时更新）
 6. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层 15-19）
@@ -121,8 +121,8 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 - `_height_to_layers(height)`: 点查询
 - `_layers_to_bitmask(layers)`: 编号转 bitmask
 
-**QuiverCharacterSkin 关键方法**:
-- `_sync_base_height()`: 动画 method track 每帧调用，`base_height = -position.y`
+**QuiverCharacterSkin 关键属性**:
+- `base_height`（计算属性）: `get: return -position.y`，无需动画 track 驱动，永远与 `position.y` 同步
 
 **`_hurtbox` / `_hitboxes` 引用**:
 - Skin 通过 `@export_node_path` + `_runtime_ready()` 填充引用
@@ -159,8 +159,8 @@ QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
 - 朝向枚举: `SkinDirection { LEFT = -1, RIGHT = 1 }`
 - 导出属性: `skin_direction`, `attributes`（自动同步给 tree group）
 - 抓取配置: `_path_grab_pivot`, `_path_grabbed_pivot`（Marker2D 引用）
-- **高度层属性（方案 C，由 AnimationPlayer track 每帧赋值）**:
-  - `@export var base_height: float = 0.0` — 概念跳跃高度（由 `_sync_base_height()` 从 `position.y` 派生）
+- **高度层属性（方案 C）**:
+  - `var base_height: float`（计算属性）— 概念跳跃高度，`get: return -position.y`，无需动画 track 驱动
   - `@export var physical_height: float = 0.0` — 物理身高（由 value track `.:physical_height` 赋值）
   - `@export var attack_heights: Array = []` — 攻击高度偏移（由 value track `.:attack_heights` 赋值，必须 untyped Array）
 - 高度层战斗引用（由 `_runtime_ready()` 填充，QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 访问）:
@@ -169,7 +169,6 @@ QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
   - `var hurtbox: QuiverHurtBox`
   - `var hitboxes: Array[QuiverHitBox]`
 - 虚函数: `transition_to()`（被子类实现）
-- `_sync_base_height()`: 动画 method track 每帧调用，`base_height = -position.y`
 - `_runtime_ready()` 填充 HurtBox/HitBox 引用（从配置的 node path 获取）
 
 **子类 `QuiverCharacterSkinAnimTree`**:
@@ -924,11 +923,12 @@ AnimationTrackInjector.run(skin_node, dry_run)
 **轨道路径（方案 C）**：
 - `.:physical_height` — value track，写入 Skin.physical_height
 - `.:attack_heights` — value track，写入 Skin.attack_heights
-- `.` — method track，调用 Skin._sync_base_height()
+- `base_height` 是计算属性（`get: return -position.y`），无需动画 track
 
 **关键特性**：
 - 保留原始 Quiver 方法（end_of_input_frames, end_of_skin_animation 等）
 - value tracks 只在值变化时添加 keyframe（优化冗余数据）
+- 注入器自动清理旧版 `_sync_base_height` method tracks
 - method track 每帧调用（与动画 FPS 同步）
 - 支持增量扫描（异步，不阻塞编辑器）
 

@@ -62,9 +62,11 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 			_skin_direction_updated()
 
 
-## 高度层系统：角色跳跃的概念高度（由 AnimationPlayer method track "_sync_base_height" 每帧赋值）
-## 路径"physical_height"直接解析到本 Skin 节点
-@export var base_height: float = 0.0
+## 高度层系统：角色跳跃的概念高度（计算属性，从 position.y 实时派生）
+## base_height = -position.y（角色跳跃时 Skin.position.y 整体上移，负值 = 向上）
+var base_height: float:
+	get:
+		return -position.y
 
 ## 高度层系统：角色的物理身高（由 AnimationPlayer value track "physical_height" 每帧赋值）
 @export var physical_height: float = 0.0
@@ -133,12 +135,6 @@ func transition_to(anim_state: StringName) -> void:
 ## [signal attack_input_frames_finished]
 func end_of_input_frames() -> void:
 	attack_input_frames_finished.emit()
-
-
-## 高度层系统：由 AnimationPlayer method track 每帧调用
-## 从自身 position.y 派生 base_height（角色跳跃时 Skin.position.y 整体上移，负值 = 向上）
-func _sync_base_height() -> void:
-	base_height = -position.y
 
 
 ## Use this method in character's grab animations to emit the signal [signal grab_frame_reached].

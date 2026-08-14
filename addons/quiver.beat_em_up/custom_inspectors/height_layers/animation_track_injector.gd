@@ -13,7 +13,7 @@ extends RefCounted
 ## 4. 对 AnimationLibrary 中每个 Animation：
 ##    a. 找到它引用的 SpriteFrames 子动画名（通过 AnimatedSprite2D:animation track）
 ##    b. 根据子动画帧数和 fps 生成时间轴
-##    c. 插入 physical_height / attack_heights / _sync_base_height 轨道
+##    c. 插入 physical_height / attack_heights 轨道
 ## 5. 保存修改后的 Animation 资源
 
 ### Member Variables and Dependencies -------------------------------------------------------------
@@ -378,7 +378,6 @@ func _inject_single_animation(
 	# 2. 添加新的 tracks
 	var physical_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
 	var attack_track_idx := _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
-	var method_track_idx := _add_method_track(anim, TRACK_PATH_BASE_HEIGHT_METHOD)
 	
 	# 3. 计算 sprite 的帧间隔
 	var frame_duration: float = 1.0 / max(1.0, sprite_fps)
@@ -408,14 +407,6 @@ func _inject_single_animation(
 			anim.track_insert_key(attack_track_idx, time, current_attack)
 			prev_attack = current_attack
 		
-		# 每帧插入 _sync_base_height method call
-		# method track 键值格式: {"args": [], "method": "method_name"}
-		# 注意：_sync_base_height 必须每帧调用，因为 position.y 可能每帧都变化
-		anim.track_insert_key(method_track_idx, time, {
-			"args": [],
-			"method": StringName(METHOD_NAME_SYNC_BASE_HEIGHT)
-		})
-		
 		inserted_count += 1
 	
 	if inserted_count == 0:
@@ -435,7 +426,7 @@ func _inject_single_animation(
 
 ## 移除旧的 height tracks
 ## 对于 value tracks：通过路径匹配删除
-## 对于 method tracks：通过路径 + 方法名匹配，只删除 _sync_base_height，保留原始方法
+## 对于 method tracks：通过路径 + 方法名匹配，删除已废弃的 _sync_base_height tracks（保留原始方法）
 func _remove_old_height_tracks(anim: Animation) -> void:
 	var tracks_to_remove := []
 	
@@ -494,14 +485,6 @@ func _add_value_track(anim: Animation, track_path: String) -> int:
 	anim.track_set_path(track_idx, track_path)
 	anim.track_set_interpolation_type(track_idx, Animation.INTERPOLATION_NEAREST)
 	anim.value_track_set_update_mode(track_idx, Animation.UPDATE_DISCRETE)
-	return track_idx
-
-
-## 添加 method track
-## method track 不需要设置 update mode 或插值类型
-func _add_method_track(anim: Animation, track_path: String) -> int:
-	var track_idx := anim.add_track(Animation.TYPE_METHOD)
-	anim.track_set_path(track_idx, track_path)
 	return track_idx
 
 ### -----------------------------------------------------------------------------------------------
