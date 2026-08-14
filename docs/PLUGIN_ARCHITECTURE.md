@@ -94,23 +94,33 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 
 **设计决策**：高度层属性（`base_height`, `physical_height`, `attack_heights`）存放在 `QuiverCharacterSkin`，而非 `QuiverCharacter`。原因是 AnimationPlayer 位于 Skin 节点下，使用 `.:property` 路径可以直接访问 Skin 属性，避免 `../` 路径导致的 track 解析警告。
 
-**常量 `HEIGHT_LAYER_DEFINITIONS`**（5 个高度层，layer 15-19）:
+**配置化 10 层高度系统**（layer 15-24）:
 
-| Layer | 名称 | 区间 (min, max] |
-|-------|------|----------------|
-| 15 | height_ground | (0, 30] |
-| 16 | height_low_air | (30, 100] |
-| 17 | height_mid_air | (100, 200] |
-| 18 | height_high_air | (200, 300] |
-| 19 | height_very_high | (300, +∞] |
+层定义从 `project.godot` 的 `standard_height` 运行时构建：
+- `standard_height` (SH)：标准身高（默认 180px）
+- 层厚度 = SH × 0.75（默认 135px）
+- 每对 `*_low` / `*_high` 层区分标准跳跃能否越过
+
+| Layer | 名称 | 区间 (min, max] | SH=180 时 |
+|-------|------|----------------|-----------|
+| 15 | height_ground_low | (0, SH×0.75] | (0, 135] |
+| 16 | height_ground_high | (SH×0.75, SH×1.5] | (135, 270] |
+| 17 | height_low_air_low | (SH×1.5, SH×2.25] | (270, 405] |
+| 18 | height_low_air_high | (SH×2.25, SH×3] | (405, 540] |
+| 19 | height_mid_air_low | (SH×3, SH×3.75] | (540, 675] |
+| 20 | height_mid_air_high | (SH×3.75, SH×4.5] | (675, 810] |
+| 21 | height_high_air_low | (SH×4.5, SH×5.25] | (810, 945] |
+| 22 | height_high_air_high | (SH×5.25, SH×6] | (945, 1080] |
+| 23 | height_very_high_low | (SH×6, SH×6.75] | (1080, 1215] |
+| 24 | height_very_high_high | (SH×6.75, +∞] | (1215, +∞] |
 
 **数据流**:
 1. 动画 value track `.:physical_height` 写入 `Skin.physical_height`（只在值变化时添加 keyframe）
 2. 动画 value track `.:attack_heights` 写入 `Skin.attack_heights`（只在值变化时添加 keyframe）
 3. `Skin.base_height` 是计算属性（getter），从 `position.y` 实时派生：`base_height = -position.y`
 4. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
-5. 更新 CharacterBody2D collision layer 15-19（逐元素比较，只在变化时更新）
-6. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层 15-19）
+5. 更新 CharacterBody2D collision layer 15-24（逐元素比较，只在变化时更新）
+6. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层）
 7. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
 8. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
 

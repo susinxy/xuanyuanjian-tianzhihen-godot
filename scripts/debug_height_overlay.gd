@@ -56,7 +56,7 @@ func _auto_find_character() -> void:
 func _create_panel() -> void:
 	_panel = Panel.new()
 	_panel.position = Vector2(10, 10)
-	_panel.size = Vector2(350, 180)
+	_panel.size = Vector2(350, 200)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.7)
 	style.border_color = Color(0.5, 0.8, 1.0, 0.8)
@@ -67,7 +67,7 @@ func _create_panel() -> void:
 	
 	_label = Label.new()
 	_label.position = Vector2(10, 10)
-	_label.size = Vector2(330, 160)
+	_label.size = Vector2(330, 180)
 	_label.add_theme_font_size_override("font_size", 14)
 	_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	_panel.add_child(_label)
@@ -119,15 +119,18 @@ func _process(_delta: float) -> void:
 	var pos := character.global_position
 	
 	var layers_str := ""
-	for i in range(15, 20):
+	for i in range(QuiverCharacter.HEIGHT_LAYER_FIRST, QuiverCharacter.HEIGHT_LAYER_LAST + 1):
 		if cl & (1 << (i - 1)):
 			layers_str += str(i) + " "
 	if layers_str.is_empty():
 		layers_str = "无"
 	
+	var occupied_str := "[%.0f, %.0f]" % [bh, bh + ph]
+	
 	_label.text = "=== 高度层调试信息 ===\n"
 	_label.text += "base_height: %.1f px\n" % bh
 	_label.text += "physical_height: %.1f px\n" % ph
+	_label.text += "occupied: %s\n" % occupied_str
 	_label.text += "attack_heights: %s\n" % str(ah)
 	_label.text += "高度层: %s\n" % layers_str
 	_label.text += "位置: (%.0f, %.0f)\n" % [pos.x, pos.y]
@@ -140,31 +143,59 @@ func _on_draw() -> void:
 	if not character or not _skin:
 		return
 	
+	var quiver_char := character as QuiverCharacter
+	if not quiver_char or quiver_char._height_definitions.is_empty():
+		return
+	
 	var bh := _skin.base_height
+	var ph := _skin.physical_height
+	var defs := quiver_char._height_definitions
+	
 	var bar_x := 1100.0
 	var bar_width := 30.0
-	var bar_height := 300.0
+	var bar_height := 500.0
 	var bar_y := 50.0
 	
+	# 计算最大显示高度（最后一层的下界 + 10%）
+	var max_h: float = defs[-1]["min"] * 1.1
+	if max_h <= 0:
+		max_h = 1400.0
+	
+	# 背景
 	var bg_rect := Rect2(bar_x, bar_y, bar_width, bar_height)
 	_draw_control.draw_rect(bg_rect, Color(0, 0, 0, 0.5))
 	_draw_control.draw_rect(bg_rect, Color(0.5, 0.8, 1.0, 0.8), false, 2.0)
 	
-	var thresholds := [
-		{"h": 30, "name": "ground", "color": Color(0.8, 0.6, 0.3)},
-		{"h": 100, "name": "low_air", "color": Color(0.3, 0.7, 0.5)},
-		{"h": 200, "name": "mid_air", "color": Color(0.5, 0.5, 0.8)},
-		{"h": 300, "name": "high_air", "color": Color(0.7, 0.4, 0.7)},
+	# 层边界线（10 层，每对 low/high 使用相近颜色）
+	var colors := [
+		Color(0.8, 0.6, 0.3), Color(0.8, 0.6, 0.3),  # ground_low, ground_high
+		Color(0.3, 0.7, 0.5), Color(0.3, 0.7, 0.5),  # low_air_low, low_air_high
+		Color(0.5, 0.5, 0.8), Color(0.5, 0.5, 0.8),  # mid_air_low, mid_air_high
+		Color(0.7, 0.4, 0.7), Color(0.7, 0.4, 0.7),  # high_air_low, high_air_high
+		Color(0.6, 0.3, 0.5), Color(0.6, 0.3, 0.5),  # very_high_low, very_high_high
 	]
 	
-	var max_h := 350.0
-	for t in thresholds:
-		var y: float = bar_y + bar_height - (t["h"] / max_h * bar_height)
-		_draw_control.draw_line(Vector2(bar_x, y), Vector2(bar_x + bar_width, y), t["color"], 2.0)
+	for i in range(defs.size()):
+		var h: float = defs[i]["max"]
+		if h == INF:
+			continue
+		var y: float = bar_y + bar_height - (h / max_h * bar_height)
+		_draw_control.draw_line(Vector2(bar_x, y), Vector2(bar_x + bar_width, y), colors[i], 2.0)
 		var font := ThemeDB.fallback_font
-		_draw_control.draw_string(font, Vector2(bar_x + bar_width + 5, y + 5), t["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, t["color"])
+		var layer_name := "L%d:%.0f" % [defs[i]["layer"], h]
+		_draw_control.draw_string(font, Vector2(bar_x + bar_width + 5, y + 5), layer_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, colors[i])
 	
-	var current_y := bar_y + bar_height - (bh / max_h * bar_height)
-	current_y = clamp(current_y, bar_y, bar_y + bar_height)
-	_draw_control.draw_line(Vector2(bar_x - 10, current_y), Vector2(bar_x + bar_width + 10, current_y), Color(1, 1, 0), 3.0)
-	_draw_control.draw_string(ThemeDB.fallback_font, Vector2(bar_x - 50, current_y + 5), "%.0f" % bh, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 0))
+	# occupied range 填充矩形
+	var top_y := bar_y + bar_height - ((bh + ph) / max_h * bar_height)
+	var bottom_y := bar_y + bar_height - (bh / max_h * bar_height)
+	top_y = clamp(top_y, bar_y, bar_y + bar_height)
+	bottom_y = clamp(bottom_y, bar_y, bar_y + bar_height)
+	_draw_control.draw_rect(Rect2(bar_x, top_y, bar_width, bottom_y - top_y), Color(1, 1, 0, 0.3))
+	
+	# 底边线（base_height）
+	_draw_control.draw_line(Vector2(bar_x - 10, bottom_y), Vector2(bar_x + bar_width + 10, bottom_y), Color(1, 1, 0), 2.0)
+	_draw_control.draw_string(ThemeDB.fallback_font, Vector2(bar_x - 70, bottom_y + 5), "base:%.0f" % bh, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 0))
+	
+	# 顶边线（base_height + physical_height）
+	_draw_control.draw_line(Vector2(bar_x - 10, top_y), Vector2(bar_x + bar_width + 10, top_y), Color(1, 0.8, 0), 2.0)
+	_draw_control.draw_string(ThemeDB.fallback_font, Vector2(bar_x - 70, top_y + 5), "top:%.0f" % (bh + ph), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 0.8, 0))

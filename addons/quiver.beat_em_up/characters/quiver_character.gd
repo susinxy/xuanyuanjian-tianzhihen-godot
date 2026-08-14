@@ -19,15 +19,14 @@ extends CharacterBody2D
 
 #--- constants ------------------------------------------------------------------------------------
 
+## 高度层系统常量
 ## Godot 4 中，layer N 对应 bit (N-1)：layer 15 = bit 14 = 1<<14
 ## 这里使用 layer 编号（1-indexed），与 Godot Inspector 一致
-const HEIGHT_LAYER_DEFINITIONS = [
-	{ "min": 0,   "max": 30,   "layer": 15 },
-	{ "min": 30,  "max": 100,  "layer": 16 },
-	{ "min": 100, "max": 200,  "layer": 17 },
-	{ "min": 200, "max": 300,  "layer": 18 },
-	{ "min": 300, "max": INF,  "layer": 19 },
-]
+const HEIGHT_LAYER_FIRST := 15
+const HEIGHT_LAYER_COUNT := 10
+const HEIGHT_LAYER_LAST := 24  # HEIGHT_LAYER_FIRST + HEIGHT_LAYER_COUNT - 1
+const SETTINGS_STANDARD_HEIGHT := "quiver/beat_em_up/gameplay/standard_height"
+const LAYER_THICKNESS_RATIO := 0.75
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -52,6 +51,9 @@ var is_on_air := false
 
 # 高度层缓存（避免每帧重复设置 collision layer）
 var _cached_height_layers: Array[int] = []
+
+# 高度层定义（运行时从 project settings 构建）
+var _height_definitions: Array = []
 
 # HurtBox/HitBox 缓存引用（从 Skin 获取，在 _ready 中初始化）
 var _hurtbox: QuiverHurtBox
@@ -116,6 +118,9 @@ func _ready() -> void:
 	
 	if attributes != null:
 		attributes.character_node = self
+	
+	# 高度层系统：从 project settings 构建层定义
+	_height_definitions = _build_height_definitions()
 	
 	# 高度层系统：从 Skin 缓存 HurtBox/HitBox 引用
 	if _skin:
@@ -185,11 +190,11 @@ func _update_collision_layers() -> void:
 	# 只在层集合变化时更新（逐元素比较）
 	if current_layers != _cached_height_layers:
 		_cached_height_layers = current_layers
-		# 仅设置 layer 15-19，保留原有的 bits
-		for layer in range(15, 20):
+		# 仅设置高度层，保留原有的 bits
+		for layer in range(HEIGHT_LAYER_FIRST, HEIGHT_LAYER_LAST + 1):
 			set_collision_layer_value(layer, layer in current_layers)
 		# 同步更新 collision_mask，包含当前高度层（用于与高度层障碍物碰撞）
-		# 保留 layers 1-14，添加当前高度层 (15-19)
+		# 保留 layers 1-14，添加当前高度层
 		var height_bitmask := _layers_to_bitmask(current_layers)
 		collision_mask = (collision_mask & 0x3FFF) | height_bitmask
 		_update_hurtbox_layers(_layers_to_bitmask(current_layers))
@@ -232,22 +237,22 @@ func _update_hitbox_layers(base_h: float, attack_hs: Array) -> void:
 ## 区间查询：角色 range [min_h, max_h] 与哪些层 (min, max] 有交集
 func _calculate_range_layers(min_h: float, max_h: float) -> Array[int]:
 	var result: Array[int] = []
-	for def in HEIGHT_LAYER_DEFINITIONS:
+	for def in _height_definitions:
 		if min_h <= def["max"] and max_h > def["min"]:
 			result.append(def["layer"])
 	if result.is_empty():
-		result.append(15)
+		result.append(HEIGHT_LAYER_FIRST)
 	return result
 
 
 ## 点查询：某个高度 h 属于哪些层 (min, max]
 func _height_to_layers(height: float) -> Array[int]:
 	var result: Array[int] = []
-	for def in HEIGHT_LAYER_DEFINITIONS:
+	for def in _height_definitions:
 		if height > def["min"] and height <= def["max"]:
 			result.append(def["layer"])
 	if result.is_empty():
-		result.append(15)
+		result.append(HEIGHT_LAYER_FIRST)
 	return result
 
 
@@ -261,8 +266,21 @@ func _layers_to_bitmask(layers: Array) -> int:
 
 func _all_height_layers_bitmask() -> int:
 	var mask := 0
-	for def in HEIGHT_LAYER_DEFINITIONS:
+	for def in _height_definitions:
 		mask |= (1 << (def["layer"] - 1))
 	return mask
+
+
+## 从 project settings 构建高度层定义
+## standard_height (SH) 从 project settings 读取，层厚度 = SH × LAYER_THICKNESS_RATIO
+static func _build_height_definitions() -> Array:
+	var sh: float = ProjectSettings.get_setting(SETTINGS_STANDARD_HEIGHT, 180.0)
+	var thickness: float = sh * LAYER_THICKNESS_RATIO
+	var result := []
+	for i in range(HEIGHT_LAYER_COUNT):
+		var min_h: float = i * thickness
+		var max_h: float = INF if i == HEIGHT_LAYER_COUNT - 1 else (i + 1) * thickness
+		result.append({"min": min_h, "max": max_h, "layer": HEIGHT_LAYER_FIRST + i})
+	return result
 
 ### -----------------------------------------------------------------------------------------------

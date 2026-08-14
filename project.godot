@@ -107,11 +107,16 @@ dialogic_default_action={
 2d_physics/layer_12="enemy_grab_boxes"
 2d_physics/layer_13="player_hurt_boxes"
 2d_physics/layer_14="enemy_hurt_boxes"
-2d_physics/layer_15="height_ground"
-2d_physics/layer_16="height_low_air"
-2d_physics/layer_17="height_mid_air"
-2d_physics/layer_18="height_high_air"
-2d_physics/layer_19="height_very_high"
+2d_physics/layer_15="height_ground_low"
+2d_physics/layer_16="height_ground_high"
+2d_physics/layer_17="height_low_air_low"
+2d_physics/layer_18="height_low_air_high"
+2d_physics/layer_19="height_mid_air_low"
+2d_physics/layer_20="height_mid_air_high"
+2d_physics/layer_21="height_high_air_low"
+2d_physics/layer_22="height_high_air_high"
+2d_physics/layer_23="height_very_high_low"
+2d_physics/layer_24="height_very_high_high"
 
 [physics]
 
@@ -120,6 +125,7 @@ dialogic_default_action={
 [quiver]
 
 beat_em_up/gameplay/default_hit_lane_size=60
+beat_em_up/gameplay/standard_height=180.0
 beat_em_up/debug/logging_enabled=true
 beat_em_up/gameplay/fall_gravity_modifier=2.5
 beat_em_up/debug/disable_player_detector_on_editor=false

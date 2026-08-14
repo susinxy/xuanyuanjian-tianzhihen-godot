@@ -1,15 +1,17 @@
 # 2.5D 高度层战斗系统 - 设计文档
 
-> **版本**: 3.0.0  
+> **版本**: 4.0.0  
 > **创建日期**: 2026-08-11  
-> **最后更新**: 2026-08-13  
-> **状态**: Phase 1-4 已实施（方案 C），Phase 5 待实施  
+> **最后更新**: 2026-08-14  
+> **状态**: Phase 1-4 已实施（方案 C + 10 层配置化），Phase 5 待实施  
 > **变更记录**:
 > - v2.0 — 重构数据流架构，base_height 从 _skin.position.y 派生（method track 同步），移除 base_X 文件名标注，保留 Quiver _skin_velocity_y 机制
 > - v2.1 — 修复 Layer 公式为 `(min, max]`（无匹配默认 ground_level）；修复 CharacterBody2D collision_layer 覆盖原有 bits（只修改 15-19）；修复 `_update_hitbox_layers` 空状态复位；补充 `_get_hurtbox/hitboxes` 实现（基于 owner group）；明确 `are_factions_equal` 放在 `quiver_hurt_box.gd`；修正测试用例；CharacterBody2D.position.y 不再固定为 0；Collision Preset 预设为 ground_level（Section 8.8）；HitLane 系统保留（Section 8.7）
 > - v2.2 — HurtBox/HitBox 引用改为 Quiver 标准模式（@export_node_path + @onready）；Skin 通过 `_runtime_ready()` 填充 hitboxes 数组；QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 缓存引用；删除基于 group 的查找方法
 > - v2.3 — 移除场景 4 的"全局 Y"列（与 Layer 抽象冲突）；修正扩展计划版本号（v1.1.0/v2.0.0 → v2.3.0/v3.0.0）；重写 Phase 5 描述；强调 Phase 1.5 为必需前置任务；补充文档维护声明
 > - v3.0 — **方案 C 实施**：高度层属性从 QuiverCharacter 移到 QuiverCharacterSkin；AnimationPlayer track 路径从 `../` 改为 `.:`（无前缀直接访问 Skin 属性）；注入器优化（保留原始方法、keyframe 优化）；41 个动画文件已扫描应用
+> - v3.1 — `base_height` 改为计算属性（`get: return -position.y`），移除 `_sync_base_height()` method track，解决跳跃时 base_height 不实时更新的问题
+> - v4.0 — **10 层配置化系统**：从 5 层扩展到 10 层（layers 15-24）；边界值从 `project.godot` 的 `standard_height` 运行时计算；每对 `*_low`/`*_high` 层区分标准跳跃能力；删除废弃的 `HeightLayerSystem.gd`
 
 ---
 
@@ -44,26 +46,36 @@
 
 ## 二、高度层定义
 
-### 2.1 五层级系统
+### 2.1 十层级系统（配置化）
 
-层级区间采用 **(min, max]**（左开右闭）约定。数值均为占位符，实施时根据游戏实际情况调整。
+层级区间采用 **(min, max]**（左开右闭）约定。边界值从 `project.godot` 的 `standard_height` 运行时计算。
 
-| Layer 编号 | 名称 | 高度范围（像素） | 用途 |
-|-----------|------|----------------|------|
-| 15 | `ground_level` | (0, 30] | 地面站立 |
-| 16 | `low_air` | (30, 100] | 小跳 |
-| 17 | `mid_air` | (100, 200] | 中跳 |
-| 18 | `high_air` | (200, 300] | 大跳 |
-| 19 | `very_high` | (300, +∞] | 超高空 |
+**配置参数**：
+- `standard_height` (SH)：标准身高（默认 180px），在 `project.godot` 中配置
+- 层厚度 = SH × 0.75（默认 135px）
+- 每对 `*_low` / `*_high` 层区分标准跳跃能否越过
 
-**默认回退规则**：当某个高度值不匹配任何层级区间时（例如 `base_height = 0`），默认归为 `ground_level`。
+| Layer 编号 | 名称 | 高度范围（公式） | SH=180 时 | 用途 |
+|-----------|------|----------------|-----------|------|
+| 15 | `ground_low` | (0, SH×0.75] | (0, 135] | 标准跳跃可越过 |
+| 16 | `ground_high` | (SH×0.75, SH×1.5] | (135, 270] | 标准跳跃被阻挡 |
+| 17 | `low_air_low` | (SH×1.5, SH×2.25] | (270, 405] | 低空 |
+| 18 | `low_air_high` | (SH×2.25, SH×3] | (405, 540] | 低空 |
+| 19 | `mid_air_low` | (SH×3, SH×3.75] | (540, 675] | 中空 |
+| 20 | `mid_air_high` | (SH×3.75, SH×4.5] | (675, 810] | 中空 |
+| 21 | `high_air_low` | (SH×4.5, SH×5.25] | (810, 945] | 高空 |
+| 22 | `high_air_high` | (SH×5.25, SH×6] | (945, 1080] | 高空 |
+| 23 | `very_high_low` | (SH×6, SH×6.75] | (1080, 1215] | 超高空 |
+| 24 | `very_high_high` | (SH×6.75, +∞] | (1215, +∞] | 超高空 |
+
+**默认回退规则**：当某个高度值不匹配任何层级区间时（例如 `base_height = 0`），默认归为 `ground_low`（layer 15）。
 
 ### 2.2 约束条件
 
 **单调性约束**：边界值必须严格递增
 
 ```
-0 < 30 < 100 < 200 < 300 < +∞
+0 < 135 < 270 < 405 < 540 < 675 < 810 < 945 < 1080 < 1215 < +∞
 ```
 
 **理由**：
@@ -72,16 +84,26 @@
 
 ### 2.3 Layer 配置
 
-在 `project.godot` 中添加新层：
+在 `project.godot` 中配置标准身高和层名称：
 
 ```ini
+[quiver]
+beat_em_up/gameplay/standard_height=180.0
+
 [layer_names]
-2d_physics/layer_15="ground_level"
-2d_physics/layer_16="low_air"
-2d_physics/layer_17="mid_air"
-2d_physics/layer_18="high_air"
-2d_physics/layer_19="very_high"
+2d_physics/layer_15="height_ground_low"
+2d_physics/layer_16="height_ground_high"
+2d_physics/layer_17="height_low_air_low"
+2d_physics/layer_18="height_low_air_high"
+2d_physics/layer_19="height_mid_air_low"
+2d_physics/layer_20="height_mid_air_high"
+2d_physics/layer_21="height_high_air_low"
+2d_physics/layer_22="height_high_air_high"
+2d_physics/layer_23="height_very_high_low"
+2d_physics/layer_24="height_very_high_high"
 ```
+
+层边界值由 `QuiverCharacter._build_height_definitions()` 运行时从 `standard_height` 自动计算，无需手动维护。
 
 ---
 
@@ -1240,9 +1262,9 @@ if current_layers != _cached_height_layers:
 - ✅ 多高度攻击判定
 - ✅ 阵营过滤（`area2d:` group）
 
-**实施优先级**：Phase 1-4 已完成（基础设施 + 测试场景），Phase 5 为中优先级（动画配置）
+**实施优先级**：Phase 1-4 已完成（基础设施 + 测试场景 + 10 层配置化），Phase 5 为中优先级（动画配置）
 
-**当前状态**：Phase 1-4 已完成（方案 C），Phase 5 待实施
+**当前状态**：Phase 1-4 已完成（方案 C + 10 层配置化），Phase 5 待实施
 
 ---
 
