@@ -41,8 +41,7 @@ func _ready() -> void:
 	_panel.add_child(_label)
 	
 	_draw_control = Control.new()
-	_draw_control.anchor_right = 1.0
-	_draw_control.anchor_bottom = 1.0
+	_draw_control.size = get_viewport().get_visible_rect().size
 	_draw_control.draw.connect(_on_draw)
 	add_child(_draw_control)
 
@@ -50,6 +49,10 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not character or not _skin:
 		return
+	
+	var viewport_size := get_viewport().get_visible_rect().size
+	if _draw_control.size != viewport_size:
+		_draw_control.size = viewport_size
 	
 	var bh := _skin.base_height
 	var ph := _skin.physical_height
