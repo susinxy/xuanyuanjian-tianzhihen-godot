@@ -62,7 +62,7 @@ var _hitboxes: Array[QuiverHitBox] = []
 # 高度层 bitmask 缓存（_ready 中计算一次，避免每帧循环）
 var _height_layers_all_mask: int = 0
 
-# HurtBox 原始 preset mask（_ready 中缓存，用于保留对手检测层）
+# HurtBox 原始 preset mask（_ready 中缓存，掩码操作只修改高度层位，保留其他位的配置）
 var _hurtbox_preset_mask: int = 0
 
 #--- private variables - order: export > normal var > onready -------------------------------------
