@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeBlendTree" format=3]
+[gd_resource type="AnimationNodeBlendTree" format=3 uid="uid://df8txu41l3aqq"]
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_3sxcf"]
 animation = &"Enemy/air_attack_right"

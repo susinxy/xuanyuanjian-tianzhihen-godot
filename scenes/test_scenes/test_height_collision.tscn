@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://c7c1jcr3mqo7j" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
+[ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(4000, 100)
@@ -152,4 +153,8 @@ text = "=== 高度层碰撞 + 击飞测试 ===
 
 [node name="DebugHeightOverlay" type="CanvasLayer" parent="." unique_id=1080020070]
 script = ExtResource("3_debug_overlay")
+character = NodePath("../Character")
+
+[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("6_knockout_overlay")
 character = NodePath("../Character")
