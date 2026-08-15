@@ -8,7 +8,7 @@ extends Node
 
 ### Member Variables and Dependencies -------------------------------------------------------------
 
-@export var rest_duration: float = 2.0
+@export var rest_duration: float = 0.0
 
 var _skin: QuiverCharacterSkin = null
 var _timer: float = 0.0
