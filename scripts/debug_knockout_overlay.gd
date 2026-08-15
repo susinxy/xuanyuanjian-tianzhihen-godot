@@ -83,6 +83,9 @@ func _find_attributes() -> void:
 	_attributes = character.get("attributes")
 	if _attributes:
 		print("DebugKnockoutOverlay: 通过 get('attributes') 找到 attributes")
+		# 监听 hurt_requested 信号来追踪受击
+		_attributes.hurt_requested.connect(_on_hurt_requested)
+		print("DebugKnockoutOverlay: 已连接 hurt_requested 信号")
 		return
 	
 	print("DebugKnockoutOverlay: 未找到 QuiverAttributes")
@@ -106,6 +109,13 @@ func _on_knockout_requested(knockback: QuiverKnockbackData) -> void:
 		"timestamp": Time.get_ticks_msec()
 	}
 	print("DebugKnockoutOverlay: 记录击飞快照 - ", _knockout_snapshot)
+
+
+func _on_hurt_requested(knockback: QuiverKnockbackData) -> void:
+	print("DebugKnockoutOverlay: 受到攻击! knockback_amount = ", _attributes.knockback_amount)
+	print("  - knockback.strength = ", knockback.strength)
+	print("  - is_invulnerable = ", _attributes.is_invulnerable)
+	print("  - has_superarmor = ", _attributes.has_superarmor)
 
 
 func _process(_delta: float) -> void:
@@ -134,6 +144,9 @@ func _process(_delta: float) -> void:
 	_label.text += "knockback_weight: %.1f\n" % _attributes.knockback_weight
 	_label.text += "should_knockout: %s\n" % str(_attributes.should_knockout())
 	_label.text += "状态: %s\n" % state_name
+	_label.text += "is_invulnerable: %s\n" % str(_attributes.is_invulnerable)
+	_label.text += "has_superarmor: %s\n" % str(_attributes.has_superarmor)
+	_label.text += "health: %d / %d\n" % [_attributes.health_current, _attributes.health_max]
 	
 	# 击飞快照
 	if not _knockout_snapshot.is_empty():
