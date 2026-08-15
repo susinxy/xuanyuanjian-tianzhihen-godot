@@ -3,6 +3,8 @@
 [ext_resource type="PackedScene" uid="uid://ve1xx3hhp653" path="res://characters/playable/chen_jingchou/chen_jingchou.tscn" id="1_character"]
 [ext_resource type="PackedScene" uid="uid://dqfbpjbn74cn2" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="Script" uid="uid://c7c1jcr3mqo7j" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
+[ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
+[ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(4000, 100)
@@ -31,6 +33,12 @@ position = Vector2(200, 400)
 
 [node name="LevelCamera" parent="Character" unique_id=591790800 instance=ExtResource("2_camera")]
 offset = Vector2(0, -80)
+
+[node name="Enemy" parent="." instance=ExtResource("4_enemy")]
+position = Vector2(800, 400)
+
+[node name="PeriodicAttack" type="Node" parent="Enemy"]
+script = ExtResource("5_periodic_attack")
 
 [node name="Ground" type="StaticBody2D" parent="." unique_id=2084128760]
 position = Vector2(2000, 500)
@@ -126,14 +134,19 @@ offset_left = 10.0
 offset_top = 200.0
 offset_right = 400.0
 offset_bottom = 350.0
-text = "=== 高度层碰撞测试 ===
+text = "=== 高度层碰撞 + 击飞测试 ===
 
 操作: WASD 移动, Space 跳跃, J 攻击
 
-测试内容:
+高度层测试:
 1. 跳跃穿过矮墙 (30px) - base_height > 30 时通过
 2. 钻过悬浮平台 (100px) - base_height = 0 时通过
 3. 撞击高墙 (200px) - 应该被阻挡
+
+击飞测试:
+4. 走向右侧红色敌人 - 周期性攻击（STRONG knockback）
+5. 被击中后观察击飞效果（knockback_weight=2）
+6. 攻击敌人 - 验证 player→enemy 伤害
 
 观察右上角调试面板查看实时高度层信息"
 
