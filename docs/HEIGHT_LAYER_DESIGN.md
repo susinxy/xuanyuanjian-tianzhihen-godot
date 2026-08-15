@@ -869,18 +869,15 @@ func is_in_same_lane_as(defender: QuiverAttributes, attacker: QuiverAttributes) 
 
 **结论：保留 Quiver 原有 HitLane 系统，不改不动**。它与高度 Layer 系统正交，没有冲突。
 
-### 8.8 Collision Preset 预设值的更新
+### 8.8 Collision Preset 系统已移除
 
-Quiver 原有的 player/enemy collision preset 已移除。碰撞层配置需要在 `.tscn` 中手动设置，运行时由 `_physics_process` 动态更新高度层。
+Quiver 原有的 `QuiverCollisionTypes` 碰撞预设系统已完全移除（包括 `quiver_collision_types.gd`、`collision_shape_types/` Inspector 工具）。
 
-#### 当前预设
+**碰撞层配置**：完全手动在 `.tscn` 中设置，运行时由 `_physics_process` 根据 `physical_height` 动态更新高度层。
 
-| 预设名 | collision_layer | collision_mask | 说明 |
-|--------|----------------|----------------|------|
-| `world_hit_box` | `[world_hit_boxes]` (layer 8) | `[]` | 世界反弹障碍物，不参与高度系统 |
-| `player_detector` | `[]` | `[players]` (layer 1) | 扫描 players 层，与高度无关 |
-| `default` | `[players]` (layer 1) | `[players]` (layer 1) | 通用碰撞 |
-| `custom` | - | - | 自定义（不自动设置） |
+**阵营过滤**：统一通过 `area2d:` faction group 实现：
+- 角色 HurtBox 和 HitBox 加入 `area2d:<角色名>` group
+- 墙壁反弹通过 `area2d:wall` group 控制（击飞时移除，落地时恢复）
 
 #### 玩家/敌人碰撞层配置
 
@@ -891,12 +888,6 @@ Quiver 原有的 player/enemy collision preset 已移除。碰撞层配置需要
 - **GrabBox**: collision_layer 设为角色所在高度层，collision_mask 设为空（被动标记）
 
 运行时 `_physics_process` 会根据 `physical_height` 动态更新 collision_layer 和 collision_mask。
-
-#### 实施步骤
-
-1. 在 `.tscn` 中手动配置 Area2D 的 collision_layer 和 collision_mask
-2. 记录到 `PLUGIN_CHANGES.md`
-3. 更新 `PLUGIN_ARCHITECTURE.md` 的 Collision Layer Presets 表格
 
 ---
 

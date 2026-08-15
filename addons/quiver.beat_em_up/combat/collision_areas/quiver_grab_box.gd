@@ -30,15 +30,6 @@ func _ready() -> void:
 	add_to_group(StringName(owner.get_path()))
 
 
-func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := PackedStringArray()
-	
-	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
-	if collision_type == "world_hit_box" or collision_type == "player_detector":
-		warnings.append("GrabBox should not use %s preset" % collision_type)
-	
-	return warnings
-
 ### -----------------------------------------------------------------------------------------------
 
 

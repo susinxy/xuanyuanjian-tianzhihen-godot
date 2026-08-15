@@ -55,15 +55,6 @@ func remove_from_group(group: StringName) -> void:
 		_refresh_faction_cache()
 
 
-func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := PackedStringArray()
-	
-	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
-	if collision_type == "world_hit_box" or collision_type == "player_detector":
-		warnings.append("HurtBox should not use %s preset" % collision_type)
-	
-	return warnings
-
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -122,6 +113,9 @@ func _refresh_faction_cache() -> void:
 
 
 func _on_area_entered(area: Area2D) -> void:
+	if are_factions_equal(area, self):
+		return
+	
 	if area is WallHitBox:
 		_handle_wall_hit_box(area)
 	elif area is QuiverHitBox:
@@ -156,10 +150,6 @@ func _can_be_grabbed_by(grabber: QuiverAttributes) -> bool:
 
 
 func _handle_hit_box(hit_box: QuiverHitBox) -> void:
-	# 阵营检查：同阵营不造成伤害
-	if are_factions_equal(hit_box, self):
-		return
-	
 	if _can_be_attacked_by(hit_box.character_attributes):
 #		print("hit_box: %s"%[hit_box.get_path()])
 		CombatSystem.apply_damage(hit_box.attack_data, character_attributes)
@@ -177,10 +167,6 @@ func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
 
 
 func _handle_grab_box(grab_box: QuiverGrabBox) -> void:
-	# 阵营检查：同阵营不造成伤害
-	if are_factions_equal(grab_box, self):
-		return
-	
 	if _can_be_grabbed_by(grab_box.character_attributes):
 		grab_box.character_attributes.grab_requested.emit(character_attributes)
 
@@ -197,10 +183,10 @@ func _attack_is_coming_from_right(hit_box: QuiverHitBox) -> bool:
 
 
 func _disable_wall_bounce_collisions() -> void:
-	set_collision_mask_value(QuiverCollisionTypes.COLLISION_LAYER_WORLD_HIT_BOX, false)
+	add_to_group("area2d:wall")
 
 
 func _enable_wall_bounce_collisions() -> void:
-	set_collision_mask_value(QuiverCollisionTypes.COLLISION_LAYER_WORLD_HIT_BOX, true)
+	remove_from_group("area2d:wall")
 
 ### -----------------------------------------------------------------------------------------------

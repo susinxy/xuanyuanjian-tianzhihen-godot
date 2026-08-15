@@ -35,7 +35,7 @@ quiver.beat_em_up/
 │   ├── quiver_attack_data.gd     # 攻击数据 Resource（伤害、击退、发射向量）
 │   ├── quiver_knockback_data.gd  # 击退数据包（RefCounted，瞬态数据）
 │   └── collision_areas/          # 战斗 Area2D 类
-│       ├── quiver_collision_types.gd  # 碰撞层预设系统（自动配置 layer/mask/monitoring）
+│       ├── quiver_wall_hit_box.gd     # 墙壁反弹判定（WallHitBox）
 │       ├── quiver_hit_box.gd     # 攻击判定框（被动，monitoring=false）
 │       ├── quiver_hurt_box.gd    # 受击判定框（主动，monitoring=true，监听 area_entered）
 │       ├── quiver_grab_box.gd    # 抓取判定框
@@ -543,22 +543,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 3. 若击退量达到上限（≥MEDIUM 或已死亡）→ `knockout_requested` 信号
 4. 若未达到上限且无霸体 → `hurt_requested` 信号
 
-### 7.2 QuiverCollisionTypes 碰撞层预设
-
-**文件**: `combat/collision_areas/quiver_collision_types.gd`
-
-**核心机制**: 通过 `metadata/collision_type` 字符串在编辑器里配置 Area2D 的碰撞类型，插件自动设置 layer/mask/monitoring/monitorable。
-
-**注意**: 玩家/敌人的 HitBox/HurtBox/GrabBox 碰撞层配置已移除，需要在 `.tscn` 中手动设置。阵营过滤通过 `area2d:` group 实现。
-
-| 预设 | Layer | Mask | monitoring | monitorable | 用途 |
-|---|---|---|---|---|---|
-| `world_hit_box` | 8 (128) | 0 | false | true | 反弹墙 |
-| `player_detector` | 0 | 1 (layer 1) | true | false | 玩家检测器 |
-| `default` | 1 | 1 | true | true | 角色 Body 碰撞 |
-| `custom` | - | - | - | - | 自定义（不自动设置） |
-
-### 7.3 QuiverHitBox（攻击判定框）
+### 7.2 QuiverHitBox（攻击判定框）
 
 **文件**: `combat/collision_areas/quiver_hit_box.gd`
 **类名**: `QuiverHitBox`（Area2D，被动监听者）
@@ -567,7 +552,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - 不主动扫描任何东西
 - 只是承载 `character_attributes` 和 `attack_data`，等对方 HurtBox 来"捡"
 
-### 7.4 QuiverHurtBox（受击判定框）
+### 7.3 QuiverHurtBox（受击判定框）
 
 **文件**: `combat/collision_areas/quiver_hurt_box.gd`
 **类名**: `QuiverHurtBox`（Area2D，主动监听者）
@@ -600,7 +585,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - `_handle_grab_box()` 同样使用此检查
 - QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制
 
-### 7.5 QuiverAttackData（攻击数据）
+### 7.4 QuiverAttackData（攻击数据）
 
 **文件**: `combat/quiver_attack_data.gd`
 **类名**: `QuiverAttackData`（Resource，`@tool`）
@@ -615,7 +600,7 @@ var launch_vector: Vector2              # 自动从角度计算
 
 每次修改 `launch_angle`，setter 自动计算 `launch_vector`。
 
-### 7.6 QuiverKnockbackData
+### 7.5 QuiverKnockbackData
 
 **文件**: `combat/quiver_knockback_data.gd`
 **类名**: `QuiverKnockbackData`（RefCounted，瞬态数据，不持久化）
@@ -626,7 +611,7 @@ var hurt_type: CombatSystem.HurtTypes
 var launch_vector: Vector2
 ```
 
-### 7.7 完整战斗流程（玩家攻击敌人）
+### 7.6 完整战斗流程（玩家攻击敌人）
 
 ```
 玩家按 J 键
@@ -887,7 +872,6 @@ func _parse_begin(object: Object) -> void:
 | `states_dropdown/` | `QuiverActionAttack` 等需要选择其他状态的脚本 | 提供状态下拉列表 |
 | `ai_states_dropdown/` | AI 状态脚本 | 提供 AI 状态下拉列表 |
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
-| `collision_shape_types/` | Area2D 的 `collision_type` 元数据字段 | 提供碰撞预设下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`characters/playable/_template/character_template.tscn`） | **创建/删除角色** |
 | **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名，注入高度层轨道** |
 

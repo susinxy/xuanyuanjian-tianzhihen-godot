@@ -48,7 +48,6 @@ collision_layer = 507905
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ground" unique_id=119358954]
 modulate = Color(0, 0.6, 0.7019608, 1)
 shape = SubResource("ground_shape")
-metadata/collision_type = "default"
 
 [node name="GroundVisual" type="ColorRect" parent="Ground" unique_id=898118510]
 offset_left = -2000.0
@@ -64,7 +63,6 @@ collision_layer = 16384
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall" unique_id=1032706238]
 modulate = Color(0, 0.6, 0.7019608, 1)
 shape = SubResource("short_wall_shape")
-metadata/collision_type = "default"
 
 [node name="Visual" type="ColorRect" parent="ShortWall" unique_id=85139566]
 offset_left = -30.0
@@ -88,7 +86,6 @@ collision_layer = 16760832
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall" unique_id=1910036810]
 modulate = Color(0, 0.6, 0.7019608, 1)
 shape = SubResource("tall_wall_shape")
-metadata/collision_type = "default"
 
 [node name="Visual" type="ColorRect" parent="TallWall" unique_id=248467909]
 offset_left = -30.0
@@ -112,7 +109,6 @@ collision_layer = 131072
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform" unique_id=1155966923]
 modulate = Color(0, 0.6, 0.7019608, 1)
 shape = SubResource("platform_shape")
-metadata/collision_type = "default"
 
 [node name="Visual" type="ColorRect" parent="Platform" unique_id=1067260954]
 offset_left = -150.0

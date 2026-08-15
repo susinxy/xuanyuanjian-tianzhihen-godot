@@ -42,7 +42,6 @@ position = Vector2(-40, 540)
 rotation = 1.5708
 shape = SubResource("RectangleShape2D_3f0jd")
 one_way_collision = true
-metadata/collision_type = "default"
 
 [node name="RemoteTransform2d" type="RemoteTransform2D" parent="ScreenLimits/Left"]
 remote_path = NodePath("../../../LeftBounce/LeftBounceShape")
@@ -53,7 +52,6 @@ position = Vector2(1960, 540)
 rotation = -1.5708
 shape = SubResource("RectangleShape2D_gvifd")
 one_way_collision = true
-metadata/collision_type = "default"
 
 [node name="RemoteTransform2d" type="RemoteTransform2D" parent="ScreenLimits/Right"]
 remote_path = NodePath("../../../RightBounce/RightBounceShape")
@@ -66,14 +64,12 @@ collision_mask = 0
 monitoring = false
 script = ExtResource("2_hftxj")
 attack_data = SubResource("Resource_oq3rk")
-metadata/collision_type = "world_hit_box"
 
 [node name="RightBounceShape" type="CollisionShape2D" parent="RightBounce"]
 modulate = Color(1, 0.0666667, 0.403922, 1)
 position = Vector2(23, 3)
 rotation = -1.5708
 shape = SubResource("RectangleShape2D_gvifd")
-metadata/collision_type = "world_hit_box"
 
 [node name="LeftBounce" type="Area2D" parent="."]
 visible = false
@@ -83,11 +79,9 @@ collision_mask = 0
 monitoring = false
 script = ExtResource("2_hftxj")
 attack_data = SubResource("Resource_k1w4a")
-metadata/collision_type = "world_hit_box"
 
 [node name="LeftBounceShape" type="CollisionShape2D" parent="LeftBounce"]
 modulate = Color(1, 0.0666667, 0.403922, 1)
 position = Vector2(-28, 3)
 rotation = 1.5708
 shape = SubResource("RectangleShape2D_3f0jd")
-metadata/collision_type = "world_hit_box"

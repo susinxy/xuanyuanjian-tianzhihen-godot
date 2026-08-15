@@ -22,6 +22,7 @@ extends QuiverHitBox
 
 func _ready() -> void:
 	super()
+	add_to_group("area2d:wall")
 	attack_data.changed.connect(update_configuration_warnings)
 
 

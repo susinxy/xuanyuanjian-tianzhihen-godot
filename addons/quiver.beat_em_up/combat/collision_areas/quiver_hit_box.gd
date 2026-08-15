@@ -59,15 +59,6 @@ func remove_from_group(group: StringName) -> void:
 		_refresh_faction_cache()
 
 
-func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := PackedStringArray()
-	
-	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
-	if collision_type == "world_hit_box" or collision_type == "player_detector":
-		warnings.append("HitBox should not use %s preset" % collision_type)
-	
-	return warnings
-
 ### -----------------------------------------------------------------------------------------------
 
 

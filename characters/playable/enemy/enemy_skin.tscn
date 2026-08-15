@@ -77,7 +77,7 @@ position = Vector2(0, -167)
 sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle"
 
-[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:enemy"]]
+[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:enemy", "area2d:wall"]]
 monitorable = false
 script = ExtResource("5_k0gpy")
 

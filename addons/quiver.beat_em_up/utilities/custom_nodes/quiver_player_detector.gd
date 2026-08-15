@@ -44,7 +44,6 @@ signal player_detected
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		QuiverEditorHelper.disable_all_processing(self)
-		QuiverCollisionTypes.apply_preset_to(QuiverCollisionTypes.PRESETS.player_detector, self)
 		return
 	elif (
 			OS.has_feature("editor") 
