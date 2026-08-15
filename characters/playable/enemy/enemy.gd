@@ -25,6 +25,11 @@ func _ready() -> void:
 		QuiverEditorHelper.disable_all_processing(self)
 		return
 	
+	# 移除状态机，防止 enemy 响应键盘输入
+	var sm = get_node_or_null("StateMachine")
+	if sm:
+		sm.queue_free()
+	
 	if attributes != null:
 		attributes.reset()
 	
