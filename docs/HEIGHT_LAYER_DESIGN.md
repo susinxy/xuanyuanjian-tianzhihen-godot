@@ -693,7 +693,7 @@ func _all_height_layers_bitmask() -> int:
 
 ### 8.4 阵营过滤机制（`area2d:` Group）
 
-用 Godot group + `"area2d:"` 前缀表达阵营关系，Quiver 原有的 `character_type` 枚举保留不动。碰撞层不再使用 `character_type` 区分敌人/玩家。
+用 Godot group + `"area2d:"` 前缀表达阵营关系。碰撞层需要在 `.tscn` 中手动配置。
 
 **配置方式（编辑器）：**
 ```
@@ -871,48 +871,30 @@ func is_in_same_lane_as(defender: QuiverAttributes, attacker: QuiverAttributes) 
 
 ### 8.8 Collision Preset 预设值的更新
 
-Quiver 原有的 collision preset 基于旧的 layer 体系（1-14），需要更新为支持高度层系统。
+Quiver 原有的 player/enemy collision preset 已移除。碰撞层配置需要在 `.tscn` 中手动设置，运行时由 `_physics_process` 动态更新高度层。
 
-#### 预设更新策略
-
-**原则**：预设值统一设为 `[ground_level]`，运行时由 `_physics_process` 动态更新为真实值。
-
-**理由**：
-1. 简化设计，不依赖 physical_height 的具体数值
-2. `_ready()` 调用预设后，第一帧 `_physics_process` 会立即计算正确的 layer/mask 并覆盖
-3. ground_level 是最常见的初始状态，作为兜底合理
-
-#### 更新的预设值
+#### 当前预设
 
 | 预设名 | collision_layer | collision_mask | 说明 |
 |--------|----------------|----------------|------|
-| `player_hurt_box` | `[ground_level]` | `[ground_level]` | 第一帧更新为真实高度层 |
-| `enemy_hurt_box` | `[ground_level]` | `[ground_level]` | 第一帧更新为真实高度层 |
-| `player_hit_box` | `[ground_level]` | `[]`（空） | 被动标记，第一帧更新 |
-| `enemy_hit_box` | `[ground_level]` | `[]`（空） | 被动标记，第一帧更新 |
-| `player_grab_box` | `[ground_level]` | `[]`（空） | 被动标记，第一帧更新 |
-| `enemy_grab_box` | `[ground_level]` | `[]`（空） | 被动标记，第一帧更新 |
+| `world_hit_box` | `[world_hit_boxes]` (layer 8) | `[]` | 世界反弹障碍物，不参与高度系统 |
+| `player_detector` | `[]` | `[players]` (layer 1) | 扫描 players 层，与高度无关 |
+| `default` | `[players]` (layer 1) | `[players]` (layer 1) | 通用碰撞 |
+| `custom` | - | - | 自定义（不自动设置） |
 
-#### 不修改的预设
+#### 玩家/敌人碰撞层配置
 
-| 预设名 | collision_layer | 理由 |
-|--------|----------------|------|
-| `world_hit_box` | `[world_hit_boxes]` (layer 8) | 世界反弹障碍物，不参与高度系统 |
-| `player_detector` | `[]` | 扫描 players 层（layer 1），与高度无关 |
-| `default` | `[players]` (layer 1) | 通用碰撞，保留原值 |
+玩家和敌人的 HitBox/HurtBox/GrabBox 碰撞层需要在 `.tscn` 中手动配置：
 
-#### 初始化窗口期
+- **HurtBox**: collision_layer 设为角色所在高度层，collision_mask 设为需要检测的高度层
+- **HitBox**: collision_layer 设为角色所在高度层，collision_mask 设为空（被动标记）
+- **GrabBox**: collision_layer 设为角色所在高度层，collision_mask 设为空（被动标记）
 
-`_ready()` 到第一帧 `_physics_process` 之间（≤16.67ms），HurtBox 的 mask 只有 `[ground_level]`。
-
-**风险评估**：可忽略
-- 游戏启动时几乎不可能立即发生攻击
-- 即使发生，也只是漏检一次，不会导致严重问题
-- 第二帧开始正常运作
+运行时 `_physics_process` 会根据 `physical_height` 动态更新 collision_layer 和 collision_mask。
 
 #### 实施步骤
 
-1. 修改 `quiver_collision_types.gd` 中的 `PRESETS` 字典
+1. 在 `.tscn` 中手动配置 Area2D 的 collision_layer 和 collision_mask
 2. 记录到 `PLUGIN_CHANGES.md`
 3. 更新 `PLUGIN_ARCHITECTURE.md` 的 Collision Layer Presets 表格
 

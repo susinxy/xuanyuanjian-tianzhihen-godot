@@ -529,7 +529,6 @@ func _decide_next_behavior(last_state: StringName):
 **全局变量名**: `CombatSystem`
 
 ```gdscript
-enum CharacterTypes { PLAYERS, ENEMIES, BOUNCE_OBSTACLE }
 enum HurtTypes { MID, HIGH }
 enum KnockbackStrength { NONE, WEAK, MEDIUM, STRONG, MASSIVE }
 
@@ -550,16 +549,14 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 
 **核心机制**: 通过 `metadata/collision_type` 字符串在编辑器里配置 Area2D 的碰撞类型，插件自动设置 layer/mask/monitoring/monitorable。
 
+**注意**: 玩家/敌人的 HitBox/HurtBox/GrabBox 碰撞层配置已移除，需要在 `.tscn` 中手动设置。阵营过滤通过 `area2d:` group 实现。
+
 | 预设 | Layer | Mask | monitoring | monitorable | 用途 |
 |---|---|---|---|---|---|
-| `player_hit_box` | 9 (256) | 0 | false | true | 玩家攻击区域 |
-| `player_hurt_box` | 13 (4096) | 256+1024 (layers 10,12) | true | false | 玩家受击区域 |
-| `player_grab_box` | 11 (1024) | 0 | false | true | 玩家抓取区域 |
-| `enemy_hit_box` | 10 (512) | 0 | false | true | 敌人攻击区域 |
-| `enemy_hurt_box` | 14 (8192) | 256+1024 (layers 9,11) | true | false | 敌人受击区域 |
-| `enemy_grab_box` | 12 (2048) | 0 | false | true | 敌人抓取区域 |
 | `world_hit_box` | 8 (128) | 0 | false | true | 反弹墙 |
+| `player_detector` | 0 | 1 (layer 1) | true | false | 玩家检测器 |
 | `default` | 1 | 1 | true | true | 角色 Body 碰撞 |
+| `custom` | - | - | - | - | 自定义（不自动设置） |
 
 ### 7.3 QuiverHitBox（攻击判定框）
 
@@ -591,7 +588,6 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 3. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
 4. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
 5. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
-6. 发射 `Events.enemy_data_sent`（攻击者=玩家时，用于 HUD 显示）
 
 **阵营过滤机制**（`area2d:` group）:
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
@@ -756,7 +752,6 @@ func delimitate_room(p_limit_left, p_limit_top, p_limit_right, p_limit_bottom, p
 
 ```gdscript
 signal characters_reseted       # 角色重置（重载场景时）
-signal enemy_data_sent(enemy: QuiverAttributes, player: QuiverAttributes)  # 玩家打中敌人（用于 HUD）
 signal enemy_defeated           # 敌人被击败
 signal player_died              # 玩家死亡
 ```

@@ -16,15 +16,6 @@ const FACTION_PREFIX = "area2d:"
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
-@export var character_type: CombatSystem.CharacterTypes = \
-		CombatSystem.CharacterTypes.PLAYERS:
-	set(value):
-		character_type = value 
-		if Engine.is_editor_hint():
-			_handle_character_type_presets()
-			notify_property_list_changed()
-			update_configuration_warnings()
-
 var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
@@ -39,9 +30,6 @@ var _faction_dict: Dictionary = {}
 ### Built in Engine Methods -----------------------------------------------------------------------
 
 func _ready() -> void:
-	if not has_meta(QuiverCollisionTypes.META_KEY):
-		_handle_character_type_presets()
-	
 	if Engine.is_editor_hint():
 		QuiverEditorHelper.disable_all_processing(self)
 		return
@@ -71,8 +59,8 @@ func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := PackedStringArray()
 	
 	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
-	if collision_type.find("hurt_box") == -1 and collision_type != "custom":
-		warnings.append("hurt box area is using an invalid presset")
+	if collision_type == "world_hit_box" or collision_type == "player_detector":
+		warnings.append("HurtBox should not use %s preset" % collision_type)
 	
 	return warnings
 
@@ -181,9 +169,6 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 				_get_treated_launch_vector(hit_box)
 		)
 		CombatSystem.apply_knockback(knockback, character_attributes)
-		
-		if hit_box.character_type == CombatSystem.CharacterTypes.PLAYERS:
-			Events.enemy_data_sent.emit(character_attributes, hit_box.character_attributes)
 
 
 func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void: 
@@ -217,31 +202,5 @@ func _disable_wall_bounce_collisions() -> void:
 
 func _enable_wall_bounce_collisions() -> void:
 	set_collision_mask_value(QuiverCollisionTypes.COLLISION_LAYER_WORLD_HIT_BOX, true)
-
-
-func _handle_character_type_presets() -> void:
-	var collision_type := get_meta(QuiverCollisionTypes.META_KEY, "default") as String
-	if collision_type == "custom":
-		return
-	
-	var target_collision_type := ""
-	match character_type:
-		CombatSystem.CharacterTypes.PLAYERS:
-			target_collision_type = "player_hurt_box"
-		CombatSystem.CharacterTypes.ENEMIES:
-			target_collision_type = "enemy_hurt_box"
-		CombatSystem.CharacterTypes.BOUNCE_OBSTACLE:
-			push_error("Bounce Obstacles is currently icompatible with hurt boxes")
-		_:
-			push_error("Unimplemented CharacterType: %s. Possible types: %s"%[
-					character_type,
-					CombatSystem.CharacterTypes.keys()
-			])
-			return
-	
-	if target_collision_type != collision_type:
-		QuiverCollisionTypes.apply_preset_to(
-				QuiverCollisionTypes.PRESETS[target_collision_type], self
-		)
 
 ### -----------------------------------------------------------------------------------------------

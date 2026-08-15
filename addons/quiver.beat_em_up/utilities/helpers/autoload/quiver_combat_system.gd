@@ -7,12 +7,6 @@ extends Node
 
 #--- enums ----------------------------------------------------------------------------------------
 
-enum CharacterTypes {
-	PLAYERS,
-	ENEMIES,
-	BOUNCE_OBSTACLE,
-}
-
 enum HurtTypes {
 	MID,
 	HIGH

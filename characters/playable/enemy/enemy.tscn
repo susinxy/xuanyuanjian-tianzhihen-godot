@@ -28,8 +28,6 @@ radius = 20.0
 height = 204.0
 
 [node name="Enemy" groups=["enemies"] instance=ExtResource("1_aj842")]
-collision_layer = 16
-collision_mask = 14
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")
 _path_skin = NodePath("EnemySkin")
@@ -39,7 +37,6 @@ modulate = Color(0, 0.6, 0.701961, 1)
 position = Vector2(1, 0)
 rotation = 1.5708
 shape = SubResource("CapsuleShape2D_4uueb")
-metadata/collision_type = "default"
 
 [node name="EnemySkin" parent="." index="1" instance=ExtResource("2_1tk2w")]
 _has_grab = false

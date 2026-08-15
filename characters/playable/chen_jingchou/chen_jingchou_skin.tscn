@@ -79,80 +79,61 @@ sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle"
 
 [node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:chen_jingchou"]]
-collision_layer = 4096
-collision_mask = 2560
 monitorable = false
 script = ExtResource("5_k0gpy")
-metadata/collision_type = "player_hurt_box"
 
 [node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
 modulate = Color(0, 0.0666667, 0.701961, 1)
 position = Vector2(5, 0.5)
 shape = SubResource("RectangleShape2D_75u0j")
-metadata/collision_type = "player_hurt_box"
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
 [node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:chen_jingchou"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-collision_layer = 256
-collision_mask = 0
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("8_uylrb")
-metadata/collision_type = "player_hit_box"
 
 [node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=1459140912]
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(202, -303)
 shape = SubResource("RectangleShape2D_once2")
 disabled = true
-metadata/collision_type = "player_hit_box"
 
 [node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:chen_jingchou"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-collision_layer = 256
-collision_mask = 0
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("9_cutyj")
-metadata/collision_type = "player_hit_box"
 
 [node name="Attack2Shape" type="CollisionShape2D" parent="Attacks/Attack2" index="0" unique_id=2070321484]
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(231, -274.5)
 shape = SubResource("RectangleShape2D_tcrug")
 disabled = true
-metadata/collision_type = "player_hit_box"
 
 [node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:chen_jingchou"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-collision_layer = 256
-collision_mask = 0
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
-metadata/collision_type = "player_hit_box"
 
 [node name="Attack3Shape" type="CollisionShape2D" parent="Attacks/Attack3" index="0" unique_id=1937822495]
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(96.5, -389.25)
 shape = SubResource("RectangleShape2D_vo5ct")
 disabled = true
-metadata/collision_type = "player_hit_box"
 
 [node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:chen_jingchou"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-collision_layer = 256
-collision_mask = 0
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
-metadata/collision_type = "player_hit_box"
 
 [node name="AttackAirShape" type="CollisionShape2D" parent="Attacks/AttackAir" index="0" unique_id=110280612]
 modulate = Color(1, 0.2, 0.101961, 1)
@@ -160,4 +141,3 @@ position = Vector2(187, -254)
 rotation = 0.294481
 shape = SubResource("RectangleShape2D_e0e1l")
 disabled = true
-metadata/collision_type = "player_hit_box"
