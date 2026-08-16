@@ -83,7 +83,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=13 format=3]
+	var test_scene_template = """[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -91,7 +91,6 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
-[ext_resource type="Script" path="res://scripts/test_wall_bounce_setup.gd" id="7_test_setup"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
 
 [sub_resource type="Resource" id="test_attack_data"]
@@ -118,9 +117,6 @@ size = Vector2(8000, 200)
 
 [node name="TestStage" type="Node2D"]
 
-[node name="TestSetup" type="Node" parent="."]
-script = ExtResource("7_test_setup")
-
 [node name="Background" type="ColorRect" parent="."]
 offset_left = -2000.0
 offset_top = -500.0
@@ -143,18 +139,18 @@ collision_layer = 16384
 shape = SubResource("ground_shape")
 
 [node name="Character" parent="." instance=ExtResource("1_character")]
-position = Vector2(80, 480)
+position = Vector2(102, 480)
 
 [node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
 offset = Vector2(0, -80)
 zoom = 0.85
-limit_left = -2000
+limit_left = 1130
 limit_top = -500
 limit_right = 6000
 limit_bottom = 1000
 
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
-position = Vector2(290, 480)
+position = Vector2(312, 480)
 
 [node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
 attack_data = SubResource("test_attack_data")
