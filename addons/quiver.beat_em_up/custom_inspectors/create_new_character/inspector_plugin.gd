@@ -152,7 +152,7 @@ position = Vector2(350, 480)
 script = ExtResource("5_periodic_attack")
 facing_direction = -1
 use_combo = true
-rest_duration = 1.5
+rest_duration = 0.3
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(600, 480)
