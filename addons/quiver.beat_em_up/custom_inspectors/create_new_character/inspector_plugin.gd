@@ -146,12 +146,13 @@ limit_right = 6000
 limit_bottom = 1000
 
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
-position = Vector2(400, 480)
+position = Vector2(350, 480)
 
 [node name="PeriodicAttack" type="Node" parent="Enemy"]
 script = ExtResource("5_periodic_attack")
-attack_name = &"attack3"
-rest_duration = 1.0
+facing_direction = -1
+use_combo = true
+rest_duration = 1.5
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(600, 480)
