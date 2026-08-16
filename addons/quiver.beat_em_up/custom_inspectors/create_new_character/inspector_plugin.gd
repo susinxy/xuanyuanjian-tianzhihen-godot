@@ -122,7 +122,7 @@ offset_left = -2000.0
 offset_top = -500.0
 offset_right = 6000.0
 offset_bottom = 2000.0
-color = Color(0.15, 0.18, 0.22, 1)
+color = Color(0.05, 0.05, 0.05, 1)
 
 [node name="GroundLine" type="ColorRect" parent="."]
 offset_left = -2000.0
@@ -161,7 +161,7 @@ facing_direction = -1
 rest_duration = 0.0
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
-position = Vector2(600, 480)
+position = Vector2(1000, 480)
 collision_layer = 16384
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall"]
@@ -184,7 +184,7 @@ text = "矮墙 160px"
 horizontal_alignment = 1
 
 [node name="TallWall" type="StaticBody2D" parent="."]
-position = Vector2(2000, 480)
+position = Vector2(2400, 480)
 collision_layer = 16760832
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall"]
@@ -207,7 +207,7 @@ text = "高墙 400px"
 horizontal_alignment = 1
 
 [node name="Platform" type="StaticBody2D" parent="."]
-position = Vector2(1300, 480)
+position = Vector2(1700, 480)
 collision_layer = 262144
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Platform"]
