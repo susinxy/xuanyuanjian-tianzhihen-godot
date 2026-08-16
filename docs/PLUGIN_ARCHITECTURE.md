@@ -1,8 +1,8 @@
 # Quiver Beat-em-up 插件架构源码分析
 
 > **分析日期**: 2026-08-11
-> **最后更新**: 2026-08-13
-> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统修改
+> **最后更新**: 2026-08-16
+> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构
 > **用途**: 记录插件所有系统的设计、实现细节和使用方式
 
 ---
@@ -132,6 +132,7 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 - `_calculate_range_layers(min_h, max_h)`: 区间查询
 - `_height_to_layer(height)`: 点查询，返回单个层编号（int）
 - `_layers_to_bitmask(layers)`: 编号转 bitmask
+- `static func get_all_height_layers_mask() -> int`: 计算全高度层 bitmask（layers 15-24），可在任何地方调用，供 QuiverLevelCamera 等外部组件获取高度层掩码
 
 **QuiverCharacterSkin 关键属性**:
 - `base_height`（计算属性）: `get: return -position.y`，无需动画 track 驱动，永远与 `position.y` 同步
@@ -144,12 +145,17 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 ### 基类场景结构 (`quiver_character_base.tscn`)
 
 ```
-QuiverBaseCharacter (CharacterBody2D, collision_mask=12=layer3+4)
+QuiverBaseCharacter (CharacterBody2D)
   ├─ script: quiver_character.gd
   └─ StateMachine (Node, quiver_state_machine.gd)
 ```
 
-**重要**: `collision_mask=12`（layers 3+4: screen_limits + ceiling_limits）。继承场景必须设置为 `14`（layers 2+3+4）才能与障碍物碰撞。运行时 `_update_collision_layers()` 会动态添加当前高度层 (15-19) 到 collision_mask，使角色能够与高度层障碍物发生物理碰撞。
+**重要**: 基类场景**不预设** `collision_layer` 和 `collision_mask`（使用 Godot 默认值 1）。所有碰撞层由运行时 `_update_collision_layers()` 动态管理：
+- 高度层 bits (15-24) 根据角色的 `base_height` + `physical_height` 动态设置
+- 非高度层 bits (1-14) 保留原有值，不做修改
+- 继承场景也不需要手动设置 collision_mask，高度层系统会自动处理
+
+**碰撞检测原则**：所有物理碰撞和 Area2D 检测都通过高度层交集触发，faction group (`area2d:` 前缀) 负责逻辑过滤。不再使用固定的 combat layer (9-14) 区分 player/enemy。
 
 ### 子类约定
 
@@ -551,28 +557,36 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 **被动**: `monitoring=false, monitorable=true`
 - 不主动扫描任何东西
 - 只是承载 `character_attributes` 和 `attack_data`，等对方 HurtBox 来"捡"
+- `collision_layer` 和 `collision_mask` 由 `QuiverCharacter._update_hitbox_layers()` 动态管理（高度层）
+
+**阵营 group 缓存**:
+- `var _faction_dict: Dictionary` — 缓存 `area2d:` 前缀的 group，用于 O(1) 阵营检查
+- `_ready()` 时初始化缓存
+- 重写 `add_to_group()` / `remove_from_group()`，捕获运行时 group 变更并刷新缓存
+- 供 `QuiverHurtBox.are_factions_equal()` 使用
 
 ### 7.3 QuiverHurtBox（受击判定框）
 
 **文件**: `combat/collision_areas/quiver_hurt_box.gd`
 **类名**: `QuiverHurtBox`（Area2D，主动监听者）
 
-**主动**: `monitoring=true, monitorable=false`，mask 对应敌人的 hit/grab 层。
+**主动**: `monitoring=true, monitorable=false`。`collision_layer` 和 `collision_mask` 由 `QuiverCharacter._update_hurtbox_layers()` 动态管理（高度层）。
 
 **`_on_area_entered()` 分发**:
 
 | 进入的 Area | 方法 | 后续 |
 |---|---|---|
+| `WallHitBox` | `_handle_wall_hit_box()` | `wall_bounced` 信号 |
 | `QuiverHitBox` | `_handle_hit_box()` | `apply_damage` + `apply_knockback` |
 | `QuiverGrabBox` | `_handle_grab_box()` | `grab_requested` 信号 |
-| `WallHitBox` | `_handle_wall_hit_box()` | `wall_bounced` 信号 |
+
+**注意**: 阵营检查 `are_factions_equal()` 在 `_on_area_entered()` 入口处统一执行，同阵营直接 return，不再在各个 `_handle_*()` 方法中单独检查。
 
 **`_handle_hit_box()` 完整流程**:
-1. **阵营检查** `are_factions_equal(hit_box, self)`：同阵营直接 return（`area2d:` group 前缀匹配）
-2. `_can_be_attacked_by(hit_box)` 检查：非无敌 + 同一车道
-3. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
-4. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
-5. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
+1. `_can_be_attacked_by(hit_box)` 检查：非无敌 + 同一车道
+2. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
+3. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
+4. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
 
 **阵营过滤机制**（`area2d:` group）:
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
@@ -584,6 +598,14 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - 配置方式：在 .tscn 中为角色的所有战斗 Area2D 添加 `groups = ["area2d:角色名"]`
 - `_handle_grab_box()` 同样使用此检查
 - QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制
+
+**墙壁反弹机制**（`area2d:wall` group）:
+- HurtBox 默认加入 `area2d:wall` group（在 .tscn 中配置）
+- WallHitBox 也加入 `area2d:wall` group（在 `quiver_wall_hit_box.gd` 的 `_ready()` 中）
+- 默认状态下，HurtBox 和 WallHitBox 同属 `area2d:wall` → `are_factions_equal()` 返回 true → 碰撞被跳过
+- 动画关键帧调用 `_enable_wall_bounce_collisions()` → `remove_from_group("area2d:wall")` → 阵营不再匹配 → 碰撞生效
+- 动画关键帧调用 `_disable_wall_bounce_collisions()` → `add_to_group("area2d:wall")` → 恢复同阵营 → 碰撞跳过
+- 这种设计让墙壁反弹完全由动画控制，无需修改碰撞层
 
 ### 7.4 QuiverAttackData（攻击数据）
 
@@ -611,7 +633,22 @@ var hurt_type: CombatSystem.HurtTypes
 var launch_vector: Vector2
 ```
 
-### 7.6 完整战斗流程（玩家攻击敌人）
+### 7.6 碰撞检测原则
+
+**核心设计**：高度层是唯一的物理检测通道，faction group 是唯一的逻辑过滤机制。
+
+```
+高度层交集 → 物理检测触发（Godot 引擎要求 layer/mask 匹配）
+  → faction group 过滤（area2d: 前缀匹配 = 同阵营，跳过）
+    → 行为执行（伤害、击飞、抓取、反弹）
+```
+
+- **不再使用**固定的 combat layer (9-14) 区分 player/enemy/wall
+- **不再使用** `character_type` 枚举和 `QuiverCollisionTypes` 碰撞预设系统
+- 所有战斗 Area2D 的 `collision_layer` / `collision_mask` 由 `QuiverCharacter` 动态管理（高度层 15-24）
+- 阵营区分完全通过 `area2d:` 前缀的 group 实现
+
+### 7.7 完整战斗流程（玩家攻击敌人）
 
 ```
 玩家按 J 键
@@ -620,12 +657,20 @@ Idle.unhandled_input() → Move.attack() → transition_to("Ground/Combo1")
   ↓
 Combo1.enter() → _skin.transition_to("attack1") → 播放攻击动画
   ↓
-动画关键帧：攻击动画中某帧激活 HitBox.monitoring=true（通过动画 call_method track）
+动画关键帧：攻击动画中某帧禁用 HitBox CollisionShape2D.disabled（通过动画 value track）
   ↓
-Player HitBox (layer 9, monitoring=true, 携带 attack_data)
-  进入敌人 HurtBox (layer 14, monitoring=true, mask=256+1024)
+Player HitBox (高度层 = 攻击高度层, monitorable=true, 携带 attack_data)
+  与敌人 HurtBox (高度层 = 敌人身体高度层, monitoring=true) 发生区域重叠
+  （前提：两者的攻击高度层和身体高度层有交集，Godot 引擎触发 area_entered 信号）
   ↓
-HurtBox._on_area_entered() → _handle_hit_box()
+HurtBox._on_area_entered()
+  ↓
+are_factions_equal() 检查：
+  Player HitBox groups: ["area2d:chen_jingchou"]
+  Enemy HurtBox groups: ["area2d:enemy", "area2d:wall"]
+  无交集 → 不同阵营 → 继续处理
+  ↓
+_handle_hit_box()
   ↓
 CombatSystem.apply_damage() → HP 扣减 → HitFreeze（顿感）
 CombatSystem.apply_knockback() → 累积击退 → hurt_requested 或 knockout_requested
@@ -716,17 +761,87 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 
 ### 8.4 QuiverLevelCamera（游戏摄像机）
 
-**文件**: `utilities/custom_nodes/level_camera/quiver_level_camera.gd`
+**文件**: `utilities/custom_nodes/level_camera/quiver_level_camera.gd` + `.tscn`
 **类名**: `QuiverLevelCamera`（继承 Camera2D）
 
-**两个核心职责**:
-1. **屏幕边缘碰撞墙**: 每帧更新两个 CollisionShape2D（角色无法走出屏幕边缘）
-2. **`delimitate_room()`**: 平滑过渡摄像头边界到指定区域（用 Tween）
+**四个核心职责**:
+1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D（角色无法走出屏幕边缘）
+2. **墙壁反弹检测**: LeftBounce/RightBounce Area2D，通过 RemoteTransform2D 与屏幕边缘同步
+3. **`delimitate_room()`**: 平滑过渡摄像头边界到指定区域（用 Tween）
+4. **高度层碰撞初始化**: `_ready()` 时调用 `QuiverCharacter.get_all_height_layers_mask()` 设置碰撞层
+
+#### 场景树结构
+
+```
+LevelCamera (Camera2D)
+├── ScreenLimits (StaticBody2D, visible=false)
+│   ├── Left (CollisionShape2D, 竖直长条, one_way_collision, rotation=90°)
+│   │   └── RemoteTransform2D → LeftBounce/LeftBounceShape
+│   ├── Right (CollisionShape2D, 竖直长条, one_way_collision, rotation=-90°)
+│   │   └── RemoteTransform2D → RightBounce/RightBounceShape
+│   ├── Top (CollisionShape2D, 水平长条, one_way_collision, rotation=180°)
+│   └── Bottom (CollisionShape2D, 水平长条, one_way_collision, rotation=0°)
+├── LeftBounce (Area2D, WallHitBox, groups=["area2d:wall"])
+│   └── LeftBounceShape (CollisionShape2D)
+└── RightBounce (Area2D, WallHitBox, groups=["area2d:wall"])
+    └── RightBounceShape (CollisionShape2D)
+```
+
+#### 屏幕边缘碰撞墙（ScreenLimits）
+
+四个 StaticBody2D 子节点（Left/Right/Top/Bottom）组成隐形墙壁，阻止角色走出屏幕。
+
+**`_process()` 每帧定位逻辑**:
+- Left: `x = min(limit_left - 半宽, 相机中心x - 半视口宽)`
+- Right: `x = max(limit_right + 半宽, 相机中心x + 半视口宽)`
+- Top: `y = min(limit_top - 半高, 相机中心y - 半视口高)`
+- Bottom: `y = max(limit_bottom + 半高, 相机中心y + 半视口高)`
+
+`min/max` 确保墙壁不会超出相机的硬边界（limit_left/right/top/bottom）。
+
+**`one_way_collision` 方向**:
+- Left: rotation=90°，法线朝右 → 阻挡向左（出屏幕），允许向右（回屏幕）
+- Right: rotation=-90°，法线朝左 → 阻挡向右（出屏幕），允许向左（回屏幕）
+- Top: rotation=180°，法线朝下 → 阻挡向上（出屏幕），允许向下（回屏幕）
+- Bottom: rotation=0°，法线朝上 → 阻挡向下（出屏幕），允许向上（回屏幕）
+
+**碰撞层**: 不使用固定 layer，由 `_setup_height_layer_collisions()` 在 `_ready()` 时设置为全高度层 bitmask（通过 `QuiverCharacter.get_all_height_layers_mask()` 获取）。角色的 collision_mask 动态包含当前高度层，因此能自动与屏幕边缘碰撞。
+
+**形状尺寸动态更新**:
+- `_update_collision_limits_length()`: 左右墙壁的长度 = 视口高度/zoom + collision_width；上下墙壁的长度 = 视口宽度/zoom + collision_width
+- `_update_collision_limits_width()`: 所有墙壁的厚度 = collision_width（默认 80px）
+- 视口大小变化时自动更新（`size_changed` 信号）
+- Tween 过渡期间也持续更新
+
+#### 墙壁反弹检测（LeftBounce/RightBounce）
+
+两个 Area2D（WallHitBox 脚本），位于屏幕左右边缘，检测角色被击飞后撞墙。
+
+**位置同步**: 通过 `RemoteTransform2D` 将 ScreenLimits/Left(Right) 的位置复制给 LeftBounce/RightBounce 的 CollisionShape2D。ScreenLimits 每帧移动 → RemoteTransform2D 自动同步 → 反弹检测始终在屏幕边缘。
+
+**碰撞层**: 同 ScreenLimits，使用全高度层 bitmask。
+
+**反弹流程**:
+1. 角色被击飞 → knockout_launch 动画播放
+2. 动画关键帧调用 `_enable_wall_bounce_collisions()` → HurtBox 移除 `area2d:wall` group
+3. 角色 HurtBox 进入 LeftBounce/RightBounce 检测范围
+4. `_on_area_entered()` → `are_factions_equal()` 返回 false（HurtBox 已无 `area2d:wall`）
+5. `_handle_wall_hit_box()` → 造成伤害 + `wall_bounced` 信号
+6. 状态机收到信号 → 角色速度反转 → 反弹
+7. knockout_landed 动画播放 → `_disable_wall_bounce_collisions()` → HurtBox 重新加入 `area2d:wall` group
+
+#### `delimitate_room()` — 战斗区域锁定
+
+用 Tween 平滑过渡相机的 limits 和 zoom，用于战斗开始时锁定摄像机到战斗区域。
 
 ```gdscript
 func delimitate_room(p_limit_left, p_limit_top, p_limit_right, p_limit_bottom, p_zoom, p_duration):
-    # Tween 过渡到战斗区域边界
+    # Tween 过渡到战斗区域边界（TRANS_QUAD + EASE_IN_OUT）
 ```
+
+**典型使用场景**: 玩家走进 FightRoom → `QuiverFightRoom.setup_fight_room()` → 调用 `delimitate_room()` → 相机平滑锁定到战斗区域。战斗结束后 `setup_after_fight_room()` 恢复或切换到新区域。
+
+**注意**: 如果 limits 范围小于视口可见范围（视口大小/zoom），limits 实际上不起作用，因为相机无法将可见区域缩小到比视口更小。正式关卡中 FightRoom 的区域大小通常设计为接近视口可见大小。
 
 ---
 
