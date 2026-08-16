@@ -139,7 +139,7 @@ collision_layer = 16384
 shape = SubResource("ground_shape")
 
 [node name="Character" parent="." instance=ExtResource("1_character")]
-position = Vector2(102, 480)
+position = Vector2(200, 480)
 
 [node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
 offset = Vector2(0, -80)
@@ -150,7 +150,7 @@ limit_right = 6000
 limit_bottom = 1000
 
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
-position = Vector2(312, 480)
+position = Vector2(522, 480)
 
 [node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
 attack_data = SubResource("test_attack_data")
