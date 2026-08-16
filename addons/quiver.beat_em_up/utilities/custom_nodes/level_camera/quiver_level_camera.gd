@@ -21,10 +21,14 @@ extends Camera2D
 
 @onready var _limit_left := $ScreenLimits/Left as CollisionShape2D
 @onready var _limit_right := $ScreenLimits/Right as CollisionShape2D
+@onready var _limit_top := $ScreenLimits/Top as CollisionShape2D
+@onready var _limit_bottom := $ScreenLimits/Bottom as CollisionShape2D
 
 @onready var _collision_limits: Array[CollisionShape2D] = [
 	_limit_left,
 	_limit_right,
+	_limit_top,
+	_limit_bottom,
 ]
 
 var _tween: Tween
@@ -53,6 +57,14 @@ func _process(_delta: float) -> void:
 		elif limit == _limit_right:
 			target_position.x = maxf(
 					limit_right + half_collision_width.x, target_position.x + half_size.x
+			)
+		elif limit == _limit_top:
+			target_position.y = minf(
+					limit_top - half_collision_width.y, target_position.y - half_size.y
+			)
+		elif limit == _limit_bottom:
+			target_position.y = maxf(
+					limit_bottom + half_collision_width.y, target_position.y + half_size.y
 			)
 		
 		limit.global_position = target_position
@@ -105,6 +117,9 @@ func _update_collision_limits_length() -> void:
 	
 	var rect_size := get_viewport_rect().size / zoom
 	for limit in _collision_limits:
-		(limit.shape as RectangleShape2D).size.x = rect_size.y + collision_width
+		if limit == _limit_left or limit == _limit_right:
+			(limit.shape as RectangleShape2D).size.x = rect_size.y + collision_width
+		else:
+			(limit.shape as RectangleShape2D).size.x = rect_size.x + collision_width
 
 ### -----------------------------------------------------------------------------------------------
