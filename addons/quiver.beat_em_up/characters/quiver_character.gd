@@ -259,9 +259,14 @@ func _layers_to_bitmask(layers: Array) -> int:
 
 
 func _all_height_layers_bitmask() -> int:
+	return get_all_height_layers_mask()
+
+
+## 计算全高度层 bitmask（静态方法，可在任何地方调用）
+static func get_all_height_layers_mask() -> int:
 	var mask := 0
-	for def in _height_definitions:
-		mask |= (1 << (def["layer"] - 1))
+	for i in range(HEIGHT_LAYER_COUNT):
+		mask |= (1 << (HEIGHT_LAYER_FIRST + i - 1))
 	return mask
 
 

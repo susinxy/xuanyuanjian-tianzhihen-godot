@@ -37,6 +37,7 @@ var _tween: Tween
 func _ready() -> void:
 	_update_collision_limits_length()
 	get_viewport().size_changed.connect(_update_collision_limits_length)
+	_setup_height_layer_collisions()
 	pass
 
 
@@ -82,6 +83,13 @@ func delimitate_room(
 
 
 ### Private Methods -------------------------------------------------------------------------------
+
+func _setup_height_layer_collisions() -> void:
+	var height_mask := QuiverCharacter.get_all_height_layers_mask()
+	$ScreenLimits.collision_layer = height_mask
+	$LeftBounce.collision_layer = height_mask
+	$RightBounce.collision_layer = height_mask
+
 
 func _update_collision_limits_width() -> void:
 	if not is_inside_tree():

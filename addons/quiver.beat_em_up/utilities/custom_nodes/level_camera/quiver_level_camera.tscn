@@ -34,7 +34,6 @@ script = ExtResource("1_8o7d7")
 
 [node name="ScreenLimits" type="StaticBody2D" parent="."]
 visible = false
-collision_layer = 4
 
 [node name="Left" type="CollisionShape2D" parent="ScreenLimits"]
 modulate = Color(0, 0.6, 0.701961, 1)
@@ -59,7 +58,6 @@ remote_path = NodePath("../../../RightBounce/RightBounceShape")
 [node name="RightBounce" type="Area2D" parent="."]
 visible = false
 position = Vector2(1937, 537)
-collision_layer = 256
 collision_mask = 0
 monitoring = false
 script = ExtResource("2_hftxj")
@@ -74,7 +72,6 @@ shape = SubResource("RectangleShape2D_gvifd")
 [node name="LeftBounce" type="Area2D" parent="."]
 visible = false
 position = Vector2(-12, 537)
-collision_layer = 256
 collision_mask = 0
 monitoring = false
 script = ExtResource("2_hftxj")
