@@ -63,9 +63,12 @@ func _start_attack() -> void:
 
 func _on_skin_animation_finished() -> void:
 	if _is_attacking:
-		_is_attacking = false
 		_combo_index = (_combo_index + 1) % COMBO.size()
-		_skin.transition_to(&"idle")
-		_timer = rest_duration
+		if use_combo:
+			_skin.transition_to(COMBO[_combo_index])
+		else:
+			_is_attacking = false
+			_skin.transition_to(&"idle")
+			_timer = rest_duration
 
 ### -----------------------------------------------------------------------------------------------
