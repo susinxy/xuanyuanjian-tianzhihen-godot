@@ -23,6 +23,11 @@ const CharacterHeightData = preload(
 	+ "character_height_data.gd"
 )
 
+const ContourTracer = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "contour_tracer.gd"
+)
+
 # 高度轨道路径
 # 高度层数据存放在 QuiverCharacterSkin 节点（AnimationPlayer 的根节点目标）
 # 在 chen_jingchou_skin.tscn 中 AnimationPlayer 是 ChenJingchouSkin 的子节点
@@ -619,11 +624,6 @@ func _extract_and_apply_speed_values(
 
 
 ### Contour Conversion Methods -------------------------------------------------------------------
-
-const ContourTracer = preload(
-	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
-	+ "contour_tracer.gd"
-)
 
 ## Body 轮廓转换
 ##
