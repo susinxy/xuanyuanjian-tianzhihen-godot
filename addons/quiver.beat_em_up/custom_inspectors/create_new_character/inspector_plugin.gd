@@ -83,7 +83,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=12 format=3]
+	var test_scene_template = """[gd_scene load_steps=13 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -92,6 +92,14 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://scripts/test_wall_bounce_setup.gd" id="7_test_setup"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
+
+[sub_resource type="Resource" id="test_attack_data"]
+script = ExtResource("8_attack_data")
+attack_damage = 50.0
+hurt_type = 0
+knockback = 3
+launch_angle = 30
 
 [sub_resource type="CapsuleShape2D" id="short_wall_shape"]
 radius = 20.0
@@ -148,11 +156,13 @@ limit_bottom = 1000
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
 position = Vector2(280, 480)
 
+[node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
+attack_data = SubResource("test_attack_data")
+
 [node name="PeriodicAttack" type="Node" parent="Enemy"]
 script = ExtResource("5_periodic_attack")
 facing_direction = -1
-use_combo = true
-rest_duration = 0.3
+rest_duration = 0.0
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(600, 480)
