@@ -9,6 +9,7 @@ extends Node
 ### Member Variables and Dependencies -------------------------------------------------------------
 
 @export var rest_duration: float = 0.0
+@export var attack_name: StringName = &"attack1"
 
 var _skin: QuiverCharacterSkin = null
 var _timer: float = 0.0
@@ -47,7 +48,7 @@ func _physics_process(delta: float) -> void:
 
 func _start_attack() -> void:
 	_is_attacking = true
-	_skin.transition_to(&"attack1")
+	_skin.transition_to(attack_name)
 
 
 func _on_skin_animation_finished() -> void:

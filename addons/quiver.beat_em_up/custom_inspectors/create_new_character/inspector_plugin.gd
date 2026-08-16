@@ -83,7 +83,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=11 format=3]
+	var test_scene_template = """[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -91,6 +91,7 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
+[ext_resource type="Script" path="res://scripts/test_wall_bounce_setup.gd" id="7_test_setup"]
 
 [sub_resource type="CapsuleShape2D" id="short_wall_shape"]
 radius = 20.0
@@ -108,6 +109,9 @@ height = 300.0
 size = Vector2(8000, 200)
 
 [node name="TestStage" type="Node2D"]
+
+[node name="TestSetup" type="Node" parent="."]
+script = ExtResource("7_test_setup")
 
 [node name="Background" type="ColorRect" parent="."]
 offset_left = -2000.0
@@ -141,14 +145,13 @@ limit_top = -500
 limit_right = 6000
 limit_bottom = 1000
 
-[node name="ScreenLimits" parent="LevelCamera" index="0"]
-collision_layer = 0
-
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
-position = Vector2(800, 480)
+position = Vector2(400, 480)
 
 [node name="PeriodicAttack" type="Node" parent="Enemy"]
 script = ExtResource("5_periodic_attack")
+attack_name = &"attack3"
+rest_duration = 1.0
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(600, 480)
