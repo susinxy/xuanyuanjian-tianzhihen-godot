@@ -144,7 +144,7 @@ position = Vector2(102, 480)
 [node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
 offset = Vector2(0, -80)
 zoom = 0.85
-limit_left = 1130
+limit_left = 0
 limit_top = -500
 limit_right = 6000
 limit_bottom = 1000
