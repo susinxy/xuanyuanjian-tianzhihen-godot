@@ -1,7 +1,7 @@
 # 角色 Group 配置参考
 
 > **创建日期**: 2026-08-15  
-> **最后更新**: 2026-08-15  
+> **最后更新**: 2026-08-16  
 > **用途**: 记录所有与 group 相关的配置项和功能
 
 ---
@@ -30,7 +30,7 @@
 const FACTION_PREFIX = "area2d:"
 ```
 
-**阵营检查**：`quiver_hurt_box.gd:74-93`
+**阵营检查**：`quiver_hurt_box.gd:65-84`
 ```gdscript
 static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
     var hit_dict := _get_faction_dict(hit_box)
@@ -52,12 +52,18 @@ static func are_factions_equal(hit_box: Area2D, hurt_box: Area2D) -> bool:
     return false
 ```
 
-**伤害处理中的阵营检查**：`quiver_hurt_box.gd:158-161`
+**阵营检查在 `_on_area_entered()` 入口统一执行**：`quiver_hurt_box.gd:115-117`
 ```gdscript
-func _handle_hit_box(hit_box: QuiverHitBox) -> void:
-    if are_factions_equal(hit_box, self):
-        return
-    # ... 继续处理伤害
+func _on_area_entered(area: Area2D) -> void:
+    if are_factions_equal(area, self):
+        return  # 同阵营，跳过所有后续处理
+    
+    if area is WallHitBox:
+        _handle_wall_hit_box(area)
+    elif area is QuiverHitBox:
+        _handle_hit_box(area)
+    elif area is QuiverGrabBox:
+        _handle_grab_box(area)
 ```
 
 **缓存刷新**：`quiver_hit_box.gd:48-52`、`quiver_hurt_box.gd:45-48`
@@ -72,8 +78,9 @@ func add_to_group(group: StringName, persistent: bool = false) -> void:
 
 1. `_ready()` 时初始化 `_faction_dict`，缓存所有 `area2d:` 前缀的 group
 2. 重写 `add_to_group()` / `remove_from_group()`，捕获运行时的 group 变更
-3. `_handle_hit_box()` 调用 `are_factions_equal()` 检查阵营
-4. 同阵营双方的 HitBox/HurtBox 不会互相造成伤害/抓取
+3. `_on_area_entered()` 入口处调用 `are_factions_equal()` 检查阵营
+4. 同阵营直接 return，不再进入 `_handle_hit_box()` / `_handle_grab_box()` 等后续处理
+5. 不同阵营才继续执行伤害/抓取/反弹逻辑
 
 ---
 
