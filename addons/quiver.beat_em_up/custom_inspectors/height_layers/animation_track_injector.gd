@@ -616,3 +616,651 @@ func _extract_and_apply_speed_values(
 	return info
 
 ### -----------------------------------------------------------------------------------------------
+
+
+### Contour Conversion Methods -------------------------------------------------------------------
+
+const ContourTracer = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "contour_tracer.gd"
+)
+
+## Body 轮廓转换
+##
+## 从 PNG 提取轮廓多边形，替换 HurtShape 的 CollisionShape2D 为 CollisionPolygon2D
+## 自动计算 physical_height，更新动画 tracks，重命名 PNG 文件
+##
+## 参数:
+## - skin_node: QuiverCharacterSkinAnimTree 节点
+## - alpha_threshold: alpha 阈值（0.0-1.0）
+## - simplify_tolerance: Douglas-Peucker 简化容差（像素）
+## - dry_run: 如果为 true，只预览不实际修改
+## - callback_obj: 拥有 _on_contour_progress(current, total, filename) 方法的对象
+##
+## 返回: { frame_count: int, errors: Array[String], frames_info: Dictionary, png_renames: Dictionary }
+func convert_body_contours(
+	skin_node: Node,
+	alpha_threshold: float,
+	simplify_tolerance: float,
+	dry_run: bool,
+	callback_obj: Object
+) -> Dictionary:
+	var result := {
+		"frame_count": 0,
+		"errors": [] as Array[String],
+		"frames_info": {},
+		"png_renames": {},
+	}
+	
+	# 1. 获取 SpriteFrames
+	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
+	if sprite_frames == null:
+		return result
+	
+	# 2. 读取 HurtShape 的 position（用于坐标转换）
+	var skin_scene_path := skin_node.scene_file_path
+	var hurt_shape_pos := _read_shape_position_from_tscn(skin_scene_path, "HurtShape")
+	
+	# 3. 遍历所有帧，提取轮廓数据
+	var frames_data := {}
+	var total_frames := 0
+	
+	for sprite_anim_name in sprite_frames.get_animation_names():
+		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
+		frames_data[sprite_anim_name] = {}
+		
+		for frame_idx in range(frame_count):
+			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
+			if texture == null:
+				continue
+			
+			var png_path := texture.resource_path
+			var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(png_path)
+			
+			# 只处理有 physical 标签的帧
+			if parsed.get("physical", -1.0) < 0.0:
+				continue
+			
+			total_frames += 1
+			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
+				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
+			
+			# 加载 PNG
+			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
+			if image == null:
+				result.errors.append("无法加载图片: %s" % png_path)
+				continue
+			
+			# 检查 mask
+			var mask_path := png_path.replace(".png", ".mask.png")
+			var mask: Image = null
+			if FileAccess.file_exists(mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+			
+			# 提取轮廓
+			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+			if contours.is_empty():
+				result.errors.append("未提取到轮廓: %s" % png_path.get_file())
+				continue
+			
+			# 计算 physical_height
+			var physical_height := ContourTracer.calc_physical_height(contours, image.get_height())
+			
+			# 坐标转换
+			var local_contours: Array[PackedVector2Array] = []
+			for contour in contours:
+				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), hurt_shape_pos)
+				local_contours.append(local)
+			
+			frames_data[sprite_anim_name][frame_idx] = {
+				"contours": local_contours,
+				"physical_height": physical_height,
+				"png_path": png_path,
+			}
+			
+			result.frame_count += 1
+	
+	# 4. 如果 dry_run，返回预览结果
+	if dry_run:
+		result.frames_info = frames_data
+		return result
+	
+	# 5. 修改 skin .tscn
+	_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
+	
+	# 6. 注入 Animation tracks
+	var anim_player := _get_animation_player(skin_node, result.errors)
+	if anim_player != null:
+		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors)
+	
+	# 7. 重命名 PNG + 更新 SpriteFrames
+	var renames := _build_body_png_renames(frames_data)
+	_rename_pngs_and_update_spriteframes(renames, sprite_frames.resource_path, result.errors)
+	result.png_renames = renames
+	
+	result.frames_info = frames_data
+	return result
+
+
+## Attack 轮廓转换
+##
+## 从 PNG 提取轮廓多边形，替换 AttackShape 的 CollisionShape2D 为 CollisionPolygon2D
+## 自动计算 attack_heights，更新动画 tracks，重命名 PNG 文件
+##
+## 参数:
+## - skin_node: QuiverCharacterSkinAnimTree 节点
+## - alpha_threshold: alpha 阈值（0.0-1.0）
+## - simplify_tolerance: Douglas-Peucker 简化容差（像素）
+## - dry_run: 如果为 true，只预览不实际修改
+## - callback_obj: 拥有 _on_contour_progress(current, total, filename) 方法的对象
+##
+## 返回: { frame_count: int, errors: Array[String], frames_info: Dictionary, png_renames: Dictionary }
+func convert_attack_contours(
+	skin_node: Node,
+	alpha_threshold: float,
+	simplify_tolerance: float,
+	dry_run: bool,
+	callback_obj: Object
+) -> Dictionary:
+	var result := {
+		"frame_count": 0,
+		"errors": [] as Array[String],
+		"frames_info": {},
+		"png_renames": {},
+	}
+	
+	# 1. 获取 SpriteFrames
+	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
+	if sprite_frames == null:
+		return result
+	
+	# 2. 获取高度层定义（用于 attack_heights 计算）
+	var height_definitions := QuiverCharacter._build_height_definitions()
+	
+	# 3. 读取各 AttackShape 的 position
+	var skin_scene_path := skin_node.scene_file_path
+	var attack_shape_positions := {
+		"Attack1": _read_shape_position_from_tscn(skin_scene_path, "Attack1Shape"),
+		"Attack2": _read_shape_position_from_tscn(skin_scene_path, "Attack2Shape"),
+		"Attack3": _read_shape_position_from_tscn(skin_scene_path, "Attack3Shape"),
+		"AttackAir": _read_shape_position_from_tscn(skin_scene_path, "AttackAirShape"),
+	}
+	
+	# 4. 遍历所有帧，提取轮廓数据
+	var frames_data := {}
+	var total_frames := 0
+	
+	for sprite_anim_name in sprite_frames.get_animation_names():
+		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
+		frames_data[sprite_anim_name] = {}
+		
+		for frame_idx in range(frame_count):
+			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
+			if texture == null:
+				continue
+			
+			var png_path := texture.resource_path
+			var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(png_path)
+			
+			# 只处理有 attack 标签的帧
+			var attack_heights_raw: Array = parsed.get("attack_heights", [])
+			if attack_heights_raw.is_empty():
+				continue
+			
+			# 确定对应的 Attack 节点名
+			var attack_node := _get_attack_node_name(sprite_anim_name)
+			if attack_node.is_empty():
+				continue
+			
+			total_frames += 1
+			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
+				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
+			
+			# 加载 PNG
+			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
+			if image == null:
+				result.errors.append("无法加载图片: %s" % png_path)
+				continue
+			
+			# 检查 mask
+			var mask_path := png_path.replace(".png", ".mask.png")
+			var mask: Image = null
+			if FileAccess.file_exists(mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+			
+			# 提取轮廓
+			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+			if contours.is_empty():
+				result.errors.append("未提取到轮廓: %s" % png_path.get_file())
+				continue
+			
+			# 计算 attack_heights
+			var attack_heights := ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
+			
+			# 坐标转换
+			var shape_pos: Vector2 = attack_shape_positions.get(attack_node, Vector2.ZERO)
+			var local_contours: Array[PackedVector2Array] = []
+			for contour in contours:
+				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), shape_pos)
+				local_contours.append(local)
+			
+			frames_data[sprite_anim_name][frame_idx] = {
+				"contours": local_contours,
+				"attack_heights": attack_heights,
+				"attack_node": attack_node,
+				"png_path": png_path,
+			}
+			
+			result.frame_count += 1
+	
+	# 5. 如果 dry_run，返回预览结果
+	if dry_run:
+		result.frames_info = frames_data
+		return result
+	
+	# 6. 修改 skin .tscn
+	_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
+	
+	# 7. 注入 Animation tracks
+	var anim_player := _get_animation_player(skin_node, result.errors)
+	if anim_player != null:
+		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors)
+	
+	# 8. 重命名 PNG + 更新 SpriteFrames
+	var renames := _build_attack_png_renames(frames_data)
+	_rename_pngs_and_update_spriteframes(renames, sprite_frames.resource_path, result.errors)
+	result.png_renames = renames
+	
+	result.frames_info = frames_data
+	return result
+
+
+## 从 .tscn 文件读取节点的 position
+func _read_shape_position_from_tscn(tscn_path: String, node_name: String) -> Vector2:
+	if not FileAccess.file_exists(tscn_path):
+		return Vector2.ZERO
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		return Vector2.ZERO
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 查找节点定义
+	var node_pattern := RegEx.new()
+	node_pattern.compile('\\[node name="%s"[^\\]]*\\]' % node_name)
+	var node_match := node_pattern.search(content)
+	if node_match == null:
+		return Vector2.ZERO
+	
+	# 在节点定义之后查找 position 属性
+	var search_start := node_match.get_end()
+	var next_node_start := content.find("[node ", search_start)
+	if next_node_start == -1:
+		next_node_start = content.length()
+	
+	var node_content := content.substr(search_start, next_node_start - search_start)
+	
+	var pos_pattern := RegEx.new()
+	pos_pattern.compile('position = Vector2\\(([^,]+), ([^)]+)\\)')
+	var pos_match := pos_pattern.search(node_content)
+	if pos_match == null:
+		return Vector2.ZERO
+	
+	var x := float(pos_match.get_string(1))
+	var y := float(pos_match.get_string(2))
+	return Vector2(x, y)
+
+
+## 修改 skin .tscn（Body 转换）
+func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, errors: Array[String]) -> void:
+	if not FileAccess.file_exists(tscn_path):
+		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
+		return
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		errors.append("无法读取 skin .tscn: %s" % tscn_path)
+		return
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 获取第一帧的轮廓数据（用于初始 polygon）
+	var first_polygon := PackedVector2Array()
+	for sprite_anim_name in frames_data.keys():
+		var frame_dict: Dictionary = frames_data[sprite_anim_name]
+		for frame_idx in frame_dict.keys():
+			var frame_info: Dictionary = frame_dict[frame_idx]
+			var contours: Array = frame_info["contours"]
+			if not contours.is_empty():
+				first_polygon = contours[0]
+				break
+		if not first_polygon.is_empty():
+			break
+	
+	# 替换 HurtShape 节点：CollisionShape2D → CollisionPolygon2D
+	var polygon_str := ContourTracer.format_polygon_array(first_polygon)
+	
+	# 用正则匹配整个 HurtShape 节点定义块
+	var old_node_pattern := RegEx.new()
+	old_node_pattern.compile('\\[node name="HurtShape" type="CollisionShape2D"[^\\]]*\\]\\n(?:[^\\[]*\\n)*?(?=\\[node )')
+	
+	var new_node := '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(5, 0.5)\npolygon = %s\n\n' % polygon_str
+	
+	content = old_node_pattern.sub(content, new_node)
+	
+	# 删除不再使用的 RectangleShape2D SubResource (HurtBox 的)
+	var subresource_pattern := RegEx.new()
+	subresource_pattern.compile('\\[sub_resource type="RectangleShape2D" id="RectangleShape2D_75u0j"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n')
+	content = subresource_pattern.sub(content, "")
+	
+	# 写回文件
+	file = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if file == null:
+		errors.append("无法写入 skin .tscn: %s" % tscn_path)
+		return
+	
+	file.store_string(content)
+	file.close()
+
+
+## 修改 skin .tscn（Attack 转换）
+func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, errors: Array[String]) -> void:
+	if not FileAccess.file_exists(tscn_path):
+		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
+		return
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		errors.append("无法读取 skin .tscn: %s" % tscn_path)
+		return
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 收集每个 Attack 节点的第一帧轮廓数据和 position
+	var attack_first_polygons := {}
+	for sprite_anim_name in frames_data.keys():
+		var frame_dict: Dictionary = frames_data[sprite_anim_name]
+		for frame_idx in frame_dict.keys():
+			var frame_info: Dictionary = frame_dict[frame_idx]
+			var attack_node: String = frame_info["attack_node"]
+			if not attack_first_polygons.has(attack_node):
+				var contours: Array = frame_info["contours"]
+				if not contours.is_empty():
+					attack_first_polygons[attack_node] = contours[0]
+	
+	# 各 AttackShape 的原始 position（从 .tscn 读取）
+	var shape_positions := {
+		"Attack1": _read_shape_position_from_tscn(tscn_path, "Attack1Shape"),
+		"Attack2": _read_shape_position_from_tscn(tscn_path, "Attack2Shape"),
+		"Attack3": _read_shape_position_from_tscn(tscn_path, "Attack3Shape"),
+		"AttackAir": _read_shape_position_from_tscn(tscn_path, "AttackAirShape"),
+	}
+	
+	# 替换各 AttackShape 节点定义
+	for attack_node in attack_first_polygons.keys():
+		var shape_name := attack_node + "Shape"
+		var first_polygon: PackedVector2Array = attack_first_polygons[attack_node]
+		var shape_pos: Vector2 = shape_positions.get(attack_node, Vector2.ZERO)
+		
+		var polygon_str := ContourTracer.format_polygon_array(first_polygon)
+		
+		var old_node_pattern := RegEx.new()
+		old_node_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\]\\n(?:[^\\[]*\\n)*?(?=\\[node )' % shape_name)
+		
+		var new_node := '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(%.1f, %.1f)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, shape_pos.x, shape_pos.y, polygon_str]
+		
+		content = old_node_pattern.sub(content, new_node)
+	
+	# 删除不再使用的 RectangleShape2D SubResources
+	var subresource_ids := ["RectangleShape2D_once2", "RectangleShape2D_tcrug", "RectangleShape2D_vo5ct", "RectangleShape2D_e0e1l"]
+	for sub_id in subresource_ids:
+		var subresource_pattern := RegEx.new()
+		subresource_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n' % sub_id)
+		content = subresource_pattern.sub(content, "")
+	
+	# 写回文件
+	file = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if file == null:
+		errors.append("无法写入 skin .tscn: %s" % tscn_path)
+		return
+	
+	file.store_string(content)
+	file.close()
+
+
+## 注入 Body 的 polygon tracks
+func _inject_polygon_tracks_for_body(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	frames_data: Dictionary,
+	errors: Array[String]
+) -> void:
+	var lib_names := anim_player.get_animation_library_list()
+	
+	for lib_name in lib_names:
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			if frame_dict.is_empty():
+				continue
+			
+			# 删除旧的 shape:size track
+			_remove_tracks_by_path(anim, ["AnimatedSprite2D/HurtBox/HurtShape:shape:size"])
+			
+			# 添加 polygon track
+			var polygon_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
+			
+			# 逐帧插入 keyframe（只在值变化时）
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			var frame_duration := 1.0 / max(1.0, sprite_fps)
+			var prev_polygon := PackedVector2Array()
+			
+			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				if not frame_dict.has(frame_idx):
+					continue
+				
+				var frame_info: Dictionary = frame_dict[frame_idx]
+				var contours: Array = frame_info["contours"]
+				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
+				
+				if current_polygon != prev_polygon:
+					var time := float(frame_idx) * frame_duration
+					anim.track_insert_key(polygon_track_idx, time, current_polygon)
+					prev_polygon = current_polygon
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 注入 Attack 的 polygon tracks
+func _inject_polygon_tracks_for_attack(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	frames_data: Dictionary,
+	errors: Array[String]
+) -> void:
+	var lib_names := anim_player.get_animation_library_list()
+	
+	for lib_name in lib_names:
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			if frame_dict.is_empty():
+				continue
+			
+			# 获取 attack_node
+			var first_frame: Dictionary = frame_dict.values()[0]
+			var attack_node: String = first_frame["attack_node"]
+			var shape_name := attack_node + "Shape"
+			
+			# 添加 polygon track
+			var polygon_track_idx := _add_value_track(anim, "Attacks/%s/%s:polygon" % [attack_node, shape_name])
+			
+			# 逐帧插入 keyframe（只在值变化时）
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			var frame_duration := 1.0 / max(1.0, sprite_fps)
+			var prev_polygon := PackedVector2Array()
+			
+			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				if not frame_dict.has(frame_idx):
+					continue
+				
+				var frame_info: Dictionary = frame_dict[frame_idx]
+				var contours: Array = frame_info["contours"]
+				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
+				
+				if current_polygon != prev_polygon:
+					var time := float(frame_idx) * frame_duration
+					anim.track_insert_key(polygon_track_idx, time, current_polygon)
+					prev_polygon = current_polygon
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 根据 sprite_anim_name 确定对应的 Attack 节点名
+func _get_attack_node_name(sprite_anim_name: String) -> String:
+	if sprite_anim_name.contains("punch1"):
+		return "Attack1"
+	elif sprite_anim_name.contains("punch2"):
+		return "Attack2"
+	elif sprite_anim_name.contains("punch3"):
+		return "Attack3"
+	elif sprite_anim_name.contains("air_attack"):
+		return "AttackAir"
+	return ""
+
+
+## 构建 Body 的 PNG 重命名映射
+func _build_body_png_renames(frames_data: Dictionary) -> Dictionary:
+	var renames := {}
+	for sprite_anim_name in frames_data.keys():
+		var frame_dict: Dictionary = frames_data[sprite_anim_name]
+		for frame_idx in frame_dict.keys():
+			var frame_info: Dictionary = frame_dict[frame_idx]
+			var old_path: String = frame_info["png_path"]
+			var new_path := _remove_physical_tag(old_path)
+			if new_path != old_path:
+				renames[old_path] = new_path
+	return renames
+
+
+## 构建 Attack 的 PNG 重命名映射
+func _build_attack_png_renames(frames_data: Dictionary) -> Dictionary:
+	var renames := {}
+	for sprite_anim_name in frames_data.keys():
+		var frame_dict: Dictionary = frames_data[sprite_anim_name]
+		for frame_idx in frame_dict.keys():
+			var frame_info: Dictionary = frame_dict[frame_idx]
+			var old_path: String = frame_info["png_path"]
+			var new_path := _remove_attack_tags(old_path)
+			if new_path != old_path:
+				renames[old_path] = new_path
+	return renames
+
+
+## 移除文件名中的 _physical_<P> 标签
+func _remove_physical_tag(path: String) -> String:
+	var pattern := RegEx.new()
+	pattern.compile('_physical_\\d+(\\.\\d+)?')
+	return pattern.sub(path, "", true)
+
+
+## 移除文件名中的 _attack_<Z1>_<Z2>... 标签
+func _remove_attack_tags(path: String) -> String:
+	var pattern := RegEx.new()
+	pattern.compile('_attack_(\\d+(\\.\\d+)?_)*\\d+(\\.\\d+)?')
+	return pattern.sub(path, "", true)
+
+
+## 重命名 PNG 文件 + 更新 SpriteFrames
+func _rename_pngs_and_update_spriteframes(renames: Dictionary, spriteframes_path: String, errors: Array[String]) -> void:
+	if renames.is_empty():
+		return
+	
+	# 1. 重命名 PNG 文件
+	for old_path in renames.keys():
+		var new_path: String = renames[old_path]
+		var old_global := ProjectSettings.globalize_path(old_path)
+		var new_global := ProjectSettings.globalize_path(new_path)
+		
+		var err := DirAccess.rename_absolute(old_global, new_global)
+		if err != OK:
+			errors.append("重命名失败: %s → %s (error=%d)" % [old_path.get_file(), new_path.get_file(), err])
+	
+	# 2. 文本替换 SpriteFrames .tres 中的路径
+	if not FileAccess.file_exists(spriteframes_path):
+		errors.append("SpriteFrames 文件不存在: %s" % spriteframes_path)
+		return
+	
+	var file := FileAccess.open(spriteframes_path, FileAccess.READ)
+	if file == null:
+		errors.append("无法读取 SpriteFrames: %s" % spriteframes_path)
+		return
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	for old_path in renames.keys():
+		var new_path: String = renames[old_path]
+		content = content.replace(old_path, new_path)
+	
+	file = FileAccess.open(spriteframes_path, FileAccess.WRITE)
+	if file == null:
+		errors.append("无法写入 SpriteFrames: %s" % spriteframes_path)
+		return
+	
+	file.store_string(content)
+	file.close()
+	
+	# 3. 触发文件系统扫描
+	EditorInterface.get_resource_filesystem().scan()
+
+
+## 删除指定路径的 tracks
+func _remove_tracks_by_path(anim: Animation, paths: Array[String]) -> void:
+	var tracks_to_remove := []
+	
+	for track_idx in range(anim.get_track_count()):
+		var track_path := str(anim.track_get_path(track_idx))
+		if track_path in paths:
+			tracks_to_remove.append(track_idx)
+	
+	for i in range(tracks_to_remove.size() - 1, -1, -1):
+		anim.remove_track(tracks_to_remove[i])
+
+### -----------------------------------------------------------------------------------------------

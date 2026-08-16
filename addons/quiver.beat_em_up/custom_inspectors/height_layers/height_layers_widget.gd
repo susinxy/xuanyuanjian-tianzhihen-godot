@@ -39,6 +39,14 @@ var _is_collapsed := false
 
 var _last_preview_result: Dictionary  # 保存预览结果，用于后续扫描
 
+# 轮廓转换 UI
+var _body_contour_btn: Button
+var _attack_contour_btn: Button
+var _contour_status_label: Label
+var _contour_result_label: Label
+var _alpha_threshold_spinbox: SpinBox
+var _simplify_tolerance_spinbox: SpinBox
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -133,6 +141,86 @@ func _build_ui() -> void:
 	_result_label = Label.new()
 	_result_label.text = ""
 	details_container.add_child(_result_label)
+	
+	# === 轮廓多边形转换区域 ===
+	add_child(HSeparator.new())
+	
+	var contour_header := Label.new()
+	contour_header.text = "🔷 轮廓多边形转换"
+	contour_header.add_theme_font_size_override("font_size", 16)
+	add_child(contour_header)
+	
+	var contour_desc := Label.new()
+	contour_desc.text = "从 PNG 提取轮廓，生成精确碰撞多边形。\n" + \
+						"Body: 替换 HurtShape，计算 physical_height\n" + \
+						"Attack: 替换 AttackShape，计算 attack_heights"
+	contour_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	contour_desc.add_theme_color_override("font_color", Color.GRAY)
+	add_child(contour_desc)
+	
+	# 参数行
+	var param_container := VBoxContainer.new()
+	add_child(param_container)
+	
+	# Alpha 阈值
+	var alpha_row := HBoxContainer.new()
+	param_container.add_child(alpha_row)
+	var alpha_label := Label.new()
+	alpha_label.text = "Alpha 阈值:"
+	alpha_label.custom_minimum_size.x = 80
+	alpha_row.add_child(alpha_label)
+	_alpha_threshold_spinbox = SpinBox.new()
+	_alpha_threshold_spinbox.min_value = 0.0
+	_alpha_threshold_spinbox.max_value = 1.0
+	_alpha_threshold_spinbox.step = 0.1
+	_alpha_threshold_spinbox.value = 0.5
+	_alpha_threshold_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	alpha_row.add_child(_alpha_threshold_spinbox)
+	
+	# 简化容差
+	var tolerance_row := HBoxContainer.new()
+	param_container.add_child(tolerance_row)
+	var tolerance_label := Label.new()
+	tolerance_label.text = "简化容差:"
+	tolerance_label.custom_minimum_size.x = 80
+	tolerance_row.add_child(tolerance_label)
+	_simplify_tolerance_spinbox = SpinBox.new()
+	_simplify_tolerance_spinbox.min_value = 0.5
+	_simplify_tolerance_spinbox.max_value = 20.0
+	_simplify_tolerance_spinbox.step = 0.5
+	_simplify_tolerance_spinbox.value = 2.0
+	_simplify_tolerance_spinbox.suffix = " px"
+	_simplify_tolerance_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tolerance_row.add_child(_simplify_tolerance_spinbox)
+	
+	# 按钮容器
+	var contour_btn_container := HBoxContainer.new()
+	add_child(contour_btn_container)
+	
+	_body_contour_btn = Button.new()
+	_body_contour_btn.text = "🏃 Body 轮廓转换"
+	_body_contour_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body_contour_btn.pressed.connect(_on_body_contour_pressed)
+	contour_btn_container.add_child(_body_contour_btn)
+	
+	_attack_contour_btn = Button.new()
+	_attack_contour_btn.text = "⚔ Attack 轮廓转换"
+	_attack_contour_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_attack_contour_btn.pressed.connect(_on_attack_contour_pressed)
+	contour_btn_container.add_child(_attack_contour_btn)
+	
+	# 轮廓转换状态
+	_contour_status_label = Label.new()
+	_contour_status_label.text = "就绪"
+	_contour_status_label.add_theme_color_override("font_color", Color.GRAY)
+	add_child(_contour_status_label)
+	
+	# 轮廓转换结果
+	_contour_result_label = RichTextLabel.new()
+	_contour_result_label.bbcode_enabled = true
+	_contour_result_label.text = ""
+	_contour_result_label.custom_minimum_size = Vector2(0, 100)
+	add_child(_contour_result_label)
 
 
 func _on_collapse_toggle() -> void:
@@ -151,6 +239,10 @@ func _update_status() -> void:
 		_status_label.add_theme_color_override("font_color", Color.ORANGE)
 		_preview_btn.disabled = true
 		_scan_btn.disabled = true
+		if _body_contour_btn != null:
+			_body_contour_btn.disabled = true
+		if _attack_contour_btn != null:
+			_attack_contour_btn.disabled = true
 		return
 	
 	_status_label.text = "Status: ✅ 已关联: %s" % _skin_node.name
@@ -158,6 +250,11 @@ func _update_status() -> void:
 	_preview_btn.disabled = false
 	# 扫描按钮需要先完成预览
 	_scan_btn.disabled = (_last_preview_result == null or _last_preview_result.is_empty())
+	# 轮廓转换按钮始终可用（只要有 skin 节点）
+	if _body_contour_btn != null:
+		_body_contour_btn.disabled = false
+	if _attack_contour_btn != null:
+		_attack_contour_btn.disabled = false
 
 
 func _on_preview_pressed() -> void:
@@ -344,5 +441,85 @@ func _execute_scan_async() -> void:
 func _on_progress(current: int, total: int, anim_name: String) -> void:
 	_scan_btn.text = "⏳ 处理中: %d/%d (%s)" % [current, total, anim_name]
 	_status_label.text = "Status: ⏳ 正在处理动画 %d/%d: %s" % [current, total, anim_name]
+
+
+## 轮廓转换进度回调
+func _on_contour_progress(current: int, total: int, filename: String) -> void:
+	var mode_text := "Body" if _body_contour_btn.disabled else "Attack"
+	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [mode_text, current, filename]
+
+
+func _on_body_contour_pressed() -> void:
+	if _skin_node == null:
+		return
+	_body_contour_btn.disabled = true
+	_attack_contour_btn.disabled = true
+	_contour_status_label.text = "⏳ Body 轮廓转换中..."
+	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
+	
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	_execute_contour_conversion_async("body")
+
+
+func _on_attack_contour_pressed() -> void:
+	if _skin_node == null:
+		return
+	_body_contour_btn.disabled = true
+	_attack_contour_btn.disabled = true
+	_contour_status_label.text = "⏳ Attack 轮廓转换中..."
+	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
+	
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	_execute_contour_conversion_async("attack")
+
+
+func _execute_contour_conversion_async(mode: String) -> void:
+	var injector := AnimationTrackInjector.new()
+	var alpha_threshold: float = _alpha_threshold_spinbox.value
+	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
+	
+	var result: Dictionary
+	if mode == "body":
+		result = injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+	else:
+		result = injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+	
+	# 显示结果
+	var error_count: int = result.errors.size()
+	var frame_count: int = result.frame_count
+	var rename_count: int = result.png_renames.size()
+	
+	var lines := []
+	lines.append("[b]%s 轮廓转换结果[/b]" % ("Body" if mode == "body" else "Attack"))
+	lines.append("")
+	lines.append("处理帧数: [b]%d[/b]" % frame_count)
+	lines.append("PNG 重命名: [b]%d[/b] 个" % rename_count)
+	lines.append("")
+	
+	if error_count == 0:
+		lines.append("[color=green]✅ 转换完成，无错误[/color]")
+	else:
+		lines.append("[color=red]❌ 有 %d 个错误：[/color]" % error_count)
+		for error in result.errors:
+			lines.append("  • %s" % error)
+	
+	_contour_result_label.text = "\n".join(lines)
+	
+	# 恢复按钮状态
+	_body_contour_btn.disabled = false
+	_attack_contour_btn.disabled = false
+	
+	if error_count == 0:
+		_contour_status_label.text = "✅ %s 转换完成" % ("Body" if mode == "body" else "Attack")
+		_contour_status_label.add_theme_color_override("font_color", Color.GREEN)
+	else:
+		_contour_status_label.text = "⚠️ %s 转换完成，有 %d 个错误" % ["Body" if mode == "body" else "Attack", error_count]
+		_contour_status_label.add_theme_color_override("font_color", Color.ORANGE)
+	
+	scan_completed.emit(0, frame_count, error_count)
 
 ### -----------------------------------------------------------------------------------------------
