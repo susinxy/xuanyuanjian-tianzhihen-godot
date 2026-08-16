@@ -64,6 +64,7 @@ remote_path = NodePath("../../../RightBounce/RightBounceShape")
 [node name="Top" type="CollisionShape2D" parent="ScreenLimits"]
 modulate = Color(0, 0.6, 0.701961, 1)
 position = Vector2(960, -40)
+rotation = 3.14159
 shape = SubResource("RectangleShape2D_top")
 one_way_collision = true
 
