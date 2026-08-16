@@ -96,7 +96,7 @@ func _ready():
 func _ready():
     # Direct property modifications
     _chen.attributes.health_max = 80
-    _chen.attributes.speed_max = 400
+    _chen.attributes.move_speed = 400
     _chen._skin.modulate = Color(0.8, 0.8, 1.0)
     
     # Dynamic ability unlocking

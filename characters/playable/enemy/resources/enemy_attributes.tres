@@ -9,4 +9,4 @@ script = ExtResource("1_1ikth")
 display_name = "测试敌人"
 profile_texture = ExtResource("2_g3jjg")
 life_bar_gradient = ExtResource("1_4dxsn")
-speed_max = 500.0
+move_speed = 600.0

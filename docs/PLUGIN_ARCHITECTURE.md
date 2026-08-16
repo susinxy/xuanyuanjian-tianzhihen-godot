@@ -241,7 +241,7 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 
 @export_group("Base Stats")
 @export var health_max := 100           # 最大 HP（range 0-1, or_greater）
-@export var speed_max := 600            # 最大移动速度
+@export var move_speed := 600            # 移动速度
 @export var air_control := 0.6          # 空中操控系数 (0.0-1.0)
 @export var jump_force := -1200         # 起跳力（负数=向上，由 jump 动画 speed_X 设置）
 @export var knockback_weight := 1.0     # 击飞权重（由 knockout 动画 speed_X 设置）

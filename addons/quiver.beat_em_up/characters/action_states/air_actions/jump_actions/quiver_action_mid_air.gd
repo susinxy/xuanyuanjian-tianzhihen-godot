@@ -80,7 +80,7 @@ func enter(msg: = {}) -> void:
 	
 	_handle_mid_air_animation()
 	
-	_air_control_max_speed = _attributes.speed_max * _attributes.air_control
+	_air_control_max_speed = _attributes.move_speed * _attributes.air_control
 	
 	if not _can_attack:
 		_state_machine.set_process_unhandled_input(false)

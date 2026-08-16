@@ -103,28 +103,36 @@ characters/playable/yu_xiaoxue/
 ```
 resources/sprites/
 ├── idle/
-│   ├── idle_00.png   # 待机 4 帧
-│   ├── idle_01.png
-│   ├── idle_02.png
-│   └── idle_03.png
+│   ├── idle_00_physical_180_width_204.png   # 待机 4 帧
+│   ├── idle_01_physical_180_width_204.png
+│   ├── idle_02_physical_180_width_204.png
+│   └── idle_03_physical_180_width_204.png
 ├── walk/
-│   └── walk_00.png ~ walk_11.png   # 行走 12 帧
+│   └── walk_00.png ~ walk_11.png（带 physical 和 width 标签）
 ├── jump/
-│   └── jump_01.png ~ jump_04.png   # 跳跃 4 帧
+│   └── jump_01.png ~ jump_04.png（首帧可带 speed 标签）
 ├── punches/
-│   ├── punch1_00.png, punch1_01.png  # 第一拳 2 帧
-│   ├── punch2_00.png, punch2_01.png  # 第二拳 2 帧
-│   └── punch3_00.png, punch3_01.png, punch3_02.png, punch3_04.png  # 第三拳 4 帧
+│   ├── punch1_00_physical_180_width_204_attack_80.png  # 第一拳 2 帧
+│   ├── punch1_01_physical_180_width_204_attack_80.png
+│   ├── punch2_00_physical_180_width_204_attack_100.png  # 第二拳 2 帧
+│   ├── punch2_01_physical_180_width_204_attack_100.png
+│   └── punch3_*.png（带 physical、width、attack 标签）
 ├── air_attack/
-│   └── air_attack_00.png, air_attack_01.png  # 空中攻击 2 帧
+│   └── air_attack_00_physical_180_width_204_attack_70.png  # 空中攻击 2 帧
 ├── hurt/
-│   ├── hurt_high.png    # 高打硬直
-│   └── hurt_mid.png     # 中打硬直
+│   ├── hurt_high_physical_180_width_204.png    # 高打硬直
+│   └── hurt_mid_physical_180_width_204.png     # 中打硬直
 ├── knock_out/
-│   └── knockout_00.png ~ knockout_05.png  # 击飞倒地 6 帧
+│   └── knockout_00.png ~ knockout_05.png（带 physical 和 width 标签）
 └── turn_around/
-    └── turnaround_00.png ~ turnaround_02.png  # 转身 3 帧
+    └── turnaround_00.png ~ turnaround_02.png（带 physical 和 width 标签）
 ```
+
+**标签说明**：
+- `physical_<P>`：角色物理身高（像素），必填
+- `width_<W>`：角色碰撞体宽度（像素），映射到 CapsuleShape2D.height，可选
+- `attack_<A>`：攻击高度偏移，仅攻击动画需要
+- `speed_<S>`：跳跃/击飞初速度，仅首帧可选
 
 ### 素材要求
 
@@ -140,14 +148,33 @@ resources/sprites/
 ```
 @export var display_name := "于小雪"      # UI 显示名
 @export var health_max := 100             # 最大 HP
-@export var speed_max := 500.0            # 移动速度（像素/秒）
-@export var jump_force := -800.0          # 跳跃初速度（负数向上）
-@export var max_hp_regen := 0.0           # HP 回复（0 = 无回复）
+@export var move_speed := 600.0           # 移动速度（像素/秒）
+@export var air_control := 0.6            # 空中控制灵活性（0=无法控制，1=和地面一样灵活）
+@export var hit_lane_offset := 0          # 攻击范围调整（正值扩大，负值缩小）
+@export var jump_force := -800.0          # 跳跃初速度（负数向上，从 PNG 文件名获取）
 ```
+
+### Inspector 创建时的字段说明
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| 阵营 | players | 角色阵营，决定根节点 group（players/enemies） |
+| 移动速度 | 600 | 地面移动速度（像素/秒） |
+| 最大生命值 | 100 | 角色的最大生命值 |
+| 空中控制 | 0.6 | 空中控制灵活性（0=无法控制，1=和地面一样灵活） |
+| 攻击范围调整 | 0 | 调整攻击的Y轴判定范围（正值扩大，负值缩小） |
+
+### 从 PNG 文件名获取的属性
+
+| 属性 | PNG 标签 | 说明 |
+|------|----------|------|
+| physical_height | `physical_<P>` | 角色物理身高 |
+| jump_force | `speed_<S>` | 跳跃初速度（仅首帧） |
+| CapsuleShape2D.height | `width_<W>` | 角色碰撞体宽度 |
 
 ### 数值参考
 
-| 角色 | speed_max | jump_force | health_max |
+| 角色 | move_speed | jump_force | health_max |
 |------|-----------|------------|------------|
 | 陈靖仇 | 500 | -800 | 100 |
 | Chad（模板）| 500 | -800 | 100 |

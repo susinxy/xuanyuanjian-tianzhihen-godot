@@ -60,7 +60,7 @@ func enter(msg: = {}) -> void:
 		_character.velocity = msg.velocity
 		_direction = Vector2(msg.velocity.x, 0).normalized()
 	else:
-		_character.velocity = _attributes.speed_max * _direction
+		_character.velocity = _attributes.move_speed * _direction
 
 
 func unhandled_input(event: InputEvent) -> void:
@@ -81,9 +81,9 @@ func physics_process(delta: float) -> void:
 	get_parent().physics_process(delta)
 	
 	if not _direction.is_equal_approx(Vector2.ZERO):
-		_character.velocity = _attributes.speed_max * _direction
+		_character.velocity = _attributes.move_speed * _direction
 	else:
-		_character.velocity = _character.velocity.move_toward(Vector2.ZERO, _attributes.speed_max)
+		_character.velocity = _character.velocity.move_toward(Vector2.ZERO, _attributes.move_speed)
 	
 	_character.move_and_slide()
 

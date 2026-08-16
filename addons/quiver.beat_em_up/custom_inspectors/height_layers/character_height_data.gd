@@ -28,6 +28,7 @@ extends Resource
 const LEN_PHYSICAL := 10  # "_physical_"
 const LEN_ATTACK := 8     # "_attack_"
 const LEN_SPEED := 7      # "_speed_"
+const LEN_WIDTH := 7      # "_width_"
 
 #--- public variables - order: export > normal var & onready --------------------------------------
 
@@ -89,13 +90,13 @@ func clear() -> void:
 ## 设计要点：
 ## 1. 用 rfind 找最后一个 marker，避免"air_attack" 等 action 名的干扰
 ## 2. 从 marker 起始位置截取到下一个 marker 起始位置，作为该 marker 的 value 部分
-## 3. 按顺序约束（speed < physical < attack）确定 value 的结束位置
+## 3. 按顺序约束（speed < physical < width < attack）确定 value 的结束位置
 ##
 ## 示例：
-##   idle_00_physical_180.png                       → { physical=180, attack_heights=[], speed=null }
-##   attack1_02_physical_180_attack_30.png          → { physical=180, attack_heights=[30], speed=null }
-##   jump_00_speed_-1200_physical_180.png           → { physical=180, attack_heights=[], speed=-1200 }
-##   air_attack_01_physical_170_attack_80_120.png   → { physical=170, attack_heights=[80, 120], speed=null }
+##   idle_00_physical_180_width_204.png                       → { physical=180, width=204, attack_heights=[], speed=null }
+##   attack1_02_physical_180_width_204_attack_30.png          → { physical=180, width=204, attack_heights=[30], speed=null }
+##   jump_00_speed_-1200_physical_180_width_204.png           → { physical=180, width=204, attack_heights=[], speed=-1200 }
+##   air_attack_01_physical_170_width_200_attack_80_120.png   → { physical=170, width=200, attack_heights=[80, 120], speed=null }
 static func parse_height_from_filename(filename: String) -> Dictionary:
 	# 去掉路径前缀和 .png 扩展名，只保留文件名主体
 	var name_only := filename.get_file()
@@ -104,6 +105,7 @@ static func parse_height_from_filename(filename: String) -> Dictionary:
 	
 	var result := {
 		"physical": -1.0,
+		"width": -1.0,
 		"attack_heights": [],  # 用 untyped Array，避免 Dictionary 中类型推断问题
 		"speed": null,
 	}
@@ -111,28 +113,45 @@ static func parse_height_from_filename(filename: String) -> Dictionary:
 	# 用 rfind 找每个 marker 的最后一次出现（rfind 避免 action 名含有的干扰）
 	# rfind 返回 -1 表示未找到
 	var idx_phys := name_only.rfind("_physical_")
+	var idx_width := name_only.rfind("_width_")
 	var idx_attack := name_only.rfind("_attack_")
 	var idx_speed := name_only.rfind("_speed_")
 	
 	# 提取 physical_<P>
 	if idx_phys != -1:
 		var value_start := idx_phys + LEN_PHYSICAL
-		# 结束位置：下一个按顺序的 marker 位置（attack 在 physical 之后）
+		# 结束位置：下一个按顺序的 marker 位置（width 在 physical 之后，attack 在 width 之后）
 		var value_end := name_only.length()
-		if idx_attack > idx_phys:
+		if idx_width > idx_phys:
+			value_end = idx_width
+		elif idx_attack > idx_phys:
 			value_end = idx_attack
 		var value_str := name_only.substr(value_start, value_end - value_start)
 		if value_str.is_valid_float():
 			result["physical"] = float(value_str)
 	
+	# 提取 width_<W>
+	if idx_width != -1:
+		var value_start := idx_width + LEN_WIDTH
+		var value_end := name_only.length()
+		# width 在 physical 之后，attack 之前
+		# 结束位置：下一个按顺序的 marker 位置
+		if idx_attack > idx_width:
+			value_end = idx_attack
+		var value_str := name_only.substr(value_start, value_end - value_start)
+		if value_str.is_valid_float():
+			result["width"] = float(value_str)
+	
 	# 提取 speed_<S>（允许负数）
 	if idx_speed != -1:
 		var value_start := idx_speed + LEN_SPEED
 		var value_end := name_only.length()
-		# speed 在 physical 之前，physical 在 attack 之前
+		# speed 在 physical 之前，physical 在 width 之前，width 在 attack 之前
 		# 结束位置：下一个按顺序的 marker 位置
 		if idx_phys > idx_speed:
 			value_end = idx_phys
+		elif idx_width > idx_speed:
+			value_end = idx_width
 		elif idx_attack > idx_speed:
 			value_end = idx_attack
 		var value_str := name_only.substr(value_start, value_end - value_start)

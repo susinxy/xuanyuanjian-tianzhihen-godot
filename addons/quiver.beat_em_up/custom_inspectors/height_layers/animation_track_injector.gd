@@ -30,6 +30,7 @@ const CharacterHeightData = preload(
 # track path 相对 root_node 解析：无前缀直接访问 Skin 节点自身的属性
 const TRACK_PATH_PHYSICAL_HEIGHT := ".:physical_height"
 const TRACK_PATH_ATTACK_HEIGHTS := ".:attack_heights"
+const TRACK_PATH_CAPSULE_HEIGHT := "../../Collision:shape.height"  # CapsuleShape2D 的 height 属性
 const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
@@ -385,6 +386,7 @@ func _inject_single_animation(
 	
 	# 2. 添加新的 tracks
 	var physical_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
+	var width_track_idx := _add_value_track(anim, TRACK_PATH_CAPSULE_HEIGHT)
 	var attack_track_idx := _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
 	
 	# 3. 计算 sprite 的帧间隔
@@ -393,6 +395,7 @@ func _inject_single_animation(
 	# 4. 逐帧插入 keys（优化：只在值变化时添加 keyframe）
 	var inserted_count := 0
 	var prev_physical = null  # 用于检测 physical_height 变化
+	var prev_width = null     # 用于检测 width 变化
 	var prev_attack = null    # 用于检测 attack_heights 变化
 	
 	for frame_idx in range(sprite_frame_count):
@@ -408,6 +411,13 @@ func _inject_single_animation(
 			if current_physical != prev_physical:
 				anim.track_insert_key(physical_track_idx, time, current_physical)
 				prev_physical = current_physical
+		
+		# width (CapsuleShape2D.height) 关键帧（只在值变化时插入）
+		if data.has("width"):
+			var current_width = data["width"]
+			if current_width != prev_width:
+				anim.track_insert_key(width_track_idx, time, current_width)
+				prev_width = current_width
 		
 		# attack_heights 关键帧（只在值变化时插入）
 		var current_attack: Array = data.get("attack_heights", [])
@@ -443,6 +453,7 @@ func _remove_old_height_tracks(anim: Animation) -> void:
 		# 当前版本路径（.: 前缀，访问 root_node 自身属性）
 		TRACK_PATH_PHYSICAL_HEIGHT,      # ".:physical_height"
 		TRACK_PATH_ATTACK_HEIGHTS,       # ".:attack_heights"
+		TRACK_PATH_CAPSULE_HEIGHT,       # "../../Collision:shape.height"
 		# 历史版本路径 1：无前缀但缺少 . 前缀
 		"physical_height",
 		"attack_heights",

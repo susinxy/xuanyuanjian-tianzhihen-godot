@@ -18,6 +18,11 @@ const CHARACTER_DIR = "res://characters/playable/"
 const TOKEN_NAME = "__NAME__"
 const TOKEN_CLASS = "__CLASS__"
 const TOKEN_DISPLAY = "__DISPLAY_NAME__"
+const TOKEN_FACTION = "__FACTION__"
+const TOKEN_MOVE_SPEED = "__MOVE_SPEED__"
+const TOKEN_HEALTH_MAX = "__HEALTH_MAX__"
+const TOKEN_AIR_CONTROL = "__AIR_CONTROL__"
+const TOKEN_HIT_LANE_OFFSET = "__HIT_LANE_OFFSET__"
 
 # Template files that should NOT be copied
 const EXCLUDED_FILES = [
@@ -38,7 +43,16 @@ const EXCLUDED_FILES = [
 
 ## Creates a new character from template.
 ## Returns true on success, false on failure.
-func create_character(char_name: String, pascal_name: String, display_name: String) -> bool:
+func create_character(
+	char_name: String,
+	pascal_name: String,
+	display_name: String,
+	faction: String = "players",
+	move_speed: float = 600.0,
+	health_max: int = 100,
+	air_control: float = 0.6,
+	hit_lane_offset: int = 0
+) -> bool:
 	var target_dir = CHARACTER_DIR.path_join(char_name)
 	
 	# Check if target already exists
@@ -62,7 +76,10 @@ func create_character(char_name: String, pascal_name: String, display_name: Stri
 		return false
 	
 	# Step 4: Replace placeholders in all files
-	if not _replace_placeholders_recursive(target_dir, char_name, pascal_name, display_name):
+	if not _replace_placeholders_recursive(
+		target_dir, char_name, pascal_name, display_name,
+		faction, move_speed, health_max, air_control, hit_lane_offset
+	):
 		push_error("Failed to replace placeholders")
 		return false
 	
@@ -205,7 +222,17 @@ func _copy_file_text(source: String, destination: String) -> bool:
 	return true
 
 
-func _replace_placeholders_recursive(directory: String, char_name: String, pascal_name: String, display_name: String) -> bool:
+func _replace_placeholders_recursive(
+	directory: String,
+	char_name: String,
+	pascal_name: String,
+	display_name: String,
+	faction: String,
+	move_speed: float,
+	health_max: int,
+	air_control: float,
+	hit_lane_offset: int
+) -> bool:
 	var dir := DirAccess.open(directory)
 	if dir == null:
 		push_error("Failed to open directory for placeholder replacement: %s" % directory)
@@ -220,13 +247,19 @@ func _replace_placeholders_recursive(directory: String, char_name: String, pasca
 			
 			if dir.current_is_dir():
 				# Recursively process subdirectory
-				if not _replace_placeholders_recursive(file_path, char_name, pascal_name, display_name):
+				if not _replace_placeholders_recursive(
+					file_path, char_name, pascal_name, display_name,
+					faction, move_speed, health_max, air_control, hit_lane_offset
+				):
 					return false
 			else:
 				# Process text files
 				var ext := file_path.get_extension()
 				if ext in ["gd", "tscn", "tres"]:
-					if not _replace_placeholders_in_file(file_path, char_name, pascal_name, display_name):
+					if not _replace_placeholders_in_file(
+						file_path, char_name, pascal_name, display_name,
+						faction, move_speed, health_max, air_control, hit_lane_offset
+					):
 						return false
 		
 		file_name = dir.get_next()
@@ -234,7 +267,17 @@ func _replace_placeholders_recursive(directory: String, char_name: String, pasca
 	return true
 
 
-func _replace_placeholders_in_file(file_path: String, char_name: String, pascal_name: String, display_name: String) -> bool:
+func _replace_placeholders_in_file(
+	file_path: String,
+	char_name: String,
+	pascal_name: String,
+	display_name: String,
+	faction: String,
+	move_speed: float,
+	health_max: int,
+	air_control: float,
+	hit_lane_offset: int
+) -> bool:
 	var file := FileAccess.open(file_path, FileAccess.READ)
 	if file == null:
 		push_error("Failed to open file for placeholder replacement: %s" % file_path)
@@ -247,6 +290,11 @@ func _replace_placeholders_in_file(file_path: String, char_name: String, pascal_
 	content = content.replace(TOKEN_NAME, char_name)
 	content = content.replace(TOKEN_CLASS, pascal_name)
 	content = content.replace(TOKEN_DISPLAY, display_name)
+	content = content.replace(TOKEN_FACTION, faction)
+	content = content.replace(TOKEN_MOVE_SPEED, str(move_speed))
+	content = content.replace(TOKEN_HEALTH_MAX, str(health_max))
+	content = content.replace(TOKEN_AIR_CONTROL, str(air_control))
+	content = content.replace(TOKEN_HIT_LANE_OFFSET, str(hit_lane_offset))
 	
 	# Write back
 	file = FileAccess.open(file_path, FileAccess.WRITE)

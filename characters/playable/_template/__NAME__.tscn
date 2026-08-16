@@ -27,7 +27,7 @@
 radius = 20.0
 height = 204.0
 
-[node name="__CLASS__" groups=["players"] instance=ExtResource("1_aj842")]
+[node name="__CLASS__" groups=["__FACTION__"] instance=ExtResource("1_aj842")]
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")
 _path_skin = NodePath("__CLASS__Skin")

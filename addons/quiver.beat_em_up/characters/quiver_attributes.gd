@@ -53,7 +53,7 @@ const KNOCKBACK_VALUES = {
 @export_range(0, 1, 1, "or_greater") var health_max := 100
 
 ## Max movement speed for the character.
-@export_range(0, 1000, 1, "or_greater") var speed_max := 600
+@export_range(0, 1000, 1, "or_greater") var move_speed := 600
 
 ## Max influence for player controlled movement on air.
 ## If 1.0 player's will be able to freely control character's direction on air, just as on the

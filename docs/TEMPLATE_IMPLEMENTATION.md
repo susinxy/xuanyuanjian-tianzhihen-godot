@@ -164,7 +164,7 @@ Chad (继承 quiver_character_base.tscn)
 ```
 display_name = "Chad"
 health_max = 100
-speed_max = 500.0
+move_speed = 600.0
 air_control = 0.6
 jump_force = -1200
 hit_lane_offset = 0

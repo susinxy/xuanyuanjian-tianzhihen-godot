@@ -249,12 +249,12 @@ attack_layers = attack_layers.deduplicate()
 ### 5.1 命名格式
 
 ```
-<action_type>_<frame_num>_physical_<P>[_attack_<A1>_<A2>_<A3>...].png
+<action_type>_<frame_num>_physical_<P>[_width_<W>][_attack_<A1>_<A2>_<A3>...].png
 ```
 
 跳跃/击飞动画首帧可选：
 ```
-<action_type>_<frame_num>_speed_<S>_physical_<P>.png
+<action_type>_<frame_num>_speed_<S>_physical_<P>[_width_<W>].png
 ```
 
 ### 5.2 各部分说明
@@ -264,6 +264,7 @@ attack_layers = attack_layers.deduplicate()
 | `<action_type>` | 是 | 动作类型 | idle, walk, jump, attack1, air_attack |
 | `<frame_num>` | 是 | 帧编号（两位） | 00, 01, 02, ... |
 | `physical_<P>` | 是 | 物理身高（像素） | physical_180, physical_120 |
+| `width_<W>` | 否 | 角色碰撞体宽度（像素），映射到 CapsuleShape2D.height | width_204 |
 | `attack_<A1>...` | 否 | 攻击高度偏移列表 | attack_30, attack_80_120 |
 | `speed_<S>` | 否 | 起跳初速度（仅跳跃/击飞首帧） | speed_1200 |
 
@@ -271,21 +272,22 @@ attack_layers = attack_layers.deduplicate()
 
 | 文件类型 | 文件名示例 | 解析结果 |
 |---------|-----------|---------|
-| 站立 | `idle_00_physical_180.png` | physical=180 |
-| 行走 | `walk_03_physical_180.png` | physical=180 |
-| 蹲伏 | `crouch_01_physical_120.png` | physical=120 |
-| 跳跃首帧 | `jump_00_speed_1200_physical_180.png` | speed=1200, physical=180 |
-| 跳跃中 | `jump_03_physical_170.png` | physical=170 |
-| 单高度攻击 | `attack1_02_physical_180_attack_30.png` | physical=180, attack=[30] |
-| 多高度攻击 | `air_attack_01_physical_180_attack_80_120.png` | physical=180, attack=[80, 120] |
+| 站立 | `idle_00_physical_180_width_204.png` | physical=180, width=204 |
+| 行走 | `walk_03_physical_180_width_204.png` | physical=180, width=204 |
+| 蹲伏 | `crouch_01_physical_120_width_204.png` | physical=120, width=204 |
+| 跳跃首帧 | `jump_00_speed_1200_physical_180_width_204.png` | speed=1200, physical=180, width=204 |
+| 跳跃中 | `jump_03_physical_170_width_204.png` | physical=170, width=204 |
+| 单高度攻击 | `attack1_02_physical_180_width_204_attack_30.png` | physical=180, width=204, attack=[30] |
+| 多高度攻击 | `air_attack_01_physical_180_width_204_attack_80_120.png` | physical=180, width=204, attack=[80, 120] |
 
 ### 5.4 特殊规则
 
 1. **每帧必须标注 `physical`**：未标注的文件会在扫描时报错
 2. **`speed` 仅首帧**：只在跳跃/击飞动画的第一帧设置，Inspector 工具读取一次后写入 `QuiverAttributes.jump_force`
-3. **数值单位**：`physical` 和 `attack` 为像素（px），`speed` 为像素/秒（px/s）
-4. **顺序要求**：`speed` 在前（可选），`physical` 在中，`attack` 在后
-5. **`base_height` 不在文件名中**：从 `_skin.position.y` 实时派生，无需手工标注
+3. **`width` 映射到 CapsuleShape2D.height**：由于 CapsuleShape2D 旋转 90° 水平放置，height 属性实际上是角色的水平宽度
+4. **数值单位**：`physical`、`width` 和 `attack` 为像素（px），`speed` 为像素/秒（px/s）
+5. **顺序要求**：`speed` 在前（可选），`physical` 在中，`width` 在后（可选），`attack` 在最后
+6. **`base_height` 不在文件名中**：从 `_skin.position.y` 实时派生，无需手工标注
 
 ---
 

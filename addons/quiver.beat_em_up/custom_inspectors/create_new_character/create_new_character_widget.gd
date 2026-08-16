@@ -24,6 +24,11 @@ const TEMPLATE_DIR = "res://characters/playable/_template/"
 var _char_name_edit: LineEdit
 var _class_name_edit: LineEdit
 var _display_name_edit: LineEdit
+var _faction_option: OptionButton
+var _move_speed_spin: SpinBox
+var _health_max_spin: SpinBox
+var _air_control_spin: SpinBox
+var _hit_lane_offset_spin: SpinBox
 var _status_label: Label
 var _create_btn: Button
 
@@ -116,6 +121,105 @@ func _build_ui() -> void:
 	_display_name_edit.text_changed.connect(_on_display_name_changed)
 	hbox3.add_child(_display_name_edit)
 	add_child(hbox3)
+	
+	# Faction dropdown
+	var hbox_faction := HBoxContainer.new()
+	var label_faction := Label.new()
+	label_faction.text = "阵营:"
+	label_faction.custom_minimum_size.x = 120
+	hbox_faction.add_child(label_faction)
+	_faction_option = OptionButton.new()
+	_faction_option.add_item("players", 0)
+	_faction_option.add_item("enemies", 1)
+	_faction_option.select(0)
+	_faction_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_faction.add_child(_faction_option)
+	add_child(hbox_faction)
+	var faction_hint := Label.new()
+	faction_hint.text = "角色阵营，决定根节点 group（players/enemies）"
+	faction_hint.add_theme_color_override("font_color", Color.GRAY)
+	faction_hint.add_theme_font_size_override("font_size", 12)
+	add_child(faction_hint)
+	
+	# Move Speed input
+	var hbox_move_speed := HBoxContainer.new()
+	var label_move_speed := Label.new()
+	label_move_speed.text = "移动速度:"
+	label_move_speed.custom_minimum_size.x = 120
+	hbox_move_speed.add_child(label_move_speed)
+	_move_speed_spin = SpinBox.new()
+	_move_speed_spin.min_value = 0
+	_move_speed_spin.max_value = 2000
+	_move_speed_spin.step = 10
+	_move_speed_spin.value = 600
+	_move_speed_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_move_speed.add_child(_move_speed_spin)
+	add_child(hbox_move_speed)
+	var move_speed_hint := Label.new()
+	move_speed_hint.text = "地面移动速度（像素/秒）"
+	move_speed_hint.add_theme_color_override("font_color", Color.GRAY)
+	move_speed_hint.add_theme_font_size_override("font_size", 12)
+	add_child(move_speed_hint)
+	
+	# Health Max input
+	var hbox_health_max := HBoxContainer.new()
+	var label_health_max := Label.new()
+	label_health_max.text = "最大生命值:"
+	label_health_max.custom_minimum_size.x = 120
+	hbox_health_max.add_child(label_health_max)
+	_health_max_spin = SpinBox.new()
+	_health_max_spin.min_value = 1
+	_health_max_spin.max_value = 9999
+	_health_max_spin.step = 10
+	_health_max_spin.value = 100
+	_health_max_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_health_max.add_child(_health_max_spin)
+	add_child(hbox_health_max)
+	var health_max_hint := Label.new()
+	health_max_hint.text = "角色的最大生命值"
+	health_max_hint.add_theme_color_override("font_color", Color.GRAY)
+	health_max_hint.add_theme_font_size_override("font_size", 12)
+	add_child(health_max_hint)
+	
+	# Air Control input
+	var hbox_air_control := HBoxContainer.new()
+	var label_air_control := Label.new()
+	label_air_control.text = "空中控制:"
+	label_air_control.custom_minimum_size.x = 120
+	hbox_air_control.add_child(label_air_control)
+	_air_control_spin = SpinBox.new()
+	_air_control_spin.min_value = 0.0
+	_air_control_spin.max_value = 1.0
+	_air_control_spin.step = 0.1
+	_air_control_spin.value = 0.6
+	_air_control_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_air_control.add_child(_air_control_spin)
+	add_child(hbox_air_control)
+	var air_control_hint := Label.new()
+	air_control_hint.text = "空中控制灵活性（0=无法控制，1=和地面一样灵活）"
+	air_control_hint.add_theme_color_override("font_color", Color.GRAY)
+	air_control_hint.add_theme_font_size_override("font_size", 12)
+	add_child(air_control_hint)
+	
+	# Hit Lane Offset input
+	var hbox_hit_lane := HBoxContainer.new()
+	var label_hit_lane := Label.new()
+	label_hit_lane.text = "攻击范围调整:"
+	label_hit_lane.custom_minimum_size.x = 120
+	hbox_hit_lane.add_child(label_hit_lane)
+	_hit_lane_offset_spin = SpinBox.new()
+	_hit_lane_offset_spin.min_value = -100
+	_hit_lane_offset_spin.max_value = 100
+	_hit_lane_offset_spin.step = 5
+	_hit_lane_offset_spin.value = 0
+	_hit_lane_offset_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_hit_lane.add_child(_hit_lane_offset_spin)
+	add_child(hbox_hit_lane)
+	var hit_lane_hint := Label.new()
+	hit_lane_hint.text = "调整攻击的Y轴判定范围（正值扩大，负值缩小）"
+	hit_lane_hint.add_theme_color_override("font_color", Color.GRAY)
+	hit_lane_hint.add_theme_font_size_override("font_size", 12)
+	add_child(hit_lane_hint)
 	
 	# Status label
 	_status_label = Label.new()
@@ -365,9 +469,17 @@ func _on_create_pressed() -> void:
 	var char_name := _char_name_edit.text
 	var pascal_name := _class_name_edit.text
 	var display_name := _display_name_edit.text
+	var faction := _faction_option.get_item_text(_faction_option.selected)
+	var move_speed := _move_speed_spin.value
+	var health_max := int(_health_max_spin.value)
+	var air_control := _air_control_spin.value
+	var hit_lane_offset := int(_hit_lane_offset_spin.value)
 	
 	var creator := CharacterCreator.new()
-	var success := creator.create_character(char_name, pascal_name, display_name)
+	var success := creator.create_character(
+		char_name, pascal_name, display_name,
+		faction, move_speed, health_max, air_control, hit_lane_offset
+	)
 	
 	if success:
 		_status_label.text = "Status: ✅ Character '%s' created successfully!" % display_name
@@ -377,6 +489,11 @@ func _on_create_pressed() -> void:
 		_char_name_edit.text = ""
 		_class_name_edit.text = ""
 		_display_name_edit.text = ""
+		_faction_option.select(0)
+		_move_speed_spin.value = 600
+		_health_max_spin.value = 100
+		_air_control_spin.value = 0.6
+		_hit_lane_offset_spin.value = 0
 		_create_btn.disabled = true
 		
 		# Refresh filesystem

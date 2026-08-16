@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="QuiverAttributes" format=3 uid="uid://dxnkn600ipdm2"]
+
+[ext_resource type="Script" uid="uid://c30cbdhmtp1po" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
+[ext_resource type="Texture2D" uid="uid://bmc76b5m8ytd1" path="res://characters/playable/chenjianchou_new/resources/chenjianchou_new_gradient.tres" id="1_4dxsn"]
+[ext_resource type="Texture2D" uid="uid://c0qis5dy0ggym" path="res://characters/playable/chenjianchou_new/resources/sprites/chenjianchou_new_profile.png" id="2_g3jjg"]
+
+[resource]
+script = ExtResource("1_1ikth")
+display_name = "陈靖仇-新版"
+profile_texture = ExtResource("2_g3jjg")
+life_bar_gradient = ExtResource("1_4dxsn")
+health_max = 101
