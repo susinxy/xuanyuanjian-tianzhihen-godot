@@ -151,7 +151,7 @@ func _on_draw() -> void:
 	var ph := _skin.physical_height
 	var defs := quiver_char._height_definitions
 	
-	var bar_x := 1350.0
+	var bar_x := get_viewport().get_visible_rect().size.x - 100.0
 	var bar_width := 30.0
 	var bar_height := 500.0
 	var bar_y := 50.0
