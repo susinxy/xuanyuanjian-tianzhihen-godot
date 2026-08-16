@@ -76,50 +76,151 @@ func _on_character_test_requested(char_name: String) -> void:
 	
 	# Build test scene content using {{TOKEN}} replace pattern
 	# (avoids GDScript `%` operator issues with multiline strings written to .tscn files)
-	var test_scene_template = """[gd_scene load_steps=3 format=3]
+	# 
+	# 2.5D 碰撞约束:
+	# - 所有物理碰撞使用 CapsuleShape2D (radius=20, height 可调)
+	# - CapsuleShape2D 旋转 90° 水平放置
+	# - 所有物体底部贴着 ground_level 线 (Y=500)
+	# - 物体 position.y = 480 (因为 radius=20)
+	# - 地面不需要物理碰撞，只有可视化
+	var test_scene_template = """[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
+[ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
+[ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 
-[sub_resource type="RectangleShape2D" id="ground_shape"]
-size = Vector2(4000, 100)
+[sub_resource type="CapsuleShape2D" id="short_wall_shape"]
+radius = 20.0
+height = 60.0
+
+[sub_resource type="CapsuleShape2D" id="tall_wall_shape"]
+radius = 20.0
+height = 60.0
+
+[sub_resource type="CapsuleShape2D" id="platform_shape"]
+radius = 20.0
+height = 300.0
 
 [node name="TestStage" type="Node2D"]
 
 [node name="Background" type="ColorRect" parent="."]
-offset_left = -5000.0
+offset_left = -2000.0
 offset_top = -500.0
-offset_right = 5000.0
+offset_right = 6000.0
 offset_bottom = 2000.0
-color = Color(0.18, 0.2, 0.25, 1)
+color = Color(0.15, 0.18, 0.22, 1)
+
+[node name="GroundLine" type="ColorRect" parent="."]
+offset_left = -2000.0
+offset_top = 495.0
+offset_right = 6000.0
+offset_bottom = 505.0
+color = Color(0.3, 0.25, 0.2, 1)
 
 [node name="Character" parent="." instance=ExtResource("1_character")]
-position = Vector2(640, 400)
+position = Vector2(200, 480)
 
 [node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
 offset = Vector2(0, -80)
 
-[node name="GroundVisual" type="ColorRect" parent="."]
-offset_left = -2000.0
-offset_top = 480.0
-offset_right = 4000.0
-offset_bottom = 2000.0
-color = Color(0.32, 0.28, 0.22, 1)
+[node name="Enemy" parent="." instance=ExtResource("4_enemy")]
+position = Vector2(800, 480)
 
-[node name="Ground" type="StaticBody2D" parent="."]
-position = Vector2(640, 500)
+[node name="PeriodicAttack" type="Node" parent="Enemy"]
+script = ExtResource("5_periodic_attack")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
-shape = SubResource("ground_shape")
+[node name="ShortWall" type="StaticBody2D" parent="."]
+position = Vector2(600, 480)
+collision_layer = 16384
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall"]
+rotation = 1.5708
+shape = SubResource("short_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="ShortWall"]
+offset_left = -30.0
+offset_top = -80.0
+offset_right = 30.0
+offset_bottom = 80.0
+color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="Label" type="Label" parent="ShortWall"]
+offset_left = -40.0
+offset_top = -100.0
+offset_right = 40.0
+offset_bottom = -80.0
+text = "矮墙 160px"
+horizontal_alignment = 1
+
+[node name="TallWall" type="StaticBody2D" parent="."]
+position = Vector2(2000, 480)
+collision_layer = 16760832
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall"]
+rotation = 1.5708
+shape = SubResource("tall_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="TallWall"]
+offset_left = -30.0
+offset_top = -200.0
+offset_right = 30.0
+offset_bottom = 200.0
+color = Color(0.7, 0.3, 0.3, 1)
+
+[node name="Label" type="Label" parent="TallWall"]
+offset_left = -40.0
+offset_top = -220.0
+offset_right = 40.0
+offset_bottom = -200.0
+text = "高墙 400px"
+horizontal_alignment = 1
+
+[node name="Platform" type="StaticBody2D" parent="."]
+position = Vector2(1300, 480)
+collision_layer = 131072
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform"]
+rotation = 1.5708
+shape = SubResource("platform_shape")
+
+[node name="Visual" type="ColorRect" parent="Platform"]
+offset_left = -150.0
+offset_top = -20.0
+offset_right = 150.0
+offset_bottom = 20.0
+color = Color(0.3, 0.7, 0.5, 1)
+
+[node name="Label" type="Label" parent="Platform"]
+offset_left = -60.0
+offset_top = -40.0
+offset_right = 60.0
+offset_bottom = -20.0
+text = "悬空平台"
+horizontal_alignment = 1
 
 [node name="DebugLabel" type="Label" parent="."]
 offset_left = 10.0
 offset_top = 10.0
-offset_right = 700.0
-offset_bottom = 150.0
-text = "测试角色: {{CHAR_NAME}}
+offset_right = 500.0
+offset_bottom = 250.0
+text = "=== 2.5D 高度层碰撞测试 ===
+
 操作: WASD 移动, Space 跳跃, J 攻击
-按 F8 退出测试"
+
+测试项目:
+1. 跳跃穿过矮墙 (160px) - 跳跃时 base_height > 160 可通过
+2. 钻过悬空平台 - 从平台下方通过
+3. 撞击高墙 (400px) - 应该被阻挡
+4. 攻击敌人 - 验证 player→enemy 伤害
+5. 被敌人攻击 - 验证 enemy→player 伤害和击飞
+
+观察右上角调试面板查看实时高度层信息"
+
+[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_debug_overlay")
+character = NodePath("../Character")
 """
 	
 	var test_scene_content = test_scene_template\
