@@ -118,7 +118,7 @@ func _build_ui() -> void:
 	_simplify_tolerance_spinbox.min_value = 0.0
 	_simplify_tolerance_spinbox.max_value = 256.0
 	_simplify_tolerance_spinbox.step = 0.5
-	_simplify_tolerance_spinbox.value = 2.0
+	_simplify_tolerance_spinbox.value = 100.0
 	_simplify_tolerance_spinbox.suffix = " px"
 	_simplify_tolerance_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tolerance_row.add_child(_simplify_tolerance_spinbox)
