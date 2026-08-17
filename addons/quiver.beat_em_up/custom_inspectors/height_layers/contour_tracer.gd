@@ -67,8 +67,8 @@ static func trace_contours(
 	
 	# 2. 二值化
 	var binary := _binarize_image(work_image, work_mask, alpha_threshold)
-	var w := binary.size()
-	var h: int = binary[0].size()
+	var w: int = binary[0].size()  # 宽度（列数）
+	var h: int = binary.size()     # 高度（行数）
 	
 	# 3. Marching Squares 追踪
 	var contours := _marching_squares(binary, w, h)
@@ -225,12 +225,49 @@ static func _marching_squares(binary: Array, w: int, h: int) -> Array[PackedVect
 			for dir in range(4):
 				var edge_key := "%d,%d,%d" % [x, y, dir]
 				if not visited_edges.has(edge_key):
-					# 尝试从这个边开始追踪
-					var contour := _trace_contour_from_edge(binary, w, h, x, y, dir, visited_edges)
-					if contour.size() >= 3:
-						contours.append(contour)
+					# 检查这条边是否是轮廓边（一边是实体，一边是空白）
+					if _is_contour_edge(binary, x, y, dir, w, h):
+						# 尝试从这个边开始追踪
+						var contour := _trace_contour_from_edge(binary, w, h, x, y, dir, visited_edges)
+						if contour.size() >= 3:
+							contours.append(contour)
 	
 	return contours
+
+
+## 检查一条边是否是轮廓边
+##
+## dir: 0=上, 1=右, 2=下, 3=左
+static func _is_contour_edge(binary: Array, x: int, y: int, dir: int, w: int, h: int) -> bool:
+	var val1: int
+	var val2: int
+	
+	match dir:
+		0:  # 上边：检查 (x,y) 和 (x+1,y)
+			if x >= w - 1:
+				return false
+			val1 = binary[y][x]
+			val2 = binary[y][x + 1]
+		1:  # 右边：检查 (x+1,y) 和 (x+1,y+1)
+			if x >= w - 1 or y >= h - 1:
+				return false
+			val1 = binary[y][x + 1]
+			val2 = binary[y + 1][x + 1]
+		2:  # 下边：检查 (x,y+1) 和 (x+1,y+1)
+			if x >= w - 1 or y >= h - 1:
+				return false
+			val1 = binary[y + 1][x]
+			val2 = binary[y + 1][x + 1]
+		3:  # 左边：检查 (x,y) 和 (x,y+1)
+			if y >= h - 1:
+				return false
+			val1 = binary[y][x]
+			val2 = binary[y + 1][x]
+		_:
+			return false
+	
+	# 轮廓边：一边是实体，一边是空白
+	return val1 != val2
 
 
 ## 从指定边开始追踪一个轮廓
@@ -284,6 +321,10 @@ static func _trace_contour_from_edge(
 		x = next_pos.x
 		y = next_pos.y
 		dir = _opposite_dir(next_dir)
+		
+		# 检查是否超出边界
+		if x < 0 or x >= w - 1 or y < 0 or y >= h - 1:
+			break
 		
 		# 检查是否回到起点
 		if x == start_x and y == start_y and dir == start_dir:
