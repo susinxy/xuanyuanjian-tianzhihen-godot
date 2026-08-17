@@ -47,6 +47,13 @@ var _contour_result_label: RichTextLabel
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 
+# 单文件测试 UI
+var _test_file_path: LineEdit
+var _test_file_btn: Button
+var _test_body_btn: Button
+var _test_attack_btn: Button
+var _test_result_label: RichTextLabel
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -75,6 +82,9 @@ func set_skin_node(skin_node: Node) -> void:
 ### Private Methods -------------------------------------------------------------------------------
 
 func _build_ui() -> void:
+	# 单文件测试区域
+	_build_test_ui()
+	
 	# 标题
 	var header := Label.new()
 	header.text = "📏 高度层动画扫描"
@@ -521,5 +531,169 @@ func _execute_contour_conversion_async(mode: String) -> void:
 		_contour_status_label.add_theme_color_override("font_color", Color.ORANGE)
 	
 	scan_completed.emit(0, frame_count, error_count)
+
+
+## 构建单文件测试 UI
+func _build_test_ui() -> void:
+	var test_header := Label.new()
+	test_header.text = "🧪 单文件测试"
+	test_header.add_theme_font_size_override("font_size", 16)
+	add_child(test_header)
+	
+	add_child(HSeparator.new())
+	
+	# 文件选择行
+	var file_row := HBoxContainer.new()
+	add_child(file_row)
+	
+	var file_label := Label.new()
+	file_label.text = "PNG 文件:"
+	file_label.custom_minimum_size.x = 80
+	file_row.add_child(file_label)
+	
+	_test_file_path = LineEdit.new()
+	_test_file_path.placeholder_text = "选择 PNG 文件..."
+	_test_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_file_path.editable = false
+	file_row.add_child(_test_file_path)
+	
+	_test_file_btn = Button.new()
+	_test_file_btn.text = "浏览"
+	_test_file_btn.pressed.connect(_on_test_file_btn_pressed)
+	file_row.add_child(_test_file_btn)
+	
+	# 测试按钮行
+	var test_btn_row := HBoxContainer.new()
+	add_child(test_btn_row)
+	
+	_test_body_btn = Button.new()
+	_test_body_btn.text = "测试 Body"
+	_test_body_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_body_btn.disabled = true
+	_test_body_btn.pressed.connect(_on_test_body_btn_pressed)
+	test_btn_row.add_child(_test_body_btn)
+	
+	_test_attack_btn = Button.new()
+	_test_attack_btn.text = "测试 Attack"
+	_test_attack_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_attack_btn.disabled = true
+	_test_attack_btn.pressed.connect(_on_test_attack_btn_pressed)
+	test_btn_row.add_child(_test_attack_btn)
+	
+	# 结果显示
+	_test_result_label = RichTextLabel.new()
+	_test_result_label.bbcode_enabled = true
+	_test_result_label.text = "[color=gray]选择文件后点击测试按钮[/color]"
+	_test_result_label.custom_minimum_size = Vector2(0, 150)
+	add_child(_test_result_label)
+	
+	add_child(HSeparator.new())
+
+
+## 文件选择按钮点击
+func _on_test_file_btn_pressed() -> void:
+	var file_dialog := FileDialog.new()
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_RESOURCES
+	file_dialog.filters = ["*.png ; PNG Images"]
+	file_dialog.current_dir = "res://characters/playable/"
+	
+	file_dialog.file_selected.connect(func(path: String):
+		_test_file_path.text = path
+		_test_body_btn.disabled = false
+		_test_attack_btn.disabled = false
+		file_dialog.queue_free()
+	)
+	
+	file_dialog.canceled.connect(func():
+		file_dialog.queue_free()
+	)
+	
+	add_child(file_dialog)
+	file_dialog.popup_centered(Vector2i(800, 600))
+
+
+## 测试 Body 按钮点击
+func _on_test_body_btn_pressed() -> void:
+	_run_single_file_test("body")
+
+
+## 测试 Attack 按钮点击
+func _on_test_attack_btn_pressed() -> void:
+	_run_single_file_test("attack")
+
+
+## 执行单文件测试
+func _run_single_file_test(test_type: String) -> void:
+	if _skin_node == null:
+		_test_result_label.text = "[color=red]错误: 未关联皮肤节点[/color]"
+		return
+	
+	var file_path := _test_file_path.text
+	if file_path.is_empty():
+		_test_result_label.text = "[color=red]错误: 未选择文件[/color]"
+		return
+	
+	# 禁用按钮
+	_test_body_btn.disabled = true
+	_test_attack_btn.disabled = true
+	_test_result_label.text = "[color=cyan]测试中...[/color]"
+	
+	# 等待两帧确保 UI 更新
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# 获取参数
+	var alpha_threshold: float = _alpha_threshold_spinbox.value
+	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
+	
+	# 执行测试
+	var injector := AnimationTrackInjector.new()
+	var result := injector.test_single_file(file_path, test_type, alpha_threshold, simplify_tolerance, _skin_node)
+	
+	# 显示结果
+	_display_test_result(result)
+	
+	# 恢复按钮
+	_test_body_btn.disabled = false
+	_test_attack_btn.disabled = false
+
+
+## 显示测试结果
+func _display_test_result(result: Dictionary) -> void:
+	var lines := []
+	
+	if result.error != "":
+		lines.append("[color=red]错误: %s[/color]" % result.error)
+		_test_result_label.text = "\n".join(lines)
+		return
+	
+	lines.append("[b]文件名:[/b] %s" % result.file_name)
+	lines.append("[b]图片尺寸:[/b] %d × %d" % [result.image_size.x, result.image_size.y])
+	lines.append("[b]提取轮廓数:[/b] %d" % result.contour_count)
+	lines.append("[b]顶点总数:[/b] %d" % result.total_vertices)
+	lines.append("[b]Mask 文件:[/b] %s" % ("有" if result.has_mask else "无"))
+	lines.append("")
+	
+	if result.type == "body":
+		lines.append("[b]类型:[/b] Body")
+		lines.append("[b]physical_height:[/b] %.1f" % result.physical_height)
+	elif result.type == "attack":
+		lines.append("[b]类型:[/b] Attack")
+		var heights_str := ""
+		for i in range(result.attack_heights.size()):
+			if i > 0:
+				heights_str += ", "
+			heights_str += "%.1f" % result.attack_heights[i]
+		lines.append("[b]attack_heights:[/b] [%s]" % heights_str)
+	
+	lines.append("")
+	lines.append("[b]转换后坐标范围:[/b]")
+	lines.append("  X: %.1f ~ %.1f" % [result.bounding_box.position.x, result.bounding_box.position.x + result.bounding_box.size.x])
+	lines.append("  Y: %.1f ~ %.1f" % [result.bounding_box.position.y, result.bounding_box.position.y + result.bounding_box.size.y])
+	lines.append("")
+	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f" % [result.alpha_threshold, result.simplify_tolerance])
+	
+	_test_result_label.text = "\n".join(lines)
 
 ### -----------------------------------------------------------------------------------------------

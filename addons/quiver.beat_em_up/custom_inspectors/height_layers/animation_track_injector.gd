@@ -1263,4 +1263,154 @@ func _remove_tracks_by_path(anim: Animation, paths: Array[String]) -> void:
 	for i in range(tracks_to_remove.size() - 1, -1, -1):
 		anim.remove_track(tracks_to_remove[i])
 
+
+## 测试单个 PNG 文件的轮廓提取效果（不修改任何文件）
+##
+## 参数:
+## - file_path: PNG 文件路径
+## - test_type: "body" 或 "attack"
+## - alpha_threshold: alpha 阈值（0.0-1.0）
+## - simplify_tolerance: Douglas-Peucker 简化容差（像素）
+## - skin_node: QuiverCharacterSkinAnimTree 节点（用于读取 shape position）
+##
+## 返回: {
+##   file_name: String,
+##   image_size: Vector2,
+##   contour_count: int,
+##   total_vertices: int,
+##   type: String,
+##   physical_height: float,  # body 类型
+##   attack_heights: Array,   # attack 类型
+##   bounding_box: Rect2,
+##   alpha_threshold: float,
+##   simplify_tolerance: float,
+##   has_mask: bool,
+##   error: String  # 如果有错误
+## }
+func test_single_file(
+	file_path: String,
+	test_type: String,
+	alpha_threshold: float,
+	simplify_tolerance: float,
+	skin_node: Node
+) -> Dictionary:
+	var result := {
+		"file_name": file_path.get_file(),
+		"image_size": Vector2.ZERO,
+		"contour_count": 0,
+		"total_vertices": 0,
+		"type": test_type,
+		"physical_height": 0.0,
+		"attack_heights": [],
+		"bounding_box": Rect2(),
+		"alpha_threshold": alpha_threshold,
+		"simplify_tolerance": simplify_tolerance,
+		"has_mask": false,
+		"error": "",
+	}
+	
+	# 1. 加载 PNG 文件
+	var image := Image.load_from_file(file_path)
+	if image == null:
+		result.error = "无法加载图片: %s" % file_path
+		return result
+	
+	result.image_size = Vector2(image.get_width(), image.get_height())
+	
+	# 2. 检查是否有对应的 .mask.png
+	var mask_path := file_path.replace(".png", ".mask.png")
+	var mask: Image = null
+	if FileAccess.file_exists(mask_path):
+		mask = Image.load_from_file(mask_path)
+		result.has_mask = true
+	
+	# 3. 提取轮廓
+	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+	if contours.is_empty():
+		result.error = "未提取到轮廓"
+		return result
+	
+	result.contour_count = contours.size()
+	for contour in contours:
+		result.total_vertices += contour.size()
+	
+	# 4. 根据 test_type 计算高度数据
+	if test_type == "body":
+		# 计算 physical_height
+		result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())
+		
+		# 读取 HurtShape position
+		var skin_scene_path := skin_node.scene_file_path
+		var hurt_shape_pos := _read_shape_position_from_tscn(skin_scene_path, "HurtShape")
+		
+		# 坐标转换
+		var local_contours: Array[PackedVector2Array] = []
+		for contour in contours:
+			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), hurt_shape_pos)
+			local_contours.append(local)
+		
+		# 计算 bounding box
+		result.bounding_box = _calc_bounding_box(local_contours)
+	
+	elif test_type == "attack":
+		# 从文件名解析 attack_heights
+		var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(file_path)
+		var attack_heights_raw: Array = parsed.get("attack_heights", [])
+		
+		if attack_heights_raw.is_empty():
+			result.error = "文件名中没有 attack 标签"
+			return result
+		
+		# 计算 attack_heights（使用高度层定义）
+		var height_definitions := QuiverCharacter._build_height_definitions()
+		result.attack_heights = ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
+		
+		# 确定对应的 Attack 节点名
+		var sprite_anim_name := file_path.get_file().get_basename()
+		var attack_node := _get_attack_node_name(sprite_anim_name)
+		
+		if attack_node.is_empty():
+			result.error = "无法从文件名确定 Attack 节点"
+			return result
+		
+		# 读取对应 AttackShape position
+		var skin_scene_path := skin_node.scene_file_path
+		var shape_name := attack_node + "Shape"
+		var shape_pos := _read_shape_position_from_tscn(skin_scene_path, shape_name)
+		
+		# 坐标转换
+		var local_contours: Array[PackedVector2Array] = []
+		for contour in contours:
+			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), shape_pos)
+			local_contours.append(local)
+		
+		# 计算 bounding box
+		result.bounding_box = _calc_bounding_box(local_contours)
+	
+	else:
+		result.error = "未知的测试类型: %s" % test_type
+		return result
+	
+	return result
+
+
+## 计算多个轮廓的 bounding box
+func _calc_bounding_box(contours: Array[PackedVector2Array]) -> Rect2:
+	if contours.is_empty():
+		return Rect2()
+	
+	var min_x := INF
+	var min_y := INF
+	var max_x := -INF
+	var max_y := -INF
+	
+	for contour in contours:
+		for vertex in contour:
+			min_x = min(min_x, vertex.x)
+			min_y = min(min_y, vertex.y)
+			max_x = max(max_x, vertex.x)
+			max_y = max(max_y, vertex.y)
+	
+	return Rect2(min_x, min_y, max_x - min_x, max_y - min_y)
+
 ### -----------------------------------------------------------------------------------------------
