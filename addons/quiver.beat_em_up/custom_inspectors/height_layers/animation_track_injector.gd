@@ -1310,7 +1310,7 @@ func test_single_file(
 	}
 	
 	# 1. 加载 PNG 文件
-	var image := Image.load_from_file(file_path)
+	var image := Image.load_from_file(ProjectSettings.globalize_path(file_path))
 	if image == null:
 		result.error = "无法加载图片: %s" % file_path
 		return result
@@ -1321,7 +1321,7 @@ func test_single_file(
 	var mask_path := file_path.replace(".png", ".mask.png")
 	var mask: Image = null
 	if FileAccess.file_exists(mask_path):
-		mask = Image.load_from_file(mask_path)
+		mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
 		result.has_mask = true
 	
 	# 3. 提取轮廓
