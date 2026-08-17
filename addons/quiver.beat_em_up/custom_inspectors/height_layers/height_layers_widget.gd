@@ -201,14 +201,11 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	# 显示结果
 	var error_count: int = result.errors.size()
 	var frame_count: int = result.frame_count
-	var skipped_count: int = result.get("skipped_count", 0)
 	
 	var lines := []
 	lines.append("[b]%s 轮廓转换结果[/b]" % ("Body" if mode == "body" else "Attack"))
 	lines.append("")
 	lines.append("处理帧数: [b]%d[/b]" % frame_count)
-	if mode == "attack" and skipped_count > 0:
-		lines.append("跳过帧数: [b]%d[/b] (无 mask 文件)" % skipped_count)
 	lines.append("")
 	
 	if error_count == 0:

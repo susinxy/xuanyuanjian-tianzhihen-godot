@@ -640,6 +640,77 @@ func _extract_and_apply_speed_values(
 ## - callback_obj: 拥有 _on_contour_progress(current, total, filename) 方法的对象
 ##
 ## 返回: { frame_count: int, errors: Array[String], frames_info: Dictionary, png_renames: Dictionary }
+
+## 从 SpriteFrames 提取所有帧的轮廓数据（共享扫描逻辑）
+##
+## 统一的扫描逻辑：遍历帧 → 加载 PNG → 检查 mask → 提取轮廓
+## mask 处理统一：有 mask 用 mask，无 mask 全图扫描
+##
+## 参数:
+## - sprite_frames: SpriteFrames 资源
+## - alpha_threshold: alpha 阈值
+## - simplify_tolerance: 简化容差
+## - filter_anims: 只处理这些动画名（空 = 处理全部）
+## - callback_obj: 进度回调对象
+## - errors: 错误数组
+##
+## 返回: { sprite_anim_name: { frame_idx: { raw_contours, image_size, png_path } } }
+func _scan_frames_contours(
+	sprite_frames: SpriteFrames,
+	alpha_threshold: float,
+	simplify_tolerance: float,
+	filter_anims: Array[String],
+	callback_obj: Object,
+	errors: Array[String]
+) -> Dictionary:
+	var frames_data := {}
+	var total_frames := 0
+	
+	for sprite_anim_name in sprite_frames.get_animation_names():
+		# 过滤：如果 filter_anims 非空，只处理列表中的动画
+		if not filter_anims.is_empty() and sprite_anim_name not in filter_anims:
+			continue
+		
+		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
+		frames_data[sprite_anim_name] = {}
+		
+		for frame_idx in range(frame_count):
+			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
+			if texture == null:
+				continue
+			
+			var png_path := texture.resource_path
+			total_frames += 1
+			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
+				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
+			
+			# 加载 PNG
+			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
+			if image == null:
+				errors.append("无法加载图片: %s" % png_path)
+				continue
+			
+			# 检查 mask（有则用，无则全图）
+			var mask_path := png_path.replace(".png", ".mask.png")
+			var mask: Image = null
+			if FileAccess.file_exists(mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+			
+			# 提取轮廓（原始像素坐标）
+			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+			if contours.is_empty():
+				errors.append("未提取到轮廓: %s" % png_path.get_file())
+				continue
+			
+			frames_data[sprite_anim_name][frame_idx] = {
+				"raw_contours": contours,
+				"image_size": Vector2(image.get_width(), image.get_height()),
+				"png_path": png_path,
+			}
+	
+	return frames_data
+
+
 func convert_body_contours(
 	skin_node: Node,
 	alpha_threshold: float,
@@ -659,64 +730,28 @@ func convert_body_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 获取 skin 场景路径（用于后续修改 .tscn）
-	var skin_scene_path := skin_node.scene_file_path
+	# 2. 统一扫描（空数组 = 处理全部）
+	var frames_data := _scan_frames_contours(
+		sprite_frames, alpha_threshold, simplify_tolerance,
+		[], callback_obj, result.errors
+	)
 	
-	# 3. 遍历所有帧，提取轮廓数据
-	var frames_data := {}
-	var total_frames := 0
-	
-	for sprite_anim_name in sprite_frames.get_animation_names():
-		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
-		frames_data[sprite_anim_name] = {}
-		
-		for frame_idx in range(frame_count):
-			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
-			if texture == null:
-				continue
+	# 3. Body 后处理：计算 physical_height/width + 坐标转换
+	for sprite_anim_name in frames_data:
+		for frame_idx in frames_data[sprite_anim_name]:
+			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+			var raw: Array = frame["raw_contours"]
+			var img_w := int(frame["image_size"].x)
+			var img_h := int(frame["image_size"].y)
 			
-			var png_path := texture.resource_path
+			frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
+			frame["width"] = ContourTracer.calc_contour_width(raw)
 			
-			total_frames += 1
-			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
-				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
-			
-			# 加载 PNG
-			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
-			if image == null:
-				result.errors.append("无法加载图片: %s" % png_path)
-				continue
-			
-			# 检查 mask
-			var mask_path := png_path.replace(".png", ".mask.png")
-			var mask: Image = null
-			if FileAccess.file_exists(mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
-			
-			# 提取轮廓
-			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
-			if contours.is_empty():
-				result.errors.append("未提取到轮廓: %s" % png_path.get_file())
-				continue
-			
-			# 计算 physical_height
-			var physical_height := ContourTracer.calc_physical_height(contours, image.get_height())
-			
-			# 计算轮廓宽度（用于物理体碰撞胶囊的 height）
-			var contour_width := ContourTracer.calc_contour_width(contours)
-			
-			# 坐标转换（以图片中心为原点，不依赖 HurtShape.position）
 			var local_contours: Array[PackedVector2Array] = []
-			for contour in contours:
-				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
-				local_contours.append(local)
-			
-			frames_data[sprite_anim_name][frame_idx] = {
-				"contours": local_contours,
-				"physical_height": physical_height,
-				"width": contour_width,
-				"png_path": png_path,
-			}
+			for contour in raw:
+				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+			frame["contours"] = local_contours
+			frame.erase("raw_contours")
 			
 			result.frame_count += 1
 	
@@ -726,6 +761,7 @@ func convert_body_contours(
 		return result
 	
 	# 5. 修改 skin .tscn
+	var skin_scene_path := skin_node.scene_file_path
 	_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
 	
 	# 6. 注入 Animation tracks
@@ -740,7 +776,7 @@ func convert_body_contours(
 ## Attack 轮廓转换
 ##
 ## 从 PNG 提取轮廓多边形，替换 AttackShape 的 CollisionShape2D 为 CollisionPolygon2D
-## 自动计算 attack_heights，更新动画 tracks，重命名 PNG 文件
+## 自动计算 attack_heights，更新动画 tracks
 ##
 ## 参数:
 ## - skin_node: QuiverCharacterSkinAnimTree 节点
@@ -769,81 +805,40 @@ func convert_attack_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 获取高度层定义（用于 attack_heights 计算）
-	var height_definitions := QuiverCharacter._build_height_definitions()
-	
-	# 3. 从动画 track 动态确定 sprite_anim_name → attack_node 映射
-	var skin_scene_path := skin_node.scene_file_path
+	# 2. 获取 attack 映射
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	var sprite_to_attack := {}
 	if anim_player != null:
 		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player)
 	
-	# 4. 遍历所有帧，提取轮廓数据
-	var frames_data := {}
-	var total_frames := 0
-	var skipped_count := 0
+	# 3. 统一扫描（只处理攻击动画）
+	var filter_anims: Array[String] = []
+	filter_anims.assign(sprite_to_attack.keys())
+	var frames_data := _scan_frames_contours(
+		sprite_frames, alpha_threshold, simplify_tolerance,
+		filter_anims, callback_obj, result.errors
+	)
 	
-	for sprite_anim_name in sprite_frames.get_animation_names():
-		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
-		frames_data[sprite_anim_name] = {}
-		
-		# 只处理在映射表中的 sprite 动画（即攻击动画）
-		if not sprite_to_attack.has(sprite_anim_name):
-			continue
+	# 4. Attack 后处理：计算 attack_heights + 坐标转换
+	var height_definitions := QuiverCharacter._build_height_definitions()
+	for sprite_anim_name in frames_data:
 		var attack_node: String = sprite_to_attack[sprite_anim_name]
-		
-		for frame_idx in range(frame_count):
-			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
-			if texture == null:
-				continue
+		for frame_idx in frames_data[sprite_anim_name]:
+			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+			var raw: Array = frame["raw_contours"]
+			var img_w := int(frame["image_size"].x)
+			var img_h := int(frame["image_size"].y)
 			
-			var png_path := texture.resource_path
+			frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
+			frame["attack_node"] = attack_node
 			
-			total_frames += 1
-			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
-				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
-			
-			# 检查 mask（Attack 必须有 mask 才处理）
-			var mask_path := png_path.replace(".png", ".mask.png")
-			if not FileAccess.file_exists(mask_path):
-				skipped_count += 1
-				continue
-			
-			# 加载 PNG 和 mask
-			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
-			if image == null:
-				result.errors.append("无法加载图片: %s" % png_path)
-				continue
-			
-			var mask := Image.load_from_file(ProjectSettings.globalize_path(mask_path))
-			
-			# 提取轮廓
-			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
-			if contours.is_empty():
-				result.errors.append("未提取到轮廓: %s" % png_path.get_file())
-				continue
-			
-			# 计算 attack_heights
-			var attack_heights := ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
-			
-			# 坐标转换（以图片中心为原点，不依赖 AttackShape.position）
 			var local_contours: Array[PackedVector2Array] = []
-			for contour in contours:
-				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
-				local_contours.append(local)
-			
-			frames_data[sprite_anim_name][frame_idx] = {
-				"contours": local_contours,
-				"attack_heights": attack_heights,
-				"attack_node": attack_node,
-				"png_path": png_path,
-			}
+			for contour in raw:
+				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+			frame["contours"] = local_contours
+			frame.erase("raw_contours")
 			
 			result.frame_count += 1
-	
-	# 记录跳过的帧数
-	result["skipped_count"] = skipped_count
 	
 	# 5. 如果 dry_run，返回预览结果
 	if dry_run:
@@ -851,9 +846,10 @@ func convert_attack_contours(
 		return result
 	
 	# 6. 修改 skin .tscn
+	var skin_scene_path := skin_node.scene_file_path
 	_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
 	
-	# 7. 注入 Animation tracks（复用步骤 3 已获取的 anim_player）
+	# 7. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
 		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors)
 	
