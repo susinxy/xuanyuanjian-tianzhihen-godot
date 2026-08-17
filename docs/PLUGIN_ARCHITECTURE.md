@@ -92,7 +92,7 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 
 ### 高度层系统（方案 C）
 
-**设计决策**：高度层属性（`base_height`, `physical_height`, `attack_heights`）存放在 `QuiverCharacterSkin`，而非 `QuiverCharacter`。原因是 AnimationPlayer 位于 Skin 节点下，使用 `.:property` 路径可以直接访问 Skin 属性，避免 `../` 路径导致的 track 解析警告。
+**设计决策**：高度层属性（`base_height`, `physical_height`, `physical_width`, `attack_heights`）存放在 `QuiverCharacterSkin`，而非 `QuiverCharacter`。原因是 AnimationPlayer 位于 Skin 节点下，使用 `.:property` 路径可以直接访问 Skin 属性，避免 `../` 路径导致的 track 解析警告。
 
 **配置化 10 层高度系统**（layer 15-24）:
 
@@ -116,13 +116,15 @@ var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $State
 
 **数据流**:
 1. 动画 value track `.:physical_height` 写入 `Skin.physical_height`（只在值变化时添加 keyframe）
-2. 动画 value track `.:attack_heights` 写入 `Skin.attack_heights`（只在值变化时添加 keyframe）
-3. `Skin.base_height` 是计算属性（getter），从 `position.y` 实时派生：`base_height = -position.y`
-4. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
-5. 更新 CharacterBody2D collision layer 15-24（逐元素比较，只在变化时更新）
-6. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层）
-7. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
-8. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
+2. 动画 value track `.:physical_width` 写入 `Skin.physical_width`（只在值变化时添加 keyframe）
+3. 动画 value track `.:attack_heights` 写入 `Skin.attack_heights`（只在值变化时添加 keyframe）
+4. `Skin.base_height` 是计算属性（getter），从 `position.y` 实时派生：`base_height = -position.y`
+5. `QuiverCharacter._physics_process()` 从 `_skin` 读取数据，计算角色占据的高度范围 `[base_height, base_height + physical_height]`
+6. `QuiverCharacter._update_collision_layers()` 读取 `_skin.physical_width`，设置物理体碰撞胶囊的 `CapsuleShape2D.height`
+7. 更新 CharacterBody2D collision layer 15-24（逐元素比较，只在变化时更新）
+8. 同步更新 CharacterBody2D collision_mask（保留 layers 1-14，添加当前高度层）
+9. HurtBox collision_layer 跟随角色 body layer，collision_mask = 所有高度层并集
+10. HitBox collision_layer 根据 `attack_heights` 或 body layer 设置
 
 **QuiverCharacter 关键方法**:
 - `_physics_process(delta)`: 触发 `_update_collision_layers()`
@@ -180,6 +182,7 @@ QuiverBaseCharacter (CharacterBody2D)
 - **高度层属性（方案 C）**:
   - `var base_height: float`（计算属性）— 概念跳跃高度，`get: return -position.y`，无需动画 track 驱动
   - `@export var physical_height: float = 0.0` — 物理身高（由 value track `.:physical_height` 赋值）
+  - `@export var physical_width: float = 0.0` — 物理宽度（由 value track `.:physical_width` 赋值，QuiverCharacter 读取后设置 CapsuleShape2D.height）
   - `@export var attack_heights: Array = []` — 攻击高度偏移（由 value track `.:attack_heights` 赋值，必须 untyped Array）
 - 高度层战斗引用（由 `_runtime_ready()` 填充，QuiverCharacter 通过 `_skin.hurtbox` / `_skin.hitboxes` 访问）:
   - `@export_node_path var _path_hurtbox`（默认 `^"AnimatedSprite2D/HurtBox"`）
@@ -1020,7 +1023,7 @@ AnimationTrackInjector.run(skin_node, dry_run)
 5. 对每个 Animation：
    a. 找到引用的 SpriteFrames 子动画名
    b. 移除旧的 height tracks（保留原始 Quiver 方法）
-   c. 添加新 tracks（.:physical_height, .:attack_heights, . method）
+   c. 添加新 tracks（.:physical_height, .:physical_width, .:attack_heights, . method）
    d. 逐帧插入 keyframes（value tracks 只在值变化时添加）
    e. 保存 Animation 资源
 6. 提取跳跃和击飞动画首帧的 speed_X：
@@ -1032,6 +1035,7 @@ AnimationTrackInjector.run(skin_node, dry_run)
 
 **轨道路径（方案 C）**：
 - `.:physical_height` — value track，写入 Skin.physical_height
+- `.:physical_width` — value track，写入 Skin.physical_width（QuiverCharacter 读取后设置 CapsuleShape2D.height）
 - `.:attack_heights` — value track，写入 Skin.attack_heights
 - `base_height` 是计算属性（`get: return -position.y`），无需动画 track
 

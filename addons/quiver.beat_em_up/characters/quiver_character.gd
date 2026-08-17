@@ -190,6 +190,13 @@ func _update_collision_layers() -> void:
 	var bh: float = _skin.base_height
 	var ph: float = _skin.physical_height
 	var ah: Array = _skin.attack_heights
+	var pw: float = _skin.physical_width
+	
+	# 更新物理体碰撞胶囊宽度（CapsuleShape2D.height）
+	if _collision and pw > 0.0:
+		var capsule: CapsuleShape2D = _collision.shape as CapsuleShape2D
+		if capsule and capsule.height != pw:
+			capsule.height = pw
 	
 	# 角色整体占据的高度层 = base_height ~ base_height + physical_height
 	var current_layers := _calculate_range_layers(bh, bh + ph)

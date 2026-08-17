@@ -71,6 +71,10 @@ var base_height: float:
 ## 高度层系统：角色的物理身高（由 AnimationPlayer value track "physical_height" 每帧赋值）
 @export var physical_height: float = 0.0
 
+## 高度层系统：角色的物理宽度（由 AnimationPlayer value track "physical_width" 每帧赋值）
+## 用于动态更新物理体碰撞胶囊的 CapsuleShape2D.height
+@export var physical_width: float = 0.0
+
 ## 高度层系统：攻击判定相对 base_height 的高度偏移数组
 ## 注意：必须使用 untyped Array（而非 Array[float]），Godot 4 的 AnimationMixer
 ## 对 typed array 属性的 track 解析支持有限，会报 "couldn't resolve track" 警告

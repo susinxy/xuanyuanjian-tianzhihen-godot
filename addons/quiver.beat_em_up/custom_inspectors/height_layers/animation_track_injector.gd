@@ -35,7 +35,7 @@ const ContourTracer = preload(
 # track path 相对 root_node 解析：无前缀直接访问 Skin 节点自身的属性
 const TRACK_PATH_PHYSICAL_HEIGHT := ".:physical_height"
 const TRACK_PATH_ATTACK_HEIGHTS := ".:attack_heights"
-const TRACK_PATH_CAPSULE_HEIGHT := "../../Collision:shape.height"  # CapsuleShape2D 的 height 属性
+const TRACK_PATH_PHYSICAL_WIDTH := ".:physical_width"  # Skin 的 physical_width 属性，由 QuiverCharacter 读取后设置 CapsuleShape2D.height
 const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
@@ -391,7 +391,7 @@ func _inject_single_animation(
 	
 	# 2. 添加新的 tracks
 	var physical_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
-	var width_track_idx := _add_value_track(anim, TRACK_PATH_CAPSULE_HEIGHT)
+	var width_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 	var attack_track_idx := _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
 	
 	# 3. 计算 sprite 的帧间隔
@@ -458,16 +458,18 @@ func _remove_old_height_tracks(anim: Animation) -> void:
 		# 当前版本路径（.: 前缀，访问 root_node 自身属性）
 		TRACK_PATH_PHYSICAL_HEIGHT,      # ".:physical_height"
 		TRACK_PATH_ATTACK_HEIGHTS,       # ".:attack_heights"
-		TRACK_PATH_CAPSULE_HEIGHT,       # "../../Collision:shape.height"
+		TRACK_PATH_PHYSICAL_WIDTH,       # ".:physical_width"
 		# 历史版本路径 1：无前缀但缺少 . 前缀
 		"physical_height",
 		"attack_heights",
 		# 历史版本路径 2：../ 前缀
 		"../physical_height",
 		"../attack_heights",
+		"../Collision:shape.height",
 		# 历史版本路径 3：../../ 前缀
 		"../../physical_height",
 		"../../attack_heights",
+		"../../Collision:shape.height",
 	]
 	
 	# method track 路径列表（当前版本 + 历史版本）
@@ -675,11 +677,6 @@ func convert_body_contours(
 				continue
 			
 			var png_path := texture.resource_path
-			var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(png_path)
-			
-			# 只处理有 physical 标签的帧
-			if parsed.get("physical", -1.0) < 0.0:
-				continue
 			
 			total_frames += 1
 			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
@@ -706,6 +703,9 @@ func convert_body_contours(
 			# 计算 physical_height
 			var physical_height := ContourTracer.calc_physical_height(contours, image.get_height())
 			
+			# 计算轮廓宽度（用于物理体碰撞胶囊的 height）
+			var contour_width := ContourTracer.calc_contour_width(contours)
+			
 			# 坐标转换
 			var local_contours: Array[PackedVector2Array] = []
 			for contour in contours:
@@ -715,6 +715,7 @@ func convert_body_contours(
 			frames_data[sprite_anim_name][frame_idx] = {
 				"contours": local_contours,
 				"physical_height": physical_height,
+				"width": contour_width,
 				"png_path": png_path,
 			}
 			
@@ -732,11 +733,6 @@ func convert_body_contours(
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	if anim_player != null:
 		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors)
-	
-	# 7. 重命名 PNG + 更新 SpriteFrames
-	var renames := _build_body_png_renames(frames_data)
-	_rename_pngs_and_update_spriteframes(renames, sprite_frames.resource_path, result.errors)
-	result.png_renames = renames
 	
 	result.frames_info = frames_data
 	return result
@@ -777,14 +773,19 @@ func convert_attack_contours(
 	# 2. 获取高度层定义（用于 attack_heights 计算）
 	var height_definitions := QuiverCharacter._build_height_definitions()
 	
-	# 3. 读取各 AttackShape 的 position
+	# 3. 从动画 track 动态确定 sprite_anim_name → attack_node 映射
 	var skin_scene_path := skin_node.scene_file_path
-	var attack_shape_positions := {
-		"Attack1": _read_shape_position_from_tscn(skin_scene_path, "Attack1Shape"),
-		"Attack2": _read_shape_position_from_tscn(skin_scene_path, "Attack2Shape"),
-		"Attack3": _read_shape_position_from_tscn(skin_scene_path, "Attack3Shape"),
-		"AttackAir": _read_shape_position_from_tscn(skin_scene_path, "AttackAirShape"),
-	}
+	var anim_player := _get_animation_player(skin_node, result.errors)
+	var sprite_to_attack := {}
+	if anim_player != null:
+		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player)
+	
+	# 动态读取各 AttackShape 的 position
+	var attack_shape_positions := {}
+	for attack_node in sprite_to_attack.values():
+		if not attack_shape_positions.has(attack_node):
+			attack_shape_positions[attack_node] = _read_shape_position_from_tscn(
+				skin_scene_path, attack_node + "Shape")
 	
 	# 4. 遍历所有帧，提取轮廓数据
 	var frames_data := {}
@@ -794,23 +795,17 @@ func convert_attack_contours(
 		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
 		frames_data[sprite_anim_name] = {}
 		
+		# 只处理在映射表中的 sprite 动画（即攻击动画）
+		if not sprite_to_attack.has(sprite_anim_name):
+			continue
+		var attack_node: String = sprite_to_attack[sprite_anim_name]
+		
 		for frame_idx in range(frame_count):
 			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
 			if texture == null:
 				continue
 			
 			var png_path := texture.resource_path
-			var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(png_path)
-			
-			# 只处理有 attack 标签的帧
-			var attack_heights_raw: Array = parsed.get("attack_heights", [])
-			if attack_heights_raw.is_empty():
-				continue
-			
-			# 确定对应的 Attack 节点名
-			var attack_node := _get_attack_node_name(sprite_anim_name)
-			if attack_node.is_empty():
-				continue
 			
 			total_frames += 1
 			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
@@ -861,15 +856,9 @@ func convert_attack_contours(
 	# 6. 修改 skin .tscn
 	_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
 	
-	# 7. 注入 Animation tracks
-	var anim_player := _get_animation_player(skin_node, result.errors)
+	# 7. 注入 Animation tracks（复用步骤 3 已获取的 anim_player）
 	if anim_player != null:
 		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors)
-	
-	# 8. 重命名 PNG + 更新 SpriteFrames
-	var renames := _build_attack_png_renames(frames_data)
-	_rename_pngs_and_update_spriteframes(renames, sprite_frames.resource_path, result.errors)
-	result.png_renames = renames
 	
 	result.frames_info = frames_data
 	return result
@@ -943,9 +932,9 @@ func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, erro
 	# 替换 HurtShape 节点：CollisionShape2D → CollisionPolygon2D
 	var polygon_str := ContourTracer.format_polygon_array(first_polygon)
 	
-	# 用正则匹配整个 HurtShape 节点定义块
+	# 用正则匹配整个 HurtShape 节点定义块（兼容 CollisionShape2D 和 CollisionPolygon2D）
 	var old_node_pattern := RegEx.new()
-	old_node_pattern.compile('\\[node name="HurtShape" type="CollisionShape2D"[^\\]]*\\]\\n(?:[^\\[]*\\n)*?(?=\\[node )')
+	old_node_pattern.compile('\\[node name="HurtShape" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*')
 	
 	var new_node := '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(5, 0.5)\npolygon = %s\n\n' % polygon_str
 	
@@ -1009,7 +998,7 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 		var polygon_str := ContourTracer.format_polygon_array(first_polygon)
 		
 		var old_node_pattern := RegEx.new()
-		old_node_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\]\\n(?:[^\\[]*\\n)*?(?=\\[node )' % shape_name)
+		old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
 		
 		var new_node := '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(%.1f, %.1f)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, shape_pos.x, shape_pos.y, polygon_str]
 		
@@ -1059,16 +1048,27 @@ func _inject_polygon_tracks_for_body(
 			if frame_dict.is_empty():
 				continue
 			
-			# 删除旧的 shape:size track
-			_remove_tracks_by_path(anim, ["AnimatedSprite2D/HurtBox/HurtShape:shape:size"])
+			# 删除旧的 shape:size track、polygon track、旧的 Collision track 和新的 physical_width track
+			_remove_tracks_by_path(anim, [
+				"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
+				"AnimatedSprite2D/HurtBox/HurtShape:polygon",
+				TRACK_PATH_PHYSICAL_WIDTH,
+				"../Collision:shape.height",
+				"../../Collision:shape.height",
+			])
 			
-			# 添加 polygon track
+			# 添加 polygon track 和 width track
 			var polygon_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
+			var width_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			
+			# 提取 flip_h track 数据（用于 polygon 镜像）
+			var flip_track_data := _extract_flip_h_track(anim)
 			
 			# 逐帧插入 keyframe（只在值变化时）
 			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
 			var prev_polygon := PackedVector2Array()
+			var prev_width: float = -1.0
 			
 			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
 				if not frame_dict.has(frame_idx):
@@ -1078,8 +1078,19 @@ func _inject_polygon_tracks_for_body(
 				var contours: Array = frame_info["contours"]
 				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
 				
+				var time: float = float(frame_idx) * frame_duration
+				
+				# 宽度 track（逐帧，值变化时插入）
+				var current_width: float = frame_info.get("width", 0.0)
+				if current_width != prev_width:
+					anim.track_insert_key(width_track_idx, time, current_width)
+					prev_width = current_width
+				
+				# polygon 镜像（根据 flip_h 状态）
+				if _is_flipped_at_time(flip_track_data, time):
+					current_polygon = _mirror_polygon_x(current_polygon)
+				
 				if current_polygon != prev_polygon:
-					var time: float = float(frame_idx) * frame_duration
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
@@ -1123,8 +1134,13 @@ func _inject_polygon_tracks_for_attack(
 			var attack_node: String = first_frame["attack_node"]
 			var shape_name: String = attack_node + "Shape"
 			
-			# 添加 polygon track
-			var polygon_track_idx := _add_value_track(anim, "Attacks/%s/%s:polygon" % [attack_node, shape_name])
+			# 删除旧的 polygon track，再添加新的
+			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
+			_remove_tracks_by_path(anim, [polygon_path])
+			var polygon_track_idx := _add_value_track(anim, polygon_path)
+			
+			# 提取 flip_h track 数据（用于 polygon 镜像）
+			var flip_track_data := _extract_flip_h_track(anim)
 			
 			# 逐帧插入 keyframe（只在值变化时）
 			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
@@ -1139,8 +1155,13 @@ func _inject_polygon_tracks_for_attack(
 				var contours: Array = frame_info["contours"]
 				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
 				
+				var time: float = float(frame_idx) * frame_duration
+				
+				# polygon 镜像（根据 flip_h 状态）
+				if _is_flipped_at_time(flip_track_data, time):
+					current_polygon = _mirror_polygon_x(current_polygon)
+				
 				if current_polygon != prev_polygon:
-					var time: float = float(frame_idx) * frame_duration
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
@@ -1163,6 +1184,49 @@ func _get_attack_node_name(sprite_anim_name: String) -> String:
 	elif sprite_anim_name.contains("air_attack"):
 		return "AttackAir"
 	return ""
+
+
+## 从动画 track 中构建 sprite_anim_name → attack_node 的映射
+##
+## 判断依据：AttackXShape:disabled track 的值中是否包含 false
+## （false = 碰撞体被启用 = 这是攻击动画）
+## 非攻击动画（idle、hurt 等）的 Shape:disabled 值全是 [true]，不会被误判。
+##
+## 返回: { "attack_1": "Attack1", "attack_2": "Attack2", ... }
+func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer) -> Dictionary:
+	var mapping := {}
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or mapping.has(sprite_anim_name):
+				continue
+			
+			for track_idx in range(anim.get_track_count()):
+				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
+					continue
+				var track_path := str(anim.track_get_path(track_idx))
+				if not track_path.contains("Attacks/") or not track_path.ends_with("Shape:disabled"):
+					continue
+				
+				# 检查关键帧值中是否有 false（碰撞体被启用）
+				for key_idx in range(anim.track_get_key_count(track_idx)):
+					if anim.track_get_key_value(track_idx, key_idx) == false:
+						# 从路径提取 Attack 节点名：Attacks/Attack1/Attack1Shape:disabled → Attack1
+						var parts := track_path.split("/")
+						if parts.size() >= 2:
+							mapping[sprite_anim_name] = parts[1]
+						break
+	
+	return mapping
 
 
 ## 构建 Body 的 PNG 重命名映射
@@ -1264,6 +1328,45 @@ func _remove_tracks_by_path(anim: Animation, paths: Array[String]) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
+## 提取动画中 flip_h track 的所有 keyframe
+##
+## 返回: [{time: float, value: bool}, ...]
+func _extract_flip_h_track(anim: Animation) -> Array:
+	for track_idx in range(anim.get_track_count()):
+		if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
+			continue
+		if str(anim.track_get_path(track_idx)) == "AnimatedSprite2D:flip_h":
+			var data := []
+			for key_idx in range(anim.track_get_key_count(track_idx)):
+				data.append({
+					"time": anim.track_get_key_time(track_idx, key_idx),
+					"value": anim.track_get_key_value(track_idx, key_idx) == true,
+				})
+			return data
+	return []
+
+
+## 查询指定时间点的 flip_h 值
+##
+## 取该时间之前最近的 keyframe 的值
+func _is_flipped_at_time(flip_track_data: Array, time: float) -> bool:
+	var result := false
+	for key in flip_track_data:
+		if key.time <= time:
+			result = key.value
+		else:
+			break
+	return result
+
+
+## 将 polygon 的所有顶点 X 坐标取反（水平镜像）
+func _mirror_polygon_x(polygon: PackedVector2Array) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for vertex in polygon:
+		result.append(Vector2(-vertex.x, vertex.y))
+	return result
+
+
 ## 测试单个 PNG 文件的轮廓提取效果（不修改任何文件）
 ##
 ## 参数:
@@ -1307,6 +1410,8 @@ func test_single_file(
 		"simplify_tolerance": simplify_tolerance,
 		"has_mask": false,
 		"error": "",
+		"contours": [],
+		"image": null,
 	}
 	
 	# 1. 加载 PNG 文件
@@ -1333,6 +1438,10 @@ func test_single_file(
 	result.contour_count = contours.size()
 	for contour in contours:
 		result.total_vertices += contour.size()
+	
+	# 保存轮廓和图片用于预览
+	result.contours = contours
+	result.image = image
 	
 	# 4. 根据 test_type 计算高度数据
 	if test_type == "body":

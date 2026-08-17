@@ -54,134 +54,146 @@ tracks/3/keys = {
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0, 0.125),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [Vector2(151, 302), Vector2(163, 292)]
+"values": [Vector2(83.5, -29), Vector2(65.5, -67)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/5/path = NodePath("Attacks/AttackAir:visible")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.125),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [Vector2(83.5, -29), Vector2(65.5, -67)]
-}
-tracks/6/type = "value"
-tracks/6/imported = false
-tracks/6/enabled = true
-tracks/6/path = NodePath("Attacks/AttackAir:visible")
-tracks/6/interp = 1
-tracks/6/loop_wrap = true
-tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [true]
 }
-tracks/7/type = "value"
-tracks/7/imported = false
-tracks/7/enabled = true
-tracks/7/path = NodePath("Attacks/AttackAir/AttackAirShape:disabled")
-tracks/7/interp = 1
-tracks/7/loop_wrap = true
-tracks/7/keys = {
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("Attacks/AttackAir/AttackAirShape:disabled")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
 "times": PackedFloat32Array(0, 0.125),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [true, false]
 }
-tracks/8/type = "value"
-tracks/8/imported = false
-tracks/8/enabled = true
-tracks/8/path = NodePath(".:attributes:can_be_grabbed")
-tracks/8/interp = 1
-tracks/8/loop_wrap = true
-tracks/8/keys = {
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath(".:attributes:can_be_grabbed")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [false]
 }
-tracks/9/type = "value"
-tracks/9/imported = false
-tracks/9/enabled = true
-tracks/9/path = NodePath("AnimatedSprite2D:flip_h")
-tracks/9/interp = 1
-tracks/9/loop_wrap = true
-tracks/9/keys = {
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [true]
 }
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("Attacks/AttackAir/AttackAirShape:position")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(-175.632, -225.448)]
+}
 tracks/10/type = "value"
 tracks/10/imported = false
 tracks/10/enabled = true
-tracks/10/path = NodePath("Attacks/AttackAir/AttackAirShape:position")
+tracks/10/path = NodePath("Attacks/AttackAir/AttackAirShape:rotation")
 tracks/10/interp = 1
 tracks/10/loop_wrap = true
 tracks/10/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-175.632, -225.448)]
+"values": [-0.294481]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
 tracks/11/enabled = true
-tracks/11/path = NodePath("Attacks/AttackAir/AttackAirShape:rotation")
-tracks/11/interp = 1
+tracks/11/path = NodePath(".:physical_height")
+tracks/11/interp = 0
 tracks/11/loop_wrap = true
 tracks/11/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [-0.294481]
+"values": [180.0]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
 tracks/12/enabled = true
-tracks/12/path = NodePath(".:physical_height")
+tracks/12/path = NodePath(".:attack_heights")
 tracks/12/interp = 0
 tracks/12/loop_wrap = true
 tracks/12/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [180.0]
+"values": [[70.0]]
 }
 tracks/13/type = "value"
 tracks/13/imported = false
 tracks/13/enabled = true
-tracks/13/path = NodePath("../../Collision:shape.height")
+tracks/13/path = NodePath("Attacks/AttackAir/AttackAirShape:polygon")
 tracks/13/interp = 0
 tracks/13/loop_wrap = true
 tracks/13/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [204.0]
+"values": [PackedVector2Array(264.5, 28.5, 290.5, 39.5, 292.5, 39.5, 292.5, 41.5, 282.5, 41.5, 269.5, 36.5, 268.5, 36.5, 290.5, 54.5, 290.5, 58.5, 300.5, 60.5, 312.5, 60.5, 326.5, 66.5, 328.5, 66.5, 350.5, 84.5, 351.5, 84.5, 366.5, 107.5, 366.5, 108.5, 376.5, 107.5, 378.5, 107.5, 374.5, 110.5, 374.5, 111.5, 364.5, 111.5, 360.5, 108.5, 358.5, 108.5, 348.5, 94.5, 348.5, 92.5, 339.5, 84.5, 338.5, 84.5, 332.5, 91.5, 332.5, 92.5, 343.5, 106.5, 344.5, 106.5, 351.5, 120.5, 351.5, 134.5, 360.5, 126.5, 360.5, 125.5, 371.5, 121.5, 371.5, 120.5, 377.5, 120.5, 381.5, 125.5, 381.5, 129.5, 383.5, 128.5, 391.5, 128.5, 393.5, 133.5, 394.5, 133.5, 396.5, 143.5, 396.5, 162.5, 375.5, 177.5, 374.5, 177.5, 377.5, 191.5, 378.5, 191.5, 377.5, 203.5, 377.5, 210.5, 371.5, 223.5, 371.5, 225.5, 363.5, 232.5, 363.5, 233.5, 354.5, 235.5, 354.5, 236.5, 341.5, 235.5, 339.5, 235.5, 335.5, 229.5, 335.5, 227.5, 340.5, 226.5, 342.5, 226.5, 344.5, 222.5, 344.5, 217.5, 336.5, 208.5, 336.5, 207.5, 314.5, 206.5, 311.5, 206.5, 299.5, 192.5, 299.5, 189.5, 293.5, 196.5, 292.5, 196.5, 293.5, 201.5, 293.5, 204.5, 301.5, 216.5, 301.5, 219.5, 346.5, 243.5, 348.5, 243.5, 365.5, 262.5, 366.5, 262.5, 380.5, 289.5, 381.5, 289.5, 368.5, 316.5, 368.5, 317.5, 358.5, 318.5, 346.5, 318.5, 337.5, 322.5, 337.5, 323.5, 324.5, 324.5, 324.5, 325.5, 306.5, 325.5, 288.5, 320.5, 263.5, 320.5, 258.5, 327.5, 258.5, 328.5, 245.5, 333.5, 244.5, 333.5, 246.5, 344.5, 247.5, 344.5, 244.5, 350.5, 244.5, 352.5, 229.5, 364.5, 229.5, 365.5, 216.5, 370.5, 208.5, 370.5, 201.5, 365.5, 200.5, 365.5, 185.5, 296.5, 184.5, 296.5, 186.5, 281.5, 186.5, 278.5, 191.5, 273.5, 191.5, 272.5, 208.5, 273.5, 210.5, 273.5, 210.5, 269.5, 213.5, 268.5, 213.5, 267.5, 238.5, 266.5, 238.5, 265.5, 255.5, 269.5, 258.5, 269.5, 274.5, 278.5, 274.5, 279.5, 283.5, 278.5, 287.5, 278.5, 249.5, 256.5, 249.5, 255.5, 183.5, 262.5, 183.5, 263.5, 121.5, 255.5, 121.5, 254.5, 85.5, 254.5, 63.5, 259.5, 60.5, 259.5, 58.5, 260.5, 58.5, 262.5, 64.5, 268.5, 64.5, 270.5, 52.5, 275.5, 52.5, 277.5, 59.5, 287.5, 60.5, 287.5, 64.5, 302.5, 64.5, 310.5, 59.5, 317.5, 59.5, 318.5, 46.5, 325.5, 46.5, 326.5, 32.5, 323.5, 29.5, 323.5, 18.5, 316.5, 16.5, 316.5, -1.5, 299.5, -2.5, 299.5, -7.5, 290.5, -8.5, 290.5, -7.5, 287.5, -7.5, 285.5, -19.5, 276.5, -21.5, 276.5, -17.5, 253.5, -16.5, 253.5, -16.5, 236.5, -16.5, 235.5, -2.5, 234.5, 6.5, 234.5, 57.5, 208.5, 57.5, 207.5, 73.5, 202.5, 89.5, 202.5, 92.5, 199.5, 94.5, 199.5, 96.5, 187.5, 96.5, 179.5, 98.5, 178.5, 105.5, 178.5, 113.5, 181.5, 115.5, 181.5, 132.5, 153.5, 132.5, 151.5, 134.5, 150.5, 138.5, 150.5, 142.5, 145.5, 147.5, 145.5, 152.5, 137.5, 152.5, 136.5, 169.5, 128.5, 171.5, 128.5, 176.5, 116.5, 176.5, 114.5, 184.5, 105.5, 184.5, 104.5, 195.5, 97.5, 195.5, 96.5, 214.5, 89.5, 217.5, 89.5, 224.5, 81.5, 224.5, 80.5, 234.5, 75.5, 235.5, 75.5, 234.5, 65.5, 234.5, 61.5, 228.5, 51.5, 227.5, 51.5, 227.5, 43.5, 231.5, 38.5, 231.5, 36.5, 248.5, 29.5, 248.5, 28.5, 264.5, 27.5)]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
 tracks/14/enabled = true
-tracks/14/path = NodePath(".:attack_heights")
+tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
 tracks/14/interp = 0
 tracks/14/loop_wrap = true
 tracks/14/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [[70.0]]
+"values": [PackedVector2Array(82.5, -226, 108.5, -215, 110.5, -215, 110.5, -213, 100.5, -213, 87.5, -218, 86.5, -218, 108.5, -200, 108.5, -196, 118.5, -194, 130.5, -194, 144.5, -188, 146.5, -188, 168.5, -170, 169.5, -170, 184.5, -147, 184.5, -146, 194.5, -147, 196.5, -147, 192.5, -144, 192.5, -143, 182.5, -143, 178.5, -146, 176.5, -146, 166.5, -160, 166.5, -162, 157.5, -170, 156.5, -170, 150.5, -163, 150.5, -162, 161.5, -148, 162.5, -148, 169.5, -134, 169.5, -120, 178.5, -128, 178.5, -129, 189.5, -133, 189.5, -134, 195.5, -134, 199.5, -129, 199.5, -125, 201.5, -126, 209.5, -126, 211.5, -121, 212.5, -121, 214.5, -111, 214.5, -92, 193.5, -77, 192.5, -77, 195.5, -63, 196.5, -63, 195.5, -51, 195.5, -44, 189.5, -31, 189.5, -29, 181.5, -22, 181.5, -21, 172.5, -19, 172.5, -18, 159.5, -19, 157.5, -19, 153.5, -25, 153.5, -27, 158.5, -28, 160.5, -28, 162.5, -32, 162.5, -37, 154.5, -46, 154.5, -47, 132.5, -48, 129.5, -48, 117.5, -62, 117.5, -65, 111.5, -58, 110.5, -58, 111.5, -53, 111.5, -50, 119.5, -38, 119.5, -35, 164.5, -11, 166.5, -11, 183.5, 8, 184.5, 8, 198.5, 35, 199.5, 35, 186.5, 62, 186.5, 63, 176.5, 64, 164.5, 64, 155.5, 68, 155.5, 69, 142.5, 70, 142.5, 71, 124.5, 71, 106.5, 66, 81.5, 66, 76.5, 73, 76.5, 74, 63.5, 79, 62.5, 79, 64.5, 90, 65.5, 90, 62.5, 96, 62.5, 98, 47.5, 110, 47.5, 111, 34.5, 116, 26.5, 116, 19.5, 111, 18.5, 111, 3.5, 42, 2.5, 42, 4.5, 27, 4.5, 24, 9.5, 19, 9.5, 18, 26.5, 19, 28.5, 19, 28.5, 15, 31.5, 14, 31.5, 13, 56.5, 12, 56.5, 11, 73.5, 15, 76.5, 15, 92.5, 24, 92.5, 25, 101.5, 24, 105.5, 24, 67.5, 2, 67.5, 1, 1.5, 8, 1.5, 9, -60.5, 1, -60.5, 0, -96.5, 0, -118.5, 5, -121.5, 5, -123.5, 6, -123.5, 8, -117.5, 14, -117.5, 16, -129.5, 21, -129.5, 23, -122.5, 33, -121.5, 33, -117.5, 48, -117.5, 56, -122.5, 63, -122.5, 64, -135.5, 71, -135.5, 72, -149.5, 69, -152.5, 69, -163.5, 62, -165.5, 62, -183.5, 45, -184.5, 45, -189.5, 36, -190.5, 36, -189.5, 33, -189.5, 31, -201.5, 22, -203.5, 22, -199.5, -1, -198.5, -1, -198.5, -18, -198.5, -19, -184.5, -20, -175.5, -20, -124.5, -46, -124.5, -47, -108.5, -52, -92.5, -52, -89.5, -55, -87.5, -55, -85.5, -67, -85.5, -75, -83.5, -76, -76.5, -76, -68.5, -73, -66.5, -73, -49.5, -101, -49.5, -103, -47.5, -104, -43.5, -104, -39.5, -109, -34.5, -109, -29.5, -117, -29.5, -118, -12.5, -126, -10.5, -126, -5.5, -138, -5.5, -140, 2.5, -149, 2.5, -150, 13.5, -157, 13.5, -158, 32.5, -165, 35.5, -165, 42.5, -173, 42.5, -174, 52.5, -179, 53.5, -179, 52.5, -189, 52.5, -193, 46.5, -203, 45.5, -203, 45.5, -211, 49.5, -216, 49.5, -218, 66.5, -225, 66.5, -226, 82.5, -227)]
+}
+tracks/15/type = "value"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath(".:physical_width")
+tracks/15/interp = 0
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [418.0]
 }
 metadata/mirrored_name = "air_attack_left.tres"
 metadata/should_overwrite = true

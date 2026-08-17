@@ -73,6 +73,19 @@ static func calc_physical_height(contours: Array[PackedVector2Array], image_heig
 	return float(image_height) - min_y
 
 
+## 计算轮廓宽度
+##
+## 找到所有轮廓中最左边和最右边的点，计算水平距离
+static func calc_contour_width(contours: Array[PackedVector2Array]) -> float:
+	var min_x := INF
+	var max_x := -INF
+	for contour in contours:
+		for vertex in contour:
+			min_x = min(min_x, vertex.x)
+			max_x = max(max_x, vertex.x)
+	return max_x - min_x
+
+
 ## 计算 attack_heights
 ##
 ## 对每个轮廓计算中点高度，按高度层分组，同层只保留最小值

@@ -43,46 +43,34 @@ tracks/2/keys = {
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(222, 336)]
+"values": [Vector2(8, 48)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(8, 48)]
+"values": [-1.5708]
 }
-tracks/5/type = "value"
+tracks/5/type = "method"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/5/path = NodePath(".")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [-1.5708]
-}
-tracks/6/type = "method"
-tracks/6/imported = false
-tracks/6/enabled = true
-tracks/6/path = NodePath(".")
-tracks/6/interp = 1
-tracks/6/loop_wrap = true
-tracks/6/keys = {
 "times": PackedFloat32Array(0.0833333),
 "transitions": PackedFloat32Array(1),
 "values": [{
@@ -90,65 +78,77 @@ tracks/6/keys = {
 "method": &"end_of_skin_animation"
 }]
 }
-tracks/7/type = "value"
-tracks/7/imported = false
-tracks/7/enabled = true
-tracks/7/path = NodePath(".:attributes:can_be_grabbed")
-tracks/7/interp = 1
-tracks/7/loop_wrap = true
-tracks/7/keys = {
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath(".:attributes:can_be_grabbed")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [false]
 }
-tracks/8/type = "value"
-tracks/8/imported = false
-tracks/8/enabled = true
-tracks/8/path = NodePath("AnimatedSprite2D:flip_h")
-tracks/8/interp = 1
-tracks/8/loop_wrap = true
-tracks/8/keys = {
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [true]
 }
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath(".:physical_height")
+tracks/8/interp = 0
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [180.0]
+}
 tracks/9/type = "value"
 tracks/9/imported = false
 tracks/9/enabled = true
-tracks/9/path = NodePath(".:physical_height")
+tracks/9/path = NodePath(".:attack_heights")
 tracks/9/interp = 0
 tracks/9/loop_wrap = true
 tracks/9/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [180.0]
+"values": [[]]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
 tracks/10/enabled = true
-tracks/10/path = NodePath("../../Collision:shape.height")
+tracks/10/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
 tracks/10/interp = 0
 tracks/10/loop_wrap = true
 tracks/10/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.041666668),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [204.0]
+"values": [PackedVector2Array(51, -181.5, 59, -169.5, 59, -167.5, 65, -164.5, 66, -164.5, 71, -150.5, 71, -148.5, 82, -154.5, 87, -154.5, 94, -147.5, 95, -147.5, 94, -146.5, 94, -143.5, 84, -139.5, 83, -139.5, 80, -129.5, 80, -126.5, 73, -115.5, 73, -112.5, 82, -99.5, 82, -97.5, 89, -99.5, 89, -100.5, 94, -100.5, 95, -97.5, 96, -97.5, 95, -77.5, 95, -63.5, 107, -31.5, 107, -27.5, 116, -20.5, 117, -20.5, 128, -0.5, 129, -0.5, 124, -25.5, 123, -25.5, 125, -34.5, 125, -36.5, 120, -52.5, 120, -55.5, 111, -63.5, 111, -64.5, 107, -64.5, 103, -58.5, 102, -58.5, 99, -65.5, 99, -75.5, 103, -77.5, 103, -78.5, 114, -75.5, 116, -75.5, 124, -61.5, 125, -61.5, 127, -52.5, 127, -49.5, 129, -53.5, 129, -59.5, 123, -76.5, 123, -78.5, 129, -72.5, 130, -72.5, 132, -64.5, 133, -64.5, 130, -43.5, 130, -31.5, 134, -18.5, 136, -18.5, 145, -58.5, 146, -58.5, 146, -68.5, 139, -79.5, 142, -79.5, 147, -73.5, 148, -73.5, 151, -63.5, 152, -63.5, 152, -52.5, 148, -46.5, 148, -44.5, 160, -49.5, 162, -49.5, 155, -43.5, 154, -43.5, 152, -36.5, 152, -28.5, 159, -19.5, 161, -19.5, 161, -11.5, 161, -7.5, 174, 14.5, 175, 14.5, 179, 27.5, 180, 27.5, 171, 44.5, 171, 48.5, 166, 50.5, 162, 50.5, 159, 54.5, 158, 54.5, 162, 60.5, 162, 65.5, 158, 72.5, 157, 72.5, 155, 99.5, 155, 103.5, 146, 124.5, 146, 126.5, 139, 134.5, 139, 136.5, 130, 142.5, 130, 144.5, 112, 155.5, 112, 156.5, 89, 166.5, 89, 167.5, 75, 170.5, 71, 170.5, 58, 176.5, 58, 177.5, 42, 175.5, 36, 175.5, 30, 169.5, 30, 168.5, 22, 166.5, 22, 165.5, 8, 164.5, 2, 164.5, -12, 158.5, -14, 158.5, -31, 139.5, -32, 139.5, -41, 103.5, -41, 96.5, -56, 66.5, -56, 64.5, -62, 59.5, -62, 58.5, -71, 60.5, -74, 60.5, -90, 37.5, -90, 35.5, -101, 27.5, -101, 26.5, -104, 25.5, -111, 25.5, -111, 30.5, -116, 32.5, -119, 32.5, -124, 23.5, -124, 20.5, -136, 20.5, -139, 16.5, -140, 16.5, -148, 2.5, -149, 2.5, -152, -8.5, -152, -16.5, -164, -35.5, -165, -35.5, -168, -50.5, -169, -50.5, -169, -66.5, -166, -72.5, -166, -74.5, -149, -75.5, -149, -76.5, -142, -75.5, -137, -75.5, -130, -70.5, -128, -70.5, -120, -52.5, -119, -52.5, -124, -69.5, -125, -69.5, -125, -85.5, -125, -92.5, -121, -98.5, -121, -99.5, -109, -99.5, -104, -99.5, -93, -93.5, -92, -93.5, -83, -73.5, -83, -71.5, -78, -70.5, -76, -70.5, -70, -64.5, -70, -62.5, -58, -58.5, -57, -58.5, -54, -46.5, -54, -43.5, -48, -37.5, -48, -36.5, -28, -26.5, -28, -25.5, -11, -20.5, 0, -20.5, 9, -11.5, 11, -11.5, 8, -46.5, 8, -53.5, 7, -56.5, 3, -56.5, 4, -61.5, 4, -64.5, -4, -82.5, -4, -88.5, -18, -102.5, -18, -104.5, -17, -107.5, -12, -107.5, -1, -99.5, 1, -99.5, -6, -114.5, -7, -114.5, -7, -120.5, -2, -123.5, -2, -124.5, 10, -106.5, 11, -106.5, 7, -119.5, 6, -119.5, 6, -126.5, 10, -129.5, 14, -129.5, 17, -120.5, 17, -117.5, 22, -111.5, 22, -110.5, 20, -117.5, 19, -117.5, 22, -123.5, 22, -124.5, 25, -125.5, 26, -125.5, 33, -115.5, 34, -115.5, 38, -92.5, 38, -88.5, 43, -90.5, 44, -90.5, 44, -101.5, 33, -119.5, 33, -132.5, 18, -147.5, 18, -152.5, 19, -155.5, 23, -155.5, 31, -145.5, 34, -145.5, 29, -158.5, 29, -168.5, 35, -177.5, 35, -178.5, 40, -176.5, 41, -176.5, 52, -156.5, 53, -156.5, 47, -172.5, 46, -172.5, 47, -175.5, 47, -179.5, 51, -182.5), PackedVector2Array(72.5, -164, 80.5, -159, 80.5, -158, 86.5, -162, 91.5, -162, 93.5, -156, 93.5, -153, 98.5, -148, 99.5, -148, 98.5, -143, 98.5, -124, 90.5, -106, 89.5, -106, 94.5, -79, 94.5, -73, 98.5, -70, 98.5, -69, 108.5, -67, 110.5, -67, 117.5, -58, 118.5, -58, 128.5, -29, 128.5, -26, 140.5, -14, 141.5, -14, 148.5, -2, 149.5, -2, 157.5, 24, 157.5, 27, 163.5, 38, 163.5, 40, 172.5, 33, 172.5, 32, 179.5, 31, 179.5, 30, 156.5, -15, 156.5, -29, 160.5, -38, 160.5, -40, 176.5, -49, 180.5, -49, 175.5, -42, 175.5, -40, 168.5, -38, 165.5, -38, 162.5, -32, 161.5, -32, 167.5, -7, 167.5, -3, 176.5, 14, 176.5, 17, 187.5, 36, 190.5, 36, 178.5, 6, 180.5, 6, 188.5, 17, 189.5, 17, 196.5, 34, 196.5, 36, 217.5, 37, 222.5, 37, 227.5, 41, 228.5, 41, 232.5, 49, 233.5, 49, 234.5, 53, 234.5, 62, 228.5, 79, 228.5, 81, 195.5, 107, 195.5, 108, 192.5, 109, 184.5, 109, 172.5, 104, 169.5, 104, 165.5, 97, 161.5, 97, 151.5, 105, 150.5, 105, 142.5, 121, 142.5, 123, 136.5, 127, 136.5, 128, 109.5, 133, 108.5, 133, 96.5, 129, 93.5, 129, 81.5, 121, 81.5, 120, 69.5, 115, 66.5, 115, 50.5, 105, 48.5, 105, 40.5, 96, 38.5, 96, 30.5, 78, 30.5, 77, 20.5, 80, 18.5, 80, 14.5, 77, 14.5, 74, 8.5, 73, 5.5, 73, 3.5, 70, 3.5, 69, -44.5, 72, -55.5, 72, -66.5, 75, -67.5, 75, -69.5, 89, -69.5, 101, -60.5, 118, -60.5, 120, -63.5, 123, -65.5, 123, -65.5, 128, -65.5, 129, -75.5, 132, -76.5, 132, -77.5, 142, -77.5, 144, -93.5, 150, -100.5, 150, -102.5, 152, -102.5, 154, -121.5, 161, -121.5, 162, -146.5, 162, -150.5, 162, -152.5, 140, -152.5, 134, -147.5, 130, -147.5, 129, -138.5, 127, -135.5, 127, -138.5, 115, -138.5, 114, -134.5, 108, -134.5, 107, -131.5, 109, -129.5, 109, -139.5, 88, -139.5, 85, -129.5, 76, -128.5, 76, -122.5, 66, -121.5, 66, -119.5, 59, -119.5, 50, -112.5, 34, -112.5, 32, -80.5, 12, -80.5, 10, -132.5, 7, -132.5, 6, -151.5, 8, -151.5, 9, -159.5, 7, -161.5, 7, -171.5, 14, -171.5, 15, -174.5, 13, -176.5, 13, -179.5, 16, -182.5, 16, -186.5, 12, -188.5, 12, -196.5, -1, -196.5, -3, -197.5, -4, -200.5, -4, -214.5, -20, -215.5, -20, -219.5, -28, -220.5, -28, -223.5, -44, -224.5, -44, -224.5, -48, -205.5, -56, -205.5, -57, -197.5, -56, -193.5, -56, -186.5, -44, -185.5, -44, -183.5, -47, -183.5, -49, -177.5, -51, -169.5, -51, -163.5, -60, -163.5, -62, -154.5, -67, -154.5, -68, -141.5, -54, -141.5, -53, -136.5, -55, -134.5, -55, -126.5, -64, -124.5, -64, -109.5, -57, -109.5, -56, -93.5, -52, -93.5, -51, -32.5, -45, -31.5, -45, -31.5, -46, -27.5, -46, -26.5, -51, -26.5, -52, -3.5, -52, -1.5, -52, -12.5, -61, -14.5, -61, -20.5, -70, -21.5, -70, -17.5, -80, -14.5, -80, -3.5, -68, -1.5, -68, -8.5, -77, -9.5, -77, -9.5, -83, -4.5, -89, -2.5, -89, 2.5, -82, 2.5, -80, 15.5, -71, 15.5, -70, 21.5, -74, 21.5, -75, 28.5, -73, 30.5, -73, 27.5, -63, 27.5, -53, 34.5, -42, 45.5, -42, 54.5, -65, 55.5, -65, 60.5, -94, 60.5, -95, 54.5, -98, 53.5, -98, 52.5, -106, 52.5, -110, 43.5, -126, 43.5, -127, 48.5, -130, 56.5, -130, 58.5, -126, 58.5, -123, 64.5, -122, 65.5, -122, 64.5, -133, 64.5, -140, 58.5, -148, 58.5, -152, 63.5, -160, 63.5, -161, 72.5, -165)]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
 tracks/11/enabled = true
-tracks/11/path = NodePath(".:attack_heights")
+tracks/11/path = NodePath(".:physical_width")
 tracks/11/interp = 0
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.041666668),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [[]]
+"values": [349.0, 459.0]
 }
 metadata/mirrored_name = "knockout_bounce_left.tres"
 metadata/should_overwrite = true

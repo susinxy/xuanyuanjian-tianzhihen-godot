@@ -42,98 +42,98 @@ tracks/2/keys = {
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(187.563, 403.315)]
+"values": [Vector2(26, 13)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(26, 13)]
+"values": [0.63324]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/5/path = NodePath(".:attributes:can_be_grabbed")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [0.63324]
+"values": [false]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
 tracks/6/enabled = true
-tracks/6/path = NodePath(".:attributes:can_be_grabbed")
+tracks/6/path = NodePath("AnimatedSprite2D:flip_h")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [false]
+"update": 0,
+"values": [true]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
 tracks/7/enabled = true
-tracks/7/path = NodePath("AnimatedSprite2D:flip_h")
-tracks/7/interp = 1
+tracks/7/path = NodePath(".:physical_height")
+tracks/7/interp = 0
 tracks/7/loop_wrap = true
 tracks/7/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [true]
+"update": 1,
+"values": [180.0]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
 tracks/8/enabled = true
-tracks/8/path = NodePath(".:physical_height")
+tracks/8/path = NodePath(".:attack_heights")
 tracks/8/interp = 0
 tracks/8/loop_wrap = true
 tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [180.0]
+"values": [[]]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
 tracks/9/enabled = true
-tracks/9/path = NodePath("../../Collision:shape.height")
+tracks/9/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
 tracks/9/interp = 0
 tracks/9/loop_wrap = true
 tracks/9/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [204.0]
+"values": [PackedVector2Array(-77, -195, -67, -194, -62, -194, -46, -179, -45, -179, -34, -159, -34, -158, -7, -144, -7, -143, -4, -144, -1, -144, 8, -152, 20, -152, 51, -141, 51, -140, 73, -141, 84, -141, 122, -126, 124, -126, 124, -140, 127, -143, 127, -144, 85, -153, 81, -153, 68, -162, 67, -162, 61, -173, 60, -173, 60, -185, 66, -194, 66, -195, 69, -186, 69, -183, 65, -177, 65, -172, 82, -161, 82, -160, 135, -147, 136, -147, 137, -148, 137, -150, 131, -152, 131, -153, 105, -158, 105, -159, 111, -161, 118, -161, 141, -154, 143, -154, 148, -161, 148, -163, 163, -175, 174, -175, 181, -170, 183, -170, 191, -160, 192, -160, 197, -144, 198, -144, 196, -123, 195, -123, 197, -109, 197, -108, 194, -103, 194, -101, 177, -91, 177, -90, 170, -92, 169, -92, 168, -88, 167, -88, 168, -74, 168, -69, 175, -58, 175, -47, 165, -30, 165, -28, 152, -18, 152, -17, 140, -12, 135, -12, 105, 3, 105, 4, 93, 6, 84, 6, 71, 1, 69, 1, 65, 9, 65, 12, 58, 12, 56, 12, 52, 17, 45, 17, 10, 69, 9, 69, 7, 73, 7, 76, 15, 86, 15, 87, 28, 94, 28, 95, 45, 99, 46, 99, 45, 104, 45, 105, 50, 107, 50, 108, 45, 117, 45, 119, 52, 125, 53, 125, 52, 130, 52, 136, 45, 149, 44, 149, 45, 150, 45, 156, 40, 170, 40, 173, 22, 195, 20, 195, 13, 190, 10, 190, 0, 179, -1, 179, -1, 170, 4, 162, 4, 160, -1, 161, -2, 161, -5, 158, -6, 158, -9, 151, -10, 151, -10, 147, -7, 147, -7, 146, -30, 139, -31, 139, -31, 134, -31, 125, -35, 115, -35, 112, -49, 95, -50, 95, -54, 86, -55, 86, -55, 75, -55, 65, -51, 47, -51, 46, -59, 52, -60, 52, -92, 89, -93, 89, -100, 102, -100, 104, -105, 108, -106, 108, -106, 121, -109, 120, -110, 120, -112, 128, -112, 129, -133, 128, -137, 128, -144, 131, -168, 131, -186, 122, -187, 122, -186, 114, -186, 109, -181, 99, -181, 97, -175, 93, -175, 92, -170, 93, -161, 93, -163, 88, -163, 87, -157, 78, -156, 78, -159, 66, -160, 66, -159, 55, -159, 53, -140, 52, -138, 52, -139, 36, -139, 34, -120, 24, -118, 24, -105, 13, -103, 13, -65, -28, -64, -28, -63, -30, -63, -32, -66, -33, -66, -38, -51, -54, -51, -55, -76, -51, -79, -51, -82, -59, -82, -62, -64, -64, -64, -65, -69, -64, -75, -64, -82, -72, -82, -76, -70, -76, -66, -76, -56, -80, -53, -80, -55, -84, -55, -87, -51, -91, -51, -92, -47, -92, -47, -93, -41, -86, -41, -84, -33, -79, -33, -78, -24, -77, -20, -77, -15, -85, -14, -85, -22, -101, -22, -103, -45, -129, -45, -130, -52, -127, -54, -127, -63, -133, -63, -134, -78, -137, -81, -137, -76, -148, -76, -149, -64, -148, -64, -152, -77, -160, -77, -161, -89, -164, -91, -164, -95, -177, -95, -178, -92, -183, -92, -184, -83, -186, -81, -186, -81, -188, -81, -194, -77, -196)]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
 tracks/10/enabled = true
-tracks/10/path = NodePath(".:attack_heights")
+tracks/10/path = NodePath(".:physical_width")
 tracks/10/interp = 0
 tracks/10/loop_wrap = true
 tracks/10/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [[]]
+"values": [385.0]
 }
 metadata/mirrored_name = "knockout_rising_left.tres"
 metadata/should_overwrite = true

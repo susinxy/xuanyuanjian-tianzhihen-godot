@@ -90,8 +90,11 @@ func _is_mirrorable_property(property_name: String) -> bool:
 		"position:x",
 		"rotation",
 	]
-	var value = property_name in VALID_PROPERTIES
-	return value
+	if property_name in VALID_PROPERTIES:
+		return true
+	if property_name.ends_with(":polygon"):
+		return true
+	return false
 
 
 func _mirror_track_values(p_animation: Animation, track_index: int, subpath: String) -> void:
@@ -106,6 +109,14 @@ func _mirror_track_values(p_animation: Animation, track_index: int, subpath: Str
 				mirrored_value = Vector2(value.x * -1, value.y)
 			"position:x", "rotation":
 				mirrored_value = value * -1
+			_:
+				if subpath.ends_with(":polygon") and value is PackedVector2Array:
+					var mirrored := PackedVector2Array()
+					for v in value:
+						mirrored.append(Vector2(-v.x, v.y))
+					mirrored_value = mirrored
+				else:
+					continue
 		
 		p_animation.track_set_key_value(track_index, key_index, mirrored_value)
 		_changed_report += "\n\t value: %s ------> %s"%[value, mirrored_value]

@@ -53,6 +53,7 @@ var _test_file_btn: Button
 var _test_body_btn: Button
 var _test_attack_btn: Button
 var _test_result_label: RichTextLabel
+var _test_preview_texture: TextureRect
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -501,13 +502,11 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	# 显示结果
 	var error_count: int = result.errors.size()
 	var frame_count: int = result.frame_count
-	var rename_count: int = result.png_renames.size()
 	
 	var lines := []
 	lines.append("[b]%s 轮廓转换结果[/b]" % ("Body" if mode == "body" else "Attack"))
 	lines.append("")
 	lines.append("处理帧数: [b]%d[/b]" % frame_count)
-	lines.append("PNG 重命名: [b]%d[/b] 个" % rename_count)
 	lines.append("")
 	
 	if error_count == 0:
@@ -587,6 +586,13 @@ func _build_test_ui() -> void:
 	_test_result_label.custom_minimum_size = Vector2(0, 150)
 	add_child(_test_result_label)
 	
+	# 轮廓预览图
+	_test_preview_texture = TextureRect.new()
+	_test_preview_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_test_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_test_preview_texture.custom_minimum_size = Vector2(0, 256)
+	add_child(_test_preview_texture)
+	
 	add_child(HSeparator.new())
 
 
@@ -654,6 +660,9 @@ func _run_single_file_test(test_type: String) -> void:
 	# 显示结果
 	_display_test_result(result)
 	
+	# 显示预览图
+	await _display_test_preview(result)
+	
 	# 恢复按钮
 	_test_body_btn.disabled = false
 	_test_attack_btn.disabled = false
@@ -695,5 +704,77 @@ func _display_test_result(result: Dictionary) -> void:
 	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f" % [result.alpha_threshold, result.simplify_tolerance])
 	
 	_test_result_label.text = "\n".join(lines)
+
+
+## 显示轮廓预览图
+func _display_test_preview(result: Dictionary) -> void:
+	if result.contours.is_empty() or result.image == null:
+		_test_preview_texture.texture = null
+		return
+	
+	var preview_texture = await _generate_contour_preview(result.image, result.contours)
+	_test_preview_texture.texture = preview_texture
+
+
+## 生成轮廓预览图
+##
+## 在 SubViewport 中渲染：原图 + 轮廓多边形叠加
+## 返回 ImageTexture
+func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array]):
+	var img_w := image.get_width()
+	var img_h := image.get_height()
+	
+	# 创建 SubViewport
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(img_w, img_h)
+	viewport.transparent_bg = false
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(viewport)
+	
+	# 底层：原图
+	var bg := TextureRect.new()
+	bg.texture = ImageTexture.create_from_image(image)
+	bg.size = Vector2(img_w, img_h)
+	viewport.add_child(bg)
+	
+	# 上层：轮廓绘制节点
+	var overlay := Node2D.new()
+	overlay.set_meta("contours", contours)
+	viewport.add_child(overlay)
+	
+	# 连接 draw 信号
+	overlay.draw.connect(_on_overlay_draw.bind(overlay))
+	overlay.queue_redraw()
+	
+	# 等待一帧让渲染完成
+	await get_tree().process_frame
+	
+	# 获取渲染结果
+	var viewport_texture := viewport.get_texture()
+	var result_texture := ImageTexture.create_from_image(viewport_texture.get_image())
+	
+	# 清理
+	viewport.queue_free()
+	
+	return result_texture
+
+
+## 轮廓绘制回调
+func _on_overlay_draw(overlay: Node2D) -> void:
+	var contours: Array[PackedVector2Array] = overlay.get_meta("contours")
+	
+	for contour in contours:
+		if contour.size() < 3:
+			continue
+		
+		# 填充半透明绿色
+		overlay.draw_colored_polygon(contour, Color(0, 1, 0, 0.3))
+		
+		# 绘制红色边线（闭合）
+		var polyline := PackedVector2Array()
+		for vertex in contour:
+			polyline.append(vertex)
+		polyline.append(contour[0])  # 闭合
+		overlay.draw_polyline(polyline, Color(1, 0, 0, 1), 2.0, true)
 
 ### -----------------------------------------------------------------------------------------------
