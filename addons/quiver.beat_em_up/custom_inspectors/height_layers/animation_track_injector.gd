@@ -659,9 +659,8 @@ func convert_body_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 读取 HurtShape 的 position（用于坐标转换）
+	# 2. 获取 skin 场景路径（用于后续修改 .tscn）
 	var skin_scene_path := skin_node.scene_file_path
-	var hurt_shape_pos := _read_shape_position_from_tscn(skin_scene_path, "HurtShape")
 	
 	# 3. 遍历所有帧，提取轮廓数据
 	var frames_data := {}
@@ -706,10 +705,10 @@ func convert_body_contours(
 			# 计算轮廓宽度（用于物理体碰撞胶囊的 height）
 			var contour_width := ContourTracer.calc_contour_width(contours)
 			
-			# 坐标转换
+			# 坐标转换（以图片中心为原点，不依赖 HurtShape.position）
 			var local_contours: Array[PackedVector2Array] = []
 			for contour in contours:
-				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), hurt_shape_pos)
+				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
 				local_contours.append(local)
 			
 			frames_data[sprite_anim_name][frame_idx] = {
@@ -780,13 +779,6 @@ func convert_attack_contours(
 	if anim_player != null:
 		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player)
 	
-	# 动态读取各 AttackShape 的 position
-	var attack_shape_positions := {}
-	for attack_node in sprite_to_attack.values():
-		if not attack_shape_positions.has(attack_node):
-			attack_shape_positions[attack_node] = _read_shape_position_from_tscn(
-				skin_scene_path, attack_node + "Shape")
-	
 	# 4. 遍历所有帧，提取轮廓数据
 	var frames_data := {}
 	var total_frames := 0
@@ -832,11 +824,10 @@ func convert_attack_contours(
 			# 计算 attack_heights
 			var attack_heights := ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
 			
-			# 坐标转换
-			var shape_pos: Vector2 = attack_shape_positions.get(attack_node, Vector2.ZERO)
+			# 坐标转换（以图片中心为原点，不依赖 AttackShape.position）
 			var local_contours: Array[PackedVector2Array] = []
 			for contour in contours:
-				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), shape_pos)
+				var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
 				local_contours.append(local)
 			
 			frames_data[sprite_anim_name][frame_idx] = {
@@ -936,7 +927,7 @@ func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, erro
 	var old_node_pattern := RegEx.new()
 	old_node_pattern.compile('\\[node name="HurtShape" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*')
 	
-	var new_node := '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(5, 0.5)\npolygon = %s\n\n' % polygon_str
+	var new_node := '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(0, 0)\npolygon = %s\n\n' % polygon_str
 	
 	content = old_node_pattern.sub(content, new_node)
 	
@@ -981,26 +972,17 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 				if not contours.is_empty():
 					attack_first_polygons[attack_node] = contours[0]
 	
-	# 各 AttackShape 的原始 position（从 .tscn 读取）
-	var shape_positions := {
-		"Attack1": _read_shape_position_from_tscn(tscn_path, "Attack1Shape"),
-		"Attack2": _read_shape_position_from_tscn(tscn_path, "Attack2Shape"),
-		"Attack3": _read_shape_position_from_tscn(tscn_path, "Attack3Shape"),
-		"AttackAir": _read_shape_position_from_tscn(tscn_path, "AttackAirShape"),
-	}
-	
-	# 替换各 AttackShape 节点定义
+	# 替换各 AttackShape 节点定义（position 写 (0,0)，polygon 以图片中心为原点）
 	for attack_node in attack_first_polygons.keys():
 		var shape_name: String = attack_node + "Shape"
 		var first_polygon: PackedVector2Array = attack_first_polygons[attack_node]
-		var shape_pos: Vector2 = shape_positions.get(attack_node, Vector2.ZERO)
 		
 		var polygon_str := ContourTracer.format_polygon_array(first_polygon)
 		
 		var old_node_pattern := RegEx.new()
 		old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
 		
-		var new_node := '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(%.1f, %.1f)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, shape_pos.x, shape_pos.y, polygon_str]
+		var new_node := '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(0, 0)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, polygon_str]
 		
 		content = old_node_pattern.sub(content, new_node)
 	
@@ -1048,10 +1030,13 @@ func _inject_polygon_tracks_for_body(
 			if frame_dict.is_empty():
 				continue
 			
-			# 删除旧的 shape:size track、polygon track、旧的 Collision track 和新的 physical_width track
+			# 删除旧的 CollisionShape2D 属性 tracks 和新的 polygon/physical_width tracks
 			_remove_tracks_by_path(anim, [
 				"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
 				"AnimatedSprite2D/HurtBox/HurtShape:polygon",
+				"AnimatedSprite2D/HurtBox/HurtShape:position",
+				"AnimatedSprite2D/HurtBox/HurtShape:rotation",
+				"AnimatedSprite2D/HurtBox:position",
 				TRACK_PATH_PHYSICAL_WIDTH,
 				"../Collision:shape.height",
 				"../../Collision:shape.height",
@@ -1060,6 +1045,17 @@ func _inject_polygon_tracks_for_body(
 			# 添加 polygon track 和 width track
 			var polygon_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
 			var width_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			
+			# 添加 position/rotation tracks，覆盖动画中原有的值
+			# 轮廓多边形以图片中心为原点，HurtShape 的 position 必须为 (0,0)，rotation 必须为 0
+			var hurt_shape_pos_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
+			anim.track_insert_key(hurt_shape_pos_track_idx, 0.0, Vector2(0, 0))
+			
+			var hurt_shape_rot_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
+			anim.track_insert_key(hurt_shape_rot_track_idx, 0.0, 0.0)
+			
+			var hurt_box_pos_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
+			anim.track_insert_key(hurt_box_pos_track_idx, 0.0, Vector2(0, 0))
 			
 			# 提取 flip_h track 数据（用于 polygon 镜像）
 			var flip_track_data := _extract_flip_h_track(anim)
@@ -1134,10 +1130,37 @@ func _inject_polygon_tracks_for_attack(
 			var attack_node: String = first_frame["attack_node"]
 			var shape_name: String = attack_node + "Shape"
 			
-			# 删除旧的 polygon track，再添加新的
+			# 删除旧的 CollisionShape2D 属性 tracks 和新的 polygon track，再添加新的
 			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
-			_remove_tracks_by_path(anim, [polygon_path])
+			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
+			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
+			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
+			var attack_node_path := "Attacks/%s:position" % attack_node
+			_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, attack_node_path])
 			var polygon_track_idx := _add_value_track(anim, polygon_path)
+			
+			# 添加 position/rotation tracks，覆盖动画中原有的值
+			# 轮廓多边形以图片中心为原点，AttackShape 的 position 必须为 (0,0)，rotation 必须为 0
+			var position_track_idx := _add_value_track(anim, position_path)
+			anim.track_insert_key(position_track_idx, 0.0, Vector2(0, 0))
+			
+			var rotation_track_idx := _add_value_track(anim, rotation_path)
+			anim.track_insert_key(rotation_track_idx, 0.0, 0.0)
+			
+			# 添加 Attack 节点的 position track，跟随 AnimatedSprite2D 的位置
+			# 这样 AttackShape 的世界坐标 = Skin + Sprite.pos + Attack.pos + Shape.pos + polygon
+			# 由于 Shape.pos = (0,0)，Attack.pos = Sprite.pos，所以世界坐标 = Sprite.pos + polygon
+			# 和 HurtBox 的逻辑一致：polygon 以图片中心为原点，跟随 sprite 移动
+			var attack_pos_track_idx := _add_value_track(anim, attack_node_path)
+			var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
+			if sprite_pos_track_idx >= 0:
+				var key_count := anim.track_get_key_count(sprite_pos_track_idx)
+				for i in key_count:
+					var time := anim.track_get_key_time(sprite_pos_track_idx, i)
+					var value := anim.track_get_key_value(sprite_pos_track_idx, i)
+					anim.track_insert_key(attack_pos_track_idx, time, value)
+			else:
+				anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
 			
 			# 提取 flip_h track 数据（用于 polygon 镜像）
 			var flip_track_data := _extract_flip_h_track(anim)
@@ -1448,14 +1471,10 @@ func test_single_file(
 		# 计算 physical_height
 		result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())
 		
-		# 读取 HurtShape position
-		var skin_scene_path := skin_node.scene_file_path
-		var hurt_shape_pos := _read_shape_position_from_tscn(skin_scene_path, "HurtShape")
-		
-		# 坐标转换
+		# 坐标转换（以图片中心为原点，不依赖 HurtShape.position）
 		var local_contours: Array[PackedVector2Array] = []
 		for contour in contours:
-			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), hurt_shape_pos)
+			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
 			local_contours.append(local)
 		
 		# 计算 bounding box
@@ -1482,15 +1501,10 @@ func test_single_file(
 			result.error = "无法从文件名确定 Attack 节点"
 			return result
 		
-		# 读取对应 AttackShape position
-		var skin_scene_path := skin_node.scene_file_path
-		var shape_name := attack_node + "Shape"
-		var shape_pos := _read_shape_position_from_tscn(skin_scene_path, shape_name)
-		
-		# 坐标转换
+		# 坐标转换（以图片中心为原点，不依赖 AttackShape.position）
 		var local_contours: Array[PackedVector2Array] = []
 		for contour in contours:
-			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height(), shape_pos)
+			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
 			local_contours.append(local)
 		
 		# 计算 bounding box

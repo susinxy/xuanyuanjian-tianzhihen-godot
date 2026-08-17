@@ -125,12 +125,15 @@ static func calc_attack_heights(
 
 ## 将图片像素坐标转换为 CollisionPolygon2D 本地坐标
 ##
+## 轮廓多边形就是角色在图片中的轮廓，与精灵图片始终重合。
+## 因此 polygon 顶点直接以图片中心为原点：
 ## 公式: local = (px - img_w/2 - shape_pos.x, py - img_h/2 - shape_pos.y)
+## shape_pos 默认为 (0,0)，Body 转换时不需要传；Attack 转换时传入 AttackShape 的 position
 static func pixels_to_shape_local(
 	vertices: PackedVector2Array,
 	img_w: int,
 	img_h: int,
-	shape_pos: Vector2
+	shape_pos: Vector2 = Vector2.ZERO
 ) -> PackedVector2Array:
 	var result := PackedVector2Array()
 	var offset_x := float(img_w) / 2.0 + shape_pos.x
