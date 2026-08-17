@@ -1002,7 +1002,7 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 	
 	# 替换各 AttackShape 节点定义
 	for attack_node in attack_first_polygons.keys():
-		var shape_name := attack_node + "Shape"
+		var shape_name: String = attack_node + "Shape"
 		var first_polygon: PackedVector2Array = attack_first_polygons[attack_node]
 		var shape_pos: Vector2 = shape_positions.get(attack_node, Vector2.ZERO)
 		
@@ -1067,7 +1067,7 @@ func _inject_polygon_tracks_for_body(
 			
 			# 逐帧插入 keyframe（只在值变化时）
 			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration := 1.0 / max(1.0, sprite_fps)
+			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
 			var prev_polygon := PackedVector2Array()
 			
 			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
@@ -1079,7 +1079,7 @@ func _inject_polygon_tracks_for_body(
 				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
 				
 				if current_polygon != prev_polygon:
-					var time := float(frame_idx) * frame_duration
+					var time: float = float(frame_idx) * frame_duration
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
@@ -1121,14 +1121,14 @@ func _inject_polygon_tracks_for_attack(
 			# 获取 attack_node
 			var first_frame: Dictionary = frame_dict.values()[0]
 			var attack_node: String = first_frame["attack_node"]
-			var shape_name := attack_node + "Shape"
+			var shape_name: String = attack_node + "Shape"
 			
 			# 添加 polygon track
 			var polygon_track_idx := _add_value_track(anim, "Attacks/%s/%s:polygon" % [attack_node, shape_name])
 			
 			# 逐帧插入 keyframe（只在值变化时）
 			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration := 1.0 / max(1.0, sprite_fps)
+			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
 			var prev_polygon := PackedVector2Array()
 			
 			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
@@ -1140,7 +1140,7 @@ func _inject_polygon_tracks_for_attack(
 				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
 				
 				if current_polygon != prev_polygon:
-					var time := float(frame_idx) * frame_duration
+					var time: float = float(frame_idx) * frame_duration
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
