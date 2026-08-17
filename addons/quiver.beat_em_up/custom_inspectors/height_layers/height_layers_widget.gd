@@ -43,7 +43,7 @@ var _last_preview_result: Dictionary  # 保存预览结果，用于后续扫描
 var _body_contour_btn: Button
 var _attack_contour_btn: Button
 var _contour_status_label: Label
-var _contour_result_label: Label
+var _contour_result_label: RichTextLabel
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 

@@ -68,7 +68,7 @@ static func trace_contours(
 	# 2. 二值化
 	var binary := _binarize_image(work_image, work_mask, alpha_threshold)
 	var w := binary.size()
-	var h := binary[0].size()
+	var h: int = binary[0].size()
 	
 	# 3. Marching Squares 追踪
 	var contours := _marching_squares(binary, w, h)
@@ -262,7 +262,7 @@ static func _trace_contour_from_edge(
 		
 		# 计算当前格子的 case
 		var case := _get_case(binary, x, y)
-		var edges := MARCHING_SQUARES_CASES[case]
+		var edges: Array = MARCHING_SQUARES_CASES[case]
 		
 		# 找到包含当前 dir 的边对
 		var found_pair := []
@@ -279,7 +279,7 @@ static func _trace_contour_from_edge(
 		contour.append(Vector2(edge_mid.x - 1, edge_mid.y - 1))
 		
 		# 移动到下一个格子
-		var next_dir := found_pair[1] if found_pair[0] == dir else found_pair[0]
+		var next_dir: int = found_pair[1] if found_pair[0] == dir else found_pair[0]
 		var next_pos := _move_to_next_cell(x, y, next_dir)
 		x = next_pos.x
 		y = next_pos.y
@@ -296,10 +296,10 @@ static func _trace_contour_from_edge(
 ##
 ## 4 个角：左上、右上、右下、左下
 static func _get_case(binary: Array, x: int, y: int) -> int:
-	var tl := binary[y][x]      # 左上
-	var tr := binary[y][x + 1]  # 右上
-	var br := binary[y + 1][x + 1]  # 右下
-	var bl := binary[y + 1][x]  # 左下
+	var tl: int = binary[y][x]      # 左上
+	var tr: int = binary[y][x + 1]  # 右上
+	var br: int = binary[y + 1][x + 1]  # 右下
+	var bl: int = binary[y + 1][x]  # 左下
 	
 	return (tl << 3) | (tr << 2) | (br << 1) | bl
 
