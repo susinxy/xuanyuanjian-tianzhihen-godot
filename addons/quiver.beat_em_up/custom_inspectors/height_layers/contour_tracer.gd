@@ -301,8 +301,8 @@ static func _trace_contour_from_edge(
 		visited_edges[edge_key] = true
 		
 		# 计算当前格子的 case
-		var case := _get_case(binary, x, y)
-		var edges: Array = MARCHING_SQUARES_CASES[case]
+		var case_val := _get_case(binary, x, y)
+		var edges: Array = MARCHING_SQUARES_CASES[case_val]
 		
 		# 找到包含当前 dir 的边对
 		var found_pair := []
@@ -314,16 +314,22 @@ static func _trace_contour_from_edge(
 		if found_pair.is_empty():
 			break
 		
-		# 计算边的中点坐标（图片像素坐标，需要减去 1 因为 binary 有外围一圈）
+		# 计算当前边的中点坐标（图片像素坐标，需要减去 1 因为 binary 有外围一圈）
 		var edge_mid := _get_edge_midpoint(x, y, dir)
 		contour.append(Vector2(edge_mid.x - 1, edge_mid.y - 1))
 		
-		# 移动到下一个格子
-		var next_dir: int = found_pair[1] if found_pair[0] == dir else found_pair[0]
-		var next_pos := _move_to_next_cell(x, y, next_dir)
+		# 找到另一条边（轮廓线的另一端）
+		var other_dir: int = found_pair[1] if found_pair[0] == dir else found_pair[0]
+		
+		# 标记另一条边为已访问
+		var other_edge_key := "%d,%d,%d" % [x, y, other_dir]
+		visited_edges[other_edge_key] = true
+		
+		# 移动到另一条边所在的格子
+		var next_pos := _move_to_next_cell(x, y, other_dir)
 		x = next_pos.x
 		y = next_pos.y
-		dir = _opposite_dir(next_dir)
+		dir = _opposite_dir(other_dir)
 		
 		# 检查是否超出边界
 		if x < 0 or x >= w - 1 or y < 0 or y >= h - 1:
@@ -331,6 +337,9 @@ static func _trace_contour_from_edge(
 		
 		# 检查是否回到起点
 		if x == start_x and y == start_y and dir == start_dir:
+			# 添加起点的中点，闭合轮廓
+			var start_mid := _get_edge_midpoint(start_x, start_y, start_dir)
+			contour.append(Vector2(start_mid.x - 1, start_mid.y - 1))
 			break
 	
 	return contour
