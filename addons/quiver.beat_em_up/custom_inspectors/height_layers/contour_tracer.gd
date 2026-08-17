@@ -325,6 +325,10 @@ static func _trace_contour_from_edge(
 		var other_edge_key := "%d,%d,%d" % [x, y, other_dir]
 		visited_edges[other_edge_key] = true
 		
+		# 计算另一条边的中点
+		var other_mid := _get_edge_midpoint(x, y, other_dir)
+		contour.append(Vector2(other_mid.x - 1, other_mid.y - 1))
+		
 		# 移动到另一条边所在的格子
 		var next_pos := _move_to_next_cell(x, y, other_dir)
 		x = next_pos.x
@@ -337,9 +341,6 @@ static func _trace_contour_from_edge(
 		
 		# 检查是否回到起点
 		if x == start_x and y == start_y and dir == start_dir:
-			# 添加起点的中点，闭合轮廓
-			var start_mid := _get_edge_midpoint(start_x, start_y, start_dir)
-			contour.append(Vector2(start_mid.x - 1, start_mid.y - 1))
 			break
 	
 	return contour
