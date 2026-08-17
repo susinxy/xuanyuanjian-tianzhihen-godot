@@ -28,17 +28,6 @@ const AnimationTrackInjector = preload(
 
 var _skin_node: QuiverCharacterSkinAnimTree = null
 
-var _preview_btn: Button
-var _scan_btn: Button
-var _status_label: Label
-var _preview_label: RichTextLabel
-var _result_label: Label
-var _collapse_btn_ref: Button
-var _details_container_ref: VBoxContainer
-var _is_collapsed := false
-
-var _last_preview_result: Dictionary  # 保存预览结果，用于后续扫描
-
 # 轮廓转换 UI
 var _body_contour_btn: Button
 var _attack_contour_btn: Button
@@ -52,6 +41,7 @@ var _test_file_path: LineEdit
 var _test_file_btn: Button
 var _test_body_btn: Button
 var _test_attack_btn: Button
+var _test_mask_btn: Button
 var _test_result_label: RichTextLabel
 var _test_preview_texture: TextureRect
 
@@ -64,9 +54,6 @@ func _ready() -> void:
 	if not Engine.is_editor_hint():
 		return
 	_build_ui()
-	# 如果 set_skin_node() 在 _ready() 之前被调用，此时 UI 已构建，重新更新状态
-	if _skin_node != null:
-		_update_status()
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -77,7 +64,6 @@ func _ready() -> void:
 ## 由 inspector_plugin 调用，传入皮肤节点引用
 func set_skin_node(skin_node: Node) -> void:
 	_skin_node = skin_node as QuiverCharacterSkinAnimTree
-	_update_status()
 
 
 ### Private Methods -------------------------------------------------------------------------------
@@ -85,73 +71,6 @@ func set_skin_node(skin_node: Node) -> void:
 func _build_ui() -> void:
 	# 单文件测试区域
 	_build_test_ui()
-	
-	# 标题
-	var header := Label.new()
-	header.text = "📏 高度层动画扫描"
-	header.add_theme_font_size_override("font_size", 16)
-	add_child(header)
-	
-	add_child(HSeparator.new())
-	
-	# 描述
-	var desc := Label.new()
-	desc.text = "扫描动画帧文件名中的 physical_/attack_/speed_ 标注，生成高度轨道。\n\n" + \
-				"1. 点击「预览」查看将要修改的动画\n2. 确认无误后点击「扫描」执行修改"
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc.add_theme_color_override("font_color", Color.GRAY)
-	add_child(desc)
-	
-	# 状态标签
-	_status_label = Label.new()
-	_status_label.text = "等待预览..."
-	_status_label.add_theme_color_override("font_color", Color.GRAY)
-	add_child(_status_label)
-	
-	# 按钮容器
-	var btn_container := HBoxContainer.new()
-	add_child(btn_container)
-	
-	# 预览按钮
-	_preview_btn = Button.new()
-	_preview_btn.text = "🔍 预览"
-	_preview_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_preview_btn.pressed.connect(_on_preview_pressed)
-	btn_container.add_child(_preview_btn)
-	
-	# 扫描按钮
-	_scan_btn = Button.new()
-	_scan_btn.text = "▶ 扫描并生成高度轨道"
-	_scan_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scan_btn.pressed.connect(_on_scan_pressed)
-	_scan_btn.disabled = true  # 必须先预览
-	btn_container.add_child(_scan_btn)
-	
-	# 可折叠的结果展示面板
-	var result_container := VBoxContainer.new()
-	add_child(result_container)
-	
-	var collapse_btn := Button.new()
-	collapse_btn.text = "▼ 修改预览（点击展开/折叠）"
-	collapse_btn.pressed.connect(_on_collapse_toggle)
-	result_container.add_child(collapse_btn)
-	_collapse_btn_ref = collapse_btn
-	
-	var details_container := VBoxContainer.new()
-	result_container.add_child(details_container)
-	_details_container_ref = details_container
-	
-	# 预览展示（RichTextLabel 支持 BBCode）
-	_preview_label = RichTextLabel.new()
-	_preview_label.bbcode_enabled = true
-	_preview_label.text = "[color=gray]请点击「预览」按钮查看可修改的动画[/color]"
-	_preview_label.custom_minimum_size = Vector2(0, 200)
-	details_container.add_child(_preview_label)
-	
-	# 扫描结果标签
-	_result_label = Label.new()
-	_result_label.text = ""
-	details_container.add_child(_result_label)
 	
 	# === 轮廓多边形转换区域 ===
 	add_child(HSeparator.new())
@@ -196,8 +115,8 @@ func _build_ui() -> void:
 	tolerance_label.custom_minimum_size.x = 80
 	tolerance_row.add_child(tolerance_label)
 	_simplify_tolerance_spinbox = SpinBox.new()
-	_simplify_tolerance_spinbox.min_value = 0.5
-	_simplify_tolerance_spinbox.max_value = 20.0
+	_simplify_tolerance_spinbox.min_value = 0.0
+	_simplify_tolerance_spinbox.max_value = 256.0
 	_simplify_tolerance_spinbox.step = 0.5
 	_simplify_tolerance_spinbox.value = 2.0
 	_simplify_tolerance_spinbox.suffix = " px"
@@ -232,226 +151,6 @@ func _build_ui() -> void:
 	_contour_result_label.text = ""
 	_contour_result_label.custom_minimum_size = Vector2(0, 100)
 	add_child(_contour_result_label)
-
-
-func _on_collapse_toggle() -> void:
-	_is_collapsed = not _is_collapsed
-	_details_container_ref.visible = not _is_collapsed
-	_collapse_btn_ref.text = "▶ 修改预览（点击展开/折叠）" if _is_collapsed else "▼ 修改预览（点击展开/折叠）"
-
-
-func _update_status() -> void:
-	# 防御性检查：UI 元素可能尚未初始化
-	if _status_label == null or _scan_btn == null or _preview_btn == null:
-		return
-	
-	if _skin_node == null:
-		_status_label.text = "Status: ⚠️ 未关联皮肤节点"
-		_status_label.add_theme_color_override("font_color", Color.ORANGE)
-		_preview_btn.disabled = true
-		_scan_btn.disabled = true
-		if _body_contour_btn != null:
-			_body_contour_btn.disabled = true
-		if _attack_contour_btn != null:
-			_attack_contour_btn.disabled = true
-		return
-	
-	_status_label.text = "Status: ✅ 已关联: %s" % _skin_node.name
-	_status_label.add_theme_color_override("font_color", Color.GREEN)
-	_preview_btn.disabled = false
-	# 扫描按钮需要先完成预览
-	_scan_btn.disabled = (_last_preview_result == null or _last_preview_result.is_empty())
-	# 轮廓转换按钮始终可用（只要有 skin 节点）
-	if _body_contour_btn != null:
-		_body_contour_btn.disabled = false
-	if _attack_contour_btn != null:
-		_attack_contour_btn.disabled = false
-
-
-func _on_preview_pressed() -> void:
-	if _skin_node == null:
-		return
-	
-	_status_label.text = "Status: 🔍 预览中..."
-	_status_label.add_theme_color_override("font_color", Color.CYAN)
-	_preview_btn.disabled = true
-	_scan_btn.disabled = true  # 预览期间也禁用扫描按钮
-	
-	# 调用扫描器（dry_run=true）
-	var injector := AnimationTrackInjector.new()
-	var result := injector.run(_skin_node, true)  # dry_run
-	
-	# 保存预览结果
-	_last_preview_result = result
-	
-	# 显示预览结果
-	_display_preview(result)
-	
-	# 更新状态
-	var error_count: int = result.errors.size()
-	if error_count == 0 and result.anim_count > 0:
-		_status_label.text = "Status: ✅ 预览完成，可以扫描"
-		_status_label.add_theme_color_override("font_color", Color.GREEN)
-		_scan_btn.disabled = false
-	elif error_count > 0:
-		# 包括 anim_count == 0 且有错误的情况（如验证失败）
-		_status_label.text = "Status: ⚠️ 预览失败，有 %d 个错误（详见下方）" % error_count
-		_status_label.add_theme_color_override("font_color", Color.ORANGE)
-		_scan_btn.disabled = true
-	else:
-		# anim_count == 0 且无错误
-		_status_label.text = "Status: ⚠️ 未找到可处理的动画"
-		_status_label.add_theme_color_override("font_color", Color.ORANGE)
-		_scan_btn.disabled = true
-	
-	_preview_btn.disabled = false
-
-
-func _display_preview(result: Dictionary) -> void:
-	var lines := []
-	
-	# 即使 anim_count == 0，也要显示具体错误（如果有的话）
-	# 这样用户能看到验证失败的真正原因（如场景树结构不对）
-	if result.anim_count == 0 and result.errors.is_empty():
-		lines.append("[color=orange]未找到可处理的动画[/color]")
-		lines.append("")
-		lines.append("可能原因：")
-		lines.append("  • SpriteFrames 中的帧文件名缺少 _physical_ 标注")
-		lines.append("  • AnimationPlayer 中没有 AnimatedSprite2D:animation 轨道")
-		lines.append("  • 皮肤节点场景树结构不符合预期")
-		_preview_label.text = "\n".join(lines)
-		return
-	
-	lines.append("[b]预览结果[/b]")
-	lines.append("")
-	lines.append("扫描到 [b]%d[/b] 个动画，共 [b]%d[/b] 帧" % [result.anim_count, result.frame_count])
-	lines.append("")
-	
-	# 显示所有会被修改的动画
-	if result.has("animations_to_modify") and result.animations_to_modify.size() > 0:
-		var will_modify_count: int = result.animations_to_modify.size()
-		lines.append("[b]将修改 %d 个动画：[/b]" % will_modify_count)
-		for anim_name in result.animations_to_modify:
-			lines.append("  • %s" % anim_name)
-	
-	lines.append("")
-	
-	# 显示跳跃和击飞 speed 映射
-	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
-		var info: Dictionary = result.jump_speed_info
-		
-		if info.has("jump"):
-			var jump_info: Dictionary = info["jump"]
-			lines.append("[b]跳跃力度映射：[/b]")
-			lines.append("  动画: %s" % jump_info.get("anim_name", ""))
-			lines.append("  speed: %d → jump_force: %d" % [jump_info.get("speed", 0), jump_info.get("jump_force", 0)])
-			lines.append("")
-		
-		if info.has("knockout"):
-			var ko_info: Dictionary = info["knockout"]
-			lines.append("[b]击飞权重映射：[/b]")
-			lines.append("  动画: %s" % ko_info.get("anim_name", ""))
-			lines.append("  speed: %.1f → knockback_weight: %.1f" % [ko_info.get("speed", 1.0), ko_info.get("knockback_weight", 1.0)])
-			lines.append("")
-	
-	if result.errors.size() > 0:
-		lines.append("[color=red][b]错误（%d 个）：[/b][/color]" % result.errors.size())
-		# 显示所有错误
-		for error in result.errors:
-			lines.append("  ❌ %s" % error)
-	
-	_preview_label.text = "\n".join(lines)
-
-
-func _on_scan_pressed() -> void:
-	if _skin_node == null:
-		return
-	
-	# 立即禁用两个按钮并改变文本和视觉状态
-	_preview_btn.disabled = true
-	_scan_btn.disabled = true
-	_scan_btn.text = "⏳ 扫描并注入轨道中..."
-	_status_label.text = "Status: ⏳ 扫描并注入轨道..."
-	_status_label.add_theme_color_override("font_color", Color.YELLOW)
-	
-	# 等待两帧以确保 UI 状态变化被渲染
-	await get_tree().process_frame
-	await get_tree().process_frame
-	
-	# 异步执行扫描（不会阻塞编辑器界面）
-	_execute_scan_async()
-
-
-func _execute_scan_async() -> void:
-	var injector := AnimationTrackInjector.new()
-	var result = await injector.run_incremental(_skin_node, false, self)
-	
-	# 显示详细结果（所有动画和错误）
-	var error_count: int = result.errors.size()
-	var summary_lines := []
-	
-	summary_lines.append("[b]扫描结果[/b]")
-	summary_lines.append("")
-	summary_lines.append("扫描到 [b]%d[/b] 个动画，共 [b]%d[/b] 帧" % [result.anim_count, result.frame_count])
-	summary_lines.append("")
-	
-	# 显示所有修改的动画
-	if result.has("animations_to_modify") and result.animations_to_modify.size() > 0:
-		summary_lines.append("[b]已修改 %d 个动画：[/b]" % result.animations_to_modify.size())
-		for anim_name in result.animations_to_modify:
-			summary_lines.append("  ✓ %s" % anim_name)
-		summary_lines.append("")
-	
-	# 显示跳跃和击飞 speed 映射
-	if result.has("jump_speed_info") and not result.jump_speed_info.is_empty():
-		var info: Dictionary = result.jump_speed_info
-		
-		if info.has("jump"):
-			var jump_info: Dictionary = info["jump"]
-			summary_lines.append("[b]跳跃力度已更新：[/b]")
-			summary_lines.append("  %s: speed %d → jump_force %d" % [
-				jump_info.get("anim_name", ""), jump_info.get("speed", 0), jump_info.get("jump_force", 0)])
-			summary_lines.append("")
-		
-		if info.has("knockout"):
-			var ko_info: Dictionary = info["knockout"]
-			summary_lines.append("[b]击飞权重已更新：[/b]")
-			summary_lines.append("  %s: speed %.1f → knockback_weight %.1f" % [
-				ko_info.get("anim_name", ""), ko_info.get("speed", 1.0), ko_info.get("knockback_weight", 1.0)])
-			summary_lines.append("")
-	
-	# 显示所有错误
-	summary_lines.append("[color=%s]错误数量: %d[/color]" % [
-		"green" if error_count == 0 else "red",
-		error_count
-	])
-	
-	if error_count > 0:
-		for i in range(error_count):
-			summary_lines.append("  ❌ %s" % result.errors[i])
-	
-	_result_label.text = "\n".join(summary_lines)
-	
-	# 更新状态并重新启用按钮，恢复文本
-	_preview_btn.disabled = false
-	_scan_btn.text = "▶ 扫描并生成高度轨道"
-	_scan_btn.disabled = false  # 允许重新扫描
-	
-	if error_count == 0:
-		_status_label.text = "Status: ✅ 扫描完成，轨道已写入"
-		_status_label.add_theme_color_override("font_color", Color.GREEN)
-	else:
-		_status_label.text = "Status: ⚠️ 扫描完成，有 %d 个错误" % error_count
-		_status_label.add_theme_color_override("font_color", Color.ORANGE)
-	
-	# 通知 inspector_plugin
-	scan_completed.emit(result.anim_count, result.frame_count, error_count)
-
-
-## 进度回调（由 injector 调用）
-func _on_progress(current: int, total: int, anim_name: String) -> void:
-	_scan_btn.text = "⏳ 处理中: %d/%d (%s)" % [current, total, anim_name]
-	_status_label.text = "Status: ⏳ 正在处理动画 %d/%d: %s" % [current, total, anim_name]
 
 
 ## 轮廓转换进度回调
@@ -502,11 +201,14 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	# 显示结果
 	var error_count: int = result.errors.size()
 	var frame_count: int = result.frame_count
+	var skipped_count: int = result.get("skipped_count", 0)
 	
 	var lines := []
 	lines.append("[b]%s 轮廓转换结果[/b]" % ("Body" if mode == "body" else "Attack"))
 	lines.append("")
 	lines.append("处理帧数: [b]%d[/b]" % frame_count)
+	if mode == "attack" and skipped_count > 0:
+		lines.append("跳过帧数: [b]%d[/b] (无 mask 文件)" % skipped_count)
 	lines.append("")
 	
 	if error_count == 0:
@@ -579,6 +281,13 @@ func _build_test_ui() -> void:
 	_test_attack_btn.pressed.connect(_on_test_attack_btn_pressed)
 	test_btn_row.add_child(_test_attack_btn)
 	
+	_test_mask_btn = Button.new()
+	_test_mask_btn.text = "🎨 编辑 Mask"
+	_test_mask_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_mask_btn.disabled = true
+	_test_mask_btn.pressed.connect(_on_test_mask_btn_pressed)
+	test_btn_row.add_child(_test_mask_btn)
+	
 	# 结果显示
 	_test_result_label = RichTextLabel.new()
 	_test_result_label.bbcode_enabled = true
@@ -608,6 +317,7 @@ func _on_test_file_btn_pressed() -> void:
 		_test_file_path.text = path
 		_test_body_btn.disabled = false
 		_test_attack_btn.disabled = false
+		_test_mask_btn.disabled = false
 		file_dialog.queue_free()
 	)
 	
@@ -627,6 +337,23 @@ func _on_test_body_btn_pressed() -> void:
 ## 测试 Attack 按钮点击
 func _on_test_attack_btn_pressed() -> void:
 	_run_single_file_test("attack")
+
+
+## Mask 编辑器按钮点击
+func _on_test_mask_btn_pressed() -> void:
+	var file_path := _test_file_path.text
+	if file_path.is_empty():
+		return
+	
+	var MaskEditorDialog = preload("res://addons/quiver.beat_em_up/custom_inspectors/height_layers/mask_editor_dialog.gd")
+	var dialog := MaskEditorDialog.new()
+	dialog.set_png_path(file_path)
+	dialog.set_params(_alpha_threshold_spinbox.value, _simplify_tolerance_spinbox.value)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(900, 700))
+	dialog.closed.connect(func():
+		dialog.queue_free()
+	)
 
 
 ## 执行单文件测试

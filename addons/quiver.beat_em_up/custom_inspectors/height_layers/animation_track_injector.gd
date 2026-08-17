@@ -782,6 +782,7 @@ func convert_attack_contours(
 	# 4. 遍历所有帧，提取轮廓数据
 	var frames_data := {}
 	var total_frames := 0
+	var skipped_count := 0
 	
 	for sprite_anim_name in sprite_frames.get_animation_names():
 		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
@@ -803,17 +804,19 @@ func convert_attack_contours(
 			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
 				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
 			
-			# 加载 PNG
+			# 检查 mask（Attack 必须有 mask 才处理）
+			var mask_path := png_path.replace(".png", ".mask.png")
+			if not FileAccess.file_exists(mask_path):
+				skipped_count += 1
+				continue
+			
+			# 加载 PNG 和 mask
 			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
 			if image == null:
 				result.errors.append("无法加载图片: %s" % png_path)
 				continue
 			
-			# 检查 mask
-			var mask_path := png_path.replace(".png", ".mask.png")
-			var mask: Image = null
-			if FileAccess.file_exists(mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+			var mask := Image.load_from_file(ProjectSettings.globalize_path(mask_path))
 			
 			# 提取轮廓
 			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
@@ -838,6 +841,9 @@ func convert_attack_contours(
 			}
 			
 			result.frame_count += 1
+	
+	# 记录跳过的帧数
+	result["skipped_count"] = skipped_count
 	
 	# 5. 如果 dry_run，返回预览结果
 	if dry_run:
