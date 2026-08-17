@@ -221,12 +221,15 @@ static func _marching_squares(binary: Array, w: int, h: int) -> Array[PackedVect
 	# 扫描所有像素，找到未访问的轮廓起点
 	for y in range(h - 1):
 		for x in range(w - 1):
-			# 检查 4 条边是否都未访问
-			for dir in range(4):
-				var edge_key := "%d,%d,%d" % [x, y, dir]
-				if not visited_edges.has(edge_key):
-					# 检查这条边是否是轮廓边（一边是实体，一边是空白）
-					if _is_contour_edge(binary, x, y, dir, w, h):
+			# 计算当前格子的 case
+			var case_val := _get_case(binary, x, y)
+			var edges: Array = MARCHING_SQUARES_CASES[case_val]
+			
+			# 遍历 case 中的所有轮廓边
+			for pair in edges:
+				for dir in pair:
+					var edge_key := "%d,%d,%d" % [x, y, dir]
+					if not visited_edges.has(edge_key):
 						# 尝试从这个边开始追踪
 						var contour := _trace_contour_from_edge(binary, w, h, x, y, dir, visited_edges)
 						if contour.size() >= 3:
