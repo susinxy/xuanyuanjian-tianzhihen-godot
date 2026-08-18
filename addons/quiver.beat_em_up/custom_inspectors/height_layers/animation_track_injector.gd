@@ -1417,19 +1417,17 @@ func _mirror_polygon_x(polygon: PackedVector2Array) -> PackedVector2Array:
 ## }
 func test_single_file(
 	file_path: String,
-	test_type: String,
 	alpha_threshold: float,
-	simplify_tolerance: float,
-	skin_node: Node
+	simplify_tolerance: float
 ) -> Dictionary:
 	var result := {
 		"file_name": file_path.get_file(),
 		"image_size": Vector2.ZERO,
 		"contour_count": 0,
 		"total_vertices": 0,
-		"type": test_type,
 		"physical_height": 0.0,
 		"attack_heights": [],
+		"attack_node": "",
 		"bounding_box": Rect2(),
 		"alpha_threshold": alpha_threshold,
 		"simplify_tolerance": simplify_tolerance,
@@ -1468,53 +1466,23 @@ func test_single_file(
 	result.contours = contours
 	result.image = image
 	
-	# 4. 根据 test_type 计算高度数据
-	if test_type == "body":
-		# 计算 physical_height
-		result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())
-		
-		# 坐标转换（以图片中心为原点，不依赖 HurtShape.position）
-		var local_contours: Array[PackedVector2Array] = []
-		for contour in contours:
-			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
-			local_contours.append(local)
-		
-		# 计算 bounding box
-		result.bounding_box = _calc_bounding_box(local_contours)
+	# 4. 计算 physical_height（始终计算）
+	result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())
 	
-	elif test_type == "attack":
-		# 从文件名解析 attack_heights
-		var parsed: Dictionary = CharacterHeightData.parse_height_from_filename(file_path)
-		var attack_heights_raw: Array = parsed.get("attack_heights", [])
-		
-		if attack_heights_raw.is_empty():
-			result.error = "文件名中没有 attack 标签"
-			return result
-		
-		# 计算 attack_heights（使用高度层定义）
+	# 5. 尝试计算 attack_heights（如果文件名包含 attack 相关信息）
+	var sprite_anim_name := file_path.get_file().get_basename()
+	var attack_node := _get_attack_node_name(sprite_anim_name)
+	if not attack_node.is_empty():
 		var height_definitions := QuiverCharacter._build_height_definitions()
 		result.attack_heights = ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
-		
-		# 确定对应的 Attack 节点名
-		var sprite_anim_name := file_path.get_file().get_basename()
-		var attack_node := _get_attack_node_name(sprite_anim_name)
-		
-		if attack_node.is_empty():
-			result.error = "无法从文件名确定 Attack 节点"
-			return result
-		
-		# 坐标转换（以图片中心为原点，不依赖 AttackShape.position）
-		var local_contours: Array[PackedVector2Array] = []
-		for contour in contours:
-			var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
-			local_contours.append(local)
-		
-		# 计算 bounding box
-		result.bounding_box = _calc_bounding_box(local_contours)
+		result.attack_node = attack_node
 	
-	else:
-		result.error = "未知的测试类型: %s" % test_type
-		return result
+	# 6. 坐标转换 + bounding box
+	var local_contours: Array[PackedVector2Array] = []
+	for contour in contours:
+		var local := ContourTracer.pixels_to_shape_local(contour, image.get_width(), image.get_height())
+		local_contours.append(local)
+	result.bounding_box = _calc_bounding_box(local_contours)
 	
 	return result
 

@@ -36,11 +36,10 @@ var _contour_result_label: RichTextLabel
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 
-# 单文件测试 UI
+# 单文件预览 UI
 var _test_file_path: LineEdit
 var _test_file_btn: Button
-var _test_body_btn: Button
-var _test_attack_btn: Button
+var _test_preview_btn: Button
 var _test_mask_btn: Button
 var _test_result_label: RichTextLabel
 var _test_preview_texture: TextureRect
@@ -234,7 +233,7 @@ func _execute_contour_conversion_async(mode: String) -> void:
 ## 构建单文件测试 UI
 func _build_test_ui() -> void:
 	var test_header := Label.new()
-	test_header.text = "🧪 单文件测试"
+	test_header.text = "🎨 轮廓预览 & Mask 编辑"
 	test_header.add_theme_font_size_override("font_size", 16)
 	add_child(test_header)
 	
@@ -260,23 +259,16 @@ func _build_test_ui() -> void:
 	_test_file_btn.pressed.connect(_on_test_file_btn_pressed)
 	file_row.add_child(_test_file_btn)
 	
-	# 测试按钮行
+	# 操作按钮行
 	var test_btn_row := HBoxContainer.new()
 	add_child(test_btn_row)
 	
-	_test_body_btn = Button.new()
-	_test_body_btn.text = "测试 Body"
-	_test_body_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_test_body_btn.disabled = true
-	_test_body_btn.pressed.connect(_on_test_body_btn_pressed)
-	test_btn_row.add_child(_test_body_btn)
-	
-	_test_attack_btn = Button.new()
-	_test_attack_btn.text = "测试 Attack"
-	_test_attack_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_test_attack_btn.disabled = true
-	_test_attack_btn.pressed.connect(_on_test_attack_btn_pressed)
-	test_btn_row.add_child(_test_attack_btn)
+	_test_preview_btn = Button.new()
+	_test_preview_btn.text = "🔍 预览轮廓"
+	_test_preview_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_preview_btn.disabled = true
+	_test_preview_btn.pressed.connect(_on_preview_btn_pressed)
+	test_btn_row.add_child(_test_preview_btn)
 	
 	_test_mask_btn = Button.new()
 	_test_mask_btn.text = "🎨 编辑 Mask"
@@ -288,7 +280,7 @@ func _build_test_ui() -> void:
 	# 结果显示
 	_test_result_label = RichTextLabel.new()
 	_test_result_label.bbcode_enabled = true
-	_test_result_label.text = "[color=gray]选择文件后点击测试按钮[/color]"
+	_test_result_label.text = "[color=gray]选择文件后点击预览按钮[/color]"
 	_test_result_label.custom_minimum_size = Vector2(0, 150)
 	add_child(_test_result_label)
 	
@@ -312,8 +304,7 @@ func _on_test_file_btn_pressed() -> void:
 	
 	file_dialog.file_selected.connect(func(path: String):
 		_test_file_path.text = path
-		_test_body_btn.disabled = false
-		_test_attack_btn.disabled = false
+		_test_preview_btn.disabled = false
 		_test_mask_btn.disabled = false
 		file_dialog.queue_free()
 	)
@@ -326,14 +317,9 @@ func _on_test_file_btn_pressed() -> void:
 	file_dialog.popup_centered(Vector2i(800, 600))
 
 
-## 测试 Body 按钮点击
-func _on_test_body_btn_pressed() -> void:
-	_run_single_file_test("body")
-
-
-## 测试 Attack 按钮点击
-func _on_test_attack_btn_pressed() -> void:
-	_run_single_file_test("attack")
+## 预览轮廓按钮点击
+func _on_preview_btn_pressed() -> void:
+	_run_single_file_preview()
 
 
 ## Mask 编辑器按钮点击
@@ -353,8 +339,8 @@ func _on_test_mask_btn_pressed() -> void:
 	)
 
 
-## 执行单文件测试
-func _run_single_file_test(test_type: String) -> void:
+## 执行单文件预览
+func _run_single_file_preview() -> void:
 	if _skin_node == null:
 		_test_result_label.text = "[color=red]错误: 未关联皮肤节点[/color]"
 		return
@@ -365,9 +351,8 @@ func _run_single_file_test(test_type: String) -> void:
 		return
 	
 	# 禁用按钮
-	_test_body_btn.disabled = true
-	_test_attack_btn.disabled = true
-	_test_result_label.text = "[color=cyan]测试中...[/color]"
+	_test_preview_btn.disabled = true
+	_test_result_label.text = "[color=cyan]预览中...[/color]"
 	
 	# 等待两帧确保 UI 更新
 	await get_tree().process_frame
@@ -377,9 +362,9 @@ func _run_single_file_test(test_type: String) -> void:
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
 	
-	# 执行测试
+	# 执行预览
 	var injector := AnimationTrackInjector.new()
-	var result := injector.test_single_file(file_path, test_type, alpha_threshold, simplify_tolerance, _skin_node)
+	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance)
 	
 	# 显示结果
 	_display_test_result(result)
@@ -388,11 +373,10 @@ func _run_single_file_test(test_type: String) -> void:
 	await _display_test_preview(result)
 	
 	# 恢复按钮
-	_test_body_btn.disabled = false
-	_test_attack_btn.disabled = false
+	_test_preview_btn.disabled = false
 
 
-## 显示测试结果
+## 显示预览结果
 func _display_test_result(result: Dictionary) -> void:
 	var lines := []
 	
@@ -408,17 +392,18 @@ func _display_test_result(result: Dictionary) -> void:
 	lines.append("[b]Mask 文件:[/b] %s" % ("有" if result.has_mask else "无"))
 	lines.append("")
 	
-	if result.type == "body":
-		lines.append("[b]类型:[/b] Body")
-		lines.append("[b]physical_height:[/b] %.1f" % result.physical_height)
-	elif result.type == "attack":
-		lines.append("[b]类型:[/b] Attack")
+	lines.append("[b]physical_height:[/b] %.1f" % result.physical_height)
+	
+	if not result.attack_heights.is_empty():
 		var heights_str := ""
 		for i in range(result.attack_heights.size()):
 			if i > 0:
 				heights_str += ", "
 			heights_str += "%.1f" % result.attack_heights[i]
 		lines.append("[b]attack_heights:[/b] [%s]" % heights_str)
+	
+	if result.has("attack_node") and result.attack_node != "":
+		lines.append("[b]Attack 节点:[/b] %s" % result.attack_node)
 	
 	lines.append("")
 	lines.append("[b]转换后坐标范围:[/b]")
