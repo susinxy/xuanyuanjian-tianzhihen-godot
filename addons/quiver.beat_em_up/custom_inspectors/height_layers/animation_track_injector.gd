@@ -2174,6 +2174,7 @@ func _inject_rectangle_tracks_for_attack(
 
 
 ## 根据 sprite_anim_name 确定对应的 Attack 节点名
+func _get_attack_node_name(sprite_anim_name: String) -> String:
 	if sprite_anim_name.contains("punch1"):
 		return "Attack1"
 	elif sprite_anim_name.contains("punch2"):
