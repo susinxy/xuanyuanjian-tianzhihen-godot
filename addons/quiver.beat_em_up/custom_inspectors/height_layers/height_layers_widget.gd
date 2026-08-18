@@ -51,6 +51,7 @@ var _preview_file_path: LineEdit
 var _preview_file_select_btn: Button
 var _preview_contour_btn: Button
 var _preview_mask_btn: Button
+var _preview_mabr_test_btn: Button
 var _preview_result_label: RichTextLabel
 var _preview_texture: TextureRect
 
@@ -374,6 +375,12 @@ func _build_preview_ui() -> void:
 	_preview_mask_btn.pressed.connect(_on_preview_mask_pressed)
 	preview_btn_row.add_child(_preview_mask_btn)
 	
+	_preview_mabr_test_btn = Button.new()
+	_preview_mabr_test_btn.text = "🧪 MABR 测试"
+	_preview_mabr_test_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_mabr_test_btn.pressed.connect(_on_preview_mabr_test_pressed)
+	preview_btn_row.add_child(_preview_mabr_test_btn)
+	
 	# 结果显示
 	_preview_result_label = RichTextLabel.new()
 	_preview_result_label.bbcode_enabled = true
@@ -435,6 +442,36 @@ func _on_preview_mask_pressed() -> void:
 	dialog.closed.connect(func():
 		dialog.queue_free()
 	)
+
+
+## MABR 测试按钮点击
+func _on_preview_mabr_test_pressed() -> void:
+	_preview_mabr_test_btn.disabled = true
+	_preview_result_label.text = "[color=cyan]运行 MABR 基础测试...[/color]"
+	
+	await get_tree().process_frame
+	
+	var results := ContourTracer.run_mabr_tests()
+	
+	var lines := []
+	lines.append("[b]MABR 基础测试结果[/b]")
+	lines.append("")
+	for r in results:
+		if r.begins_with("✅"):
+			lines.append("[color=green]%s[/color]" % r)
+		elif r.begins_with("❌"):
+			lines.append("[color=red]%s[/color]" % r)
+		elif r.begins_with("总计"):
+			lines.append("")
+			if "0 失败" in r:
+				lines.append("[color=green][b]%s[/b][/color]" % r)
+			else:
+				lines.append("[color=red][b]%s[/b][/color]" % r)
+		else:
+			lines.append(r)
+	
+	_preview_result_label.text = "\n".join(lines)
+	_preview_mabr_test_btn.disabled = false
 
 
 ## 执行预览
@@ -511,6 +548,23 @@ func _display_preview_result(result: Dictionary) -> void:
 	lines.append("")
 	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f" % [result.alpha_threshold, result.simplify_tolerance])
 	
+	# MABR 信息
+	if result.contours.size() > 0 and result.contours[0].size() >= 3:
+		var mabr := ContourTracer.calc_mabr(result.contours[0])
+		var aabb := ContourTracer.calc_aabb(result.contours[0])
+		
+		lines.append("")
+		lines.append("[b]MABR (最小包围矩形):[/b]")
+		lines.append("  尺寸: %.1f × %.1f" % [mabr.size.x, mabr.size.y])
+		lines.append("  角度: %.1f°" % rad_to_deg(mabr.angle))
+		lines.append("  面积: %.1f" % mabr.area)
+		lines.append("[b]AABB (轴对齐包围盒):[/b]")
+		lines.append("  尺寸: %.1f × %.1f" % [aabb.size.x, aabb.size.y])
+		lines.append("  面积: %.1f" % aabb.area)
+		if aabb.area > 0.0:
+			var saving := (1.0 - mabr.area / aabb.area) * 100.0
+			lines.append("[b]MABR 节省:[/b] %.1f%%" % saving)
+	
 	_preview_result_label.text = "\n".join(lines)
 
 
@@ -584,5 +638,25 @@ func _on_overlay_draw(overlay: Node2D) -> void:
 			polyline.append(vertex)
 		polyline.append(contour[0])  # 闭合
 		overlay.draw_polyline(polyline, Color(1, 0, 0, 1), 2.0, true)
+	
+	# 绘制 MABR（蓝色矩形 + 黄色中心点）
+	if contours.size() > 0 and contours[0].size() >= 3:
+		var mabr := ContourTracer.calc_mabr(contours[0])
+		var corners: PackedVector2Array = mabr.corners
+		
+		if corners.size() == 4:
+			# 蓝色半透明填充
+			overlay.draw_colored_polygon(corners, Color(0, 0.5, 1, 0.15))
+			
+			# 蓝色边线（闭合）
+			var mabr_polyline := PackedVector2Array()
+			for c in corners:
+				mabr_polyline.append(c)
+			mabr_polyline.append(corners[0])
+			overlay.draw_polyline(mabr_polyline, Color(0, 0.5, 1, 1), 3.0, true)
+			
+			# 黄色中心点
+			var center: Vector2 = mabr.center
+			overlay.draw_circle(center, 4, Color(1, 1, 0, 1))
 
 ### -----------------------------------------------------------------------------------------------

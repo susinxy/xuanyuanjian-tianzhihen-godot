@@ -178,6 +178,210 @@ static func format_polygon_array(vertices: PackedVector2Array) -> String:
 	return "PackedVector2Array(%s)" % ", ".join(parts)
 
 
+## 计算最小面积包围矩形 (MABR)
+##
+## 使用 O(n²) 投影法：遍历凸包每条边，将所有顶点投影到该边方向，
+## 计算投影的 axis-aligned bbox，取面积最小的矩形。
+##
+## 基于 Freeman & Shapira (1975) 定理：最小面积包围矩形至少有一条边
+## 与凸包的某条边共线。
+##
+## 参数:
+## - points: 多边形顶点数组（任意坐标系）
+##
+## 返回: {
+##   center: Vector2,              # 矩形中心（与输入同坐标系）
+##   size: Vector2,                # (width, height) 完整尺寸
+##   angle: float,                 # 旋转角度（弧度，atan2(u.y, u.x)）
+##   area: float,                  # 矩形面积
+##   corners: PackedVector2Array   # 4 个角点（用于绘制，顺序：左下→右下→右上→左上）
+## }
+static func calc_mabr(points: PackedVector2Array) -> Dictionary:
+	var empty_result := {
+		"center": Vector2.ZERO,
+		"size": Vector2.ZERO,
+		"angle": 0.0,
+		"area": 0.0,
+		"corners": PackedVector2Array(),
+	}
+	
+	if points.size() == 0:
+		return empty_result
+	
+	if points.size() == 1:
+		return {
+			"center": points[0],
+			"size": Vector2.ZERO,
+			"angle": 0.0,
+			"area": 0.0,
+			"corners": PackedVector2Array([points[0], points[0], points[0], points[0]]),
+		}
+	
+	# 计算凸包（返回 CCW 顺序，最后一个点 == 第一个点）
+	var hull := Geometry2D.convex_hull(points)
+	
+	# 去除闭合点
+	if hull.size() > 1 and hull[0].distance_to(hull[hull.size() - 1]) < 1e-6:
+		hull.resize(hull.size() - 1)
+	
+	var n := hull.size()
+	
+	# 退化：凸包顶点 < 2
+	if n < 2:
+		var p: Vector2 = hull[0] if n == 1 else points[0]
+		return {
+			"center": p,
+			"size": Vector2.ZERO,
+			"angle": 0.0,
+			"area": 0.0,
+			"corners": PackedVector2Array([p, p, p, p]),
+		}
+	
+	# 退化：只有 2 个顶点（共线）
+	if n == 2:
+		var mid := (hull[0] + hull[1]) / 2.0
+		var edge := hull[1] - hull[0]
+		var dist := edge.length()
+		var angle := atan2(edge.y, edge.x)
+		return {
+			"center": mid,
+			"size": Vector2(dist, 0.0),
+			"angle": angle,
+			"area": 0.0,
+			"corners": PackedVector2Array([hull[0], hull[1], hull[1], hull[0]]),
+		}
+	
+	# 主循环：遍历每条凸包边，投影所有顶点
+	var best_area := INF
+	var best_min_u := 0.0
+	var best_min_v := 0.0
+	var best_max_u := 0.0
+	var best_max_v := 0.0
+	var best_u := Vector2.RIGHT
+	var best_v := Vector2.UP
+	
+	var epsilon := 1e-6
+	
+	for i in range(n):
+		var a: Vector2 = hull[i]
+		var b: Vector2 = hull[(i + 1) % n]
+		var edge := b - a
+		var edge_len := edge.length()
+		
+		if edge_len < epsilon:
+			continue
+		
+		var u := edge / edge_len
+		var v := Vector2(-u.y, u.x)
+		
+		var min_u := INF
+		var max_u := -INF
+		var min_v := INF
+		var max_v := -INF
+		
+		for p in hull:
+			var proj_u := p.dot(u)
+			var proj_v := p.dot(v)
+			if proj_u < min_u:
+				min_u = proj_u
+			if proj_u > max_u:
+				max_u = proj_u
+			if proj_v < min_v:
+				min_v = proj_v
+			if proj_v > max_v:
+				max_v = proj_v
+		
+		var width := max_u - min_u
+		var height := max_v - min_v
+		var area := width * height
+		
+		if area < best_area:
+			best_area = area
+			best_min_u = min_u
+			best_min_v = min_v
+			best_max_u = max_u
+			best_max_v = max_v
+			best_u = u
+			best_v = v
+	
+	# 计算中心点（从投影坐标转回原坐标系）
+	var center_uv := Vector2(
+		(best_min_u + best_max_u) / 2.0,
+		(best_min_v + best_max_v) / 2.0
+	)
+	var center := center_uv.x * best_u + center_uv.y * best_v
+	
+	# 计算 4 个角点
+	var corners := PackedVector2Array([
+		best_min_u * best_u + best_min_v * best_v,
+		best_max_u * best_u + best_min_v * best_v,
+		best_max_u * best_u + best_max_v * best_v,
+		best_min_u * best_u + best_max_v * best_v,
+	])
+	
+	var size := Vector2(best_max_u - best_min_u, best_max_v - best_min_v)
+	var angle := atan2(best_u.y, best_u.x)
+	
+	return {
+		"center": center,
+		"size": size,
+		"angle": angle,
+		"area": best_area,
+		"corners": corners,
+	}
+
+
+## 计算 axis-aligned 包围盒 (AABB)
+##
+## 返回: { center: Vector2, size: Vector2, area: float }
+static func calc_aabb(points: PackedVector2Array) -> Dictionary:
+	if points.size() == 0:
+		return { "center": Vector2.ZERO, "size": Vector2.ZERO, "area": 0.0 }
+	
+	var min_x := INF
+	var max_x := -INF
+	var min_y := INF
+	var max_y := -INF
+	
+	for p in points:
+		if p.x < min_x:
+			min_x = p.x
+		if p.x > max_x:
+			max_x = p.x
+		if p.y < min_y:
+			min_y = p.y
+		if p.y > max_y:
+			max_y = p.y
+	
+	var size := Vector2(max_x - min_x, max_y - min_y)
+	var center := Vector2((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+	
+	return {
+		"center": center,
+		"size": size,
+		"area": size.x * size.y,
+	}
+
+
+## 检查点是否在 MABR 内部（含容差）
+static func is_point_in_mabr(point: Vector2, mabr: Dictionary, tolerance: float = 0.01) -> bool:
+	var center: Vector2 = mabr.center
+	var size: Vector2 = mabr.size
+	var angle: float = mabr.angle
+	
+	var cos_a := cos(-angle)
+	var sin_a := sin(-angle)
+	var dx := point.x - center.x
+	var dy := point.y - center.y
+	var local_x := dx * cos_a - dy * sin_a
+	var local_y := dx * sin_a + dy * cos_a
+	
+	var half_w := size.x / 2.0 + tolerance
+	var half_h := size.y / 2.0 + tolerance
+	
+	return abs(local_x) <= half_w and abs(local_y) <= half_h
+
+
 # ============================================================================
 # 私有方法
 # ============================================================================
@@ -272,3 +476,155 @@ static func _find_height_layer(height: float, height_definitions: Array) -> int:
 	if height_definitions.size() > 0:
 		return height_definitions[-1].layer
 	return 15
+
+
+# ============================================================================
+# MABR 测试（临时，验证后可删除）
+# ============================================================================
+
+## 运行 MABR 基础测试
+##
+## 返回: Array[String]，每条是测试结果（✅ 通过 / ❌ 失败 + 原因）
+static func run_mabr_tests() -> Array[String]:
+	var results: Array[String] = []
+	var pass_count := 0
+	var fail_count := 0
+	
+	# 辅助函数：比较浮点数
+	var approx := func(a: float, b: float, tol: float = 0.1) -> bool:
+		return abs(a - b) < tol
+	
+	# 辅助函数：运行单个测试并验证属性
+	var run_test := func(name: String, points: PackedVector2Array, expected_size: Vector2, expected_angle_deg: float, check_angle: bool = true) -> void:
+		var mabr := calc_mabr(points)
+		var aabb := calc_aabb(points)
+		var errors: Array[String] = []
+		
+		# 检查 size
+		if not approx.call(mabr.size.x, expected_size.x) or not approx.call(mabr.size.y, expected_size.y):
+			errors.append("size 不匹配: 期望 (%.2f, %.2f), 实际 (%.2f, %.2f)" % [
+				expected_size.x, expected_size.y, mabr.size.x, mabr.size.y
+			])
+		
+		# 检查 angle（允许 ±90° 的旋转等价）
+		if check_angle:
+			var actual_deg := rad_to_deg(mabr.angle)
+			var angle_diff := abs(fmod(actual_deg - expected_angle_deg + 180.0, 360.0) - 180.0)
+			if angle_diff > 5.0 and abs(angle_diff - 90.0) > 5.0 and abs(angle_diff - 180.0) > 5.0:
+				errors.append("angle 不匹配: 期望 %.1f°, 实际 %.1f°" % [expected_angle_deg, actual_deg])
+		
+		# 属性断言：MABR 面积 <= AABB 面积
+		if mabr.area > aabb.area + 0.1:
+			errors.append("MABR 面积 (%.2f) > AABB 面积 (%.2f)" % [mabr.area, aabb.area])
+		
+		# 属性断言：所有原始顶点在 MABR 内部
+		for p in points:
+			if not is_point_in_mabr(p, mabr):
+				errors.append("顶点 (%.2f, %.2f) 不在 MABR 内部" % [p.x, p.y])
+				break
+		
+		if errors.is_empty():
+			results.append("✅ %s" % name)
+			pass_count += 1
+		else:
+			results.append("❌ %s: %s" % [name, "; ".join(errors)])
+			fail_count += 1
+	
+	# 测试 1: 正方形
+	run_test.call(
+		"正方形 (10x10)",
+		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)]),
+		Vector2(10, 10), 0.0
+	)
+	
+	# 测试 2: 45° 旋转正方形（菱形）
+	# 顶点: (5,0), (10,5), (5,10), (0,5)
+	# MABR 应该沿菱形边对齐，size = (5√2, 5√2) ≈ (7.07, 7.07)
+	run_test.call(
+		"45° 菱形",
+		PackedVector2Array([Vector2(5, 0), Vector2(10, 5), Vector2(5, 10), Vector2(0, 5)]),
+		Vector2(7.07, 7.07), 45.0
+	)
+	
+	# 测试 3: 细长矩形
+	run_test.call(
+		"细长矩形 (20x4)",
+		PackedVector2Array([Vector2(0, 0), Vector2(20, 0), Vector2(20, 4), Vector2(0, 4)]),
+		Vector2(20, 4), 0.0
+	)
+	
+	# 测试 4: 单点
+	var single_result := calc_mabr(PackedVector2Array([Vector2(5, 5)]))
+	if single_result.center == Vector2(5, 5) and single_result.size == Vector2.ZERO and single_result.area == 0.0:
+		results.append("✅ 单点")
+		pass_count += 1
+	else:
+		results.append("❌ 单点: center=%s, size=%s, area=%.2f" % [single_result.center, single_result.size, single_result.area])
+		fail_count += 1
+	
+	# 测试 5: 两点
+	var two_result := calc_mabr(PackedVector2Array([Vector2(0, 0), Vector2(10, 0)]))
+	if approx.call(two_result.size.x, 10.0) and approx.call(two_result.size.y, 0.0) and two_result.area == 0.0:
+		results.append("✅ 两点 (水平)")
+		pass_count += 1
+	else:
+		results.append("❌ 两点: size=%s, area=%.2f" % [two_result.size, two_result.area])
+		fail_count += 1
+	
+	# 测试 6: 共线三点
+	var collinear_result := calc_mabr(PackedVector2Array([Vector2(0, 0), Vector2(5, 0), Vector2(10, 0)]))
+	if approx.call(collinear_result.size.x, 10.0) and collinear_result.area < 0.1:
+		results.append("✅ 共线三点")
+		pass_count += 1
+	else:
+		results.append("❌ 共线三点: size=%s, area=%.2f" % [collinear_result.size, collinear_result.area])
+		fail_count += 1
+	
+	# 测试 7: 三角形
+	run_test.call(
+		"三角形",
+		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(5, 8)]),
+		Vector2(10, 8), 0.0, false  # 不检查角度（三角形的 MABR 角度取决于哪条边最优）
+	)
+	
+	# 测试 8: 空数组
+	var empty_result := calc_mabr(PackedVector2Array())
+	if empty_result.size == Vector2.ZERO and empty_result.area == 0.0:
+		results.append("✅ 空数组")
+		pass_count += 1
+	else:
+		results.append("❌ 空数组: size=%s, area=%.2f" % [empty_result.size, empty_result.area])
+		fail_count += 1
+	
+	# 测试 9: 不规则多边形（验证所有顶点在 MABR 内 + 面积 <= AABB）
+	var irregular := PackedVector2Array([
+		Vector2(2, 1), Vector2(8, 0), Vector2(12, 3), Vector2(10, 9),
+		Vector2(6, 11), Vector2(1, 8), Vector2(0, 4)
+	])
+	var irr_mabr := calc_mabr(irregular)
+	var irr_aabb := calc_aabb(irregular)
+	var irr_errors: Array[String] = []
+	
+	if irr_mabr.area > irr_aabb.area + 0.1:
+		irr_errors.append("MABR 面积 (%.2f) > AABB 面积 (%.2f)" % [irr_mabr.area, irr_aabb.area])
+	
+	for p in irregular:
+		if not is_point_in_mabr(p, irr_mabr):
+			irr_errors.append("顶点 (%.2f, %.2f) 不在 MABR 内部" % [p.x, p.y])
+			break
+	
+	if irr_errors.is_empty():
+		results.append("✅ 不规则多边形 (MABR=%.1f, AABB=%.1f, 节省=%.1f%%)" % [
+			irr_mabr.area, irr_aabb.area,
+			(1.0 - irr_mabr.area / max(irr_aabb.area, 0.001)) * 100.0
+		])
+		pass_count += 1
+	else:
+		results.append("❌ 不规则多边形: %s" % "; ".join(irr_errors))
+		fail_count += 1
+	
+	# 汇总
+	results.append("")
+	results.append("总计: %d 通过, %d 失败" % [pass_count, fail_count])
+	
+	return results
