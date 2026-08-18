@@ -57,6 +57,12 @@ var _preview_mabr_test_btn: Button
 var _preview_result_label: RichTextLabel
 var _preview_texture: TextureRect
 
+# 预览区域专用参数 UI
+var _preview_alpha_threshold_spinbox: SpinBox
+var _preview_simplify_tolerance_spinbox: SpinBox
+var _preview_min_area_ratio_spinbox: SpinBox
+var _preview_erosion_radius_spinbox: SpinBox
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -408,6 +414,81 @@ func _build_preview_ui() -> void:
 	_preview_file_select_btn.pressed.connect(_on_preview_file_select_btn_pressed)
 	file_row.add_child(_preview_file_select_btn)
 	
+	# 预览参数区域
+	var preview_param_container := VBoxContainer.new()
+	add_child(preview_param_container)
+	
+	var preview_param_label := Label.new()
+	preview_param_label.text = "预览参数"
+	preview_param_label.add_theme_font_size_override("font_size", 14)
+	preview_param_container.add_child(preview_param_label)
+	
+	# Alpha 阈值
+	var preview_alpha_row := HBoxContainer.new()
+	preview_param_container.add_child(preview_alpha_row)
+	var preview_alpha_label := Label.new()
+	preview_alpha_label.text = "Alpha 阈值:"
+	preview_alpha_label.custom_minimum_size.x = 80
+	preview_alpha_row.add_child(preview_alpha_label)
+	_preview_alpha_threshold_spinbox = SpinBox.new()
+	_preview_alpha_threshold_spinbox.min_value = 0.0
+	_preview_alpha_threshold_spinbox.max_value = 1.0
+	_preview_alpha_threshold_spinbox.step = 0.1
+	_preview_alpha_threshold_spinbox.value = 0.5
+	_preview_alpha_threshold_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_alpha_row.add_child(_preview_alpha_threshold_spinbox)
+	
+	# 简化容差
+	var preview_tolerance_row := HBoxContainer.new()
+	preview_param_container.add_child(preview_tolerance_row)
+	var preview_tolerance_label := Label.new()
+	preview_tolerance_label.text = "简化容差:"
+	preview_tolerance_label.custom_minimum_size.x = 80
+	preview_tolerance_row.add_child(preview_tolerance_label)
+	_preview_simplify_tolerance_spinbox = SpinBox.new()
+	_preview_simplify_tolerance_spinbox.min_value = 0.0
+	_preview_simplify_tolerance_spinbox.max_value = 256.0
+	_preview_simplify_tolerance_spinbox.step = 0.5
+	_preview_simplify_tolerance_spinbox.value = 100.0
+	_preview_simplify_tolerance_spinbox.suffix = " px"
+	_preview_simplify_tolerance_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_tolerance_row.add_child(_preview_simplify_tolerance_spinbox)
+	
+	# 最小面积比例
+	var preview_area_ratio_row := HBoxContainer.new()
+	preview_param_container.add_child(preview_area_ratio_row)
+	var preview_area_ratio_label := Label.new()
+	preview_area_ratio_label.text = "最小面积比例:"
+	preview_area_ratio_label.custom_minimum_size.x = 80
+	preview_area_ratio_row.add_child(preview_area_ratio_label)
+	_preview_min_area_ratio_spinbox = SpinBox.new()
+	_preview_min_area_ratio_spinbox.min_value = 0.1
+	_preview_min_area_ratio_spinbox.max_value = 0.8
+	_preview_min_area_ratio_spinbox.step = 0.05
+	_preview_min_area_ratio_spinbox.value = 0.3
+	_preview_min_area_ratio_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_area_ratio_row.add_child(_preview_min_area_ratio_spinbox)
+	
+	# 腐蚀半径
+	var preview_erosion_row := HBoxContainer.new()
+	preview_param_container.add_child(preview_erosion_row)
+	var preview_erosion_label := Label.new()
+	preview_erosion_label.text = "腐蚀半径:"
+	preview_erosion_label.custom_minimum_size.x = 80
+	preview_erosion_row.add_child(preview_erosion_label)
+	_preview_erosion_radius_spinbox = SpinBox.new()
+	_preview_erosion_radius_spinbox.min_value = 0
+	_preview_erosion_radius_spinbox.max_value = 100
+	_preview_erosion_radius_spinbox.step = 1
+	_preview_erosion_radius_spinbox.value = 0
+	_preview_erosion_radius_spinbox.suffix = " px"
+	_preview_erosion_radius_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_erosion_row.add_child(_preview_erosion_radius_spinbox)
+	var preview_erosion_hint := Label.new()
+	preview_erosion_hint.text = "(仅 MABR)"
+	preview_erosion_hint.add_theme_color_override("font_color", Color.GRAY)
+	preview_erosion_row.add_child(preview_erosion_hint)
+	
 	# 操作按钮行
 	var preview_btn_row := HBoxContainer.new()
 	add_child(preview_btn_row)
@@ -544,11 +625,11 @@ func _run_preview() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	# 获取参数
-	var alpha_threshold: float = _alpha_threshold_spinbox.value
-	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
-	var min_area_ratio: float = _min_area_ratio_spinbox.value
-	var erosion_radius: int = int(_erosion_radius_spinbox.value)
+	# 获取预览专用参数
+	var alpha_threshold: float = _preview_alpha_threshold_spinbox.value
+	var simplify_tolerance: float = _preview_simplify_tolerance_spinbox.value
+	var min_area_ratio: float = _preview_min_area_ratio_spinbox.value
+	var erosion_radius: int = int(_preview_erosion_radius_spinbox.value)
 	
 	# 执行预览
 	var injector := AnimationTrackInjector.new()
