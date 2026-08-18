@@ -520,7 +520,7 @@ func _find_or_add_value_track(anim: Animation, track_path: String) -> int:
 	# 查找现有 track
 	for i in range(anim.get_track_count()):
 		if anim.track_get_type(i) == Animation.TYPE_VALUE:
-			if anim.track_get_path(i) == track_path:
+			if str(anim.track_get_path(i)) == track_path:
 				return i
 	
 	# 不存在则创建新的
