@@ -39,6 +39,13 @@ const TRACK_PATH_PHYSICAL_WIDTH := ".:physical_width"  # Skin 的 physical_width
 const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
+# 碰撞形状类型
+enum ShapeType {
+	POLYGON = 0,    # CollisionPolygon2D + :polygon track（精确轮廓）
+	CAPSULE = 1,    # CollisionShape2D + CapsuleShape2D（从 MABR 推导）
+	RECTANGLE = 2   # CollisionShape2D + RectangleShape2D（从 MABR 推导）
+}
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -694,7 +701,8 @@ func _scan_frames_contours(
 	mask_suffix: String,
 	callback_obj: Object,
 	errors: Array[String],
-	target_file_path: String = ""
+	target_file_path: String = "",
+	erosion_radius: int = 0
 ) -> Dictionary:
 	var frames_data := {}
 	
@@ -776,7 +784,7 @@ func _scan_frames_contours(
 			mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
 		
 		# 提取轮廓（原始像素坐标）
-		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio)
+		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius)
 		if contours.is_empty():
 			errors.append("未提取到轮廓: %s" % png_path.get_file())
 			continue
@@ -801,6 +809,8 @@ func convert_body_contours(
 	alpha_threshold: float,
 	simplify_tolerance: float,
 	min_area_ratio: float,
+	erosion_radius: int,
+	shape_type: int,
 	dry_run: bool,
 	callback_obj: Object,
 	target_file_path: String = ""
@@ -824,12 +834,14 @@ func convert_body_contours(
 		sprite_to_body = _find_body_mapping_from_tracks(anim_player, skin_node)
 	
 	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
+	# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
+	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		[], sprite_to_body, "body", callback_obj, result.errors, target_file_path
+		[], sprite_to_body, "body", callback_obj, result.errors, target_file_path, scan_erosion
 	)
 	
-	# 3. Body 后处理：计算 physical_height/width + 坐标转换
+	# 3. Body 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
 	for sprite_anim_name in frames_data:
 		for frame_idx in frames_data[sprite_anim_name]:
 			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
@@ -845,6 +857,16 @@ func convert_body_contours(
 				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 			frame["contours"] = local_contours
 			frame.erase("raw_contours")
+			
+			# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
+			if local_contours.size() > 0 and local_contours[0].size() >= 3:
+				var mabr := ContourTracer.calc_mabr(local_contours[0])
+				frame["mabr"] = mabr
+				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+				frame["rectangle"] = {
+					"size": mabr.size,
+					"angle": mabr.angle,
+				}
 			
 			result.frame_count += 1
 	
@@ -885,6 +907,8 @@ func convert_attack_contours(
 	alpha_threshold: float,
 	simplify_tolerance: float,
 	min_area_ratio: float,
+	erosion_radius: int,
+	shape_type: int,
 	dry_run: bool,
 	callback_obj: Object,
 	target_file_path: String = ""
@@ -908,14 +932,16 @@ func convert_attack_contours(
 		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player, skin_node)
 	
 	# 3. 统一扫描（只处理攻击动画，传入帧过滤和 mask 类型）
+	# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
+	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 	var filter_anims: Array[String] = []
 	filter_anims.assign(sprite_to_attack.keys())
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors, target_file_path
+		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors, target_file_path, scan_erosion
 	)
 	
-	# 4. Attack 后处理：计算 attack_heights + 坐标转换
+	# 4. Attack 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
 	var height_definitions := QuiverCharacter._build_height_definitions()
 	for sprite_anim_name in frames_data:
 		var mapping_info: Dictionary = sprite_to_attack[sprite_anim_name]
@@ -934,6 +960,16 @@ func convert_attack_contours(
 				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 			frame["contours"] = local_contours
 			frame.erase("raw_contours")
+			
+			# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
+			if local_contours.size() > 0 and local_contours[0].size() >= 3:
+				var mabr := ContourTracer.calc_mabr(local_contours[0])
+				frame["mabr"] = mabr
+				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+				frame["rectangle"] = {
+					"size": mabr.size,
+					"angle": mabr.angle,
+				}
 			
 			result.frame_count += 1
 	
@@ -1733,7 +1769,7 @@ func _mirror_polygon_x(polygon: PackedVector2Array) -> PackedVector2Array:
 ##   has_mask: bool,
 ##   error: String  # 如果有错误
 ## }
-func test_single_file(
+func preview_single_file(
 	file_path: String,
 	alpha_threshold: float,
 	simplify_tolerance: float,
@@ -1756,6 +1792,9 @@ func test_single_file(
 		"error": "",
 		"contours": [],
 		"eroded_contours": [],
+		"mabr": {},
+		"capsule": {},
+		"rectangle": {},
 		"image": null,
 	}
 	
@@ -1793,6 +1832,16 @@ func test_single_file(
 	result.contours = contours
 	result.eroded_contours = eroded_contours
 	result.image = image
+	
+	# 3.6 计算 MABR/Capsule/Rectangle（基于腐蚀后的轮廓）
+	if eroded_contours.size() > 0 and eroded_contours[0].size() >= 3:
+		var mabr := ContourTracer.calc_mabr(eroded_contours[0])
+		result.mabr = mabr
+		result.capsule = ContourTracer.calc_capsule_from_mabr(mabr)
+		result.rectangle = {
+			"size": mabr.size,
+			"angle": mabr.angle,
+		}
 	
 	# 4. 计算 physical_height（始终计算）
 	result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())

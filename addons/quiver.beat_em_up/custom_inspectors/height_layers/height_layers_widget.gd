@@ -37,6 +37,7 @@ var _body_contour_btn: Button
 var _attack_contour_btn: Button
 var _contour_status_label: Label
 var _contour_result_label: RichTextLabel
+var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
@@ -157,6 +158,22 @@ func _build_ui() -> void:
 	_min_area_ratio_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	area_ratio_row.add_child(_min_area_ratio_spinbox)
 	
+	# 碰撞形状类型
+	var shape_row := HBoxContainer.new()
+	param_container.add_child(shape_row)
+	var shape_label := Label.new()
+	shape_label.text = "碰撞形状:"
+	shape_label.custom_minimum_size.x = 80
+	shape_row.add_child(shape_label)
+	_shape_type_option = OptionButton.new()
+	_shape_type_option.add_item("Polygon", AnimationTrackInjector.ShapeType.POLYGON)
+	_shape_type_option.add_item("Capsule", AnimationTrackInjector.ShapeType.CAPSULE)
+	_shape_type_option.add_item("Rectangle", AnimationTrackInjector.ShapeType.RECTANGLE)
+	_shape_type_option.selected = 0
+	_shape_type_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_shape_type_option.item_selected.connect(_on_shape_type_changed)
+	shape_row.add_child(_shape_type_option)
+	
 	# 腐蚀半径（仅影响 MABR/Capsule/Rectangle）
 	var erosion_row := HBoxContainer.new()
 	param_container.add_child(erosion_row)
@@ -166,7 +183,7 @@ func _build_ui() -> void:
 	erosion_row.add_child(erosion_label)
 	_erosion_radius_spinbox = SpinBox.new()
 	_erosion_radius_spinbox.min_value = 0
-	_erosion_radius_spinbox.max_value = 20
+	_erosion_radius_spinbox.max_value = 100
 	_erosion_radius_spinbox.step = 1
 	_erosion_radius_spinbox.value = 0
 	_erosion_radius_spinbox.suffix = " px"
@@ -236,6 +253,17 @@ func _build_ui() -> void:
 func _on_contour_progress(current: int, total: int, filename: String) -> void:
 	var mode_text: String = "Body" if _body_contour_btn.disabled else "Attack"
 	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [mode_text, current, filename]
+
+
+## 碰撞形状类型切换时设置默认参数
+func _on_shape_type_changed(index: int) -> void:
+	match index:
+		AnimationTrackInjector.ShapeType.POLYGON:
+			_erosion_radius_spinbox.value = 0
+			_simplify_tolerance_spinbox.value = 100.0
+		AnimationTrackInjector.ShapeType.CAPSULE, AnimationTrackInjector.ShapeType.RECTANGLE:
+			_erosion_radius_spinbox.value = 20
+			_simplify_tolerance_spinbox.value = 5.0
 
 
 func _on_body_contour_pressed() -> void:
@@ -309,12 +337,14 @@ func _execute_contour_conversion_async(mode: String, target_file_path: String = 
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
 	var min_area_ratio: float = _min_area_ratio_spinbox.value
+	var erosion_radius: int = int(_erosion_radius_spinbox.value)
+	var shape_type: int = _shape_type_option.selected
 	
 	var result: Dictionary
 	if mode == "body":
-		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self, target_file_path)
+		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self, target_file_path)
 	else:
-		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self, target_file_path)
+		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self, target_file_path)
 	
 	# 显示结果
 	var error_count: int = result.errors.size()
@@ -522,7 +552,7 @@ func _run_preview() -> void:
 	
 	# 执行预览
 	var injector := AnimationTrackInjector.new()
-	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)
+	var result := injector.preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)
 	
 	# 显示结果
 	_display_preview_result(result)
@@ -570,11 +600,10 @@ func _display_preview_result(result: Dictionary) -> void:
 	lines.append("")
 	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f, erosion=%d" % [result.alpha_threshold, result.simplify_tolerance, result.erosion_radius])
 	
-	# MABR 信息（使用腐蚀后的轮廓）
-	var mabr_contours = result.eroded_contours if result.has("eroded_contours") and result.eroded_contours.size() > 0 else result.contours
-	if mabr_contours.size() > 0 and mabr_contours[0].size() >= 3:
-		var mabr := ContourTracer.calc_mabr(mabr_contours[0])
-		var aabb := ContourTracer.calc_aabb(mabr_contours[0])
+	# MABR/Capsule/Rectangle 信息（从 preview_single_file 返回的数据）
+	if result.has("mabr") and not result.mabr.is_empty():
+		var mabr: Dictionary = result.mabr
+		var aabb := ContourTracer.calc_aabb(result.eroded_contours[0] if result.eroded_contours.size() > 0 else result.contours[0])
 		
 		lines.append("")
 		lines.append("[b]MABR (最小包围矩形):[/b]")
@@ -587,6 +616,22 @@ func _display_preview_result(result: Dictionary) -> void:
 		if aabb.area > 0.0:
 			var saving: float = (1.0 - mabr.area / aabb.area) * 100.0
 			lines.append("[b]MABR 节省:[/b] %.1f%%" % saving)
+	
+	if result.has("capsule") and not result.capsule.is_empty():
+		var capsule: Dictionary = result.capsule
+		lines.append("")
+		lines.append("[b]Capsule (胶囊):[/b]")
+		lines.append("  radius: %.1f" % capsule.radius)
+		lines.append("  height: %.1f" % capsule.height)
+		lines.append("  角度: %.1f°" % rad_to_deg(capsule.angle))
+		lines.append("  总长度: %.1f" % capsule.total_length)
+	
+	if result.has("rectangle") and not result.rectangle.is_empty():
+		var rectangle: Dictionary = result.rectangle
+		lines.append("")
+		lines.append("[b]Rectangle (矩形):[/b]")
+		lines.append("  尺寸: %.1f × %.1f" % [rectangle.size.x, rectangle.size.y])
+		lines.append("  角度: %.1f°" % rad_to_deg(rectangle.angle))
 	
 	_preview_result_label.text = "\n".join(lines)
 
