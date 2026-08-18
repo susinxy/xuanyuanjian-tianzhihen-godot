@@ -853,9 +853,10 @@ func convert_body_contours(
 		result.frames_info = frames_data
 		return result
 	
-	# 5. 修改 skin .tscn
+	# 5. 修改 skin .tscn（仅首次转换时）
 	var skin_scene_path := skin_node.scene_file_path
-	_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
+	if _needs_body_tscn_conversion(skin_scene_path):
+		_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
 	
 	# 6. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
@@ -941,9 +942,10 @@ func convert_attack_contours(
 		result.frames_info = frames_data
 		return result
 	
-	# 6. 修改 skin .tscn
+	# 6. 修改 skin .tscn（仅首次转换时）
 	var skin_scene_path := skin_node.scene_file_path
-	_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
+	if _needs_attack_tscn_conversion(skin_scene_path):
+		_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
 	
 	# 7. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
@@ -1045,6 +1047,29 @@ func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, erro
 	file.close()
 
 
+## 检测 Body 的 .tscn 是否需要转换
+## 返回 true 表示 HurtShape 还是 CollisionShape2D，需要转换
+func _needs_body_tscn_conversion(tscn_path: String) -> bool:
+	if not FileAccess.file_exists(tscn_path):
+		return false
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		return false
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 检查 HurtShape 是否已经是 CollisionPolygon2D
+	var pattern := RegEx.new()
+	pattern.compile('\\[node name="HurtShape" type="CollisionPolygon2D"')
+	
+	if pattern.search(content) != null:
+		return false  # 已转换，不需要修改
+	
+	return true  # 需要转换
+
+
 ## 修改 skin .tscn（Attack 转换）
 func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, errors: Array[String]) -> void:
 	if not FileAccess.file_exists(tscn_path):
@@ -1100,6 +1125,32 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 	
 	file.store_string(content)
 	file.close()
+
+
+## 检测 Attack 的 .tscn 是否需要转换
+## 返回 true 表示至少有一个 AttackXShape 还是 CollisionShape2D
+func _needs_attack_tscn_conversion(tscn_path: String) -> bool:
+	if not FileAccess.file_exists(tscn_path):
+		return false
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		return false
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 检查所有 AttackShape 是否都已经是 CollisionPolygon2D
+	var attack_shapes := ["Attack1Shape", "Attack2Shape", "Attack3Shape", "AttackAirShape"]
+	
+	for shape_name in attack_shapes:
+		var pattern := RegEx.new()
+		pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
+		
+		if pattern.search(content) == null:
+			return true  # 至少有一个未转换
+	
+	return false  # 全部已转换
 
 
 ## 注入 Body 的 polygon tracks
