@@ -746,10 +746,16 @@ func convert_body_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 统一扫描（空数组 = 处理全部，空字典 = 不过滤帧）
+	# 2. 获取 AnimationPlayer 并构建 body 帧过滤映射
+	var anim_player := _get_animation_player(skin_node, result.errors)
+	var sprite_to_body := {}
+	if anim_player != null:
+		sprite_to_body = _find_body_mapping_from_tracks(anim_player, skin_node)
+	
+	# 3. 统一扫描（传入帧过滤映射）
 	var frames_data := _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
-		[], {}, callback_obj, result.errors
+		[], sprite_to_body, callback_obj, result.errors
 	)
 	
 	# 3. Body 后处理：计算 physical_height/width + 坐标转换
@@ -1290,6 +1296,59 @@ func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer, skin_node: N
 					"enabled_frames": enabled_frames,
 				}
 				break
+	
+	return mapping
+
+
+## 从动画 track 中构建 sprite_anim_name → body 的帧过滤映射
+##
+## 检查 HurtShape:disabled track，如果存在则解析离散模式获取 enabled 帧列表
+## 如果不存在 disabled track，返回空数组（处理所有帧）
+##
+## 返回: {
+##   "idle": { "enabled_frames": [] },  # 空数组 = 处理所有帧
+##   "hurt": { "enabled_frames": [0, 1, 2] },  # 只处理指定帧
+## }
+func _find_body_mapping_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
+	var mapping := {}
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or mapping.has(sprite_anim_name):
+				continue
+			
+			# 查找 HurtShape:disabled track
+			var disabled_track_idx := -1
+			for track_idx in range(anim.get_track_count()):
+				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
+					continue
+				var track_path := str(anim.track_get_path(track_idx))
+				if track_path.ends_with("HurtShape:disabled"):
+					disabled_track_idx = track_idx
+					break
+			
+			# 如果没有 disabled track，处理所有帧
+			if disabled_track_idx == -1:
+				mapping[sprite_anim_name] = {
+					"enabled_frames": [],
+				}
+				continue
+			
+			# 解析 disabled track，获取 enabled 帧列表
+			var enabled_frames: Array = _parse_disabled_track(anim, disabled_track_idx, sprite_anim_name, skin_node)
+			
+			mapping[sprite_anim_name] = {
+				"enabled_frames": enabled_frames,
+			}
 	
 	return mapping
 
