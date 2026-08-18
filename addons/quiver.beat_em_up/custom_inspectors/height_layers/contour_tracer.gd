@@ -41,12 +41,31 @@ static func trace_contours(
 	if mask != null:
 		work_image = _apply_mask(work_image, mask)
 	
-	# 3. 使用 Godot 内置 BitMap API 提取多边形
+	# 3. 使用 Godot 内置 BitMap API 提取多边形（带自适应回退）
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(work_image, alpha_threshold)
 	
 	var rect := Rect2i(Vector2i.ZERO, bitmap.get_size())
 	var polygons: Array = bitmap.opaque_to_polygons(rect, simplify_tolerance)
+	
+	# 检查结果是否退化（所有多边形都 < 3 顶点），退化则逐步减半容差重试
+	var has_valid := false
+	for poly in polygons:
+		if poly.size() >= 3:
+			has_valid = true
+			break
+	
+	if not has_valid and not polygons.is_empty():
+		var retry_tolerance := simplify_tolerance / 2.0
+		while retry_tolerance >= 0.5:
+			polygons = bitmap.opaque_to_polygons(rect, retry_tolerance)
+			for poly in polygons:
+				if poly.size() >= 3:
+					has_valid = true
+					break
+			if has_valid:
+				break
+			retry_tolerance /= 2.0
 	
 	# 4. 缩放回原始尺寸（如果之前缩放过）
 	if scale_factor != 1.0:
