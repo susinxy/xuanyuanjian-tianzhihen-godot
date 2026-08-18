@@ -681,8 +681,29 @@ func _on_overlay_draw(overlay: Node2D) -> void:
 			mabr_polyline.append(corners[0])
 			overlay.draw_polyline(mabr_polyline, Color(0, 0.5, 1, 1), 3.0, true)
 			
-			# 黄色中心点
-			var center: Vector2 = mabr.center
-			overlay.draw_circle(center, 4, Color(1, 1, 0, 1))
+		# 黄色中心点
+		var center: Vector2 = mabr.center
+		overlay.draw_circle(center, 4, Color(1, 1, 0, 1))
+		
+		# 绘制 Capsule（品红色，使用 MABR 推导）
+		var capsule := ContourTracer.calc_capsule_from_mabr(mabr)
+		var capsule_polygon := ContourTracer.generate_capsule_polygon(
+			capsule.center,
+			capsule.radius,
+			capsule.height,
+			capsule.angle,
+			16
+		)
+		
+		if capsule_polygon.size() >= 3:
+			# 品红色半透明填充
+			overlay.draw_colored_polygon(capsule_polygon, Color(1, 0, 1, 0.15))
+			
+			# 品红色边线（闭合）
+			var capsule_polyline := PackedVector2Array()
+			for p in capsule_polygon:
+				capsule_polyline.append(p)
+			capsule_polyline.append(capsule_polygon[0])
+			overlay.draw_polyline(capsule_polyline, Color(1, 0, 1, 1), 2.0, true)
 
 ### -----------------------------------------------------------------------------------------------

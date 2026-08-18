@@ -406,6 +406,100 @@ static func is_point_in_mabr(point: Vector2, mabr: Dictionary, tolerance: float 
 	return abs(local_x) <= half_w and abs(local_y) <= half_h
 
 
+## 从 MABR 推导 Capsule 参数
+##
+## Capsule（胶囊形）= 矩形 + 两端半圆
+## 使用 MABR 的短边作为直径，长边作为总长度
+##
+## 返回: {
+##   center: Vector2,              # 胶囊中心（与 MABR 相同）
+##   radius: float,                # 半圆半径（短边的一半）
+##   height: float,                # 矩形部分长度（长边 - 2*radius）
+##   angle: float,                 # 旋转角度（弧度）
+##   total_length: float           # 总长度（长边）
+## }
+static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
+	var size: Vector2 = mabr.size
+	var center: Vector2 = mabr.center
+	var angle: float = mabr.angle
+	
+	# 确定长边和短边
+	var long_side: float = max(size.x, size.y)
+	var short_side: float = min(size.x, size.y)
+	
+	# Capsule 参数
+	var radius: float = short_side / 2.0
+	var height: float = max(0.0, long_side - 2.0 * radius)  # 矩形部分长度
+	var total_length: float = long_side
+	
+	# 如果短边是 Y 轴，需要旋转 90 度
+	if size.y > size.x:
+		angle += PI / 2.0
+	
+	return {
+		"center": center,
+		"radius": radius,
+		"height": height,
+		"angle": angle,
+		"total_length": total_length,
+	}
+
+
+## 生成 Capsule 的多边形（用于预览绘制）
+##
+## 生成一个近似的胶囊形多边形（32 个顶点）
+##
+## 参数:
+## - center: 胶囊中心
+## - radius: 半圆半径
+## - height: 矩形部分长度
+## - angle: 旋转角度（弧度）
+## - segments: 每个半圆的段数（默认 16）
+##
+## 返回: PackedVector2Array（多边形顶点）
+static func generate_capsule_polygon(
+	center: Vector2,
+	radius: float,
+	height: float,
+	angle: float,
+	segments: int = 16
+) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	
+	# 计算旋转矩阵
+	var cos_a := cos(angle)
+	var sin_a := sin(angle)
+	
+	# 矩形部分的半长
+	var half_height := height / 2.0
+	
+	# 生成上半圆（从 -PI/2 到 PI/2）
+	for i in range(segments + 1):
+		var t: float = float(i) / float(segments)
+		var theta: float = -PI / 2.0 + t * PI
+		var local_x := cos(theta) * radius
+		var local_y := -half_height + sin(theta) * radius
+		
+		# 旋转
+		var x := center.x + local_x * cos_a - local_y * sin_a
+		var y := center.y + local_x * sin_a + local_y * cos_a
+		points.append(Vector2(x, y))
+	
+	# 生成下半圆（从 PI/2 到 3*PI/2）
+	for i in range(segments + 1):
+		var t: float = float(i) / float(segments)
+		var theta: float = PI / 2.0 + t * PI
+		var local_x := cos(theta) * radius
+		var local_y := half_height + sin(theta) * radius
+		
+		# 旋转
+		var x := center.x + local_x * cos_a - local_y * sin_a
+		var y := center.y + local_x * sin_a + local_y * cos_a
+		points.append(Vector2(x, y))
+	
+	return points
+
+
 # ============================================================================
 # 私有方法
 # ============================================================================
