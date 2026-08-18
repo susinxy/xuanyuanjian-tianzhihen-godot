@@ -193,9 +193,9 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	
 	var result: Dictionary
 	if mode == "body":
-		result = injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
 	else:
-		result = injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
 	
 	# 显示结果
 	var error_count: int = result.errors.size()

@@ -668,8 +668,9 @@ func _scan_frames_contours(
 	errors: Array[String]
 ) -> Dictionary:
 	var frames_data := {}
-	var total_frames := 0
 	
+	# 第一遍：预统计要处理的帧列表
+	var frames_to_process := []
 	for sprite_anim_name in sprite_frames.get_animation_names():
 		# 过滤：如果 filter_anims 非空，只处理列表中的动画
 		if not filter_anims.is_empty() and sprite_anim_name not in filter_anims:
@@ -685,7 +686,6 @@ func _scan_frames_contours(
 				continue
 		
 		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
-		frames_data[sprite_anim_name] = {}
 		
 		for frame_idx in range(frame_count):
 			# 如果有 enabled_frames 列表且非空，只处理列表中的帧
@@ -696,42 +696,67 @@ func _scan_frames_contours(
 			if texture == null:
 				continue
 			
-			var png_path := texture.resource_path
-			total_frames += 1
-			if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
-				callback_obj._on_contour_progress(total_frames, -1, png_path.get_file())
-			
-			# 加载 PNG
-			var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
-			if image == null:
-				errors.append("无法加载图片: %s" % png_path)
-				continue
-			
-			# 检查 mask（优先级：专用 > 通用 > 无）
-			# 1. {name}.{suffix}.mask.png  （专用 mask）
-			# 2. {name}.mask.png           （通用 mask，向后兼容）
-			# 3. 无 mask → 全图扫描
-			var base_path := png_path.replace(".png", "")
-			var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
-			var generic_mask_path := base_path + ".mask.png"
-			
-			var mask: Image = null
-			if FileAccess.file_exists(specific_mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
-			elif FileAccess.file_exists(generic_mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
-			
-			# 提取轮廓（原始像素坐标）
-			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
-			if contours.is_empty():
-				errors.append("未提取到轮廓: %s" % png_path.get_file())
-				continue
-			
-			frames_data[sprite_anim_name][frame_idx] = {
-				"raw_contours": contours,
-				"image_size": Vector2(image.get_width(), image.get_height()),
-				"png_path": png_path,
-			}
+			frames_to_process.append({
+				"sprite_anim_name": sprite_anim_name,
+				"frame_idx": frame_idx,
+				"png_path": texture.resource_path,
+			})
+	
+	var total_frames := frames_to_process.size()
+	
+	# 第二遍：增量处理每帧
+	var current := 0
+	for item in frames_to_process:
+		current += 1
+		var sprite_anim_name: String = item["sprite_anim_name"]
+		var frame_idx: int = item["frame_idx"]
+		var png_path: String = item["png_path"]
+		
+		# 确保 frames_data 中有这个动画的字典
+		if not frames_data.has(sprite_anim_name):
+			frames_data[sprite_anim_name] = {}
+		
+		# 进度回调（传入正确的 total）
+		if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
+			callback_obj._on_contour_progress(current, total_frames, png_path.get_file())
+		
+		# 加载 PNG
+		var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
+		if image == null:
+			errors.append("无法加载图片: %s" % png_path)
+			continue
+		
+		# 检查 mask（优先级：专用 > 通用 > 无）
+		# 1. {name}.{suffix}.mask.png  （专用 mask）
+		# 2. {name}.mask.png           （通用 mask，向后兼容）
+		# 3. 无 mask → 全图扫描
+		var base_path := png_path.replace(".png", "")
+		var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
+		var generic_mask_path := base_path + ".mask.png"
+		
+		var mask: Image = null
+		if FileAccess.file_exists(specific_mask_path):
+			mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
+		elif FileAccess.file_exists(generic_mask_path):
+			mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
+		
+		# 提取轮廓（原始像素坐标）
+		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+		if contours.is_empty():
+			errors.append("未提取到轮廓: %s" % png_path.get_file())
+			continue
+		
+		frames_data[sprite_anim_name][frame_idx] = {
+			"raw_contours": contours,
+			"image_size": Vector2(image.get_width(), image.get_height()),
+			"png_path": png_path,
+		}
+		
+		# 让出控制权，让编辑器更新界面
+		if callback_obj != null and callback_obj.has_method("get_tree"):
+			var tree = callback_obj.get_tree()
+			if tree != null:
+				await tree.process_frame
 	
 	return frames_data
 
@@ -762,7 +787,7 @@ func convert_body_contours(
 		sprite_to_body = _find_body_mapping_from_tracks(anim_player, skin_node)
 	
 	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
-	var frames_data := _scan_frames_contours(
+	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
 		[], sprite_to_body, "body", callback_obj, result.errors
 	)
@@ -844,7 +869,7 @@ func convert_attack_contours(
 	# 3. 统一扫描（只处理攻击动画，传入帧过滤和 mask 类型）
 	var filter_anims: Array[String] = []
 	filter_anims.assign(sprite_to_attack.keys())
-	var frames_data := _scan_frames_contours(
+	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
 		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors
 	)
