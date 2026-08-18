@@ -414,9 +414,8 @@ static func is_point_in_mabr(point: Vector2, mabr: Dictionary, tolerance: float 
 ## 返回: {
 ##   center: Vector2,              # 胶囊中心（与 MABR 相同）
 ##   radius: float,                # 半圆半径（短边的一半）
-##   height: float,                # 矩形部分长度（长边 - 2*radius）
+##   height: float,                # 总高度（长边，匹配 Godot CapsuleShape2D.height）
 ##   angle: float,                 # 旋转角度（弧度）
-##   total_length: float           # 总长度（长边）
 ## }
 static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 	var size: Vector2 = mabr.size
@@ -429,8 +428,7 @@ static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 	
 	# Capsule 参数
 	var radius: float = short_side / 2.0
-	var height: float = max(0.0, long_side - 2.0 * radius)  # 矩形部分长度
-	var total_length: float = long_side
+	var height: float = long_side  # 总高度（匹配 Godot CapsuleShape2D.height）
 	
 	# 如果长边是 X 轴，需要旋转 90 度（胶囊默认长轴沿 Y）
 	if size.x > size.y:
@@ -441,7 +439,6 @@ static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 		"radius": radius,
 		"height": height,
 		"angle": angle,
-		"total_length": total_length,
 	}
 
 
@@ -452,7 +449,7 @@ static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 ## 参数:
 ## - center: 胶囊中心
 ## - radius: 半圆半径
-## - height: 矩形部分长度
+## - total_height: 总高度（匹配 Godot CapsuleShape2D.height）
 ## - angle: 旋转角度（弧度）
 ## - segments: 每个半圆的段数（默认 16）
 ##
@@ -460,7 +457,7 @@ static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 static func generate_capsule_polygon(
 	center: Vector2,
 	radius: float,
-	height: float,
+	total_height: float,
 	angle: float,
 	segments: int = 16
 ) -> PackedVector2Array:
@@ -470,15 +467,16 @@ static func generate_capsule_polygon(
 	var cos_a := cos(angle)
 	var sin_a := sin(angle)
 	
-	# 矩形部分的半长
-	var half_height := height / 2.0
+	# 矩形部分的半长（总高度减去两个半圆）
+	var rect_height: float = max(0.0, total_height - 2.0 * radius)
+	var half_rect_height := rect_height / 2.0
 	
 	# 生成上半圆（从 PI 到 2*PI，从左经顶到右）
 	for i in range(segments + 1):
 		var t: float = float(i) / float(segments)
 		var theta: float = PI + t * PI
 		var local_x := cos(theta) * radius
-		var local_y := -half_height + sin(theta) * radius
+		var local_y := -half_rect_height + sin(theta) * radius
 		
 		# 旋转
 		var x := center.x + local_x * cos_a - local_y * sin_a
@@ -490,7 +488,7 @@ static func generate_capsule_polygon(
 		var t: float = float(i) / float(segments)
 		var theta: float = t * PI
 		var local_x := cos(theta) * radius
-		var local_y := half_height + sin(theta) * radius
+		var local_y := half_rect_height + sin(theta) * radius
 		
 		# 旋转
 		var x := center.x + local_x * cos_a - local_y * sin_a

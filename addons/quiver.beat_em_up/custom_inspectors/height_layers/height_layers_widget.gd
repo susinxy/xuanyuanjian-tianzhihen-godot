@@ -705,7 +705,7 @@ func _display_preview_result(result: Dictionary) -> void:
 		lines.append("  radius: %.1f" % capsule.radius)
 		lines.append("  height: %.1f" % capsule.height)
 		lines.append("  角度: %.1f°" % rad_to_deg(capsule.angle))
-		lines.append("  总长度: %.1f" % capsule.total_length)
+		lines.append("  总长度: %.1f" % capsule.height)
 	
 	if result.has("rectangle") and not result.rectangle.is_empty():
 		var rectangle: Dictionary = result.rectangle
