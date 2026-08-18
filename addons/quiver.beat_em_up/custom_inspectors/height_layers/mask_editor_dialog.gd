@@ -261,21 +261,30 @@ func _update_mask_display() -> void:
 	_mask_texture_rect.size = Vector2(_mask_image.get_width(), _mask_image.get_height())
 
 
+## 将 SubViewportContainer 坐标转换为 SubViewport/图片坐标
+func _container_to_image_pos(container_pos: Vector2) -> Vector2:
+	var container_size := Vector2(_viewport_container.size)
+	var viewport_size := Vector2(_viewport.size)
+	if container_size.x == 0 or container_size.y == 0:
+		return container_pos
+	return container_pos * viewport_size / container_size
+
+
 func _on_canvas_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_is_drawing = event.pressed
 			if event.pressed:
-				_last_draw_pos = event.position / _zoom_level
-				_draw_at(event.position / _zoom_level)
+				_last_draw_pos = _container_to_image_pos(event.position)
+				_draw_at(_last_draw_pos)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# 右键 = 临时切换橡皮擦
 			var was_eraser := _is_eraser
 			_is_eraser = event.pressed
 			if event.pressed:
 				_is_drawing = true
-				_last_draw_pos = event.position / _zoom_level
-				_draw_at(event.position / _zoom_level)
+				_last_draw_pos = _container_to_image_pos(event.position)
+				_draw_at(_last_draw_pos)
 			else:
 				_is_drawing = false
 				_is_eraser = was_eraser
@@ -285,11 +294,11 @@ func _on_canvas_gui_input(event: InputEvent) -> void:
 			_on_zoom_out()
 	
 	elif event is InputEventMouseMotion:
-		_brush_position = event.position / _zoom_level
+		_brush_position = _container_to_image_pos(event.position)
 		_brush_preview.queue_redraw()
 		
 		if _is_drawing:
-			var current_pos: Vector2 = event.position / _zoom_level
+			var current_pos: Vector2 = _container_to_image_pos(event.position)
 			_draw_line(_last_draw_pos, current_pos)
 			_last_draw_pos = current_pos
 
