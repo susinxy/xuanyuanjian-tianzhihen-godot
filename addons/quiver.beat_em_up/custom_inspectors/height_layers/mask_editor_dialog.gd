@@ -20,6 +20,7 @@ var _png_path: String = ""
 var _mask_path: String = ""
 var _alpha_threshold: float = 0.5
 var _simplify_tolerance: float = 2.0
+var _min_area_ratio: float = 0.3
 
 var _original_image: Image = null
 var _mask_image: Image = null
@@ -84,9 +85,10 @@ func _update_mask_path() -> void:
 			_mask_path = base_path + ".mask.png"
 
 
-func set_params(alpha: float, tolerance: float) -> void:
+func set_params(alpha: float, tolerance: float, min_area_ratio: float) -> void:
 	_alpha_threshold = alpha
 	_simplify_tolerance = tolerance
+	_min_area_ratio = min_area_ratio
 
 
 func _build_ui() -> void:
@@ -427,7 +429,7 @@ func _on_preview_contour_pressed() -> void:
 	
 	# 使用 mask 提取轮廓
 	var contours := ContourTracer.trace_contours(
-		_original_image, _mask_image, _alpha_threshold, _simplify_tolerance, 512
+		_original_image, _mask_image, _alpha_threshold, _simplify_tolerance, 512, _min_area_ratio
 	)
 	
 	if contours.is_empty():

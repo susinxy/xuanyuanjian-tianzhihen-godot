@@ -22,7 +22,8 @@ static func trace_contours(
 	mask: Image,
 	alpha_threshold: float,
 	simplify_tolerance: float,
-	max_size: int
+	max_size: int,
+	min_area_ratio: float = 0.3
 ) -> Array[PackedVector2Array]:
 	var work_image := image
 	var scale_factor := 1.0
@@ -52,8 +53,8 @@ static func trace_contours(
 	if true_rect.size.x == 0 or true_rect.size.y == 0:
 		return []
 	
-	# 最小面积阈值：true_rect 面积的 50%
-	var min_area := float(true_rect.size.x) * float(true_rect.size.y) * 0.5
+	# 最小面积阈值：true_rect 面积的 min_area_ratio
+	var min_area := float(true_rect.size.x) * float(true_rect.size.y) * min_area_ratio
 	
 	var polygons: Array = bitmap.opaque_to_polygons(rect, simplify_tolerance)
 	var has_valid := _has_valid_polygon(polygons, min_area)

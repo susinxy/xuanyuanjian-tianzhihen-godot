@@ -661,6 +661,7 @@ func _scan_frames_contours(
 	sprite_frames: SpriteFrames,
 	alpha_threshold: float,
 	simplify_tolerance: float,
+	min_area_ratio: float,
 	filter_anims: Array[String],
 	frame_filter: Dictionary,
 	mask_suffix: String,
@@ -741,7 +742,7 @@ func _scan_frames_contours(
 			mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
 		
 		# 提取轮廓（原始像素坐标）
-		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio)
 		if contours.is_empty():
 			errors.append("未提取到轮廓: %s" % png_path.get_file())
 			continue
@@ -765,6 +766,7 @@ func convert_body_contours(
 	skin_node: Node,
 	alpha_threshold: float,
 	simplify_tolerance: float,
+	min_area_ratio: float,
 	dry_run: bool,
 	callback_obj: Object
 ) -> Dictionary:
@@ -788,7 +790,7 @@ func convert_body_contours(
 	
 	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
 	var frames_data := await _scan_frames_contours(
-		sprite_frames, alpha_threshold, simplify_tolerance,
+		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
 		[], sprite_to_body, "body", callback_obj, result.errors
 	)
 	
@@ -845,6 +847,7 @@ func convert_attack_contours(
 	skin_node: Node,
 	alpha_threshold: float,
 	simplify_tolerance: float,
+	min_area_ratio: float,
 	dry_run: bool,
 	callback_obj: Object
 ) -> Dictionary:
@@ -870,7 +873,7 @@ func convert_attack_contours(
 	var filter_anims: Array[String] = []
 	filter_anims.assign(sprite_to_attack.keys())
 	var frames_data := await _scan_frames_contours(
-		sprite_frames, alpha_threshold, simplify_tolerance,
+		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
 		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors
 	)
 	
@@ -1597,7 +1600,8 @@ func _mirror_polygon_x(polygon: PackedVector2Array) -> PackedVector2Array:
 func test_single_file(
 	file_path: String,
 	alpha_threshold: float,
-	simplify_tolerance: float
+	simplify_tolerance: float,
+	min_area_ratio: float
 ) -> Dictionary:
 	var result := {
 		"file_name": file_path.get_file(),
@@ -1632,7 +1636,7 @@ func test_single_file(
 		result.has_mask = true
 	
 	# 3. 提取轮廓
-	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
+	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio)
 	if contours.is_empty():
 		result.error = "未提取到轮廓"
 		return result

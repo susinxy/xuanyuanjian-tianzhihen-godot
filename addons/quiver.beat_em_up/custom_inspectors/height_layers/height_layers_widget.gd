@@ -35,6 +35,7 @@ var _contour_status_label: Label
 var _contour_result_label: RichTextLabel
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
+var _min_area_ratio_spinbox: SpinBox
 
 # 单文件预览 UI
 var _test_file_path: LineEdit
@@ -122,6 +123,21 @@ func _build_ui() -> void:
 	_simplify_tolerance_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tolerance_row.add_child(_simplify_tolerance_spinbox)
 	
+	# 最小面积比例
+	var area_ratio_row := HBoxContainer.new()
+	param_container.add_child(area_ratio_row)
+	var area_ratio_label := Label.new()
+	area_ratio_label.text = "最小面积比例:"
+	area_ratio_label.custom_minimum_size.x = 80
+	area_ratio_row.add_child(area_ratio_label)
+	_min_area_ratio_spinbox = SpinBox.new()
+	_min_area_ratio_spinbox.min_value = 0.1
+	_min_area_ratio_spinbox.max_value = 0.8
+	_min_area_ratio_spinbox.step = 0.05
+	_min_area_ratio_spinbox.value = 0.3
+	_min_area_ratio_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	area_ratio_row.add_child(_min_area_ratio_spinbox)
+	
 	# 按钮容器
 	var contour_btn_container := HBoxContainer.new()
 	add_child(contour_btn_container)
@@ -190,12 +206,13 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	var injector := AnimationTrackInjector.new()
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
+	var min_area_ratio: float = _min_area_ratio_spinbox.value
 	
 	var result: Dictionary
 	if mode == "body":
-		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self)
 	else:
-		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, false, self)
+		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self)
 	
 	# 显示结果
 	var error_count: int = result.errors.size()
@@ -330,7 +347,7 @@ func _on_test_mask_btn_pressed() -> void:
 	
 	var MaskEditorDialog = preload("res://addons/quiver.beat_em_up/custom_inspectors/height_layers/mask_editor_dialog.gd")
 	var dialog := MaskEditorDialog.new()
-	dialog.set_params(_alpha_threshold_spinbox.value, _simplify_tolerance_spinbox.value)
+	dialog.set_params(_alpha_threshold_spinbox.value, _simplify_tolerance_spinbox.value, _min_area_ratio_spinbox.value)
 	add_child(dialog)
 	dialog.set_png_path(file_path)
 	dialog.popup_centered(Vector2i(900, 700))
@@ -361,10 +378,11 @@ func _run_single_file_preview() -> void:
 	# 获取参数
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
+	var min_area_ratio: float = _min_area_ratio_spinbox.value
 	
 	# 执行预览
 	var injector := AnimationTrackInjector.new()
-	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance)
+	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio)
 	
 	# 显示结果
 	_display_test_result(result)
