@@ -1412,9 +1412,9 @@ func _inject_polygon_tracks_for_body(
 			if not is_single_file_mode:
 				_remove_tracks_by_path(anim, [
 					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:height",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
 					"AnimatedSprite2D/HurtBox/HurtShape:position",
 					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
 					"AnimatedSprite2D/HurtBox:position",
@@ -1534,9 +1534,9 @@ func _inject_polygon_tracks_for_attack(
 			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
 			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
 			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape:radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape:height" % [attack_node, shape_name]
+			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
+			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
+			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
 			var attack_node_path := "Attacks/%s:position" % attack_node
 			
 			# 全量模式：删除所有形状相关的旧 tracks（兼容三种类型之间的转换）
@@ -1655,9 +1655,9 @@ func _inject_capsule_tracks_for_body(
 			if not is_single_file_mode:
 				_remove_tracks_by_path(anim, [
 					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:height",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
 					"AnimatedSprite2D/HurtBox/HurtShape:position",
 					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
 					"AnimatedSprite2D/HurtBox:position",
@@ -1674,14 +1674,14 @@ func _inject_capsule_tracks_for_body(
 			var width_track_idx: int
 			
 			if is_single_file_mode:
-				radius_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:radius")
-				height_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:height")
+				radius_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.radius")
+				height_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.height")
 				position_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
 				rotation_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
 				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 			else:
-				radius_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:radius")
-				height_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:height")
+				radius_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.radius")
+				height_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.height")
 				position_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
 				rotation_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
 				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
@@ -1800,9 +1800,9 @@ func _inject_capsule_tracks_for_attack(
 			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
 			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
 			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape:radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape:height" % [attack_node, shape_name]
+			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
+			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
+			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
 			var attack_node_path := "Attacks/%s:position" % attack_node
 			
 			# 全量模式：删除所有形状相关的旧 tracks
@@ -1941,9 +1941,9 @@ func _inject_rectangle_tracks_for_body(
 			if not is_single_file_mode:
 				_remove_tracks_by_path(anim, [
 					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape:height",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
 					"AnimatedSprite2D/HurtBox/HurtShape:position",
 					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
 					"AnimatedSprite2D/HurtBox:position",
@@ -1959,12 +1959,12 @@ func _inject_rectangle_tracks_for_body(
 			var width_track_idx: int
 			
 			if is_single_file_mode:
-				size_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+				size_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.size")
 				position_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
 				rotation_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
 				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 			else:
-				size_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+				size_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.size")
 				position_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
 				rotation_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
 				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
@@ -2075,9 +2075,9 @@ func _inject_rectangle_tracks_for_attack(
 			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
 			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
 			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape:radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape:height" % [attack_node, shape_name]
+			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
+			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
+			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
 			var attack_node_path := "Attacks/%s:position" % attack_node
 			
 			# 全量模式：删除所有形状相关的旧 tracks
