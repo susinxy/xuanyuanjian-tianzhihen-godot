@@ -37,6 +37,11 @@ var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
 
+# 单文件转换 UI
+var _single_file_path: LineEdit
+var _single_file_btn: Button
+var _single_file_convert_btn: Button
+
 # 单文件预览 UI
 var _test_file_path: LineEdit
 var _test_file_btn: Button
@@ -154,6 +159,32 @@ func _build_ui() -> void:
 	_attack_contour_btn.pressed.connect(_on_attack_contour_pressed)
 	contour_btn_container.add_child(_attack_contour_btn)
 	
+	# 单文件转换
+	var single_file_label := Label.new()
+	single_file_label.text = "单文件转换:"
+	single_file_label.custom_minimum_size.x = 80
+	add_child(single_file_label)
+	
+	var single_file_row := HBoxContainer.new()
+	add_child(single_file_row)
+	
+	_single_file_path = LineEdit.new()
+	_single_file_path.placeholder_text = "选择 PNG 文件..."
+	_single_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_single_file_path.editable = false
+	single_file_row.add_child(_single_file_path)
+	
+	_single_file_btn = Button.new()
+	_single_file_btn.text = "浏览"
+	_single_file_btn.pressed.connect(_on_single_file_btn_pressed)
+	single_file_row.add_child(_single_file_btn)
+	
+	_single_file_convert_btn = Button.new()
+	_single_file_convert_btn.text = "转换此文件"
+	_single_file_convert_btn.pressed.connect(_on_single_file_convert_pressed)
+	_single_file_convert_btn.disabled = true
+	single_file_row.add_child(_single_file_convert_btn)
+	
 	# 轮廓转换状态
 	_contour_status_label = Label.new()
 	_contour_status_label.text = "就绪"
@@ -202,7 +233,54 @@ func _on_attack_contour_pressed() -> void:
 	_execute_contour_conversion_async("attack")
 
 
-func _execute_contour_conversion_async(mode: String) -> void:
+## 单文件选择按钮点击
+func _on_single_file_btn_pressed() -> void:
+	var file_dialog := FileDialog.new()
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_RESOURCES
+	file_dialog.filters = ["*.png ; PNG Images"]
+	file_dialog.current_dir = "res://characters/playable/"
+	
+	file_dialog.file_selected.connect(func(path: String):
+		_single_file_path.text = path
+		_single_file_convert_btn.disabled = false
+		file_dialog.queue_free()
+	)
+	
+	file_dialog.canceled.connect(func():
+		file_dialog.queue_free()
+	)
+	
+	add_child(file_dialog)
+	file_dialog.popup_centered(Vector2i(800, 600))
+
+
+## 单文件转换按钮点击
+func _on_single_file_convert_pressed() -> void:
+	if _skin_node == null:
+		return
+	
+	var file_path := _single_file_path.text
+	if file_path.is_empty():
+		return
+	
+	# 判断是 body 还是 attack（根据文件名）
+	var is_attack := file_path.contains("punch") or file_path.contains("kick") or file_path.contains("attack")
+	var mode := "attack" if is_attack else "body"
+	
+	_body_contour_btn.disabled = true
+	_attack_contour_btn.disabled = true
+	_single_file_convert_btn.disabled = true
+	_contour_status_label.text = "⏳ 单文件转换中: %s" % file_path.get_file()
+	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
+	
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	_execute_contour_conversion_async(mode, file_path)
+
+
+func _execute_contour_conversion_async(mode: String, target_file_path: String = "") -> void:
 	var injector := AnimationTrackInjector.new()
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
@@ -210,9 +288,9 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	
 	var result: Dictionary
 	if mode == "body":
-		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self)
+		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self, target_file_path)
 	else:
-		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self)
+		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, false, self, target_file_path)
 	
 	# 显示结果
 	var error_count: int = result.errors.size()

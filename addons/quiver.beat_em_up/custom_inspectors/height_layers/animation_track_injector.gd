@@ -666,7 +666,8 @@ func _scan_frames_contours(
 	frame_filter: Dictionary,
 	mask_suffix: String,
 	callback_obj: Object,
-	errors: Array[String]
+	errors: Array[String],
+	target_file_path: String = ""
 ) -> Dictionary:
 	var frames_data := {}
 	
@@ -697,10 +698,16 @@ func _scan_frames_contours(
 			if texture == null:
 				continue
 			
+			var png_path := texture.resource_path
+			
+			# 如果指定了目标文件，跳过其他文件
+			if not target_file_path.is_empty() and png_path != target_file_path:
+				continue
+			
 			frames_to_process.append({
 				"sprite_anim_name": sprite_anim_name,
 				"frame_idx": frame_idx,
-				"png_path": texture.resource_path,
+				"png_path": png_path,
 			})
 	
 	var total_frames := frames_to_process.size()
@@ -768,7 +775,8 @@ func convert_body_contours(
 	simplify_tolerance: float,
 	min_area_ratio: float,
 	dry_run: bool,
-	callback_obj: Object
+	callback_obj: Object,
+	target_file_path: String = ""
 ) -> Dictionary:
 	var result := {
 		"frame_count": 0,
@@ -791,7 +799,7 @@ func convert_body_contours(
 	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		[], sprite_to_body, "body", callback_obj, result.errors
+		[], sprite_to_body, "body", callback_obj, result.errors, target_file_path
 	)
 	
 	# 3. Body 后处理：计算 physical_height/width + 坐标转换
@@ -849,7 +857,8 @@ func convert_attack_contours(
 	simplify_tolerance: float,
 	min_area_ratio: float,
 	dry_run: bool,
-	callback_obj: Object
+	callback_obj: Object,
+	target_file_path: String = ""
 ) -> Dictionary:
 	var result := {
 		"frame_count": 0,
@@ -874,7 +883,7 @@ func convert_attack_contours(
 	filter_anims.assign(sprite_to_attack.keys())
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors
+		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors, target_file_path
 	)
 	
 	# 4. Attack 后处理：计算 attack_heights + 坐标转换
