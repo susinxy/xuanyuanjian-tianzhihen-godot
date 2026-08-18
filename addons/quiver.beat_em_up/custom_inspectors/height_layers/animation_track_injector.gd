@@ -786,8 +786,7 @@ func convert_body_contours(
 	var skin_scene_path := skin_node.scene_file_path
 	_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
 	
-	# 6. 注入 Animation tracks
-	var anim_player := _get_animation_player(skin_node, result.errors)
+	# 6. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
 		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors)
 	
