@@ -1497,6 +1497,47 @@ func _inject_polygon_tracks_for_body(
 					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
 
 
+## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
+##
+## 逻辑：
+## - 查找动画中已有的 Shape:disabled track
+## - 如果找到：逐帧复制关键帧，值取反（disabled=true → visible=false）
+## - 如果没找到：插入默认值 visible=false
+func _inject_visible_track_for_attack(
+	anim: Animation,
+	attack_node: String,
+	shape_name: String,
+	is_single_file_mode: bool
+) -> void:
+	var visible_path := "Attacks/%s:visible" % attack_node
+	var disabled_path := "Attacks/%s/%s:disabled" % [attack_node, shape_name]
+	
+	# 全量模式：删除旧的 visible track
+	var visible_track_idx: int
+	if is_single_file_mode:
+		visible_track_idx = _find_or_add_value_track(anim, visible_path)
+	else:
+		_remove_tracks_by_path(anim, [visible_path])
+		visible_track_idx = _add_value_track(anim, visible_path)
+	
+	# 查找已有的 disabled track
+	var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
+	
+	if disabled_track_idx >= 0:
+		# 有 disabled track：逐帧镜像，值取反
+		var key_count := anim.track_get_key_count(disabled_track_idx)
+		for i in key_count:
+			var time := anim.track_get_key_time(disabled_track_idx, i)
+			var disabled_value: bool = anim.track_get_key_value(disabled_track_idx, i)
+			if is_single_file_mode:
+				_remove_key_at_time(anim, visible_track_idx, time)
+			anim.track_insert_key(visible_track_idx, time, not disabled_value)
+	else:
+		# 没有 disabled track：默认 visible = false
+		if not is_single_file_mode:
+			anim.track_insert_key(visible_track_idx, 0.0, false)
+
+
 ## 注入 Attack 的 polygon tracks
 func _inject_polygon_tracks_for_attack(
 	anim_player: AnimationPlayer,
@@ -1614,6 +1655,9 @@ func _inject_polygon_tracks_for_attack(
 						_remove_key_at_time(anim, polygon_track_idx, time)
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
+			
+			# 注入 visible track（与 Shape:disabled 反向同步）
+			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
 			
 			# 保存 Animation
 			var resource_path := anim.resource_path
@@ -1901,6 +1945,9 @@ func _inject_capsule_tracks_for_attack(
 					anim.track_insert_key(height_track_idx, time, current_height)
 					prev_height = current_height
 			
+			# 注入 visible track（与 Shape:disabled 反向同步）
+			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
+			
 			# 保存 Animation
 			var resource_path := anim.resource_path
 			if not resource_path.is_empty():
@@ -2164,6 +2211,9 @@ func _inject_rectangle_tracks_for_attack(
 						_remove_key_at_time(anim, size_track_idx, time)
 					anim.track_insert_key(size_track_idx, time, current_size)
 					prev_size = current_size
+			
+			# 注入 visible track（与 Shape:disabled 反向同步）
+			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
 			
 			# 保存 Animation
 			var resource_path := anim.resource_path
