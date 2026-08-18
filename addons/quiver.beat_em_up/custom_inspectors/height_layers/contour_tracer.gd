@@ -55,45 +55,18 @@ static func trace_contours(
 	# 最小面积阈值：true_rect 面积的 50%
 	var min_area := float(true_rect.size.x) * float(true_rect.size.y) * 0.5
 	
-	# 最大顶点数限制（防止生成过于复杂的多边形）
-	const MAX_VERTICES_PER_POLYGON := 150
-	
 	var polygons: Array = bitmap.opaque_to_polygons(rect, simplify_tolerance)
 	var has_valid := _has_valid_polygon(polygons, min_area)
-	var has_too_many_vertices := _has_polygon_with_too_many_vertices(polygons, MAX_VERTICES_PER_POLYGON)
 	
-	# 退化或过于复杂则调整容差重试
-	if not has_valid or has_too_many_vertices:
-		var retry_tolerance := simplify_tolerance
-		# 如果过于复杂，增加容差；如果退化，减少容差
-		if has_too_many_vertices:
-			retry_tolerance = simplify_tolerance * 2.0
-		else:
-			retry_tolerance = simplify_tolerance / 2.0
-		
-		var iterations := 0
-		const MAX_ITERATIONS := 10
-		while iterations < MAX_ITERATIONS:
+	# 退化则逐步减半容差重试
+	if not has_valid:
+		var retry_tolerance := simplify_tolerance / 2.0
+		while retry_tolerance >= 0.5:
 			polygons = bitmap.opaque_to_polygons(rect, retry_tolerance)
-			has_valid = _has_valid_polygon(polygons, min_area)
-			has_too_many_vertices = _has_polygon_with_too_many_vertices(polygons, MAX_VERTICES_PER_POLYGON)
-			
-			if has_valid and not has_too_many_vertices:
+			if _has_valid_polygon(polygons, min_area):
+				has_valid = true
 				break
-			
-			# 继续调整容差
-			if has_too_many_vertices:
-				retry_tolerance *= 2.0  # 增加容差以简化多边形
-			else:
-				retry_tolerance /= 2.0  # 减少容差以保留细节
-			
-			# 防止容差过小或过大
-			if retry_tolerance < 0.5:
-				retry_tolerance = 0.5
-			elif retry_tolerance > 256.0:
-				retry_tolerance = 256.0
-			
-			iterations += 1
+			retry_tolerance /= 2.0
 	
 	# 4. 缩放回原始尺寸（如果之前缩放过）
 	if scale_factor != 1.0:
@@ -259,14 +232,6 @@ static func _has_valid_polygon(polygons: Array, min_area: float) -> bool:
 		if poly.size() < 3:
 			continue
 		if _calc_polygon_area(poly) >= min_area:
-			return true
-	return false
-
-
-## 检查多边形数组中是否有顶点数过多的多边形
-static func _has_polygon_with_too_many_vertices(polygons: Array, max_vertices: int) -> bool:
-	for poly in polygons:
-		if poly.size() > max_vertices:
 			return true
 	return false
 
