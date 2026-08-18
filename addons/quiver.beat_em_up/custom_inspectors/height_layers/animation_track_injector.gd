@@ -1737,7 +1737,8 @@ func test_single_file(
 	file_path: String,
 	alpha_threshold: float,
 	simplify_tolerance: float,
-	min_area_ratio: float
+	min_area_ratio: float,
+	erosion_radius: int = 0
 ) -> Dictionary:
 	var result := {
 		"file_name": file_path.get_file(),
@@ -1750,9 +1751,11 @@ func test_single_file(
 		"bounding_box": Rect2(),
 		"alpha_threshold": alpha_threshold,
 		"simplify_tolerance": simplify_tolerance,
+		"erosion_radius": erosion_radius,
 		"has_mask": false,
 		"error": "",
 		"contours": [],
+		"eroded_contours": [],
 		"image": null,
 	}
 	
@@ -1771,8 +1774,8 @@ func test_single_file(
 		mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
 		result.has_mask = true
 	
-	# 3. 提取轮廓
-	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio)
+	# 3. 提取轮廓（原始，用于 polygon 显示）
+	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, 0)
 	if contours.is_empty():
 		result.error = "未提取到轮廓"
 		return result
@@ -1781,8 +1784,14 @@ func test_single_file(
 	for contour in contours:
 		result.total_vertices += contour.size()
 	
+	# 3.5 提取腐蚀后的轮廓（用于 MABR 计算）
+	var eroded_contours := contours
+	if erosion_radius > 0:
+		eroded_contours = ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius)
+	
 	# 保存轮廓和图片用于预览
 	result.contours = contours
+	result.eroded_contours = eroded_contours
 	result.image = image
 	
 	# 4. 计算 physical_height（始终计算）

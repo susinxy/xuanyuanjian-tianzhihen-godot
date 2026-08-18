@@ -40,6 +40,7 @@ var _contour_result_label: RichTextLabel
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
+var _erosion_radius_spinbox: SpinBox
 
 # 转换区域文件选择 UI
 var _convert_file_path: LineEdit
@@ -155,6 +156,26 @@ func _build_ui() -> void:
 	_min_area_ratio_spinbox.value = 0.3
 	_min_area_ratio_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	area_ratio_row.add_child(_min_area_ratio_spinbox)
+	
+	# 腐蚀半径（仅影响 MABR/Capsule/Rectangle）
+	var erosion_row := HBoxContainer.new()
+	param_container.add_child(erosion_row)
+	var erosion_label := Label.new()
+	erosion_label.text = "腐蚀半径:"
+	erosion_label.custom_minimum_size.x = 80
+	erosion_row.add_child(erosion_label)
+	_erosion_radius_spinbox = SpinBox.new()
+	_erosion_radius_spinbox.min_value = 0
+	_erosion_radius_spinbox.max_value = 20
+	_erosion_radius_spinbox.step = 1
+	_erosion_radius_spinbox.value = 0
+	_erosion_radius_spinbox.suffix = " px"
+	_erosion_radius_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	erosion_row.add_child(_erosion_radius_spinbox)
+	var erosion_hint := Label.new()
+	erosion_hint.text = "(仅 MABR)"
+	erosion_hint.add_theme_color_override("font_color", Color.GRAY)
+	erosion_row.add_child(erosion_hint)
 	
 	# 按钮容器
 	var contour_btn_container := HBoxContainer.new()
@@ -497,10 +518,11 @@ func _run_preview() -> void:
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
 	var min_area_ratio: float = _min_area_ratio_spinbox.value
+	var erosion_radius: int = int(_erosion_radius_spinbox.value)
 	
 	# 执行预览
 	var injector := AnimationTrackInjector.new()
-	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio)
+	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)
 	
 	# 显示结果
 	_display_preview_result(result)
@@ -546,12 +568,13 @@ func _display_preview_result(result: Dictionary) -> void:
 	lines.append("  X: %.1f ~ %.1f" % [result.bounding_box.position.x, result.bounding_box.position.x + result.bounding_box.size.x])
 	lines.append("  Y: %.1f ~ %.1f" % [result.bounding_box.position.y, result.bounding_box.position.y + result.bounding_box.size.y])
 	lines.append("")
-	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f" % [result.alpha_threshold, result.simplify_tolerance])
+	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f, erosion=%d" % [result.alpha_threshold, result.simplify_tolerance, result.erosion_radius])
 	
-	# MABR 信息
-	if result.contours.size() > 0 and result.contours[0].size() >= 3:
-		var mabr := ContourTracer.calc_mabr(result.contours[0])
-		var aabb := ContourTracer.calc_aabb(result.contours[0])
+	# MABR 信息（使用腐蚀后的轮廓）
+	var mabr_contours = result.eroded_contours if result.has("eroded_contours") and result.eroded_contours.size() > 0 else result.contours
+	if mabr_contours.size() > 0 and mabr_contours[0].size() >= 3:
+		var mabr := ContourTracer.calc_mabr(mabr_contours[0])
+		var aabb := ContourTracer.calc_aabb(mabr_contours[0])
 		
 		lines.append("")
 		lines.append("[b]MABR (最小包围矩形):[/b]")
@@ -574,7 +597,8 @@ func _display_preview(result: Dictionary) -> void:
 		_preview_texture.texture = null
 		return
 	
-	var preview_texture = await _generate_contour_preview(result.image, result.contours)
+	var eroded_contours = result.eroded_contours if result.has("eroded_contours") else result.contours
+	var preview_texture = await _generate_contour_preview(result.image, result.contours, eroded_contours)
 	_preview_texture.texture = preview_texture
 
 
@@ -582,7 +606,7 @@ func _display_preview(result: Dictionary) -> void:
 ##
 ## 在 SubViewport 中渲染：原图 + 轮廓多边形叠加
 ## 返回 ImageTexture
-func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array]):
+func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array], eroded_contours: Array[PackedVector2Array]):
 	var img_w := image.get_width()
 	var img_h := image.get_height()
 	
@@ -602,6 +626,7 @@ func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array]
 	# 上层：轮廓绘制节点
 	var overlay := Node2D.new()
 	overlay.set_meta("contours", contours)
+	overlay.set_meta("eroded_contours", eroded_contours)
 	viewport.add_child(overlay)
 	
 	# 连接 draw 信号
@@ -624,6 +649,7 @@ func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array]
 ## 轮廓绘制回调
 func _on_overlay_draw(overlay: Node2D) -> void:
 	var contours: Array[PackedVector2Array] = overlay.get_meta("contours")
+	var eroded_contours: Array[PackedVector2Array] = overlay.get_meta("eroded_contours")
 	
 	for contour in contours:
 		if contour.size() < 3:
@@ -639,9 +665,9 @@ func _on_overlay_draw(overlay: Node2D) -> void:
 		polyline.append(contour[0])  # 闭合
 		overlay.draw_polyline(polyline, Color(1, 0, 0, 1), 2.0, true)
 	
-	# 绘制 MABR（蓝色矩形 + 黄色中心点）
-	if contours.size() > 0 and contours[0].size() >= 3:
-		var mabr := ContourTracer.calc_mabr(contours[0])
+	# 绘制 MABR（蓝色矩形 + 黄色中心点，使用腐蚀后的轮廓）
+	if eroded_contours.size() > 0 and eroded_contours[0].size() >= 3:
+		var mabr := ContourTracer.calc_mabr(eroded_contours[0])
 		var corners: PackedVector2Array = mabr.corners
 		
 		if corners.size() == 4:

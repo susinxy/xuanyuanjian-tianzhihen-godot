@@ -15,6 +15,7 @@ extends RefCounted
 ## - alpha_threshold: alpha 阈值（0.0-1.0）
 ## - simplify_tolerance: RDP 简化容差（像素），0.0=像素级精确
 ## - max_size: 最大处理尺寸（超过则等比缩放）
+## - erosion_radius: 形态学腐蚀半径（像素），用于收紧轮廓（仅影响 MABR/Capsule/Rectangle）
 ##
 ## 返回: Array[PackedVector2Array]，每个元素是一个多边形（图片像素坐标）
 static func trace_contours(
@@ -23,7 +24,8 @@ static func trace_contours(
 	alpha_threshold: float,
 	simplify_tolerance: float,
 	max_size: int,
-	min_area_ratio: float = 0.3
+	min_area_ratio: float = 0.3,
+	erosion_radius: int = 0
 ) -> Array[PackedVector2Array]:
 	var work_image := image
 	var scale_factor := 1.0
@@ -45,6 +47,10 @@ static func trace_contours(
 	# 3. 使用 Godot 内置 BitMap API 提取多边形（带自适应保障）
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(work_image, alpha_threshold)
+	
+	# 3.5 形态学腐蚀（如果指定）
+	if erosion_radius > 0:
+		bitmap = _erode_bitmap(bitmap, erosion_radius)
 	
 	var rect := Rect2i(Vector2i.ZERO, bitmap.get_size())
 	var true_rect := _get_bitmap_true_rect(bitmap)
@@ -483,6 +489,45 @@ static func _get_bitmap_true_rect(bitmap: BitMap) -> Rect2i:
 		return Rect2i()
 	
 	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+## 对 BitMap 做形态学腐蚀（erosion）
+##
+## 每次腐蚀：如果像素的 4-邻居中有 false，则该像素置为 false
+## 重复 erosion_radius 次，等效于向内收缩 erosion_radius 像素
+##
+## 用途：收紧轮廓，去除武器/披风等薄突出部分，使 MABR/Capsule/Rectangle 更紧凑
+static func _erode_bitmap(bitmap: BitMap, erosion_radius: int) -> BitMap:
+	if erosion_radius <= 0:
+		return bitmap
+	
+	var result := bitmap.duplicate()
+	var size := bitmap.get_size()
+	
+	for _iteration in range(erosion_radius):
+		var temp := result.duplicate()
+		for y in range(size.y):
+			for x in range(size.x):
+				if not result.get_bit(x, y):
+					continue
+				# 检查 4-邻居（上下左右）
+				var has_false_neighbor := false
+				if x == 0 or x == size.x - 1 or y == 0 or y == size.y - 1:
+					has_false_neighbor = true
+				elif not result.get_bit(x - 1, y):
+					has_false_neighbor = true
+				elif not result.get_bit(x + 1, y):
+					has_false_neighbor = true
+				elif not result.get_bit(x, y - 1):
+					has_false_neighbor = true
+				elif not result.get_bit(x, y + 1):
+					has_false_neighbor = true
+				
+				if has_false_neighbor:
+					temp.set_bit(x, y, false)
+		result = temp
+	
+	return result
 
 
 ## 根据高度值找到对应的高度层
