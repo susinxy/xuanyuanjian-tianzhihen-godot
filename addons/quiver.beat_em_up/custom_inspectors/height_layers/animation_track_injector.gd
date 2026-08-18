@@ -1030,8 +1030,90 @@ func _read_shape_position_from_tscn(tscn_path: String, node_name: String) -> Vec
 	return Vector2(x, y)
 
 
+## 获取 frames_data 中第一帧的数据
+func _get_first_frame_data(frames_data: Dictionary) -> Dictionary:
+	for sprite_anim_name in frames_data.keys():
+		var frame_dict: Dictionary = frames_data[sprite_anim_name]
+		for frame_idx in frame_dict.keys():
+			return frame_dict[frame_idx]
+	return {}
+
+
+## 从 .tscn 内容中提取节点的 unique_id
+## 返回: " unique_id=123456" 或 ""（如果没有）
+func _extract_unique_id(content: String, node_name: String) -> String:
+	var pattern := RegEx.new()
+	pattern.compile('\\[node name="%s"[^\\]]*unique_id=(\\d+)' % node_name)
+	var match := pattern.search(content)
+	if match != null:
+		return " unique_id=" + match.get_string(1)
+	return ""
+
+
+## 删除 .tscn 中所有 CapsuleShape2D 和 RectangleShape2D SubResources
+func _remove_all_shape_subresources(content: String) -> String:
+	# 删除 CapsuleShape2D SubResources
+	var capsule_pattern := RegEx.new()
+	capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="[^"]*"\\]\\nradius = [^\\n]+\\nheight = [^\\n]+\\n\\n')
+	content = capsule_pattern.sub(content, "")
+	
+	# 删除 RectangleShape2D SubResources
+	var rectangle_pattern := RegEx.new()
+	rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="[^"]*"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n')
+	content = rectangle_pattern.sub(content, "")
+	
+	return content
+
+
+## 在 .tscn 中插入 SubResource（在最后一个 SubResource 之后，或 [gd_scene] 之后）
+func _insert_subresource(content: String, sub_resource: String) -> String:
+	# 找到最后一个 SubResource 的末尾
+	var pattern := RegEx.new()
+	pattern.compile('\\[sub_resource[^\\]]*\\]\\n(?:.*\\n)*?\\n')
+	var matches := pattern.search_all(content)
+	
+	if matches.size() > 0:
+		var last_end: int = matches[-1].get_end()
+		return content.insert(last_end, sub_resource)
+	
+	# 没有 SubResource，在 [gd_scene] 之后插入
+	var gd_scene_pattern := RegEx.new()
+	gd_scene_pattern.compile('\\[gd_scene[^\\]]*\\]\\n')
+	var gd_scene_match := gd_scene_pattern.search(content)
+	if gd_scene_match != null:
+		return content.insert(gd_scene_match.get_end(), "\n" + sub_resource)
+	
+	# 兜底：在文件开头插入
+	return sub_resource + content
+
+
+## 在 .tscn 中插入节点（在父节点的所有子节点之后）
+func _insert_node_after_parent(content: String, parent_name: String, new_node: String) -> String:
+	# 找到父节点的位置
+	var parent_pattern := RegEx.new()
+	parent_pattern.compile('\\[node name="%s"[^\\]]*\\]' % parent_name)
+	var parent_match := parent_pattern.search(content)
+	
+	if parent_match == null:
+		# 找不到父节点，追加到文件末尾
+		return content + new_node
+	
+	# 找到父节点之后的下一个节点位置
+	var search_start: int = parent_match.get_end()
+	var next_node_pattern := RegEx.new()
+	next_node_pattern.compile('\\n\\[node ')
+	var next_node_match := next_node_pattern.search(content, search_start)
+	
+	if next_node_match != null:
+		# 在下一个节点之前插入
+		return content.insert(next_node_match.get_start() + 1, new_node)
+	
+	# 没有后续节点，追加到文件末尾
+	return content + "\n" + new_node
+
+
 ## 修改 skin .tscn（Body 转换）
-func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, errors: Array[String]) -> void:
+func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, errors: Array[String], shape_type: int = ShapeType.POLYGON) -> void:
 	if not FileAccess.file_exists(tscn_path):
 		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
 		return
@@ -1044,34 +1126,54 @@ func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, erro
 	var content := file.get_as_text()
 	file.close()
 	
-	# 获取第一帧的轮廓数据（用于初始 polygon）
-	var first_polygon := PackedVector2Array()
-	for sprite_anim_name in frames_data.keys():
-		var frame_dict: Dictionary = frames_data[sprite_anim_name]
-		for frame_idx in frame_dict.keys():
-			var frame_info: Dictionary = frame_dict[frame_idx]
-			var contours: Array = frame_info["contours"]
-			if not contours.is_empty():
-				first_polygon = contours[0]
-				break
-		if not first_polygon.is_empty():
-			break
+	# 获取第一帧数据（用于初始值）
+	var first_frame_data := _get_first_frame_data(frames_data)
 	
-	# 替换 HurtShape 节点：CollisionShape2D → CollisionPolygon2D
-	var polygon_str := ContourTracer.format_polygon_array(first_polygon)
+	# 提取现有 HurtShape 的 unique_id（如果有）
+	var unique_id_str := _extract_unique_id(content, "HurtShape")
 	
-	# 用正则匹配整个 HurtShape 节点定义块（兼容 CollisionShape2D 和 CollisionPolygon2D）
+	# 删除旧的 HurtShape 节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
 	var old_node_pattern := RegEx.new()
 	old_node_pattern.compile('\\[node name="HurtShape" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*')
+	content = old_node_pattern.sub(content, "")
 	
-	var new_node := '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(0, 0)\npolygon = %s\n\n' % polygon_str
+	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
+	content = _remove_all_shape_subresources(content)
 	
-	content = old_node_pattern.sub(content, new_node)
+	# 根据 shape_type 生成新节点
+	var new_content := ""
+	match shape_type:
+		ShapeType.POLYGON:
+			var polygon_str := ""
+			if first_frame_data.has("contours") and not first_frame_data.contours.is_empty():
+				polygon_str = ContourTracer.format_polygon_array(first_frame_data.contours[0])
+			new_content = '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(0, 0)\npolygon = %s\n\n' % [unique_id_str, polygon_str]
+		
+		ShapeType.CAPSULE:
+			var sub_id := _generate_subresource_id("CapsuleShape2D", "HurtShape")
+			var radius: float = 40.0
+			var height: float = 160.0
+			if first_frame_data.has("capsule"):
+				radius = round(first_frame_data.capsule.radius * 100.0) / 100.0
+				height = round(first_frame_data.capsule.height * 100.0) / 100.0
+			var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
+			content = _insert_subresource(content, sub_resource)
+			new_content = '[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nshape = SubResource("%s")\n\n' % [unique_id_str, sub_id]
+		
+		ShapeType.RECTANGLE:
+			var sub_id := _generate_subresource_id("RectangleShape2D", "HurtShape")
+			var size := Vector2(80, 160)
+			if first_frame_data.has("rectangle"):
+				size = Vector2(
+					round(first_frame_data.rectangle.size.x * 100.0) / 100.0,
+					round(first_frame_data.rectangle.size.y * 100.0) / 100.0
+				)
+			var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
+			content = _insert_subresource(content, sub_resource)
+			new_content = '[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nshape = SubResource("%s")\n\n' % [unique_id_str, sub_id]
 	
-	# 删除不再使用的 RectangleShape2D SubResource (HurtBox 的)
-	var subresource_pattern := RegEx.new()
-	subresource_pattern.compile('\\[sub_resource type="RectangleShape2D" id="RectangleShape2D_75u0j"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n')
-	content = subresource_pattern.sub(content, "")
+	# 在 HurtBox 节点之后插入新节点
+	content = _insert_node_after_parent(content, "HurtBox", new_content)
 	
 	# 写回文件
 	file = FileAccess.open(tscn_path, FileAccess.WRITE)
@@ -1162,7 +1264,7 @@ func _needs_body_tscn_conversion(tscn_path: String) -> bool:
 
 
 ## 修改 skin .tscn（Attack 转换）
-func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, errors: Array[String]) -> void:
+func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, errors: Array[String], shape_type: int = ShapeType.POLYGON) -> void:
 	if not FileAccess.file_exists(tscn_path):
 		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
 		return
@@ -1175,38 +1277,66 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 	var content := file.get_as_text()
 	file.close()
 	
-	# 收集每个 Attack 节点的第一帧轮廓数据和 position
-	var attack_first_polygons := {}
+	# 收集每个 Attack 节点的第一帧数据
+	var attack_first_data := {}
 	for sprite_anim_name in frames_data.keys():
 		var frame_dict: Dictionary = frames_data[sprite_anim_name]
 		for frame_idx in frame_dict.keys():
 			var frame_info: Dictionary = frame_dict[frame_idx]
 			var attack_node: String = frame_info["attack_node"]
-			if not attack_first_polygons.has(attack_node):
-				var contours: Array = frame_info["contours"]
-				if not contours.is_empty():
-					attack_first_polygons[attack_node] = contours[0]
+			if not attack_first_data.has(attack_node):
+				attack_first_data[attack_node] = frame_info
 	
-	# 替换各 AttackShape 节点定义（position 写 (0,0)，polygon 以图片中心为原点）
-	for attack_node in attack_first_polygons.keys():
+	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
+	content = _remove_all_shape_subresources(content)
+	
+	# 替换各 AttackShape 节点
+	for attack_node in attack_first_data.keys():
 		var shape_name: String = attack_node + "Shape"
-		var first_polygon: PackedVector2Array = attack_first_polygons[attack_node]
+		var frame_info: Dictionary = attack_first_data[attack_node]
 		
-		var polygon_str := ContourTracer.format_polygon_array(first_polygon)
+		# 提取现有 unique_id
+		var unique_id_str := _extract_unique_id(content, shape_name)
 		
+		# 删除旧节点
 		var old_node_pattern := RegEx.new()
 		old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+		content = old_node_pattern.sub(content, "")
 		
-		var new_node := '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(0, 0)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, polygon_str]
+		# 根据 shape_type 生成新节点
+		var new_content := ""
+		match shape_type:
+			ShapeType.POLYGON:
+				var polygon_str := ""
+				if frame_info.has("contours") and not frame_info.contours.is_empty():
+					polygon_str = ContourTracer.format_polygon_array(frame_info.contours[0])
+				new_content = '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(0, 0)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, polygon_str]
+			
+			ShapeType.CAPSULE:
+				var sub_id := _generate_subresource_id("CapsuleShape2D", shape_name)
+				var radius: float = 40.0
+				var height: float = 120.0
+				if frame_info.has("capsule"):
+					radius = round(frame_info.capsule.radius * 100.0) / 100.0
+					height = round(frame_info.capsule.height * 100.0) / 100.0
+				var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
+				content = _insert_subresource(content, sub_resource)
+				new_content = '[node name="%s" type="CollisionShape2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nshape = SubResource("%s")\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, sub_id]
+			
+			ShapeType.RECTANGLE:
+				var sub_id := _generate_subresource_id("RectangleShape2D", shape_name)
+				var size := Vector2(80, 120)
+				if frame_info.has("rectangle"):
+					size = Vector2(
+						round(frame_info.rectangle.size.x * 100.0) / 100.0,
+						round(frame_info.rectangle.size.y * 100.0) / 100.0
+					)
+				var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
+				content = _insert_subresource(content, sub_resource)
+				new_content = '[node name="%s" type="CollisionShape2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nshape = SubResource("%s")\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, sub_id]
 		
-		content = old_node_pattern.sub(content, new_node)
-	
-	# 删除不再使用的 RectangleShape2D SubResources
-	var subresource_ids := ["RectangleShape2D_once2", "RectangleShape2D_tcrug", "RectangleShape2D_vo5ct", "RectangleShape2D_e0e1l"]
-	for sub_id in subresource_ids:
-		var subresource_pattern := RegEx.new()
-		subresource_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n' % sub_id)
-		content = subresource_pattern.sub(content, "")
+		# 在对应 Attack 节点之后插入新节点
+		content = _insert_node_after_parent(content, attack_node, new_content)
 	
 	# 写回文件
 	file = FileAccess.open(tscn_path, FileAccess.WRITE)
