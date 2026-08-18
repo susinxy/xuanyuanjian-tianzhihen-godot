@@ -46,7 +46,7 @@ static func trace_contours(
 	bitmap.create_from_image_alpha(work_image, alpha_threshold)
 	
 	var rect := Rect2i(Vector2i.ZERO, bitmap.get_size())
-	var true_rect := bitmap.get_true_rect()
+	var true_rect := _get_bitmap_true_rect(bitmap)
 	
 	# bitmap 没有不透明像素 → 直接返回空
 	if true_rect.size.x == 0 or true_rect.size.y == 0:
@@ -234,6 +234,32 @@ static func _has_valid_polygon(polygons: Array, min_area: float) -> bool:
 		if _calc_polygon_area(poly) >= min_area:
 			return true
 	return false
+
+
+## 计算 BitMap 中不透明像素的包围盒
+static func _get_bitmap_true_rect(bitmap: BitMap) -> Rect2i:
+	var size := bitmap.get_size()
+	var min_x := size.x
+	var min_y := size.y
+	var max_x := -1
+	var max_y := -1
+	
+	for y in range(size.y):
+		for x in range(size.x):
+			if bitmap.get_bit(x, y):
+				if x < min_x:
+					min_x = x
+				if y < min_y:
+					min_y = y
+				if x > max_x:
+					max_x = x
+				if y > max_y:
+					max_y = y
+	
+	if max_x < 0 or max_y < 0:
+		return Rect2i()
+	
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
 
 
 ## 根据高度值找到对应的高度层
