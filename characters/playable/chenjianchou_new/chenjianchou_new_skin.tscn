@@ -71,7 +71,7 @@ script = ExtResource("5_k0gpy")
 [node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
 modulate = Color(0, 0.0666667, 0.701961, 1)
 position = Vector2(0, 0)
-polygon = PackedVector2Array(-75.50, -225.50, -204.50, -76.50, -204.50, -73.50, 68.50, 205.50, 69.50, 205.50, -75.50, -226.50)
+polygon = PackedVector2Array(-15.50, -51.00, -120.50, 230.00, -120.50, 232.00, 169.50, 111.00, 170.50, 111.00, -15.50, -52.00)
 
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]

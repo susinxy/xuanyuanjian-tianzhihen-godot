@@ -514,6 +514,33 @@ func _add_value_track(anim: Animation, track_path: String) -> int:
 	return track_idx
 
 
+## 查找或创建 value track
+## 如果 track 已存在，返回其索引；否则创建新的
+func _find_or_add_value_track(anim: Animation, track_path: String) -> int:
+	# 查找现有 track
+	for i in range(anim.get_track_count()):
+		if anim.track_get_type(i) == Animation.TYPE_VALUE:
+			if anim.track_get_path(i) == track_path:
+				return i
+	
+	# 不存在则创建新的
+	return _add_value_track(anim, track_path)
+
+
+## 删除指定时间点的关键帧（如果存在）
+## 使用容差 0.001 秒来匹配时间点
+func _remove_key_at_time(anim: Animation, track_idx: int, time: float) -> void:
+	var epsilon := 0.001
+	var key_count := anim.track_get_key_count(track_idx)
+	
+	# 从后往前遍历，避免删除时索引变化
+	for i in range(key_count - 1, -1, -1):
+		var key_time := anim.track_get_key_time(track_idx, i)
+		if abs(key_time - time) < epsilon:
+			anim.track_remove_key(track_idx, i)
+			break
+
+
 ## 从跳跃和击飞动画首帧提取 speed 值，写入 QuiverAttributes
 ##
 ## 逻辑：
@@ -832,7 +859,8 @@ func convert_body_contours(
 	
 	# 6. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
-		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors)
+		var is_single_file_mode := not target_file_path.is_empty()
+		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
 	
 	result.frames_info = frames_data
 	return result
@@ -919,7 +947,8 @@ func convert_attack_contours(
 	
 	# 7. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
 	if anim_player != null:
-		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors)
+		var is_single_file_mode := not target_file_path.is_empty()
+		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
 	
 	result.frames_info = frames_data
 	return result
@@ -1078,7 +1107,8 @@ func _inject_polygon_tracks_for_body(
 	anim_player: AnimationPlayer,
 	sprite_frames: SpriteFrames,
 	frames_data: Dictionary,
-	errors: Array[String]
+	errors: Array[String],
+	is_single_file_mode: bool = false
 ) -> void:
 	var lib_names := anim_player.get_animation_library_list()
 	
@@ -1100,32 +1130,46 @@ func _inject_polygon_tracks_for_body(
 			if frame_dict.is_empty():
 				continue
 			
-			# 删除旧的 CollisionShape2D 属性 tracks 和新的 polygon/physical_width tracks
-			_remove_tracks_by_path(anim, [
-				"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
-				"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-				"AnimatedSprite2D/HurtBox/HurtShape:position",
-				"AnimatedSprite2D/HurtBox/HurtShape:rotation",
-				"AnimatedSprite2D/HurtBox:position",
-				TRACK_PATH_PHYSICAL_WIDTH,
-				"../Collision:shape.height",
-				"../../Collision:shape.height",
-			])
+			# 全量模式：删除旧的 CollisionShape2D 属性 tracks 和新的 polygon/physical_width tracks
+			# 单文件模式：保留现有 tracks，只更新目标帧
+			if not is_single_file_mode:
+				_remove_tracks_by_path(anim, [
+					"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
+					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
+					"AnimatedSprite2D/HurtBox/HurtShape:position",
+					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
+					"AnimatedSprite2D/HurtBox:position",
+					TRACK_PATH_PHYSICAL_WIDTH,
+					"../Collision:shape.height",
+					"../../Collision:shape.height",
+				])
 			
-			# 添加 polygon track 和 width track
-			var polygon_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
-			var width_track_idx := _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			# 添加或查找 polygon track 和 width track
+			var polygon_track_idx: int
+			var width_track_idx: int
+			if is_single_file_mode:
+				polygon_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
+				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			else:
+				polygon_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
+				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 			
 			# 添加 position/rotation tracks，覆盖动画中原有的值
 			# 轮廓多边形以图片中心为原点，HurtShape 的 position 必须为 (0,0)，rotation 必须为 0
-			var hurt_shape_pos_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-			anim.track_insert_key(hurt_shape_pos_track_idx, 0.0, Vector2(0, 0))
-			
-			var hurt_shape_rot_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-			anim.track_insert_key(hurt_shape_rot_track_idx, 0.0, 0.0)
-			
-			var hurt_box_pos_track_idx := _add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
-			anim.track_insert_key(hurt_box_pos_track_idx, 0.0, Vector2(0, 0))
+			var hurt_shape_pos_track_idx: int
+			var hurt_shape_rot_track_idx: int
+			var hurt_box_pos_track_idx: int
+			if is_single_file_mode:
+				hurt_shape_pos_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
+				hurt_shape_rot_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
+				hurt_box_pos_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
+			else:
+				hurt_shape_pos_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
+				hurt_shape_rot_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
+				hurt_box_pos_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
+				anim.track_insert_key(hurt_shape_pos_track_idx, 0.0, Vector2(0, 0))
+				anim.track_insert_key(hurt_shape_rot_track_idx, 0.0, 0.0)
+				anim.track_insert_key(hurt_box_pos_track_idx, 0.0, Vector2(0, 0))
 			
 			# 提取 flip_h track 数据（用于 polygon 镜像）
 			var flip_track_data := _extract_flip_h_track(anim)
@@ -1149,6 +1193,9 @@ func _inject_polygon_tracks_for_body(
 				# 宽度 track（逐帧，值变化时插入）
 				var current_width: float = frame_info.get("width", 0.0)
 				if current_width != prev_width:
+					# 单文件模式：删除该时间点的旧关键帧
+					if is_single_file_mode:
+						_remove_key_at_time(anim, width_track_idx, time)
 					anim.track_insert_key(width_track_idx, time, current_width)
 					prev_width = current_width
 				
@@ -1157,6 +1204,9 @@ func _inject_polygon_tracks_for_body(
 					current_polygon = _mirror_polygon_x(current_polygon)
 				
 				if current_polygon != prev_polygon:
+					# 单文件模式：删除该时间点的旧关键帧
+					if is_single_file_mode:
+						_remove_key_at_time(anim, polygon_track_idx, time)
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
@@ -1173,7 +1223,8 @@ func _inject_polygon_tracks_for_attack(
 	anim_player: AnimationPlayer,
 	sprite_frames: SpriteFrames,
 	frames_data: Dictionary,
-	errors: Array[String]
+	errors: Array[String],
+	is_single_file_mode: bool = false
 ) -> void:
 	var lib_names := anim_player.get_animation_library_list()
 	
@@ -1200,37 +1251,59 @@ func _inject_polygon_tracks_for_attack(
 			var attack_node: String = first_frame["attack_node"]
 			var shape_name: String = attack_node + "Shape"
 			
-			# 删除旧的 CollisionShape2D 属性 tracks 和新的 polygon track，再添加新的
+			# 定义 track 路径
 			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
 			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
 			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
 			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
 			var attack_node_path := "Attacks/%s:position" % attack_node
-			_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, attack_node_path])
-			var polygon_track_idx := _add_value_track(anim, polygon_path)
+			
+			# 全量模式：删除旧的 CollisionShape2D 属性 tracks 和新的 polygon track
+			# 单文件模式：保留现有 tracks，只更新目标帧
+			if not is_single_file_mode:
+				_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, attack_node_path])
+			
+			# 添加或查找 polygon track
+			var polygon_track_idx: int
+			if is_single_file_mode:
+				polygon_track_idx = _find_or_add_value_track(anim, polygon_path)
+			else:
+				polygon_track_idx = _add_value_track(anim, polygon_path)
 			
 			# 添加 position/rotation tracks，覆盖动画中原有的值
 			# 轮廓多边形以图片中心为原点，AttackShape 的 position 必须为 (0,0)，rotation 必须为 0
-			var position_track_idx := _add_value_track(anim, position_path)
-			anim.track_insert_key(position_track_idx, 0.0, Vector2(0, 0))
-			
-			var rotation_track_idx := _add_value_track(anim, rotation_path)
-			anim.track_insert_key(rotation_track_idx, 0.0, 0.0)
+			var position_track_idx: int
+			var rotation_track_idx: int
+			if is_single_file_mode:
+				position_track_idx = _find_or_add_value_track(anim, position_path)
+				rotation_track_idx = _find_or_add_value_track(anim, rotation_path)
+			else:
+				position_track_idx = _add_value_track(anim, position_path)
+				rotation_track_idx = _add_value_track(anim, rotation_path)
+				anim.track_insert_key(position_track_idx, 0.0, Vector2(0, 0))
+				anim.track_insert_key(rotation_track_idx, 0.0, 0.0)
 			
 			# 添加 Attack 节点的 position track，跟随 AnimatedSprite2D 的位置
 			# 这样 AttackShape 的世界坐标 = Skin + Sprite.pos + Attack.pos + Shape.pos + polygon
 			# 由于 Shape.pos = (0,0)，Attack.pos = Sprite.pos，所以世界坐标 = Sprite.pos + polygon
 			# 和 HurtBox 的逻辑一致：polygon 以图片中心为原点，跟随 sprite 移动
-			var attack_pos_track_idx := _add_value_track(anim, attack_node_path)
-			var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
-			if sprite_pos_track_idx >= 0:
-				var key_count := anim.track_get_key_count(sprite_pos_track_idx)
-				for i in key_count:
-					var time := anim.track_get_key_time(sprite_pos_track_idx, i)
-					var value := anim.track_get_key_value(sprite_pos_track_idx, i)
-					anim.track_insert_key(attack_pos_track_idx, time, value)
+			var attack_pos_track_idx: int
+			if is_single_file_mode:
+				attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
 			else:
-				anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
+				attack_pos_track_idx = _add_value_track(anim, attack_node_path)
+			
+			# 只在非单文件模式下复制 sprite position
+			if not is_single_file_mode:
+				var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
+				if sprite_pos_track_idx >= 0:
+					var key_count := anim.track_get_key_count(sprite_pos_track_idx)
+					for i in key_count:
+						var time := anim.track_get_key_time(sprite_pos_track_idx, i)
+						var value := anim.track_get_key_value(sprite_pos_track_idx, i)
+						anim.track_insert_key(attack_pos_track_idx, time, value)
+				else:
+					anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
 			
 			# 提取 flip_h track 数据（用于 polygon 镜像）
 			var flip_track_data := _extract_flip_h_track(anim)
@@ -1255,6 +1328,9 @@ func _inject_polygon_tracks_for_attack(
 					current_polygon = _mirror_polygon_x(current_polygon)
 				
 				if current_polygon != prev_polygon:
+					# 单文件模式：删除该时间点的旧关键帧
+					if is_single_file_mode:
+						_remove_key_at_time(anim, polygon_track_idx, time)
 					anim.track_insert_key(polygon_track_idx, time, current_polygon)
 					prev_polygon = current_polygon
 			
