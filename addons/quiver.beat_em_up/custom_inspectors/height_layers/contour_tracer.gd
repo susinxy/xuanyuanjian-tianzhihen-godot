@@ -239,7 +239,7 @@ static func calc_mabr(points: PackedVector2Array) -> Dictionary:
 	
 	# 退化：只有 2 个顶点（共线）
 	if n == 2:
-		var mid := (hull[0] + hull[1]) / 2.0
+		var mid: Vector2 = (hull[0] + hull[1]) / 2.0
 		var edge := hull[1] - hull[0]
 		var dist := edge.length()
 		var angle := atan2(edge.y, edge.x)

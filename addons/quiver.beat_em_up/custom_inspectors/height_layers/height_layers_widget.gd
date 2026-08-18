@@ -213,7 +213,7 @@ func _build_ui() -> void:
 
 ## 轮廓转换进度回调
 func _on_contour_progress(current: int, total: int, filename: String) -> void:
-	var mode_text := "Body" if _body_contour_btn.disabled else "Attack"
+	var mode_text: String = "Body" if _body_contour_btn.disabled else "Attack"
 	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [mode_text, current, filename]
 
 
@@ -562,7 +562,7 @@ func _display_preview_result(result: Dictionary) -> void:
 		lines.append("  尺寸: %.1f × %.1f" % [aabb.size.x, aabb.size.y])
 		lines.append("  面积: %.1f" % aabb.area)
 		if aabb.area > 0.0:
-			var saving := (1.0 - mabr.area / aabb.area) * 100.0
+			var saving: float = (1.0 - mabr.area / aabb.area) * 100.0
 			lines.append("[b]MABR 节省:[/b] %.1f%%" % saving)
 	
 	_preview_result_label.text = "\n".join(lines)

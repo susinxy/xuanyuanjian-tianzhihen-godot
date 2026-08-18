@@ -343,8 +343,8 @@ func _draw_at(pos: Vector2) -> void:
 	if _mask_image == null:
 		return
 	
-	var radius := _brush_size_spinbox.value / 2.0
-	var color := Color(1, 1, 1, 1) if not _is_eraser else Color(0, 0, 0, 0)
+	var radius: float = _brush_size_spinbox.value / 2.0
+	var color: Color = Color(1, 1, 1, 1) if not _is_eraser else Color(0, 0, 0, 0)
 	
 	var center_x := int(pos.x)
 	var center_y := int(pos.y)
@@ -382,8 +382,8 @@ func _on_canvas_mouse_exited() -> void:
 
 
 func _on_brush_preview_draw() -> void:
-	var radius := _brush_size_spinbox.value / 2.0
-	var color := Color(0, 1, 0, 0.5) if not _is_eraser else Color(1, 0, 0, 0.5)
+	var radius: float = _brush_size_spinbox.value / 2.0
+	var color: Color = Color(0, 1, 0, 0.5) if not _is_eraser else Color(1, 0, 0, 0.5)
 	_brush_preview.draw_arc(_brush_position, radius, 0, TAU, 32, color, 2.0)
 
 
