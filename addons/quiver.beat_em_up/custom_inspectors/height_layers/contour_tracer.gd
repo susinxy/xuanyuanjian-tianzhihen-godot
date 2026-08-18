@@ -432,8 +432,8 @@ static func calc_capsule_from_mabr(mabr: Dictionary) -> Dictionary:
 	var height: float = max(0.0, long_side - 2.0 * radius)  # 矩形部分长度
 	var total_length: float = long_side
 	
-	# 如果短边是 Y 轴，需要旋转 90 度
-	if size.y > size.x:
+	# 如果长边是 X 轴，需要旋转 90 度（胶囊默认长轴沿 Y）
+	if size.x > size.y:
 		angle += PI / 2.0
 	
 	return {
@@ -473,10 +473,10 @@ static func generate_capsule_polygon(
 	# 矩形部分的半长
 	var half_height := height / 2.0
 	
-	# 生成上半圆（从 -PI/2 到 PI/2）
+	# 生成上半圆（从 PI 到 2*PI，从左经顶到右）
 	for i in range(segments + 1):
 		var t: float = float(i) / float(segments)
-		var theta: float = -PI / 2.0 + t * PI
+		var theta: float = PI + t * PI
 		var local_x := cos(theta) * radius
 		var local_y := -half_height + sin(theta) * radius
 		
@@ -485,10 +485,10 @@ static func generate_capsule_polygon(
 		var y := center.y + local_x * sin_a + local_y * cos_a
 		points.append(Vector2(x, y))
 	
-	# 生成下半圆（从 PI/2 到 3*PI/2）
+	# 生成下半圆（从 0 到 PI，从右经底到左）
 	for i in range(segments + 1):
 		var t: float = float(i) / float(segments)
-		var theta: float = PI / 2.0 + t * PI
+		var theta: float = t * PI
 		var local_x := cos(theta) * radius
 		var local_y := half_height + sin(theta) * radius
 		
