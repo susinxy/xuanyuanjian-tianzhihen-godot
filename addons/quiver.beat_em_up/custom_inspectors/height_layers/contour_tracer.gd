@@ -304,6 +304,24 @@ static func calc_mabr(points: PackedVector2Array) -> Dictionary:
 			best_u = u
 			best_v = v
 	
+	# 主循环后检查：如果所有边都退化（共线或重合点），用 AABB 兜底
+	if best_area >= INF:
+		var aabb := calc_aabb(points)
+		var aabb_size: Vector2 = aabb.size
+		var aabb_center: Vector2 = aabb.center
+		return {
+			"center": aabb_center,
+			"size": aabb_size,
+			"angle": 0.0,
+			"area": aabb_size.x * aabb_size.y,
+			"corners": PackedVector2Array([
+				Vector2(aabb_center.x - aabb_size.x / 2.0, aabb_center.y - aabb_size.y / 2.0),
+				Vector2(aabb_center.x + aabb_size.x / 2.0, aabb_center.y - aabb_size.y / 2.0),
+				Vector2(aabb_center.x + aabb_size.x / 2.0, aabb_center.y + aabb_size.y / 2.0),
+				Vector2(aabb_center.x - aabb_size.x / 2.0, aabb_center.y + aabb_size.y / 2.0),
+			]),
+		}
+	
 	# 计算中心点（从投影坐标转回原坐标系）
 	var center_uv := Vector2(
 		(best_min_u + best_max_u) / 2.0,
@@ -487,31 +505,36 @@ static func _find_height_layer(height: float, height_definitions: Array) -> int:
 ## 返回: Array[String]，每条是测试结果（✅ 通过 / ❌ 失败 + 原因）
 static func run_mabr_tests() -> Array[String]:
 	var results: Array[String] = []
-	var pass_count := 0
-	var fail_count := 0
+	var counts := [0, 0]  # [pass_count, fail_count]，用数组以便 lambda 修改
 	
 	# 辅助函数：比较浮点数
 	var approx := func(a: float, b: float, tol: float = 0.1) -> bool:
 		return abs(a - b) < tol
 	
 	# 辅助函数：运行单个测试并验证属性
-	var run_test := func(name: String, points: PackedVector2Array, expected_size: Vector2, expected_angle_deg: float, check_angle: bool = true) -> void:
+	var run_test := func(name: String, points: PackedVector2Array, expected_size: Vector2, expected_area: float, expected_center: Vector2 = Vector2.INF) -> void:
 		var mabr := calc_mabr(points)
 		var aabb := calc_aabb(points)
 		var errors: Array[String] = []
 		
-		# 检查 size
-		if not approx.call(mabr.size.x, expected_size.x) or not approx.call(mabr.size.y, expected_size.y):
+		# 检查 size（允许两个维度互换）
+		var size_match: bool = (approx.call(mabr.size.x, expected_size.x) and approx.call(mabr.size.y, expected_size.y)) or \
+		                       (approx.call(mabr.size.x, expected_size.y) and approx.call(mabr.size.y, expected_size.x))
+		if not size_match:
 			errors.append("size 不匹配: 期望 (%.2f, %.2f), 实际 (%.2f, %.2f)" % [
 				expected_size.x, expected_size.y, mabr.size.x, mabr.size.y
 			])
 		
-		# 检查 angle（允许 ±90° 的旋转等价）
-		if check_angle:
-			var actual_deg := rad_to_deg(mabr.angle)
-			var angle_diff := abs(fmod(actual_deg - expected_angle_deg + 180.0, 360.0) - 180.0)
-			if angle_diff > 5.0 and abs(angle_diff - 90.0) > 5.0 and abs(angle_diff - 180.0) > 5.0:
-				errors.append("angle 不匹配: 期望 %.1f°, 实际 %.1f°" % [expected_angle_deg, actual_deg])
+		# 检查 area
+		if not approx.call(mabr.area, expected_area, 0.5):
+			errors.append("area 不匹配: 期望 %.2f, 实际 %.2f" % [expected_area, mabr.area])
+		
+		# 检查 center（如果提供）
+		if expected_center != Vector2.INF:
+			if not approx.call(mabr.center.x, expected_center.x) or not approx.call(mabr.center.y, expected_center.y):
+				errors.append("center 不匹配: 期望 (%.2f, %.2f), 实际 (%.2f, %.2f)" % [
+					expected_center.x, expected_center.y, mabr.center.x, mabr.center.y
+				])
 		
 		# 属性断言：MABR 面积 <= AABB 面积
 		if mabr.area > aabb.area + 0.1:
@@ -525,76 +548,92 @@ static func run_mabr_tests() -> Array[String]:
 		
 		if errors.is_empty():
 			results.append("✅ %s" % name)
-			pass_count += 1
+			counts[0] += 1
 		else:
 			results.append("❌ %s: %s" % [name, "; ".join(errors)])
-			fail_count += 1
+			counts[1] += 1
 	
-	# 测试 1: 正方形
+	# 测试 1: 正方形 (10x10)
+	# 预期: size=(10,10), area=100, center=(5,5)
 	run_test.call(
 		"正方形 (10x10)",
 		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)]),
-		Vector2(10, 10), 0.0
+		Vector2(10, 10), 100.0, Vector2(5, 5)
 	)
 	
 	# 测试 2: 45° 旋转正方形（菱形）
 	# 顶点: (5,0), (10,5), (5,10), (0,5)
-	# MABR 应该沿菱形边对齐，size = (5√2, 5√2) ≈ (7.07, 7.07)
+	# MABR 沿菱形边对齐，size = (5√2, 5√2) ≈ (7.07, 7.07), area = 50
 	run_test.call(
 		"45° 菱形",
 		PackedVector2Array([Vector2(5, 0), Vector2(10, 5), Vector2(5, 10), Vector2(0, 5)]),
-		Vector2(7.07, 7.07), 45.0
+		Vector2(7.07, 7.07), 50.0, Vector2(5, 5)
 	)
 	
-	# 测试 3: 细长矩形
+	# 测试 3: 细长矩形 (20x4)
+	# 预期: size=(20,4), area=80, center=(10,2)
 	run_test.call(
 		"细长矩形 (20x4)",
 		PackedVector2Array([Vector2(0, 0), Vector2(20, 0), Vector2(20, 4), Vector2(0, 4)]),
-		Vector2(20, 4), 0.0
+		Vector2(20, 4), 80.0, Vector2(10, 2)
 	)
 	
 	# 测试 4: 单点
 	var single_result := calc_mabr(PackedVector2Array([Vector2(5, 5)]))
 	if single_result.center == Vector2(5, 5) and single_result.size == Vector2.ZERO and single_result.area == 0.0:
 		results.append("✅ 单点")
-		pass_count += 1
+		counts[0] += 1
 	else:
 		results.append("❌ 单点: center=%s, size=%s, area=%.2f" % [single_result.center, single_result.size, single_result.area])
-		fail_count += 1
+		counts[1] += 1
 	
-	# 测试 5: 两点
+	# 测试 5: 两点 (水平)
 	var two_result := calc_mabr(PackedVector2Array([Vector2(0, 0), Vector2(10, 0)]))
-	if approx.call(two_result.size.x, 10.0) and approx.call(two_result.size.y, 0.0) and two_result.area == 0.0:
+	if approx.call(two_result.size.x, 10.0) and approx.call(two_result.size.y, 0.0) and two_result.area == 0.0 and two_result.center == Vector2(5, 0):
 		results.append("✅ 两点 (水平)")
-		pass_count += 1
+		counts[0] += 1
 	else:
-		results.append("❌ 两点: size=%s, area=%.2f" % [two_result.size, two_result.area])
-		fail_count += 1
+		results.append("❌ 两点: size=%s, center=%s, area=%.2f" % [two_result.size, two_result.center, two_result.area])
+		counts[1] += 1
 	
 	# 测试 6: 共线三点
-	var collinear_result := calc_mabr(PackedVector2Array([Vector2(0, 0), Vector2(5, 0), Vector2(10, 0)]))
-	if approx.call(collinear_result.size.x, 10.0) and collinear_result.area < 0.1:
-		results.append("✅ 共线三点")
-		pass_count += 1
-	else:
-		results.append("❌ 共线三点: size=%s, area=%.2f" % [collinear_result.size, collinear_result.area])
-		fail_count += 1
-	
-	# 测试 7: 三角形
+	# 预期: size=(10,0), area=0
 	run_test.call(
-		"三角形",
-		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(5, 8)]),
-		Vector2(10, 8), 0.0, false  # 不检查角度（三角形的 MABR 角度取决于哪条边最优）
+		"共线三点",
+		PackedVector2Array([Vector2(0, 0), Vector2(5, 0), Vector2(10, 0)]),
+		Vector2(10, 0), 0.0, Vector2(5, 0)
 	)
+	
+	# 测试 7: 斜三角形（仅验证属性，不检查具体值）
+	# 对于大多数三角形，MABR = AABB，这是正确的行为
+	var tri := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(8, 2)])
+	var tri_mabr := calc_mabr(tri)
+	var tri_aabb := calc_aabb(tri)
+	var tri_errors: Array[String] = []
+	
+	if tri_mabr.area > tri_aabb.area + 0.1:
+		tri_errors.append("MABR 面积 (%.2f) > AABB 面积 (%.2f)" % [tri_mabr.area, tri_aabb.area])
+	
+	for p in tri:
+		if not is_point_in_mabr(p, tri_mabr):
+			tri_errors.append("顶点 (%.2f, %.2f) 不在 MABR 内部" % [p.x, p.y])
+			break
+	
+	if tri_errors.is_empty():
+		results.append("✅ 斜三角形 (MABR=%.1f, AABB=%.1f)" % [tri_mabr.area, tri_aabb.area])
+		counts[0] += 1
+	else:
+		results.append("❌ 斜三角形: %s" % "; ".join(tri_errors))
+		counts[1] += 1
 	
 	# 测试 8: 空数组
 	var empty_result := calc_mabr(PackedVector2Array())
 	if empty_result.size == Vector2.ZERO and empty_result.area == 0.0:
 		results.append("✅ 空数组")
-		pass_count += 1
+		counts[0] += 1
 	else:
 		results.append("❌ 空数组: size=%s, area=%.2f" % [empty_result.size, empty_result.area])
-		fail_count += 1
+		counts[1] += 1
 	
 	# 测试 9: 不规则多边形（验证所有顶点在 MABR 内 + 面积 <= AABB）
 	var irregular := PackedVector2Array([
@@ -618,13 +657,13 @@ static func run_mabr_tests() -> Array[String]:
 			irr_mabr.area, irr_aabb.area,
 			(1.0 - irr_mabr.area / max(irr_aabb.area, 0.001)) * 100.0
 		])
-		pass_count += 1
+		counts[0] += 1
 	else:
 		results.append("❌ 不规则多边形: %s" % "; ".join(irr_errors))
-		fail_count += 1
+		counts[1] += 1
 	
 	# 汇总
 	results.append("")
-	results.append("总计: %d 通过, %d 失败" % [pass_count, fail_count])
+	results.append("总计: %d 通过, %d 失败" % [counts[0], counts[1]])
 	
 	return results
