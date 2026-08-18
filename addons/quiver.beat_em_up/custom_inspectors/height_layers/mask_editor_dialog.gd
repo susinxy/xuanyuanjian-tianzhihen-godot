@@ -288,7 +288,7 @@ func _on_canvas_gui_input(event: InputEvent) -> void:
 		_brush_preview.queue_redraw()
 		
 		if _is_drawing:
-			var current_pos := event.position / _zoom_level
+			var current_pos: Vector2 = event.position / _zoom_level
 			_draw_line(_last_draw_pos, current_pos)
 			_last_draw_pos = current_pos
 
