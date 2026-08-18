@@ -26,6 +26,10 @@ const AnimationTrackInjector = preload(
 	+ "animation_track_injector.gd"
 )
 
+# 持久化文件路径（跨 widget 重建）
+static var _persisted_convert_file_path: String = ""
+static var _persisted_preview_file_path: String = ""
+
 var _skin_node: QuiverCharacterSkinAnimTree = null
 
 # 轮廓转换 UI
@@ -37,18 +41,18 @@ var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
 
-# 单文件转换 UI
-var _single_file_path: LineEdit
-var _single_file_btn: Button
-var _single_file_convert_btn: Button
+# 转换区域文件选择 UI
+var _convert_file_path: LineEdit
+var _convert_file_select_btn: Button
+var _convert_file_clear_btn: Button
 
-# 单文件预览 UI
-var _test_file_path: LineEdit
-var _test_file_btn: Button
-var _test_preview_btn: Button
-var _test_mask_btn: Button
-var _test_result_label: RichTextLabel
-var _test_preview_texture: TextureRect
+# 预览区域 UI
+var _preview_file_path: LineEdit
+var _preview_file_select_btn: Button
+var _preview_contour_btn: Button
+var _preview_mask_btn: Button
+var _preview_result_label: RichTextLabel
+var _preview_texture: TextureRect
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -59,6 +63,14 @@ func _ready() -> void:
 	if not Engine.is_editor_hint():
 		return
 	_build_ui()
+	
+	# 恢复持久化的文件路径
+	if not _persisted_convert_file_path.is_empty():
+		_convert_file_path.text = _persisted_convert_file_path
+	if not _persisted_preview_file_path.is_empty():
+		_preview_file_path.text = _persisted_preview_file_path
+		_preview_contour_btn.disabled = false
+		_preview_mask_btn.disabled = false
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -74,8 +86,8 @@ func set_skin_node(skin_node: Node) -> void:
 ### Private Methods -------------------------------------------------------------------------------
 
 func _build_ui() -> void:
-	# 单文件测试区域
-	_build_test_ui()
+	# 预览区域
+	_build_preview_ui()
 	
 	# === 轮廓多边形转换区域 ===
 	add_child(HSeparator.new())
@@ -159,31 +171,30 @@ func _build_ui() -> void:
 	_attack_contour_btn.pressed.connect(_on_attack_contour_pressed)
 	contour_btn_container.add_child(_attack_contour_btn)
 	
-	# 单文件转换
-	var single_file_label := Label.new()
-	single_file_label.text = "单文件转换:"
-	single_file_label.custom_minimum_size.x = 80
-	add_child(single_file_label)
+	# 指定文件（可选，留空则全量转换）
+	var convert_file_label := Label.new()
+	convert_file_label.text = "指定文件:"
+	convert_file_label.custom_minimum_size.x = 80
+	add_child(convert_file_label)
 	
-	var single_file_row := HBoxContainer.new()
-	add_child(single_file_row)
+	var convert_file_row := HBoxContainer.new()
+	add_child(convert_file_row)
 	
-	_single_file_path = LineEdit.new()
-	_single_file_path.placeholder_text = "选择 PNG 文件..."
-	_single_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_single_file_path.editable = false
-	single_file_row.add_child(_single_file_path)
+	_convert_file_path = LineEdit.new()
+	_convert_file_path.placeholder_text = "留空则全量转换..."
+	_convert_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_convert_file_path.editable = false
+	convert_file_row.add_child(_convert_file_path)
 	
-	_single_file_btn = Button.new()
-	_single_file_btn.text = "浏览"
-	_single_file_btn.pressed.connect(_on_single_file_btn_pressed)
-	single_file_row.add_child(_single_file_btn)
+	_convert_file_select_btn = Button.new()
+	_convert_file_select_btn.text = "浏览"
+	_convert_file_select_btn.pressed.connect(_on_convert_file_select_btn_pressed)
+	convert_file_row.add_child(_convert_file_select_btn)
 	
-	_single_file_convert_btn = Button.new()
-	_single_file_convert_btn.text = "转换此文件"
-	_single_file_convert_btn.pressed.connect(_on_single_file_convert_pressed)
-	_single_file_convert_btn.disabled = true
-	single_file_row.add_child(_single_file_convert_btn)
+	_convert_file_clear_btn = Button.new()
+	_convert_file_clear_btn.text = "清空"
+	_convert_file_clear_btn.pressed.connect(_on_convert_file_clear_pressed)
+	convert_file_row.add_child(_convert_file_clear_btn)
 	
 	# 轮廓转换状态
 	_contour_status_label = Label.new()
@@ -210,13 +221,18 @@ func _on_body_contour_pressed() -> void:
 		return
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
-	_contour_status_label.text = "⏳ Body 轮廓转换中..."
+	
+	var target_file := _convert_file_path.text
+	if target_file.is_empty():
+		_contour_status_label.text = "⏳ Body 轮廓转换中..."
+	else:
+		_contour_status_label.text = "⏳ Body 单文件转换: %s" % target_file.get_file()
 	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	_execute_contour_conversion_async("body")
+	_execute_contour_conversion_async("body", target_file)
 
 
 func _on_attack_contour_pressed() -> void:
@@ -224,17 +240,22 @@ func _on_attack_contour_pressed() -> void:
 		return
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
-	_contour_status_label.text = "⏳ Attack 轮廓转换中..."
+	
+	var target_file := _convert_file_path.text
+	if target_file.is_empty():
+		_contour_status_label.text = "⏳ Attack 轮廓转换中..."
+	else:
+		_contour_status_label.text = "⏳ Attack 单文件转换: %s" % target_file.get_file()
 	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	_execute_contour_conversion_async("attack")
+	_execute_contour_conversion_async("attack", target_file)
 
 
-## 单文件选择按钮点击
-func _on_single_file_btn_pressed() -> void:
+## 转换区域文件选择按钮点击
+func _on_convert_file_select_btn_pressed() -> void:
 	var file_dialog := FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_RESOURCES
@@ -242,8 +263,8 @@ func _on_single_file_btn_pressed() -> void:
 	file_dialog.current_dir = "res://characters/playable/"
 	
 	file_dialog.file_selected.connect(func(path: String):
-		_single_file_path.text = path
-		_single_file_convert_btn.disabled = false
+		_convert_file_path.text = path
+		_persisted_convert_file_path = path
 		file_dialog.queue_free()
 	)
 	
@@ -255,29 +276,10 @@ func _on_single_file_btn_pressed() -> void:
 	file_dialog.popup_centered(Vector2i(800, 600))
 
 
-## 单文件转换按钮点击
-func _on_single_file_convert_pressed() -> void:
-	if _skin_node == null:
-		return
-	
-	var file_path := _single_file_path.text
-	if file_path.is_empty():
-		return
-	
-	# 判断是 body 还是 attack（根据文件名）
-	var is_attack := file_path.contains("punch") or file_path.contains("kick") or file_path.contains("attack")
-	var mode := "attack" if is_attack else "body"
-	
-	_body_contour_btn.disabled = true
-	_attack_contour_btn.disabled = true
-	_single_file_convert_btn.disabled = true
-	_contour_status_label.text = "⏳ 单文件转换中: %s" % file_path.get_file()
-	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
-	
-	await get_tree().process_frame
-	await get_tree().process_frame
-	
-	_execute_contour_conversion_async(mode, file_path)
+## 清空转换区域文件选择
+func _on_convert_file_clear_pressed() -> void:
+	_convert_file_path.text = ""
+	_persisted_convert_file_path = ""
 
 
 func _execute_contour_conversion_async(mode: String, target_file_path: String = "") -> void:
@@ -326,11 +328,11 @@ func _execute_contour_conversion_async(mode: String, target_file_path: String = 
 
 
 ## 构建单文件测试 UI
-func _build_test_ui() -> void:
-	var test_header := Label.new()
-	test_header.text = "🎨 轮廓预览 & Mask 编辑"
-	test_header.add_theme_font_size_override("font_size", 16)
-	add_child(test_header)
+func _build_preview_ui() -> void:
+	var preview_header := Label.new()
+	preview_header.text = "🎨 轮廓预览 & Mask 编辑"
+	preview_header.add_theme_font_size_override("font_size", 16)
+	add_child(preview_header)
 	
 	add_child(HSeparator.new())
 	
@@ -343,54 +345,54 @@ func _build_test_ui() -> void:
 	file_label.custom_minimum_size.x = 80
 	file_row.add_child(file_label)
 	
-	_test_file_path = LineEdit.new()
-	_test_file_path.placeholder_text = "选择 PNG 文件..."
-	_test_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_test_file_path.editable = false
-	file_row.add_child(_test_file_path)
+	_preview_file_path = LineEdit.new()
+	_preview_file_path.placeholder_text = "选择 PNG 文件..."
+	_preview_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_file_path.editable = false
+	file_row.add_child(_preview_file_path)
 	
-	_test_file_btn = Button.new()
-	_test_file_btn.text = "浏览"
-	_test_file_btn.pressed.connect(_on_test_file_btn_pressed)
-	file_row.add_child(_test_file_btn)
+	_preview_file_select_btn = Button.new()
+	_preview_file_select_btn.text = "浏览"
+	_preview_file_select_btn.pressed.connect(_on_preview_file_select_btn_pressed)
+	file_row.add_child(_preview_file_select_btn)
 	
 	# 操作按钮行
-	var test_btn_row := HBoxContainer.new()
-	add_child(test_btn_row)
+	var preview_btn_row := HBoxContainer.new()
+	add_child(preview_btn_row)
 	
-	_test_preview_btn = Button.new()
-	_test_preview_btn.text = "🔍 预览轮廓"
-	_test_preview_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_test_preview_btn.disabled = true
-	_test_preview_btn.pressed.connect(_on_preview_btn_pressed)
-	test_btn_row.add_child(_test_preview_btn)
+	_preview_contour_btn = Button.new()
+	_preview_contour_btn.text = "🔍 预览轮廓"
+	_preview_contour_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_contour_btn.disabled = true
+	_preview_contour_btn.pressed.connect(_on_preview_contour_pressed)
+	preview_btn_row.add_child(_preview_contour_btn)
 	
-	_test_mask_btn = Button.new()
-	_test_mask_btn.text = "🎨 编辑 Mask"
-	_test_mask_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_test_mask_btn.disabled = true
-	_test_mask_btn.pressed.connect(_on_test_mask_btn_pressed)
-	test_btn_row.add_child(_test_mask_btn)
+	_preview_mask_btn = Button.new()
+	_preview_mask_btn.text = "🎨 编辑 Mask"
+	_preview_mask_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_mask_btn.disabled = true
+	_preview_mask_btn.pressed.connect(_on_preview_mask_pressed)
+	preview_btn_row.add_child(_preview_mask_btn)
 	
 	# 结果显示
-	_test_result_label = RichTextLabel.new()
-	_test_result_label.bbcode_enabled = true
-	_test_result_label.text = "[color=gray]选择文件后点击预览按钮[/color]"
-	_test_result_label.custom_minimum_size = Vector2(0, 150)
-	add_child(_test_result_label)
+	_preview_result_label = RichTextLabel.new()
+	_preview_result_label.bbcode_enabled = true
+	_preview_result_label.text = "[color=gray]选择文件后点击预览按钮[/color]"
+	_preview_result_label.custom_minimum_size = Vector2(0, 150)
+	add_child(_preview_result_label)
 	
 	# 轮廓预览图
-	_test_preview_texture = TextureRect.new()
-	_test_preview_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	_test_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_test_preview_texture.custom_minimum_size = Vector2(0, 256)
-	add_child(_test_preview_texture)
+	_preview_texture = TextureRect.new()
+	_preview_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_texture.custom_minimum_size = Vector2(0, 256)
+	add_child(_preview_texture)
 	
 	add_child(HSeparator.new())
 
 
-## 文件选择按钮点击
-func _on_test_file_btn_pressed() -> void:
+## 预览区域文件选择按钮点击
+func _on_preview_file_select_btn_pressed() -> void:
 	var file_dialog := FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_RESOURCES
@@ -398,9 +400,10 @@ func _on_test_file_btn_pressed() -> void:
 	file_dialog.current_dir = "res://characters/playable/"
 	
 	file_dialog.file_selected.connect(func(path: String):
-		_test_file_path.text = path
-		_test_preview_btn.disabled = false
-		_test_mask_btn.disabled = false
+		_preview_file_path.text = path
+		_persisted_preview_file_path = path
+		_preview_contour_btn.disabled = false
+		_preview_mask_btn.disabled = false
 		file_dialog.queue_free()
 	)
 	
@@ -413,13 +416,13 @@ func _on_test_file_btn_pressed() -> void:
 
 
 ## 预览轮廓按钮点击
-func _on_preview_btn_pressed() -> void:
-	_run_single_file_preview()
+func _on_preview_contour_pressed() -> void:
+	_run_preview()
 
 
 ## Mask 编辑器按钮点击
-func _on_test_mask_btn_pressed() -> void:
-	var file_path := _test_file_path.text
+func _on_preview_mask_pressed() -> void:
+	var file_path := _preview_file_path.text
 	if file_path.is_empty():
 		return
 	
@@ -434,20 +437,20 @@ func _on_test_mask_btn_pressed() -> void:
 	)
 
 
-## 执行单文件预览
-func _run_single_file_preview() -> void:
+## 执行预览
+func _run_preview() -> void:
 	if _skin_node == null:
-		_test_result_label.text = "[color=red]错误: 未关联皮肤节点[/color]"
+		_preview_result_label.text = "[color=red]错误: 未关联皮肤节点[/color]"
 		return
 	
-	var file_path := _test_file_path.text
+	var file_path := _preview_file_path.text
 	if file_path.is_empty():
-		_test_result_label.text = "[color=red]错误: 未选择文件[/color]"
+		_preview_result_label.text = "[color=red]错误: 未选择文件[/color]"
 		return
 	
 	# 禁用按钮
-	_test_preview_btn.disabled = true
-	_test_result_label.text = "[color=cyan]预览中...[/color]"
+	_preview_contour_btn.disabled = true
+	_preview_result_label.text = "[color=cyan]预览中...[/color]"
 	
 	# 等待两帧确保 UI 更新
 	await get_tree().process_frame
@@ -463,22 +466,22 @@ func _run_single_file_preview() -> void:
 	var result := injector.test_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio)
 	
 	# 显示结果
-	_display_test_result(result)
+	_display_preview_result(result)
 	
 	# 显示预览图
-	await _display_test_preview(result)
+	await _display_preview(result)
 	
 	# 恢复按钮
-	_test_preview_btn.disabled = false
+	_preview_contour_btn.disabled = false
 
 
 ## 显示预览结果
-func _display_test_result(result: Dictionary) -> void:
+func _display_preview_result(result: Dictionary) -> void:
 	var lines := []
 	
 	if result.error != "":
 		lines.append("[color=red]错误: %s[/color]" % result.error)
-		_test_result_label.text = "\n".join(lines)
+		_preview_result_label.text = "\n".join(lines)
 		return
 	
 	lines.append("[b]文件名:[/b] %s" % result.file_name)
@@ -508,17 +511,17 @@ func _display_test_result(result: Dictionary) -> void:
 	lines.append("")
 	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f" % [result.alpha_threshold, result.simplify_tolerance])
 	
-	_test_result_label.text = "\n".join(lines)
+	_preview_result_label.text = "\n".join(lines)
 
 
 ## 显示轮廓预览图
-func _display_test_preview(result: Dictionary) -> void:
+func _display_preview(result: Dictionary) -> void:
 	if result.contours.is_empty() or result.image == null:
-		_test_preview_texture.texture = null
+		_preview_texture.texture = null
 		return
 	
 	var preview_texture = await _generate_contour_preview(result.image, result.contours)
-	_test_preview_texture.texture = preview_texture
+	_preview_texture.texture = preview_texture
 
 
 ## 生成轮廓预览图
