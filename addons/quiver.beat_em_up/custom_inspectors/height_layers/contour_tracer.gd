@@ -55,7 +55,7 @@ static func trace_contours(
 			has_valid = true
 			break
 	
-	if not has_valid and not polygons.is_empty():
+	if not has_valid:
 		var retry_tolerance := simplify_tolerance / 2.0
 		while retry_tolerance >= 0.5:
 			polygons = bitmap.opaque_to_polygons(rect, retry_tolerance)
