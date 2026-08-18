@@ -1772,7 +1772,273 @@ func _inject_capsule_tracks_for_attack(
 				var err := ResourceSaver.save(anim, resource_path)
 				if err != OK:
 					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-func _get_attack_node_name(sprite_anim_name: String) -> String:
+
+
+## 注入 Body 的 Rectangle tracks
+func _inject_rectangle_tracks_for_body(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	frames_data: Dictionary,
+	errors: Array[String],
+	is_single_file_mode: bool = false
+) -> void:
+	var lib_names := anim_player.get_animation_library_list()
+	
+	for lib_name in lib_names:
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			if frame_dict.is_empty():
+				continue
+			
+			# 全量模式：删除所有形状相关的旧 tracks
+			if not is_single_file_mode:
+				_remove_tracks_by_path(anim, [
+					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape:size",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape:radius",
+					"AnimatedSprite2D/HurtBox/HurtShape:shape:height",
+					"AnimatedSprite2D/HurtBox/HurtShape:position",
+					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
+					"AnimatedSprite2D/HurtBox:position",
+					TRACK_PATH_PHYSICAL_WIDTH,
+					"../Collision:shape.height",
+					"../../Collision:shape.height",
+				])
+			
+			# 创建或查找 tracks
+			var size_track_idx: int
+			var position_track_idx: int
+			var rotation_track_idx: int
+			var width_track_idx: int
+			
+			if is_single_file_mode:
+				size_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+				position_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
+				rotation_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
+				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			else:
+				size_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+				position_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
+				rotation_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
+				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+			
+			# 提取 flip_h track 数据
+			var flip_track_data := _extract_flip_h_track(anim)
+			
+			# 逐帧插入 keyframe
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
+			var prev_center := Vector2(INF, INF)
+			var prev_angle: float = INF
+			var prev_size := Vector2(INF, INF)
+			var prev_width: float = -1.0
+			
+			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				if not frame_dict.has(frame_idx):
+					continue
+				
+				var frame_info: Dictionary = frame_dict[frame_idx]
+				if not frame_info.has("mabr") or not frame_info.has("rectangle"):
+					continue
+				
+				var mabr: Dictionary = frame_info["mabr"]
+				var rectangle: Dictionary = frame_info["rectangle"]
+				var current_center: Vector2 = mabr.center
+				var current_angle: float = rectangle.angle
+				var current_size: Vector2 = rectangle.size
+				
+				var time: float = float(frame_idx) * frame_duration
+				
+				# flip_h 镜像处理
+				if _is_flipped_at_time(flip_track_data, time):
+					current_center.x = -current_center.x
+					current_angle = -current_angle
+				
+				# width track（physical_width）
+				var current_width: float = frame_info.get("width", 0.0)
+				if current_width != prev_width:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, width_track_idx, time)
+					anim.track_insert_key(width_track_idx, time, current_width)
+					prev_width = current_width
+				
+				# position track
+				if current_center != prev_center:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, position_track_idx, time)
+					anim.track_insert_key(position_track_idx, time, current_center)
+					prev_center = current_center
+				
+				# rotation track
+				if current_angle != prev_angle:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, rotation_track_idx, time)
+					anim.track_insert_key(rotation_track_idx, time, current_angle)
+					prev_angle = current_angle
+				
+				# size track
+				if current_size != prev_size:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, size_track_idx, time)
+					anim.track_insert_key(size_track_idx, time, current_size)
+					prev_size = current_size
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 注入 Attack 的 Rectangle tracks
+func _inject_rectangle_tracks_for_attack(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	frames_data: Dictionary,
+	errors: Array[String],
+	is_single_file_mode: bool = false
+) -> void:
+	var lib_names := anim_player.get_animation_library_list()
+	
+	for lib_name in lib_names:
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			if frame_dict.is_empty():
+				continue
+			
+			# 获取 attack_node
+			var first_frame: Dictionary = frame_dict.values()[0]
+			var attack_node: String = first_frame["attack_node"]
+			var shape_name: String = attack_node + "Shape"
+			
+			# 定义 track 路径
+			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
+			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
+			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
+			var shape_size_path := "Attacks/%s/%s:shape:size" % [attack_node, shape_name]
+			var shape_radius_path := "Attacks/%s/%s:shape:radius" % [attack_node, shape_name]
+			var shape_height_path := "Attacks/%s/%s:shape:height" % [attack_node, shape_name]
+			var attack_node_path := "Attacks/%s:position" % attack_node
+			
+			# 全量模式：删除所有形状相关的旧 tracks
+			if not is_single_file_mode:
+				_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, shape_radius_path, shape_height_path, attack_node_path])
+			
+			# 创建或查找 tracks
+			var size_track_idx: int
+			var position_track_idx: int
+			var rotation_track_idx: int
+			var attack_pos_track_idx: int
+			
+			if is_single_file_mode:
+				size_track_idx = _find_or_add_value_track(anim, shape_size_path)
+				position_track_idx = _find_or_add_value_track(anim, position_path)
+				rotation_track_idx = _find_or_add_value_track(anim, rotation_path)
+				attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
+			else:
+				size_track_idx = _add_value_track(anim, shape_size_path)
+				position_track_idx = _add_value_track(anim, position_path)
+				rotation_track_idx = _add_value_track(anim, rotation_path)
+				attack_pos_track_idx = _add_value_track(anim, attack_node_path)
+			
+			# 复制 sprite position 到 attack node position
+			if not is_single_file_mode:
+				var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
+				if sprite_pos_track_idx >= 0:
+					var key_count := anim.track_get_key_count(sprite_pos_track_idx)
+					for i in key_count:
+						var time := anim.track_get_key_time(sprite_pos_track_idx, i)
+						var value := anim.track_get_key_value(sprite_pos_track_idx, i)
+						anim.track_insert_key(attack_pos_track_idx, time, value)
+				else:
+					anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
+			
+			# 提取 flip_h track 数据
+			var flip_track_data := _extract_flip_h_track(anim)
+			
+			# 逐帧插入 keyframe
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
+			var prev_center := Vector2(INF, INF)
+			var prev_angle: float = INF
+			var prev_size := Vector2(INF, INF)
+			
+			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				if not frame_dict.has(frame_idx):
+					continue
+				
+				var frame_info: Dictionary = frame_dict[frame_idx]
+				if not frame_info.has("mabr") or not frame_info.has("rectangle"):
+					continue
+				
+				var mabr: Dictionary = frame_info["mabr"]
+				var rectangle: Dictionary = frame_info["rectangle"]
+				var current_center: Vector2 = mabr.center
+				var current_angle: float = rectangle.angle
+				var current_size: Vector2 = rectangle.size
+				
+				var time: float = float(frame_idx) * frame_duration
+				
+				# flip_h 镜像处理
+				if _is_flipped_at_time(flip_track_data, time):
+					current_center.x = -current_center.x
+					current_angle = -current_angle
+				
+				# position track
+				if current_center != prev_center:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, position_track_idx, time)
+					anim.track_insert_key(position_track_idx, time, current_center)
+					prev_center = current_center
+				
+				# rotation track
+				if current_angle != prev_angle:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, rotation_track_idx, time)
+					anim.track_insert_key(rotation_track_idx, time, current_angle)
+					prev_angle = current_angle
+				
+				# size track
+				if current_size != prev_size:
+					if is_single_file_mode:
+						_remove_key_at_time(anim, size_track_idx, time)
+					anim.track_insert_key(size_track_idx, time, current_size)
+					prev_size = current_size
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 根据 sprite_anim_name 确定对应的 Attack 节点名
 	if sprite_anim_name.contains("punch1"):
 		return "Attack1"
 	elif sprite_anim_name.contains("punch2"):
