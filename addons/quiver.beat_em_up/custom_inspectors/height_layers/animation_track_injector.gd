@@ -1083,6 +1083,61 @@ func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, erro
 	file.close()
 
 
+## 生成确定性 SubResource ID
+## 基于前缀和节点名生成唯一的 ID，确保多次运行结果一致
+func _generate_subresource_id(prefix: String, node_name: String) -> String:
+	return prefix + "_" + (prefix + "_" + node_name).sha1_text().substr(0, 16)
+
+
+## 检测 .tscn 中指定节点的当前形状类型
+## 返回: ShapeType 枚举值，-1 表示未找到节点
+func _detect_current_shape_type(tscn_path: String, shape_name: String) -> int:
+	if not FileAccess.file_exists(tscn_path):
+		return -1
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		return -1
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 检查是否为 CollisionPolygon2D
+	var polygon_pattern := RegEx.new()
+	polygon_pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
+	if polygon_pattern.search(content) != null:
+		return ShapeType.POLYGON
+	
+	# 检查是否为 CollisionShape2D
+	var shape_pattern := RegEx.new()
+	shape_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+	var shape_match := shape_pattern.search(content)
+	
+	if shape_match != null:
+		var node_content := shape_match.get_string(0)
+		
+		# 检查 shape 属性引用的 SubResource 类型
+		var sub_ref_pattern := RegEx.new()
+		sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
+		var sub_ref_match := sub_ref_pattern.search(node_content)
+		
+		if sub_ref_match != null:
+			var sub_id := sub_ref_match.get_string(1)
+			
+			# 查找对应的 SubResource 定义
+			var capsule_pattern := RegEx.new()
+			capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="%s"\\]' % sub_id)
+			if capsule_pattern.search(content) != null:
+				return ShapeType.CAPSULE
+			
+			var rectangle_pattern := RegEx.new()
+			rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]' % sub_id)
+			if rectangle_pattern.search(content) != null:
+				return ShapeType.RECTANGLE
+	
+	return -1  # 未找到或无法识别
+
+
 ## 检测 Body 的 .tscn 是否需要转换
 ## 返回 true 表示 HurtShape 还是 CollisionShape2D，需要转换
 func _needs_body_tscn_conversion(tscn_path: String) -> bool:
