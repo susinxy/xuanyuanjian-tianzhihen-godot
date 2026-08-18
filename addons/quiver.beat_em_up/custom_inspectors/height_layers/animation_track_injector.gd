@@ -651,6 +651,8 @@ func _extract_and_apply_speed_values(
 ## - alpha_threshold: alpha 阈值
 ## - simplify_tolerance: 简化容差
 ## - filter_anims: 只处理这些动画名（空 = 处理全部）
+## - frame_filter: 帧过滤 { "anim_name": { "enabled_frames": null/[]/[1,2] } }
+##   null = 全部跳过, [] = 全部处理, [1,2] = 只处理指定帧
 ## - callback_obj: 进度回调对象
 ## - errors: 错误数组
 ##
@@ -660,6 +662,7 @@ func _scan_frames_contours(
 	alpha_threshold: float,
 	simplify_tolerance: float,
 	filter_anims: Array[String],
+	frame_filter: Dictionary,
 	callback_obj: Object,
 	errors: Array[String]
 ) -> Dictionary:
@@ -671,10 +674,23 @@ func _scan_frames_contours(
 		if not filter_anims.is_empty() and sprite_anim_name not in filter_anims:
 			continue
 		
+		# 帧过滤：检查 enabled_frames
+		var enabled_frames = null
+		if frame_filter.has(sprite_anim_name):
+			var filter_info: Dictionary = frame_filter[sprite_anim_name]
+			enabled_frames = filter_info.get("enabled_frames", null)
+			# null = 全部跳过
+			if enabled_frames == null:
+				continue
+		
 		var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
 		frames_data[sprite_anim_name] = {}
 		
 		for frame_idx in range(frame_count):
+			# 如果有 enabled_frames 列表且非空，只处理列表中的帧
+			if enabled_frames is Array and not enabled_frames.is_empty() and frame_idx not in enabled_frames:
+				continue
+			
 			var texture := sprite_frames.get_frame_texture(sprite_anim_name, frame_idx)
 			if texture == null:
 				continue
@@ -730,10 +746,10 @@ func convert_body_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 统一扫描（空数组 = 处理全部）
+	# 2. 统一扫描（空数组 = 处理全部，空字典 = 不过滤帧）
 	var frames_data := _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
-		[], callback_obj, result.errors
+		[], {}, callback_obj, result.errors
 	)
 	
 	# 3. Body 后处理：计算 physical_height/width + 坐标转换
@@ -809,20 +825,21 @@ func convert_attack_contours(
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	var sprite_to_attack := {}
 	if anim_player != null:
-		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player)
+		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player, skin_node)
 	
-	# 3. 统一扫描（只处理攻击动画）
+	# 3. 统一扫描（只处理攻击动画，传入帧过滤）
 	var filter_anims: Array[String] = []
 	filter_anims.assign(sprite_to_attack.keys())
 	var frames_data := _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
-		filter_anims, callback_obj, result.errors
+		filter_anims, sprite_to_attack, callback_obj, result.errors
 	)
 	
 	# 4. Attack 后处理：计算 attack_heights + 坐标转换
 	var height_definitions := QuiverCharacter._build_height_definitions()
 	for sprite_anim_name in frames_data:
-		var attack_node: String = sprite_to_attack[sprite_anim_name]
+		var mapping_info: Dictionary = sprite_to_attack[sprite_anim_name]
+		var attack_node: String = mapping_info["attack_node"]
 		for frame_idx in frames_data[sprite_anim_name]:
 			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
 			var raw: Array = frame["raw_contours"]
@@ -1217,8 +1234,15 @@ func _get_attack_node_name(sprite_anim_name: String) -> String:
 ## （false = 碰撞体被启用 = 这是攻击动画）
 ## 非攻击动画（idle、hurt 等）的 Shape:disabled 值全是 [true]，不会被误判。
 ##
-## 返回: { "attack_1": "Attack1", "attack_2": "Attack2", ... }
-func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer) -> Dictionary:
+## 返回: {
+##   "attack_1": { "attack_node": "Attack1", "enabled_frames": [1, 2] },
+##   "attack_2": { "attack_node": "Attack2", "enabled_frames": null },
+## }
+## enabled_frames 含义：
+##   null = 全部跳过（无 track 且节点 disabled=true）
+##   []   = 全部处理（无 track 且节点 disabled=false）
+##   [1,2] = 只处理指定帧（有 track，按离散模式采样）
+func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
 	var mapping := {}
 	
 	for lib_name in anim_player.get_animation_library_list():
@@ -1243,15 +1267,78 @@ func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer) -> Dictionar
 					continue
 				
 				# 检查关键帧值中是否有 false（碰撞体被启用）
+				var has_enabled := false
 				for key_idx in range(anim.track_get_key_count(track_idx)):
 					if anim.track_get_key_value(track_idx, key_idx) == false:
-						# 从路径提取 Attack 节点名：Attacks/Attack1/Attack1Shape:disabled → Attack1
-						var parts := track_path.split("/")
-						if parts.size() >= 2:
-							mapping[sprite_anim_name] = parts[1]
+						has_enabled = true
 						break
+				
+				if not has_enabled:
+					continue
+				
+				# 从路径提取 Attack 节点名：Attacks/Attack1/Attack1Shape:disabled → Attack1
+				var parts := track_path.split("/")
+				if parts.size() < 2:
+					continue
+				var attack_node_name: String = parts[1]
+				
+				# 解析 disabled track，获取 enabled 帧列表
+				var enabled_frames: Array = _parse_disabled_track(anim, track_idx, sprite_anim_name, skin_node)
+				
+				mapping[sprite_anim_name] = {
+					"attack_node": attack_node_name,
+					"enabled_frames": enabled_frames,
+				}
+				break
 	
 	return mapping
+
+
+## 解析 disabled track 的离散模式，返回 disabled=false 的帧索引
+##
+## 离散模式（update=1）：每帧的 disabled 值 = 最后一个 <= 帧时间的 keyframe 值
+func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: String, skin_node: Node) -> Array:
+	var enabled_frames: Array = []
+	
+	# 获取 SpriteFrames 的 FPS
+	var sprite_frames := _get_sprite_frames(skin_node, [])
+	if sprite_frames == null:
+		return enabled_frames
+	
+	var fps := sprite_frames.get_animation_speed(sprite_anim_name)
+	if fps <= 0:
+		fps = 24.0
+	
+	var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
+	var frame_duration := 1.0 / fps
+	
+	# 读取所有 keyframe（按时间排序）
+	var key_count := anim.track_get_key_count(track_idx)
+	var keyframes: Array = []
+	for i in range(key_count):
+		keyframes.append({
+			"time": anim.track_get_key_time(track_idx, i),
+			"value": anim.track_get_key_value(track_idx, i),
+		})
+	
+	# 对每帧采样（离散模式：取最后一个 <= 帧时间的 keyframe 值）
+	# 使用小容差（0.0001秒）处理浮点数精度问题
+	var epsilon := 0.0001
+	for frame_idx in range(frame_count):
+		var frame_time := float(frame_idx) * frame_duration
+		
+		var disabled_value: bool = true
+		for keyframe in keyframes:
+			var kf_time: float = keyframe["time"]
+			if kf_time <= frame_time + epsilon:
+				disabled_value = keyframe["value"]
+			else:
+				break
+		
+		if not disabled_value:
+			enabled_frames.append(frame_idx)
+	
+	return enabled_frames
 
 
 ## 构建 Body 的 PNG 重命名映射
