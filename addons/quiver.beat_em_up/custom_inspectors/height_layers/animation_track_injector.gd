@@ -875,15 +875,30 @@ func convert_body_contours(
 		result.frames_info = frames_data
 		return result
 	
-	# 5. 修改 skin .tscn（仅首次转换时）
+	# 5. 单文件模式检查：形状类型变更时禁止单文件操作
 	var skin_scene_path := skin_node.scene_file_path
-	if _needs_body_tscn_conversion(skin_scene_path):
-		_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors)
+	var is_single_file_mode := not target_file_path.is_empty()
+	if is_single_file_mode:
+		var current_type := _detect_current_shape_type(skin_scene_path, "HurtShape")
+		if current_type != -1 and current_type != shape_type:
+			result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
+				ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
+			])
+			return result
 	
-	# 6. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
+	# 6. 修改 skin .tscn（仅类型不匹配时）
+	if _needs_body_tscn_conversion(skin_scene_path, shape_type):
+		_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors, shape_type)
+	
+	# 7. 注入 Animation tracks（根据 shape_type 分发）
 	if anim_player != null:
-		var is_single_file_mode := not target_file_path.is_empty()
-		_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+		match shape_type:
+			ShapeType.POLYGON:
+				_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+			ShapeType.CAPSULE:
+				_inject_capsule_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+			ShapeType.RECTANGLE:
+				_inject_rectangle_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
 	
 	result.frames_info = frames_data
 	return result
@@ -978,15 +993,32 @@ func convert_attack_contours(
 		result.frames_info = frames_data
 		return result
 	
-	# 6. 修改 skin .tscn（仅首次转换时）
+	# 6. 单文件模式检查：形状类型变更时禁止单文件操作
 	var skin_scene_path := skin_node.scene_file_path
-	if _needs_attack_tscn_conversion(skin_scene_path):
-		_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors)
+	var is_single_file_mode := not target_file_path.is_empty()
+	if is_single_file_mode:
+		var attack_shapes := ["Attack1Shape", "Attack2Shape", "Attack3Shape", "AttackAirShape"]
+		for shape_name in attack_shapes:
+			var current_type := _detect_current_shape_type(skin_scene_path, shape_name)
+			if current_type != -1 and current_type != shape_type:
+				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
+					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
+				])
+				return result
 	
-	# 7. 注入 Animation tracks（复用步骤 2 已获取的 anim_player）
+	# 7. 修改 skin .tscn（仅类型不匹配时）
+	if _needs_attack_tscn_conversion(skin_scene_path, shape_type):
+		_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors, shape_type)
+	
+	# 8. 注入 Animation tracks（根据 shape_type 分发）
 	if anim_player != null:
-		var is_single_file_mode := not target_file_path.is_empty()
-		_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+		match shape_type:
+			ShapeType.POLYGON:
+				_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+			ShapeType.CAPSULE:
+				_inject_capsule_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+			ShapeType.RECTANGLE:
+				_inject_rectangle_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
 	
 	result.frames_info = frames_data
 	return result
@@ -1241,26 +1273,12 @@ func _detect_current_shape_type(tscn_path: String, shape_name: String) -> int:
 
 
 ## 检测 Body 的 .tscn 是否需要转换
-## 返回 true 表示 HurtShape 还是 CollisionShape2D，需要转换
-func _needs_body_tscn_conversion(tscn_path: String) -> bool:
-	if not FileAccess.file_exists(tscn_path):
-		return false
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		return false
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 检查 HurtShape 是否已经是 CollisionPolygon2D
-	var pattern := RegEx.new()
-	pattern.compile('\\[node name="HurtShape" type="CollisionPolygon2D"')
-	
-	if pattern.search(content) != null:
-		return false  # 已转换，不需要修改
-	
-	return true  # 需要转换
+## 返回 true 表示当前类型与目标类型不匹配，需要转换
+func _needs_body_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
+	var current_type := _detect_current_shape_type(tscn_path, "HurtShape")
+	if current_type == -1:
+		return true  # 节点不存在，需要创建
+	return current_type != target_shape_type
 
 
 ## 修改 skin .tscn（Attack 转换）
@@ -1349,29 +1367,16 @@ func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, er
 
 
 ## 检测 Attack 的 .tscn 是否需要转换
-## 返回 true 表示至少有一个 AttackXShape 还是 CollisionShape2D
-func _needs_attack_tscn_conversion(tscn_path: String) -> bool:
-	if not FileAccess.file_exists(tscn_path):
-		return false
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		return false
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 检查所有 AttackShape 是否都已经是 CollisionPolygon2D
+## 返回 true 表示至少有一个 AttackXShape 的类型与目标类型不匹配
+func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
 	var attack_shapes := ["Attack1Shape", "Attack2Shape", "Attack3Shape", "AttackAirShape"]
-	
 	for shape_name in attack_shapes:
-		var pattern := RegEx.new()
-		pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
-		
-		if pattern.search(content) == null:
-			return true  # 至少有一个未转换
-	
-	return false  # 全部已转换
+		var current_type := _detect_current_shape_type(tscn_path, shape_name)
+		if current_type == -1:
+			continue  # 节点不存在，跳过（可能该攻击类型未使用）
+		if current_type != target_shape_type:
+			return true  # 至少有一个类型不匹配
+	return false
 
 
 ## 注入 Body 的 polygon tracks
