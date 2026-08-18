@@ -41,29 +41,30 @@ static func trace_contours(
 	if mask != null:
 		work_image = _apply_mask(work_image, mask)
 	
-	# 3. 使用 Godot 内置 BitMap API 提取多边形（带自适应回退）
+	# 3. 使用 Godot 内置 BitMap API 提取多边形（带自适应保障）
 	var bitmap := BitMap.new()
 	bitmap.create_from_image_alpha(work_image, alpha_threshold)
 	
 	var rect := Rect2i(Vector2i.ZERO, bitmap.get_size())
+	var true_rect := bitmap.get_true_rect()
+	
+	# bitmap 没有不透明像素 → 直接返回空
+	if true_rect.size.x == 0 or true_rect.size.y == 0:
+		return []
+	
+	# 最小面积阈值：true_rect 面积的 50%
+	var min_area := float(true_rect.size.x) * float(true_rect.size.y) * 0.5
+	
 	var polygons: Array = bitmap.opaque_to_polygons(rect, simplify_tolerance)
+	var has_valid := _has_valid_polygon(polygons, min_area)
 	
-	# 检查结果是否退化（所有多边形都 < 3 顶点），退化则逐步减半容差重试
-	var has_valid := false
-	for poly in polygons:
-		if poly.size() >= 3:
-			has_valid = true
-			break
-	
+	# 退化则逐步减半容差重试
 	if not has_valid:
 		var retry_tolerance := simplify_tolerance / 2.0
 		while retry_tolerance >= 0.5:
 			polygons = bitmap.opaque_to_polygons(rect, retry_tolerance)
-			for poly in polygons:
-				if poly.size() >= 3:
-					has_valid = true
-					break
-			if has_valid:
+			if _has_valid_polygon(polygons, min_area):
+				has_valid = true
 				break
 			retry_tolerance /= 2.0
 	
@@ -212,6 +213,27 @@ static func _scale_polygons(polygons: Array, scale: float) -> Array[PackedVector
 			scaled.append(vertex * scale)
 		result.append(scaled)
 	return result
+
+
+## 用 Shoelace 公式计算多边形面积
+static func _calc_polygon_area(vertices: PackedVector2Array) -> float:
+	var area := 0.0
+	var n := vertices.size()
+	for i in n:
+		var j := (i + 1) % n
+		area += vertices[i].x * vertices[j].y
+		area -= vertices[j].x * vertices[i].y
+	return abs(area) / 2.0
+
+
+## 检查多边形数组中是否有有效多边形（顶点 >= 3 且面积 >= min_area）
+static func _has_valid_polygon(polygons: Array, min_area: float) -> bool:
+	for poly in polygons:
+		if poly.size() < 3:
+			continue
+		if _calc_polygon_area(poly) >= min_area:
+			return true
+	return false
 
 
 ## 根据高度值找到对应的高度层
