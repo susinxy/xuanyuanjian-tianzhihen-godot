@@ -330,9 +330,9 @@ func _on_test_mask_btn_pressed() -> void:
 	
 	var MaskEditorDialog = preload("res://addons/quiver.beat_em_up/custom_inspectors/height_layers/mask_editor_dialog.gd")
 	var dialog := MaskEditorDialog.new()
-	dialog.set_png_path(file_path)
 	dialog.set_params(_alpha_threshold_spinbox.value, _simplify_tolerance_spinbox.value)
 	add_child(dialog)
+	dialog.set_png_path(file_path)
 	dialog.popup_centered(Vector2i(900, 700))
 	dialog.closed.connect(func():
 		dialog.queue_free()

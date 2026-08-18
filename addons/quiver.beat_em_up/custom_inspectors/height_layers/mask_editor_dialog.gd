@@ -51,6 +51,8 @@ var _zoom_level: float = 1.0
 func _ready() -> void:
 	title = "🎨 Mask 编辑器"
 	_build_ui()
+	if not _png_path.is_empty():
+		_load_images()
 
 
 func set_png_path(path: String) -> void:
@@ -59,8 +61,7 @@ func set_png_path(path: String) -> void:
 	
 	if _file_label != null:
 		_file_label.text = "文件: %s" % path.get_file()
-	
-	_load_images()
+		_load_images()
 
 
 func set_params(alpha: float, tolerance: float) -> void:
