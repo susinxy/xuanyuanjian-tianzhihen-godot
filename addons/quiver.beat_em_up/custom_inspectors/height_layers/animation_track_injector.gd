@@ -663,6 +663,7 @@ func _scan_frames_contours(
 	simplify_tolerance: float,
 	filter_anims: Array[String],
 	frame_filter: Dictionary,
+	mask_suffix: String,
 	callback_obj: Object,
 	errors: Array[String]
 ) -> Dictionary:
@@ -706,11 +707,19 @@ func _scan_frames_contours(
 				errors.append("无法加载图片: %s" % png_path)
 				continue
 			
-			# 检查 mask（有则用，无则全图）
-			var mask_path := png_path.replace(".png", ".mask.png")
+			# 检查 mask（优先级：专用 > 通用 > 无）
+			# 1. {name}.{suffix}.mask.png  （专用 mask）
+			# 2. {name}.mask.png           （通用 mask，向后兼容）
+			# 3. 无 mask → 全图扫描
+			var base_path := png_path.replace(".png", "")
+			var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
+			var generic_mask_path := base_path + ".mask.png"
+			
 			var mask: Image = null
-			if FileAccess.file_exists(mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+			if FileAccess.file_exists(specific_mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
+			elif FileAccess.file_exists(generic_mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
 			
 			# 提取轮廓（原始像素坐标）
 			var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512)
@@ -752,10 +761,10 @@ func convert_body_contours(
 	if anim_player != null:
 		sprite_to_body = _find_body_mapping_from_tracks(anim_player, skin_node)
 	
-	# 3. 统一扫描（传入帧过滤映射）
+	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
 	var frames_data := _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
-		[], sprite_to_body, callback_obj, result.errors
+		[], sprite_to_body, "body", callback_obj, result.errors
 	)
 	
 	# 3. Body 后处理：计算 physical_height/width + 坐标转换
@@ -832,12 +841,12 @@ func convert_attack_contours(
 	if anim_player != null:
 		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player, skin_node)
 	
-	# 3. 统一扫描（只处理攻击动画，传入帧过滤）
+	# 3. 统一扫描（只处理攻击动画，传入帧过滤和 mask 类型）
 	var filter_anims: Array[String] = []
 	filter_anims.assign(sprite_to_attack.keys())
 	var frames_data := _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance,
-		filter_anims, sprite_to_attack, callback_obj, result.errors
+		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors
 	)
 	
 	# 4. Attack 后处理：计算 attack_heights + 坐标转换

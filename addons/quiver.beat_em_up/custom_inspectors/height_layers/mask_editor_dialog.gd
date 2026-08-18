@@ -32,6 +32,7 @@ var _brush_preview: Node2D
 
 var _tool_panel: VBoxContainer
 var _file_label: Label
+var _mask_type_option: OptionButton
 var _brush_size_spinbox: SpinBox
 var _is_eraser: bool = false
 var _brush_button: Button
@@ -57,11 +58,30 @@ func _ready() -> void:
 
 func set_png_path(path: String) -> void:
 	_png_path = path
-	_mask_path = path.replace(".png", ".mask.png")
+	_update_mask_path()
 	
 	if _file_label != null:
 		_file_label.text = "文件: %s" % path.get_file()
 		_load_images()
+
+
+func _update_mask_path() -> void:
+	if _png_path.is_empty():
+		_mask_path = ""
+		return
+	
+	var base_path := _png_path.replace(".png", "")
+	var selected_id := 0
+	if _mask_type_option != null:
+		selected_id = _mask_type_option.get_selected_id()
+	
+	match selected_id:
+		1:  # Body
+			_mask_path = base_path + ".body.mask.png"
+		2:  # Attack
+			_mask_path = base_path + ".attack.mask.png"
+		_:  # 通用
+			_mask_path = base_path + ".mask.png"
 
 
 func set_params(alpha: float, tolerance: float) -> void:
@@ -136,6 +156,20 @@ func _build_ui() -> void:
 	_file_label.text = "文件: (未选择)"
 	_file_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_tool_panel.add_child(_file_label)
+	
+	# Mask 类型选择
+	var type_label := Label.new()
+	type_label.text = "Mask 类型:"
+	_tool_panel.add_child(type_label)
+	
+	_mask_type_option = OptionButton.new()
+	_mask_type_option.add_item("通用", 0)
+	_mask_type_option.add_item("Body", 1)
+	_mask_type_option.add_item("Attack", 2)
+	_mask_type_option.select(0)
+	_mask_type_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mask_type_option.item_selected.connect(_on_mask_type_changed)
+	_tool_panel.add_child(_mask_type_option)
 	
 	_tool_panel.add_child(HSeparator.new())
 	
@@ -474,3 +508,9 @@ func _on_clear_pressed() -> void:
 	_preview_texture.texture = null
 	_status_label.text = "Mask 已清除"
 	_status_label.add_theme_color_override("font_color", Color.CYAN)
+
+
+func _on_mask_type_changed(_idx: int) -> void:
+	_update_mask_path()
+	if not _png_path.is_empty():
+		_load_images()
