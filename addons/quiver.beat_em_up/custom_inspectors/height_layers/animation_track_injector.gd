@@ -866,7 +866,11 @@ func convert_body_contours(
 		result.errors.append("未发现 body 形状节点")
 		return result
 	
-	# 4. 对每个 body shape 节点执行转换
+	# 4. 对每个 body shape 节点执行转换（阶段 1：收集数据 + per-shape tracks）
+	var all_shape_data := {}  # { shape_path: frames_data }
+	var skin_scene_path := skin_node.scene_file_path
+	var is_single_file_mode := not target_file_path.is_empty()
+	
 	for node_info in body_nodes:
 		# 4a. 找出引用了这个 shape_node 的动画
 		var relevant_anims: Array[String] = []
@@ -959,8 +963,6 @@ func convert_body_contours(
 			return result
 		
 		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
-		var skin_scene_path := skin_node.scene_file_path
-		var is_single_file_mode := not target_file_path.is_empty()
 		if is_single_file_mode:
 			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
@@ -974,12 +976,20 @@ func convert_body_contours(
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
 		
-		# 4g. 注入 Animation tracks（统一函数）
+		# 4g. 注入 per-shape Animation tracks（不包含共享 track）
 		if anim_player != null:
 			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
 		
-		# 4h. 保存当前节点的 frames_data
+		# 4h. 收集数据用于后续共享 track 写入
+		all_shape_data[node_info["shape_path"]] = frames_data
 		result.frames_info = frames_data
+	
+	# 5. 阶段 2：统一写入共享 track（只写一次，确保幂等性）
+	if anim_player != null and not dry_run:
+		# Body 通常只有一个 shape，但为一致性也使用统一写入
+		for shape_path in all_shape_data:
+			_inject_shared_body_tracks_once(anim_player, sprite_frames, all_shape_data[shape_path], is_single_file_mode, result.errors)
+			break  # 只处理第一个 body shape 的数据
 	
 	return result
 
@@ -1030,7 +1040,11 @@ func convert_attack_contours(
 	if attack_nodes.is_empty():
 		return result
 	
-	# 4. 对每个 attack shape 节点执行转换
+	# 4. 对每个 attack shape 节点执行转换（阶段 1：收集数据 + per-shape tracks）
+	var all_shape_data := {}  # { shape_path: frames_data }
+	var skin_scene_path := skin_node.scene_file_path
+	var is_single_file_mode := not target_file_path.is_empty()
+	
 	for node_info in attack_nodes:
 		# 4a. 找出引用了这个 shape_node 的动画
 		var relevant_anims: Array[String] = []
@@ -1125,8 +1139,6 @@ func convert_attack_contours(
 			return result
 		
 		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
-		var skin_scene_path := skin_node.scene_file_path
-		var is_single_file_mode := not target_file_path.is_empty()
 		if is_single_file_mode:
 			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
@@ -1143,12 +1155,17 @@ func convert_attack_contours(
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
 		
-		# 4g. 注入 Animation tracks（统一函数）
+		# 4g. 注入 per-shape Animation tracks（不包含共享 track）
 		if anim_player != null:
 			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
 		
-		# 4h. 保存当前节点的 frames_data
+		# 4h. 收集数据用于后续共享 track 写入
+		all_shape_data[node_info["shape_path"]] = frames_data
 		result.frames_info = frames_data
+	
+	# 5. 阶段 2：统一写入共享 track（只写一次，确保幂等性）
+	if anim_player != null and not dry_run:
+		_inject_shared_attack_tracks_once(anim_player, sprite_frames, all_shape_data, is_single_file_mode, result.errors)
 	
 	return result
 
@@ -1850,6 +1867,95 @@ func _build_frame_filter_for_node(
 	return filter
 
 
+## 统一写入 Attack 共享 track（只写一次，确保幂等性）
+##
+## 合并所有 shape 的 attack_heights 数据，写入 .:attack_heights track
+func _inject_shared_attack_tracks_once(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	all_shape_data: Dictionary,  # { shape_path: frames_data }
+	is_single_file_mode: bool,
+	errors: Array[String]
+) -> void:
+	# 合并所有 shape 的 attack_heights
+	var merged_heights := {}  # { sprite_anim: { frame_idx: attack_heights } }
+	for shape_path in all_shape_data:
+		var frames_data: Dictionary = all_shape_data[shape_path]
+		for sprite_anim in frames_data:
+			if not merged_heights.has(sprite_anim):
+				merged_heights[sprite_anim] = {}
+			for frame_idx in frames_data[sprite_anim]:
+				var frame_info: Dictionary = frames_data[sprite_anim][frame_idx]
+				var heights: Array = frame_info.get("attack_heights", [])
+				# 如果同一帧有多个 shape 的数据，取第一个（通常不会发生）
+				if not merged_heights[sprite_anim].has(frame_idx):
+					merged_heights[sprite_anim][frame_idx] = heights
+	
+	# 写入 .:attack_heights track（只写一次）
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not merged_heights.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = merged_heights[sprite_anim_name]
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 统一写入 Body 共享 track（只写一次，确保幂等性）
+##
+## 写入 .:physical_width 和 .:physical_height track
+func _inject_shared_body_tracks_once(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	frames_data: Dictionary,  # { sprite_anim: { frame_idx: frame_info } }
+	is_single_file_mode: bool,
+	errors: Array[String]
+) -> void:
+	# 写入 .:physical_width 和 .:physical_height track（只写一次）
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+			_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
 ## 统一 track 注入函数
 ##
 ## 根据 shape_type 和 ShapeNodeInfo 动态生成 track 路径并注入
@@ -1890,16 +1996,9 @@ func _inject_tracks(
 				_remove_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
 			
 			# 额外 tracks（必须在 shape tracks 之前处理，避免删除操作影响 track_indices）
-			if shape_info["category"] == "body":
-				# physical_width track（Skin 节点自身属性）
-				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-				_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-			
+			# 注意：共享 track（physical_width, physical_height, attack_heights）已移至外部统一写入
 			if shape_info["category"] == "attack":
 				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
-				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-				_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			# 创建/查找当前形状类型的 track（必须在额外 tracks 之后，避免被删除操作影响）
 			var track_indices := {}
