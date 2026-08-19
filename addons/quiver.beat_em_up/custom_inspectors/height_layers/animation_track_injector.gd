@@ -55,17 +55,17 @@ const SHAPE_CONFIGS := {
 	},
 	ShapeType.CAPSULE: {
 		"node_type": "CollisionShape2D",
-		"tracks": ["shape.radius", "shape.height", "position", "rotation"],
+		"tracks": ["shape:radius", "shape:height", "position", "rotation"],
 	},
 	ShapeType.RECTANGLE: {
 		"node_type": "CollisionShape2D",
-		"tracks": ["shape.size", "position", "rotation"],
+		"tracks": ["shape:size", "position", "rotation"],
 	},
 }
 
 # 所有形状属性的并集（用于清理旧 track）
 const ALL_SHAPE_PROPS := [
-	"polygon", "shape.size", "shape.radius", "shape.height", "position", "rotation"
+	"polygon", "shape:size", "shape:radius", "shape:height", "position", "rotation"
 ]
 
 # 场景树发现路径（仅有的硬编码）
@@ -871,11 +871,10 @@ func convert_body_contours(
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4b. 扫描轮廓（Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius）
-		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+		# 4b. 扫描轮廓（始终使用 erosion=0，获取原始轮廓用于 polygon track）
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			[], frame_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
+			[], frame_filter, "body", callback_obj, result.errors, target_file_path, 0
 		)
 		
 		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
@@ -893,18 +892,43 @@ func convert_body_contours(
 				for contour in raw:
 					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 				frame["contours"] = local_contours
+				
+				# 如果 Capsule/Rectangle 模式且 erosion_radius > 0，提取腐蚀后的轮廓用于 MABR
+				if shape_type != ShapeType.POLYGON and erosion_radius > 0:
+					# 重新提取腐蚀后的轮廓
+					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
+					var mask: Image = null
+					var mask_path := frame["png_path"].replace(".png", ".mask.png")
+					if FileAccess.file_exists(mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+					
+					var eroded_raw := ContourTracer.trace_contours(
+						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
+					)
+					var eroded_local: Array[PackedVector2Array] = []
+					for contour in eroded_raw:
+						eroded_local.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+					
+					if eroded_local.size() > 0 and eroded_local[0].size() >= 3:
+						var mabr := ContourTracer.calc_mabr(eroded_local[0])
+						frame["mabr"] = mabr
+						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+						frame["rectangle"] = {
+							"size": mabr.size,
+							"angle": mabr.angle,
+						}
+				else:
+					# Polygon 模式或无腐蚀，基于原始轮廓计算 MABR
+					if local_contours.size() > 0 and local_contours[0].size() >= 3:
+						var mabr := ContourTracer.calc_mabr(local_contours[0])
+						frame["mabr"] = mabr
+						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+						frame["rectangle"] = {
+							"size": mabr.size,
+							"angle": mabr.angle,
+						}
+				
 				frame.erase("raw_contours")
-				
-				# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
-				if local_contours.size() > 0 and local_contours[0].size() >= 3:
-					var mabr := ContourTracer.calc_mabr(local_contours[0])
-					frame["mabr"] = mabr
-					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-					frame["rectangle"] = {
-						"size": mabr.size,
-						"angle": mabr.angle,
-					}
-				
 				result.frame_count += 1
 		
 		# 4d. 如果 dry_run，返回预览结果
@@ -991,8 +1015,7 @@ func convert_attack_contours(
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4b. 扫描轮廓（只处理有 enabled_frames 的动画）
-		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+		# 4b. 扫描轮廓（始终使用 erosion=0，获取原始轮廓用于 polygon track）
 		var filter_anims: Array[String] = []
 		for anim_name in frame_filter.keys():
 			var filter_info: Dictionary = frame_filter[anim_name]
@@ -1001,7 +1024,7 @@ func convert_attack_contours(
 		
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			filter_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
+			filter_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, 0
 		)
 		
 		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
@@ -1020,17 +1043,43 @@ func convert_attack_contours(
 				for contour in raw:
 					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 				frame["contours"] = local_contours
-				frame.erase("raw_contours")
 				
-				# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
-				if local_contours.size() > 0 and local_contours[0].size() >= 3:
-					var mabr := ContourTracer.calc_mabr(local_contours[0])
-					frame["mabr"] = mabr
-					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-					frame["rectangle"] = {
-						"size": mabr.size,
-						"angle": mabr.angle,
-					}
+				# 如果 Capsule/Rectangle 模式且 erosion_radius > 0，提取腐蚀后的轮廓用于 MABR
+				if shape_type != ShapeType.POLYGON and erosion_radius > 0:
+					# 重新提取腐蚀后的轮廓
+					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
+					var mask: Image = null
+					var mask_path := frame["png_path"].replace(".png", ".mask.png")
+					if FileAccess.file_exists(mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+					
+					var eroded_raw := ContourTracer.trace_contours(
+						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
+					)
+					var eroded_local: Array[PackedVector2Array] = []
+					for contour in eroded_raw:
+						eroded_local.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+					
+					if eroded_local.size() > 0 and eroded_local[0].size() >= 3:
+						var mabr := ContourTracer.calc_mabr(eroded_local[0])
+						frame["mabr"] = mabr
+						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+						frame["rectangle"] = {
+							"size": mabr.size,
+							"angle": mabr.angle,
+						}
+				else:
+					# Polygon 模式或无腐蚀，基于原始轮廓计算 MABR
+					if local_contours.size() > 0 and local_contours[0].size() >= 3:
+						var mabr := ContourTracer.calc_mabr(local_contours[0])
+						frame["mabr"] = mabr
+						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+						frame["rectangle"] = {
+							"size": mabr.size,
+							"angle": mabr.angle,
+						}
+				
+				frame.erase("raw_contours")
 				
 				result.frame_count += 1
 		
@@ -1864,11 +1913,21 @@ func _inject_tracks(
 			if frame_dict.is_empty():
 				continue
 			
-			# 全量模式：清理其他形状类型的旧属性 track
+			# 全量模式：清理所有形状相关的旧 tracks
 			if not is_single_file_mode:
 				var remove_paths: Array[String] = []
-				for prop in other_props:
+				
+				# 删除所有形状属性（包括当前类型和其他类型）
+				for prop in ALL_SHAPE_PROPS:
 					remove_paths.append(shape_info["shape_path"] + ":" + prop)
+				
+				# 删除额外 tracks（与形状类型无关）
+				if shape_info["category"] == "body":
+					remove_paths.append(TRACK_PATH_PHYSICAL_WIDTH)
+					remove_paths.append(TRACK_PATH_PHYSICAL_HEIGHT)
+				else:
+					remove_paths.append(TRACK_PATH_ATTACK_HEIGHTS)
+				
 				_remove_tracks_by_path(anim, remove_paths)
 			
 			# 创建/查找当前形状类型的 track
@@ -1887,10 +1946,13 @@ func _inject_tracks(
 				# physical_width track（Skin 节点自身属性）
 				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 				_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			if shape_info["category"] == "attack":
 				# Attack 节点 position track（跟随 sprite 位置）
 				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
+				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+				_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			# 提取 flip_h track 数据
 			var flip_track_data := _extract_flip_h_track(anim)
@@ -1908,7 +1970,7 @@ func _inject_tracks(
 				var time: float = float(frame_idx) * frame_duration
 				
 				for prop in shape_tracks:
-					var value := _get_track_value(prop, frame_info, flip_track_data, time)
+					var value := _get_track_value(prop, frame_info, shape_type, flip_track_data, time)
 					if value == null:
 						continue
 					
@@ -1934,6 +1996,7 @@ func _inject_tracks(
 func _get_track_value(
 	prop: String,
 	frame_info: Dictionary,
+	shape_type: int,
 	flip_track_data: Array,
 	time: float
 ) -> Variant:
@@ -1948,30 +2011,48 @@ func _get_track_value(
 			return _mirror_polygon_x(polygon) if is_flipped else polygon
 		
 		"position":
-			if not frame_info.has("mabr"):
-				return null
-			var center: Vector2 = frame_info["mabr"]["center"]
-			if is_flipped:
-				center.x = -center.x
-			return center
+			if shape_type == ShapeType.POLYGON:
+				return Vector2(0, 0)  # Polygon 固定值
+			elif shape_type == ShapeType.CAPSULE:
+				if not frame_info.has("capsule"):
+					return null
+				var center: Vector2 = frame_info["capsule"]["center"]
+				if is_flipped:
+					center.x = -center.x
+				return center
+			else:  # RECTANGLE
+				if not frame_info.has("mabr"):
+					return null
+				var center: Vector2 = frame_info["mabr"]["center"]
+				if is_flipped:
+					center.x = -center.x
+				return center
 		
 		"rotation":
-			if not frame_info.has("mabr"):
-				return null
-			var angle: float = frame_info["mabr"]["angle"]
-			return -angle if is_flipped else angle
+			if shape_type == ShapeType.POLYGON:
+				return 0.0  # Polygon 固定值
+			elif shape_type == ShapeType.CAPSULE:
+				if not frame_info.has("capsule"):
+					return null
+				var angle: float = frame_info["capsule"]["angle"]
+				return -angle if is_flipped else angle
+			else:  # RECTANGLE
+				if not frame_info.has("mabr"):
+					return null
+				var angle: float = frame_info["mabr"]["angle"]
+				return -angle if is_flipped else angle
 		
-		"shape.radius":
+		"shape:radius":
 			if not frame_info.has("capsule"):
 				return null
 			return frame_info["capsule"]["radius"]
 		
-		"shape.height":
+		"shape:height":
 			if not frame_info.has("capsule"):
 				return null
 			return frame_info["capsule"]["height"]
 		
-		"shape.size":
+		"shape:size":
 			if not frame_info.has("rectangle"):
 				return null
 			return frame_info["rectangle"]["size"]
@@ -2006,6 +2087,33 @@ func _inject_width_track(
 			prev_width = current_width
 
 
+## 注入 Body 的 physical_height track
+func _inject_physical_height_track(
+	anim: Animation,
+	frame_dict: Dictionary,
+	sprite_fps: float,
+	is_single_file_mode: bool
+) -> void:
+	var height_track_idx: int
+	if is_single_file_mode:
+		height_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
+	else:
+		height_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
+	
+	var prev_height: float = -1.0
+	
+	for frame_idx in frame_dict.keys():
+		var frame_info: Dictionary = frame_dict[frame_idx]
+		var current_height: float = frame_info.get("physical_height", 0.0)
+		
+		if current_height != prev_height:
+			var time: float = float(frame_idx) * (1.0 / sprite_fps)
+			if is_single_file_mode:
+				_remove_key_at_time(anim, height_track_idx, time)
+			anim.track_insert_key(height_track_idx, time, current_height)
+			prev_height = current_height
+
+
 ## 注入 Attack 节点的 position track（跟随 sprite 位置）
 func _inject_attack_node_position(
 	anim: Animation,
@@ -2031,6 +2139,33 @@ func _inject_attack_node_position(
 				anim.track_insert_key(attack_pos_track_idx, time, value)
 		else:
 			anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
+
+
+## 注入 Attack 的 attack_heights track
+func _inject_attack_heights_track(
+	anim: Animation,
+	frame_dict: Dictionary,
+	sprite_fps: float,
+	is_single_file_mode: bool
+) -> void:
+	var heights_track_idx: int
+	if is_single_file_mode:
+		heights_track_idx = _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
+	else:
+		heights_track_idx = _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
+	
+	var prev_heights: Array = []
+	
+	for frame_idx in frame_dict.keys():
+		var frame_info: Dictionary = frame_dict[frame_idx]
+		var current_heights: Array = frame_info.get("attack_heights", [])
+		
+		if current_heights != prev_heights:
+			var time: float = float(frame_idx) * (1.0 / sprite_fps)
+			if is_single_file_mode:
+				_remove_key_at_time(anim, heights_track_idx, time)
+			anim.track_insert_key(heights_track_idx, time, current_heights)
+			prev_heights = current_heights
 
 
 ## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
