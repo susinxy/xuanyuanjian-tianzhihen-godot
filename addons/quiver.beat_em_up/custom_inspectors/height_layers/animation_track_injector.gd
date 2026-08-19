@@ -1210,6 +1210,61 @@ func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int, at
 	return false
 
 
+## 检测 .tscn 中指定形状节点的当前类型
+## 返回 ShapeType 枚举值，-1 表示未找到或无法识别
+func _detect_current_shape_type(tscn_path: String, shape_name: String) -> int:
+	if not FileAccess.file_exists(tscn_path):
+		return -1
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		return -1
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	# 检查是否为 CollisionPolygon2D
+	var polygon_pattern := RegEx.new()
+	polygon_pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
+	if polygon_pattern.search(content) != null:
+		return ShapeType.POLYGON
+	
+	# 检查是否为 CollisionShape2D
+	var shape_pattern := RegEx.new()
+	shape_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+	var shape_match := shape_pattern.search(content)
+	
+	if shape_match != null:
+		var node_content := shape_match.get_string(0)
+		
+		# 检查 shape 属性引用的 SubResource 类型
+		var sub_ref_pattern := RegEx.new()
+		sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
+		var sub_ref_match := sub_ref_pattern.search(node_content)
+		
+		if sub_ref_match != null:
+			var sub_id := sub_ref_match.get_string(1)
+			
+			# 查找对应的 SubResource 定义
+			var capsule_pattern := RegEx.new()
+			capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="%s"\\]' % sub_id)
+			if capsule_pattern.search(content) != null:
+				return ShapeType.CAPSULE
+			
+			var rectangle_pattern := RegEx.new()
+			rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]' % sub_id)
+			if rectangle_pattern.search(content) != null:
+				return ShapeType.RECTANGLE
+	
+	return -1  # 未找到或无法识别
+
+
+## 生成确定性的 SubResource ID
+## 基于前缀和节点名生成唯一的 ID，确保多次运行结果一致
+func _generate_subresource_id(prefix: String, node_name: String) -> String:
+	return prefix + "_" + (prefix + "_" + node_name).sha1_text().substr(0, 16)
+
+
 
 ## 根据 sprite_anim_name 确定对应的 Attack 节点名
 func _get_attack_node_name(sprite_anim_name: String) -> String:
@@ -1678,7 +1733,7 @@ func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
 			node_type = "CollisionPolygon2D"
 		elif shape_node is CollisionShape2D:
 			node_type = "CollisionShape2D"
-		initial_disabled = shape_node.disabled if shape_node.has_method("get") and "disabled" in shape_node else true
+		initial_disabled = shape_node.disabled if "disabled" in shape_node else false
 	
 	return {
 		"shape_path": node_path,
@@ -1747,7 +1802,7 @@ func _build_frame_filter_for_node(
 				continue
 			
 			# 查找该 shape 的 disabled track
-			var disabled_path := shape_info["shape_path"] + ":disabled"
+			var disabled_path: String = shape_info["shape_path"] + ":disabled"
 			var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
 			
 			if disabled_track_idx >= 0:
@@ -1812,7 +1867,7 @@ func _inject_tracks(
 			# 创建/查找当前形状类型的 track
 			var track_indices := {}
 			for prop in shape_tracks:
-				var path := shape_info["shape_path"] + ":" + prop
+				var path: String = shape_info["shape_path"] + ":" + prop
 				var track_idx: int
 				if is_single_file_mode:
 					track_idx = _find_or_add_value_track(anim, path)
@@ -1886,13 +1941,17 @@ func _get_track_value(
 			return _mirror_polygon_x(polygon) if is_flipped else polygon
 		
 		"position":
-			var center: Vector2 = frame_info.get("center", Vector2.ZERO)
+			if not frame_info.has("mabr"):
+				return null
+			var center: Vector2 = frame_info["mabr"]["center"]
 			if is_flipped:
 				center.x = -center.x
 			return center
 		
 		"rotation":
-			var angle: float = frame_info.get("angle", 0.0)
+			if not frame_info.has("mabr"):
+				return null
+			var angle: float = frame_info["mabr"]["angle"]
 			return -angle if is_flipped else angle
 		
 		"shape.radius":
@@ -1946,7 +2005,7 @@ func _inject_attack_node_position(
 	shape_info: Dictionary,
 	is_single_file_mode: bool
 ) -> void:
-	var attack_node_path := shape_info["parent_path"] + ":position"
+	var attack_node_path: String = shape_info["parent_path"] + ":position"
 	var attack_pos_track_idx: int
 	
 	if is_single_file_mode:
@@ -1973,8 +2032,8 @@ func _inject_visible_track(
 	shape_info: Dictionary,
 	is_single_file_mode: bool
 ) -> void:
-	var visible_path := shape_info["parent_path"] + ":visible"
-	var disabled_path := shape_info["shape_path"] + ":disabled"
+	var visible_path: String = shape_info["parent_path"] + ":visible"
+	var disabled_path: String = shape_info["shape_path"] + ":disabled"
 	
 	var visible_track_idx: int
 	if is_single_file_mode:
