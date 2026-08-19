@@ -730,8 +730,9 @@ func _scan_frames_contours(
 	# 第一遍：预统计要处理的帧列表
 	var frames_to_process := []
 	for sprite_anim_name in sprite_frames.get_animation_names():
-		# 过滤：如果 filter_anims 非空，只处理列表中的动画
-		if not filter_anims.is_empty() and sprite_anim_name not in filter_anims:
+		# 过滤：只处理 filter_anims 中的动画
+		# 如果 filter_anims 为空，则不处理任何动画
+		if sprite_anim_name not in filter_anims:
 			continue
 		
 		# 帧过滤：检查 enabled_frames
@@ -861,15 +862,31 @@ func convert_body_contours(
 	
 	# 4. 对每个 body shape 节点执行转换
 	for node_info in body_nodes:
-		# 4a. 构建帧过滤映射
+		# 4a. 找出引用了这个 shape_node 的动画
+		var relevant_anims: Array[String] = []
+		if anim_player != null:
+			for lib_name in anim_player.get_animation_library_list():
+				var library := anim_player.get_animation_library(lib_name)
+				if library == null:
+					continue
+				for anim_name in library.get_animation_list():
+					var anim := library.get_animation(anim_name)
+					if anim == null:
+						continue
+					if _animation_references_shape(anim, node_info):
+						var sprite_anim_name := _find_sprite_anim_name(anim)
+						if not sprite_anim_name.is_empty():
+							relevant_anims.append(sprite_anim_name)
+		
+		# 4b. 构建帧过滤映射（只针对相关动画）
 		var frame_filter := {}
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4b. 扫描轮廓（始终使用 erosion=0，获取原始轮廓用于 polygon track）
+		# 4c. 扫描轮廓（只扫描相关动画，始终使用 erosion=0，获取原始轮廓用于 polygon track）
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			[], frame_filter, "body", callback_obj, result.errors, target_file_path, 0
+			relevant_anims, frame_filter, "body", callback_obj, result.errors, target_file_path, 0
 		)
 		
 		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
@@ -1009,21 +1026,31 @@ func convert_attack_contours(
 	
 	# 4. 对每个 attack shape 节点执行转换
 	for node_info in attack_nodes:
-		# 4a. 构建帧过滤映射
+		# 4a. 找出引用了这个 shape_node 的动画
+		var relevant_anims: Array[String] = []
+		if anim_player != null:
+			for lib_name in anim_player.get_animation_library_list():
+				var library := anim_player.get_animation_library(lib_name)
+				if library == null:
+					continue
+				for anim_name in library.get_animation_list():
+					var anim := library.get_animation(anim_name)
+					if anim == null:
+						continue
+					if _animation_references_shape(anim, node_info):
+						var sprite_anim_name := _find_sprite_anim_name(anim)
+						if not sprite_anim_name.is_empty():
+							relevant_anims.append(sprite_anim_name)
+		
+		# 4b. 构建帧过滤映射（只针对相关动画）
 		var frame_filter := {}
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4b. 扫描轮廓（始终使用 erosion=0，获取原始轮廓用于 polygon track）
-		var filter_anims: Array[String] = []
-		for anim_name in frame_filter.keys():
-			var filter_info: Dictionary = frame_filter[anim_name]
-			if filter_info.get("enabled_frames") != null:
-				filter_anims.append(anim_name)
-		
+		# 4c. 扫描轮廓（只扫描相关动画，始终使用 erosion=0，获取原始轮廓用于 polygon track）
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			filter_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, 0
+			relevant_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, 0
 		)
 		
 		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
@@ -1747,6 +1774,21 @@ func _build_info_from_node(shape_node: Node, category: String, area_node: Node, 
 		"initial_disabled": initial_disabled,
 		"node_type": node_type,
 	}
+
+
+## 检查动画是否有任何 track 引用了指定的 shape_node
+##
+## 遍历动画的所有 tracks，检查是否有任何 track 的路径以 shape_path: 开头
+## 用于确定该动画是否应该被处理
+func _animation_references_shape(anim: Animation, shape_info: Dictionary) -> bool:
+	var shape_path_prefix: String = shape_info["shape_path"] + ":"
+	
+	for track_idx in range(anim.get_track_count()):
+		var track_path := str(anim.track_get_path(track_idx))
+		if track_path.begins_with(shape_path_prefix):
+			return true
+	
+	return false
 
 
 ## 为指定形状节点构建帧过滤映射
