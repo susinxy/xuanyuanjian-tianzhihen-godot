@@ -1782,14 +1782,18 @@ func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
 	
 	# 尝试从场景树获取节点信息
 	var shape_node := skin_node.get_node_or_null(node_path)
+	
+	# 验证：必须是 CollisionShape2D 或 CollisionPolygon2D
+	if shape_node != null:
+		if not (shape_node is CollisionShape2D or shape_node is CollisionPolygon2D):
+			return {}  # 不是碰撞形状节点，拒绝
+	
 	var initial_disabled := true
 	var node_type := "CollisionShape2D"
 	
 	if shape_node != null:
 		if shape_node is CollisionPolygon2D:
 			node_type = "CollisionPolygon2D"
-		elif shape_node is CollisionShape2D:
-			node_type = "CollisionShape2D"
 		initial_disabled = shape_node.disabled if "disabled" in shape_node else false
 	
 	return {
