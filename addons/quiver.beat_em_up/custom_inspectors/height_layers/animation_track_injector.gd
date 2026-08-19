@@ -569,6 +569,12 @@ func _remove_key_at_time(anim: Animation, track_idx: int, time: float) -> void:
 			break
 
 
+## 清除 track 的所有关键帧（不删除 track 本身）
+func _clear_track_keys(anim: Animation, track_idx: int) -> void:
+	for i in range(anim.track_get_key_count(track_idx) - 1, -1, -1):
+		anim.track_remove_key(track_idx, i)
+
+
 ## 从跳跃和击飞动画首帧提取 speed 值，写入 QuiverAttributes
 ##
 ## 逻辑：
@@ -2019,12 +2025,9 @@ func _inject_width_track(
 	sprite_fps: float,
 	is_single_file_mode: bool
 ) -> void:
-	var width_track_idx: int
-	if is_single_file_mode:
-		width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-	else:
-		_remove_tracks_by_path(anim, [TRACK_PATH_PHYSICAL_WIDTH])
-		width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+	var width_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+	if not is_single_file_mode:
+		_clear_track_keys(anim, width_track_idx)
 	
 	var prev_width: float = -1.0
 	
@@ -2047,12 +2050,9 @@ func _inject_physical_height_track(
 	sprite_fps: float,
 	is_single_file_mode: bool
 ) -> void:
-	var height_track_idx: int
-	if is_single_file_mode:
-		height_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
-	else:
-		_remove_tracks_by_path(anim, [TRACK_PATH_PHYSICAL_HEIGHT])
-		height_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
+	var height_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
+	if not is_single_file_mode:
+		_clear_track_keys(anim, height_track_idx)
 	
 	var prev_height: float = -1.0
 	
@@ -2075,12 +2075,9 @@ func _inject_attack_heights_track(
 	sprite_fps: float,
 	is_single_file_mode: bool
 ) -> void:
-	var heights_track_idx: int
-	if is_single_file_mode:
-		heights_track_idx = _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
-	else:
-		_remove_tracks_by_path(anim, [TRACK_PATH_ATTACK_HEIGHTS])
-		heights_track_idx = _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
+	var heights_track_idx := _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
+	if not is_single_file_mode:
+		_clear_track_keys(anim, heights_track_idx)
 	
 	var prev_heights: Array = []
 	
@@ -2103,13 +2100,9 @@ func _inject_attack_node_position(
 	is_single_file_mode: bool
 ) -> void:
 	var attack_node_path: String = shape_info["parent_path"] + ":position"
-	var attack_pos_track_idx: int
-	
-	if is_single_file_mode:
-		attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
-	else:
-		_remove_tracks_by_path(anim, [attack_node_path])
-		attack_pos_track_idx = _add_value_track(anim, attack_node_path)
+	var attack_pos_track_idx := _find_or_add_value_track(anim, attack_node_path)
+	if not is_single_file_mode:
+		_clear_track_keys(anim, attack_pos_track_idx)
 	
 	# 复制 sprite position
 	var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
@@ -2132,12 +2125,9 @@ func _inject_visible_track(
 	var visible_path: String = shape_info["parent_path"] + ":visible"
 	var disabled_path: String = shape_info["shape_path"] + ":disabled"
 	
-	var visible_track_idx: int
-	if is_single_file_mode:
-		visible_track_idx = _find_or_add_value_track(anim, visible_path)
-	else:
-		_remove_tracks_by_path(anim, [visible_path])
-		visible_track_idx = _add_value_track(anim, visible_path)
+	var visible_track_idx := _find_or_add_value_track(anim, visible_path)
+	if not is_single_file_mode:
+		_clear_track_keys(anim, visible_track_idx)
 	
 	# 查找已有的 disabled track
 	var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)

@@ -37,6 +37,7 @@ var _body_contour_btn: Button
 var _attack_contour_btn: Button
 var _contour_status_label: Label
 var _contour_result_label: RichTextLabel
+var _current_contour_mode: String = "Body"
 var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
@@ -257,8 +258,7 @@ func _build_ui() -> void:
 
 ## 轮廓转换进度回调
 func _on_contour_progress(current: int, total: int, filename: String) -> void:
-	var mode_text: String = "Body" if _body_contour_btn.disabled else "Attack"
-	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [mode_text, current, filename]
+	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [_current_contour_mode, current, filename]
 
 
 ## 碰撞形状类型切换时设置默认参数
@@ -275,6 +275,7 @@ func _on_shape_type_changed(index: int) -> void:
 func _on_body_contour_pressed() -> void:
 	if _skin_node == null:
 		return
+	_current_contour_mode = "Body"
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
 	
@@ -294,6 +295,7 @@ func _on_body_contour_pressed() -> void:
 func _on_attack_contour_pressed() -> void:
 	if _skin_node == null:
 		return
+	_current_contour_mode = "Attack"
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
 	
