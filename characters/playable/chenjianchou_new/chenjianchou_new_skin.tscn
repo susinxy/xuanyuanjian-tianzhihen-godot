@@ -104,6 +104,7 @@ disabled = true
 [node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:chenjianchou_new"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(53, -165)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
@@ -116,7 +117,7 @@ disabled = true
 [node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:chenjianchou_new"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(18, -157)
+position = Vector2(53, -165)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
