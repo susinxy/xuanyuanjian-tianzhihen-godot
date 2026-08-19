@@ -898,9 +898,13 @@ func convert_body_contours(
 					# 重新提取腐蚀后的轮廓
 					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
 					var mask: Image = null
-					var mask_path := frame["png_path"].replace(".png", ".mask.png")
-					if FileAccess.file_exists(mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+					var base_path := frame["png_path"].replace(".png", "")
+					var specific_mask_path := base_path + ".body.mask.png"
+					var generic_mask_path := base_path + ".mask.png"
+					if FileAccess.file_exists(specific_mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
+					elif FileAccess.file_exists(generic_mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
 					
 					var eroded_raw := ContourTracer.trace_contours(
 						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
@@ -1049,9 +1053,13 @@ func convert_attack_contours(
 					# 重新提取腐蚀后的轮廓
 					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
 					var mask: Image = null
-					var mask_path := frame["png_path"].replace(".png", ".mask.png")
-					if FileAccess.file_exists(mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+					var base_path := frame["png_path"].replace(".png", "")
+					var specific_mask_path := base_path + ".attack.mask.png"
+					var generic_mask_path := base_path + ".mask.png"
+					if FileAccess.file_exists(specific_mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
+					elif FileAccess.file_exists(generic_mask_path):
+						mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
 					
 					var eroded_raw := ContourTracer.trace_contours(
 						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
@@ -1891,9 +1899,6 @@ func _inject_tracks(
 ) -> void:
 	var config: Dictionary = SHAPE_CONFIGS[shape_type]
 	var shape_tracks: Array = config["tracks"]
-	
-	# 计算其他形状类型的属性（用于清理）
-	var other_props: Array = ALL_SHAPE_PROPS.filter(func(p): return p not in shape_tracks)
 	
 	for lib_name in anim_player.get_animation_library_list():
 		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
