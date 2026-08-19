@@ -898,9 +898,9 @@ func convert_body_contours(
 					# 重新提取腐蚀后的轮廓
 					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
 					var mask: Image = null
-					var base_path := frame["png_path"].replace(".png", "")
-					var specific_mask_path := base_path + ".body.mask.png"
-					var generic_mask_path := base_path + ".mask.png"
+					var base_path: String = str(frame["png_path"]).replace(".png", "")
+					var specific_mask_path: String = base_path + ".body.mask.png"
+					var generic_mask_path: String = base_path + ".mask.png"
 					if FileAccess.file_exists(specific_mask_path):
 						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
 					elif FileAccess.file_exists(generic_mask_path):
@@ -1053,9 +1053,9 @@ func convert_attack_contours(
 					# 重新提取腐蚀后的轮廓
 					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
 					var mask: Image = null
-					var base_path := frame["png_path"].replace(".png", "")
-					var specific_mask_path := base_path + ".attack.mask.png"
-					var generic_mask_path := base_path + ".mask.png"
+					var base_path: String = str(frame["png_path"]).replace(".png", "")
+					var specific_mask_path: String = base_path + ".attack.mask.png"
+					var generic_mask_path: String = base_path + ".mask.png"
 					if FileAccess.file_exists(specific_mask_path):
 						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
 					elif FileAccess.file_exists(generic_mask_path):
