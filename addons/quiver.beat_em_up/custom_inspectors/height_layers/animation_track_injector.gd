@@ -1479,6 +1479,20 @@ func _remove_tracks_by_path(anim: Animation, paths: Array[String]) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
+## 删除所有匹配路径前缀的 tracks
+## 例如：prefix = "Attacks/Attack1/Attack1Shape:" 会删除该 shape 的所有属性 tracks
+func _remove_tracks_by_path_prefix(anim: Animation, prefix: String) -> void:
+	var tracks_to_remove := []
+	
+	for track_idx in range(anim.get_track_count()):
+		var track_path := str(anim.track_get_path(track_idx))
+		if track_path.begins_with(prefix):
+			tracks_to_remove.append(track_idx)
+	
+	for i in range(tracks_to_remove.size() - 1, -1, -1):
+		anim.remove_track(tracks_to_remove[i])
+
+
 ## 提取动画中 flip_h track 的所有 keyframe
 ##
 ## 返回: [{time: float, value: bool}, ...]
@@ -1818,15 +1832,10 @@ func _inject_tracks(
 			if frame_dict.is_empty():
 				continue
 			
-			# 全量模式：基于检测到的当前类型，精确删除旧 shape tracks
+			# 全量模式：删除该 shape 节点的所有 shape 相关 tracks
+			# 不区分类型，删除所有可能的 shape 属性（polygon, position, rotation, shape:*）
 			if not is_single_file_mode:
-				var remove_paths: Array[String] = []
-				var current_type := _detect_current_shape_type(tscn_path, shape_info["shape_name"])
-				if current_type != -1:
-					var old_config: Dictionary = SHAPE_CONFIGS[current_type]
-					for prop in old_config["tracks"]:
-						remove_paths.append(shape_info["shape_path"] + ":" + prop)
-				_remove_tracks_by_path(anim, remove_paths)
+				_remove_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
 			
 			# 创建/查找当前形状类型的 track
 			var track_indices := {}
