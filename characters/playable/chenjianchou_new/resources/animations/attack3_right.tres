@@ -246,17 +246,3 @@ tracks/19/keys = {
 "update": 1,
 "values": [0.0]
 }
-tracks/20/type = "value"
-tracks/20/imported = false
-tracks/20/enabled = true
-tracks/20/path = NodePath("AnimatedSprite2D/HurtBox:position")
-tracks/20/interp = 0
-tracks/20/loop_wrap = true
-tracks/20/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(0, 0)]
-}
-metadata/mirrored_name = "attack3_left.tres"
-metadata/should_overwrite = true
