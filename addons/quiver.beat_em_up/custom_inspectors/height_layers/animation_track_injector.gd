@@ -931,8 +931,10 @@ func convert_body_contours(
 		# 4g. 注入 Animation tracks（统一函数）
 		if anim_player != null:
 			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
+		
+		# 4h. 保存当前节点的 frames_data
+		result.frames_info = frames_data
 	
-	result.frames_info = frames_data
 	return result
 
 
@@ -1049,15 +1051,20 @@ func convert_attack_contours(
 				return result
 		
 		# 4f. 修改 skin .tscn（仅类型不匹配时）
-		if _needs_attack_tscn_conversion(skin_scene_path, shape_type):
+		var attack_shape_names: Array[String] = []
+		for attack_node_info in attack_nodes:
+			attack_shape_names.append(attack_node_info["shape_name"])
+		if _needs_attack_tscn_conversion(skin_scene_path, shape_type, attack_shape_names):
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
 		
 		# 4g. 注入 Animation tracks（统一函数）
 		if anim_player != null:
 			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
+		
+		# 4h. 保存当前节点的 frames_data
+		result.frames_info = frames_data
 	
-	result.frames_info = frames_data
 	return result
 
 
@@ -1186,9 +1193,15 @@ func _insert_node_after_parent(content: String, parent_name: String, new_node: S
 
 ## 检测 Attack 的 .tscn 是否需要转换
 ## 返回 true 表示至少有一个 AttackXShape 的类型与目标类型不匹配
-func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
-	var attack_shapes := ["Attack1Shape", "Attack2Shape", "Attack3Shape", "AttackAirShape"]
-	for shape_name in attack_shapes:
+func _needs_body_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
+	var current_type := _detect_current_shape_type(tscn_path, "HurtShape")
+	if current_type == -1:
+		return true  # 节点不存在，需要创建
+	return current_type != target_shape_type
+
+
+func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int, attack_shape_names: Array[String]) -> bool:
+	for shape_name in attack_shape_names:
 		var current_type := _detect_current_shape_type(tscn_path, shape_name)
 		if current_type == -1:
 			continue  # 节点不存在，跳过（可能该攻击类型未使用）
@@ -1622,7 +1635,7 @@ func _discover_from_scene_tree(skin_node: Node) -> Array:
 	if hurt_box != null:
 		for child in hurt_box.get_children():
 			if child is CollisionShape2D or child is CollisionPolygon2D:
-				discovered.append(_build_info_from_node(child, "body", hurt_box))
+				discovered.append(_build_info_from_node(child, "body", hurt_box, skin_node))
 	
 	# Attack: Attacks 下的 Area2D 子节点
 	var attacks := skin_node.get_node_or_null(ATTACKS_PATH)
@@ -1631,7 +1644,7 @@ func _discover_from_scene_tree(skin_node: Node) -> Array:
 			if child is Area2D:
 				for shape_child in child.get_children():
 					if shape_child is CollisionShape2D or shape_child is CollisionPolygon2D:
-						discovered.append(_build_info_from_node(shape_child, "attack", child))
+						discovered.append(_build_info_from_node(shape_child, "attack", child, skin_node))
 	
 	return discovered
 
@@ -1679,10 +1692,10 @@ func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
 
 
 ## 从场景树节点构建 ShapeNodeInfo
-func _build_info_from_node(shape_node: Node, category: String, area_node: Node) -> Dictionary:
-	var shape_path := str(shape_node.get_path()).replace(str(shape_node.get_tree().root.get_path()) + "/", "")
+func _build_info_from_node(shape_node: Node, category: String, area_node: Node, skin_node: Node) -> Dictionary:
+	var shape_path := str(skin_node.get_path_to(shape_node))
 	var shape_name: String = shape_node.name
-	var parent_path := str(area_node.get_path()).replace(str(area_node.get_tree().root.get_path()) + "/", "")
+	var parent_path := str(skin_node.get_path_to(area_node))
 	var area_node_name: String = area_node.name
 	
 	var initial_disabled := true
@@ -1810,7 +1823,8 @@ func _inject_tracks(
 			# 额外 tracks
 			if shape_info["category"] == "body":
 				# physical_width track（Skin 节点自身属性）
-				_inject_width_track(anim, frame_dict, is_single_file_mode)
+				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+				_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			if shape_info["category"] == "attack":
 				# Attack 节点 position track（跟随 sprite 位置）
@@ -1903,6 +1917,7 @@ func _get_track_value(
 func _inject_width_track(
 	anim: Animation,
 	frame_dict: Dictionary,
+	sprite_fps: float,
 	is_single_file_mode: bool
 ) -> void:
 	var width_track_idx: int
@@ -1918,7 +1933,7 @@ func _inject_width_track(
 		var current_width: float = frame_info.get("width", 0.0)
 		
 		if current_width != prev_width:
-			var time: float = float(frame_idx) * (1.0 / 24.0)
+			var time: float = float(frame_idx) * (1.0 / sprite_fps)
 			if is_single_file_mode:
 				_remove_key_at_time(anim, width_track_idx, time)
 			anim.track_insert_key(width_track_idx, time, current_width)
