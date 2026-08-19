@@ -1876,7 +1876,11 @@ func _build_frame_filter_for_node(
 			if disabled_track_idx >= 0:
 				# 有 disabled track：解析离散模式，返回 disabled=false 的帧
 				var enabled_frames: Array = _parse_disabled_track(anim, disabled_track_idx, sprite_anim_name, skin_node)
-				filter[sprite_anim_name] = { "enabled_frames": enabled_frames }
+				if enabled_frames.is_empty():
+					# 有 disabled track 但所有帧都是 disabled=true → 跳过
+					filter[sprite_anim_name] = { "enabled_frames": null }
+				else:
+					filter[sprite_anim_name] = { "enabled_frames": enabled_frames }
 			else:
 				# 没有 disabled track：读取节点初始 disabled 值
 				if not shape_info["initial_disabled"]:
@@ -1958,8 +1962,6 @@ func _inject_tracks(
 				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			if shape_info["category"] == "attack":
-				# Attack 节点 position track（跟随 sprite 位置）
-				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
 				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 				_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
@@ -2121,33 +2123,6 @@ func _inject_physical_height_track(
 				_remove_key_at_time(anim, height_track_idx, time)
 			anim.track_insert_key(height_track_idx, time, current_height)
 			prev_height = current_height
-
-
-## 注入 Attack 节点的 position track（跟随 sprite 位置）
-func _inject_attack_node_position(
-	anim: Animation,
-	shape_info: Dictionary,
-	is_single_file_mode: bool
-) -> void:
-	var attack_node_path: String = shape_info["parent_path"] + ":position"
-	var attack_pos_track_idx: int
-	
-	if is_single_file_mode:
-		attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
-	else:
-		attack_pos_track_idx = _add_value_track(anim, attack_node_path)
-	
-	# 只在非单文件模式下复制 sprite position
-	if not is_single_file_mode:
-		var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
-		if sprite_pos_track_idx >= 0:
-			var key_count := anim.track_get_key_count(sprite_pos_track_idx)
-			for i in key_count:
-				var time := anim.track_get_key_time(sprite_pos_track_idx, i)
-				var value := anim.track_get_key_value(sprite_pos_track_idx, i)
-				anim.track_insert_key(attack_pos_track_idx, time, value)
-		else:
-			anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
 
 
 ## 注入 Attack 的 attack_heights track
