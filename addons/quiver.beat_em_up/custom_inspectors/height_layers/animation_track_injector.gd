@@ -1748,10 +1748,17 @@ func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
 
 ## 从场景树节点构建 ShapeNodeInfo
 func _build_info_from_node(shape_node: Node, category: String, area_node: Node, skin_node: Node) -> Dictionary:
-	var shape_path := str(skin_node.get_path_to(shape_node))
 	var shape_name: String = shape_node.name
-	var parent_path := str(skin_node.get_path_to(area_node))
 	var area_node_name: String = area_node.name
+	
+	# 手动拼接路径，确保与 track 路径格式一致（避免 get_path_to 产生 "./" 前缀）
+	var parent_path: String
+	if category == "body":
+		parent_path = BODY_BOX_PATH  # "AnimatedSprite2D/HurtBox"
+	else:
+		parent_path = ATTACKS_PATH + "/" + area_node_name  # "Attacks/Attack1"
+	
+	var shape_path: String = parent_path + "/" + shape_name
 	
 	var initial_disabled := true
 	if "disabled" in shape_node:
