@@ -1479,14 +1479,18 @@ func _remove_tracks_by_path(anim: Animation, paths: Array[String]) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
-## 删除所有匹配路径前缀的 tracks
+## 删除所有匹配路径前缀的 tracks（排除 disabled track）
 ## 例如：prefix = "Attacks/Attack1/Attack1Shape:" 会删除该 shape 的所有属性 tracks
+## 但保留 disabled track（用于帧过滤）
 func _remove_tracks_by_path_prefix(anim: Animation, prefix: String) -> void:
 	var tracks_to_remove := []
 	
 	for track_idx in range(anim.get_track_count()):
 		var track_path := str(anim.track_get_path(track_idx))
 		if track_path.begins_with(prefix):
+			# 保留 disabled track（用于帧过滤）
+			if track_path.ends_with(":disabled"):
+				continue
 			tracks_to_remove.append(track_idx)
 	
 	for i in range(tracks_to_remove.size() - 1, -1, -1):
