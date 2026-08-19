@@ -63,11 +63,6 @@ const SHAPE_CONFIGS := {
 	},
 }
 
-# 所有形状属性的并集（用于清理旧 track）
-const ALL_SHAPE_PROPS := [
-	"polygon", "shape:size", "shape:radius", "shape:height", "position", "rotation"
-]
-
 # 场景树发现路径（仅有的硬编码）
 const BODY_BOX_PATH := "AnimatedSprite2D/HurtBox"
 const ATTACKS_PATH := "Attacks"
@@ -857,7 +852,7 @@ func convert_body_contours(
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	
 	# 3. 发现 body 形状节点
-	var shape_nodes := _discover_shape_nodes(skin_node, anim_player)
+	var shape_nodes := _discover_shape_nodes(skin_node)
 	var body_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "body")
 	
 	if body_nodes.is_empty():
@@ -958,7 +953,7 @@ func convert_body_contours(
 		
 		# 4g. 注入 Animation tracks（统一函数）
 		if anim_player != null:
-			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
+			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
 		
 		# 4h. 保存当前节点的 frames_data
 		result.frames_info = frames_data
@@ -1006,7 +1001,7 @@ func convert_attack_contours(
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	
 	# 3. 发现 attack 形状节点
-	var shape_nodes := _discover_shape_nodes(skin_node, anim_player)
+	var shape_nodes := _discover_shape_nodes(skin_node)
 	var attack_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "attack")
 	
 	if attack_nodes.is_empty():
@@ -1117,7 +1112,7 @@ func convert_attack_contours(
 		
 		# 4g. 注入 Animation tracks（统一函数）
 		if anim_player != null:
-			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
+			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
 		
 		# 4h. 保存当前节点的 frames_data
 		result.frames_info = frames_data
@@ -1674,66 +1669,8 @@ func _calc_bounding_box(contours: Array[PackedVector2Array]) -> Rect2:
 ## - area_node_name: String     # Area2D 节点名，如 "HurtBox" 或 "Attack1"
 ## - initial_disabled: bool     # 节点初始 disabled 值
 ## - node_type: String          # "CollisionPolygon2D" 或 "CollisionShape2D"
-func _discover_shape_nodes(skin_node: Node, anim_player: AnimationPlayer) -> Array:
-	var discovered := {}
-	
-	# 通道 1：从动画 track 发现
-	if anim_player != null:
-		var from_tracks := _discover_from_tracks(anim_player, skin_node)
-		for shape_path in from_tracks:
-			discovered[shape_path] = from_tracks[shape_path]
-	
-	# 通道 2：从场景树发现（补充缺失的节点）
-	var from_scene := _discover_from_scene_tree(skin_node)
-	for info in from_scene:
-		var shape_path: String = info["shape_path"]
-		if not discovered.has(shape_path):
-			discovered[shape_path] = info
-	
-	return discovered.values()
-
-
-## 从动画 track 发现碰撞形状节点
-##
-## 遍历所有动画的所有 track，匹配碰撞形状属性后缀
-func _discover_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
-	var discovered := {}
-	
-	for lib_name in anim_player.get_animation_library_list():
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			for track_idx in range(anim.get_track_count()):
-				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
-					continue
-				
-				var track_path := str(anim.track_get_path(track_idx))
-				
-				# 检查是否匹配形状属性
-				for prop in ALL_SHAPE_PROPS:
-					if track_path.ends_with(":" + prop):
-						var node_path := track_path.substr(0, track_path.length() - prop.length() - 1)
-						if not discovered.has(node_path):
-							var info := _build_info_from_path(node_path, skin_node)
-							if not info.is_empty():
-								discovered[node_path] = info
-						break
-				
-				# 也检查 disabled 属性
-				if track_path.ends_with(":disabled"):
-					var node_path := track_path.substr(0, track_path.length() - "disabled".length() - 1)
-					if not discovered.has(node_path):
-						var info := _build_info_from_path(node_path, skin_node)
-						if not info.is_empty():
-							discovered[node_path] = info
-	
-	return discovered
+func _discover_shape_nodes(skin_node: Node) -> Array:
+	return _discover_from_scene_tree(skin_node)
 
 
 ## 从场景树发现碰撞形状节点
@@ -1759,52 +1696,6 @@ func _discover_from_scene_tree(skin_node: Node) -> Array:
 						discovered.append(_build_info_from_node(shape_child, "attack", child, skin_node))
 	
 	return discovered
-
-
-## 从 track 路径构建 ShapeNodeInfo
-##
-## 路径格式：
-## - Body: "AnimatedSprite2D/HurtBox/HurtShape"
-## - Attack: "Attacks/Attack1/Attack1Shape"
-func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
-	var parts := node_path.split("/")
-	if parts.size() < 2:
-		return {}
-	
-	var shape_name: String = parts[parts.size() - 1]
-	var parent_path := node_path.substr(0, node_path.length() - shape_name.length() - 1)
-	
-	# 分类：路径以 "Attacks/" 开头 → attack，否则 → body
-	var category := "attack" if node_path.begins_with(ATTACKS_PATH + "/") else "body"
-	
-	# Area2D 节点名：倒数第二个部分
-	var area_node_name: String = parts[parts.size() - 2]
-	
-	# 尝试从场景树获取节点信息
-	var shape_node := skin_node.get_node_or_null(node_path)
-	
-	# 验证：必须是 CollisionShape2D 或 CollisionPolygon2D
-	if shape_node != null:
-		if not (shape_node is CollisionShape2D or shape_node is CollisionPolygon2D):
-			return {}  # 不是碰撞形状节点，拒绝
-	
-	var initial_disabled := true
-	var node_type := "CollisionShape2D"
-	
-	if shape_node != null:
-		if shape_node is CollisionPolygon2D:
-			node_type = "CollisionPolygon2D"
-		initial_disabled = shape_node.disabled if "disabled" in shape_node else false
-	
-	return {
-		"shape_path": node_path,
-		"shape_name": shape_name,
-		"parent_path": parent_path,
-		"category": category,
-		"area_node_name": area_node_name,
-		"initial_disabled": initial_disabled,
-		"node_type": node_type,
-	}
 
 
 ## 从场景树节点构建 ShapeNodeInfo
@@ -1903,7 +1794,8 @@ func _inject_tracks(
 	shape_type: int,
 	frames_data: Dictionary,
 	is_single_file_mode: bool,
-	errors: Array[String]
+	errors: Array[String],
+	tscn_path: String
 ) -> void:
 	var config: Dictionary = SHAPE_CONFIGS[shape_type]
 	var shape_tracks: Array = config["tracks"]
@@ -1926,21 +1818,14 @@ func _inject_tracks(
 			if frame_dict.is_empty():
 				continue
 			
-			# 全量模式：清理所有形状相关的旧 tracks
+			# 全量模式：基于检测到的当前类型，精确删除旧 shape tracks
 			if not is_single_file_mode:
 				var remove_paths: Array[String] = []
-				
-				# 删除所有形状属性（包括当前类型和其他类型）
-				for prop in ALL_SHAPE_PROPS:
-					remove_paths.append(shape_info["shape_path"] + ":" + prop)
-				
-				# 删除额外 tracks（与形状类型无关）
-				if shape_info["category"] == "body":
-					remove_paths.append(TRACK_PATH_PHYSICAL_WIDTH)
-					remove_paths.append(TRACK_PATH_PHYSICAL_HEIGHT)
-				else:
-					remove_paths.append(TRACK_PATH_ATTACK_HEIGHTS)
-				
+				var current_type := _detect_current_shape_type(tscn_path, shape_info["shape_name"])
+				if current_type != -1:
+					var old_config: Dictionary = SHAPE_CONFIGS[current_type]
+					for prop in old_config["tracks"]:
+						remove_paths.append(shape_info["shape_path"] + ":" + prop)
 				_remove_tracks_by_path(anim, remove_paths)
 			
 			# 创建/查找当前形状类型的 track
@@ -1962,6 +1847,7 @@ func _inject_tracks(
 				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
 			if shape_info["category"] == "attack":
+				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
 				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 				_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
 			
@@ -2082,6 +1968,7 @@ func _inject_width_track(
 	if is_single_file_mode:
 		width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 	else:
+		_remove_tracks_by_path(anim, [TRACK_PATH_PHYSICAL_WIDTH])
 		width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 	
 	var prev_width: float = -1.0
@@ -2109,6 +1996,7 @@ func _inject_physical_height_track(
 	if is_single_file_mode:
 		height_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
 	else:
+		_remove_tracks_by_path(anim, [TRACK_PATH_PHYSICAL_HEIGHT])
 		height_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
 	
 	var prev_height: float = -1.0
@@ -2136,6 +2024,7 @@ func _inject_attack_heights_track(
 	if is_single_file_mode:
 		heights_track_idx = _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
 	else:
+		_remove_tracks_by_path(anim, [TRACK_PATH_ATTACK_HEIGHTS])
 		heights_track_idx = _add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
 	
 	var prev_heights: Array = []
@@ -2150,6 +2039,33 @@ func _inject_attack_heights_track(
 				_remove_key_at_time(anim, heights_track_idx, time)
 			anim.track_insert_key(heights_track_idx, time, current_heights)
 			prev_heights = current_heights
+
+
+## 注入 Attack 节点的 position track（跟随 sprite 位置）
+func _inject_attack_node_position(
+	anim: Animation,
+	shape_info: Dictionary,
+	is_single_file_mode: bool
+) -> void:
+	var attack_node_path: String = shape_info["parent_path"] + ":position"
+	var attack_pos_track_idx: int
+	
+	if is_single_file_mode:
+		attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
+	else:
+		_remove_tracks_by_path(anim, [attack_node_path])
+		attack_pos_track_idx = _add_value_track(anim, attack_node_path)
+	
+	# 复制 sprite position
+	var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
+	if sprite_pos_track_idx >= 0:
+		var key_count := anim.track_get_key_count(sprite_pos_track_idx)
+		for i in key_count:
+			var time := anim.track_get_key_time(sprite_pos_track_idx, i)
+			var value := anim.track_get_key_value(sprite_pos_track_idx, i)
+			anim.track_insert_key(attack_pos_track_idx, time, value)
+	else:
+		anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
 
 
 ## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
