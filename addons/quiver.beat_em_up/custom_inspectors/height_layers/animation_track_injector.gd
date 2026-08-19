@@ -1547,6 +1547,17 @@ func _remove_tracks_by_path_prefix(anim: Animation, prefix: String) -> void:
 		anim.remove_track(tracks_to_remove[i])
 
 
+## 清除所有匹配路径前缀的 track 的 keyframe（不删除 track 本身，确保 track 顺序稳定）
+## 排除 disabled track（用于帧过滤）
+func _clear_tracks_by_path_prefix(anim: Animation, prefix: String) -> void:
+	for track_idx in range(anim.get_track_count()):
+		var track_path := str(anim.track_get_path(track_idx))
+		if track_path.begins_with(prefix):
+			if track_path.ends_with(":disabled"):
+				continue
+			_clear_track_keys(anim, track_idx)
+
+
 ## 提取动画中 flip_h track 的所有 keyframe
 ##
 ## 返回: [{time: float, value: bool}, ...]
@@ -1990,10 +2001,10 @@ func _inject_tracks(
 			if frame_dict.is_empty():
 				continue
 			
-			# 全量模式：删除该 shape 节点的所有 shape 相关 tracks
-			# 不区分类型，删除所有可能的 shape 属性（polygon, position, rotation, shape:*）
+			# 全量模式：清除该 shape 节点的所有 shape 相关 keyframe
+			# 不删除 track 本身，只清除 keyframe，确保 track 顺序稳定
 			if not is_single_file_mode:
-				_remove_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
+				_clear_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
 			
 			# 额外 tracks（必须在 shape tracks 之前处理，避免删除操作影响 track_indices）
 			# 注意：共享 track（physical_width, physical_height, attack_heights）已移至外部统一写入
@@ -2004,11 +2015,7 @@ func _inject_tracks(
 			var track_indices := {}
 			for prop in shape_tracks:
 				var path: String = shape_info["shape_path"] + ":" + prop
-				var track_idx: int
-				if is_single_file_mode:
-					track_idx = _find_or_add_value_track(anim, path)
-				else:
-					track_idx = _add_value_track(anim, path)
+				var track_idx := _find_or_add_value_track(anim, path)
 				track_indices[prop] = track_idx
 			
 			# 提取 flip_h track 数据
