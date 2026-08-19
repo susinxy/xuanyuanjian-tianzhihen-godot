@@ -1883,18 +1883,7 @@ func _inject_tracks(
 			if not is_single_file_mode:
 				_remove_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
 			
-			# 创建/查找当前形状类型的 track
-			var track_indices := {}
-			for prop in shape_tracks:
-				var path: String = shape_info["shape_path"] + ":" + prop
-				var track_idx: int
-				if is_single_file_mode:
-					track_idx = _find_or_add_value_track(anim, path)
-				else:
-					track_idx = _add_value_track(anim, path)
-				track_indices[prop] = track_idx
-			
-			# 额外 tracks
+			# 额外 tracks（必须在 shape tracks 之前处理，避免删除操作影响 track_indices）
 			if shape_info["category"] == "body":
 				# physical_width track（Skin 节点自身属性）
 				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
@@ -1905,6 +1894,17 @@ func _inject_tracks(
 				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
 				var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 				_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+			
+			# 创建/查找当前形状类型的 track（必须在额外 tracks 之后，避免被删除操作影响）
+			var track_indices := {}
+			for prop in shape_tracks:
+				var path: String = shape_info["shape_path"] + ":" + prop
+				var track_idx: int
+				if is_single_file_mode:
+					track_idx = _find_or_add_value_track(anim, path)
+				else:
+					track_idx = _add_value_track(anim, path)
+				track_indices[prop] = track_idx
 			
 			# 提取 flip_h track 数据
 			var flip_track_data := _extract_flip_h_track(anim)

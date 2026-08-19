@@ -656,7 +656,7 @@ static func run_mabr_tests() -> Array[String]:
 		
 		# 检查 size（允许两个维度互换）
 		var size_match: bool = (approx.call(mabr.size.x, expected_size.x) and approx.call(mabr.size.y, expected_size.y)) or \
-		                       (approx.call(mabr.size.x, expected_size.y) and approx.call(mabr.size.y, expected_size.x))
+							   (approx.call(mabr.size.x, expected_size.y) and approx.call(mabr.size.y, expected_size.x))
 		if not size_match:
 			errors.append("size 不匹配: 期望 (%.2f, %.2f), 实际 (%.2f, %.2f)" % [
 				expected_size.x, expected_size.y, mabr.size.x, mabr.size.y
