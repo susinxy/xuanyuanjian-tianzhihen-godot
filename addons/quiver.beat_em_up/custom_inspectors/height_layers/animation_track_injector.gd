@@ -46,6 +46,32 @@ enum ShapeType {
 	RECTANGLE = 2   # CollisionShape2D + RectangleShape2D（从 MABR 推导）
 }
 
+# 形状类型配置（数据驱动）
+# 每种形状需要写入哪些 track 属性
+const SHAPE_CONFIGS := {
+	ShapeType.POLYGON: {
+		"node_type": "CollisionPolygon2D",
+		"tracks": ["polygon", "position", "rotation"],
+	},
+	ShapeType.CAPSULE: {
+		"node_type": "CollisionShape2D",
+		"tracks": ["shape.radius", "shape.height", "position", "rotation"],
+	},
+	ShapeType.RECTANGLE: {
+		"node_type": "CollisionShape2D",
+		"tracks": ["shape.size", "position", "rotation"],
+	},
+}
+
+# 所有形状属性的并集（用于清理旧 track）
+const ALL_SHAPE_PROPS := [
+	"polygon", "shape.size", "shape.radius", "shape.height", "position", "rotation"
+]
+
+# 场景树发现路径（仅有的硬编码）
+const BODY_BOX_PATH := "AnimatedSprite2D/HurtBox"
+const ATTACKS_PATH := "Attacks"
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -827,78 +853,84 @@ func convert_body_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 获取 AnimationPlayer 并构建 body 帧过滤映射
+	# 2. 获取 AnimationPlayer
 	var anim_player := _get_animation_player(skin_node, result.errors)
-	var sprite_to_body := {}
-	if anim_player != null:
-		sprite_to_body = _find_body_mapping_from_tracks(anim_player, skin_node)
 	
-	# 3. 统一扫描（传入帧过滤映射和 mask 类型）
-	# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
-	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
-	var frames_data := await _scan_frames_contours(
-		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		[], sprite_to_body, "body", callback_obj, result.errors, target_file_path, scan_erosion
-	)
+	# 3. 发现 body 形状节点
+	var shape_nodes := _discover_shape_nodes(skin_node, anim_player)
+	var body_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "body")
 	
-	# 3. Body 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
-	for sprite_anim_name in frames_data:
-		for frame_idx in frames_data[sprite_anim_name]:
-			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
-			var raw: Array = frame["raw_contours"]
-			var img_w := int(frame["image_size"].x)
-			var img_h := int(frame["image_size"].y)
-			
-			frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
-			frame["width"] = ContourTracer.calc_contour_width(raw)
-			
-			var local_contours: Array[PackedVector2Array] = []
-			for contour in raw:
-				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-			frame["contours"] = local_contours
-			frame.erase("raw_contours")
-			
-			# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
-			if local_contours.size() > 0 and local_contours[0].size() >= 3:
-				var mabr := ContourTracer.calc_mabr(local_contours[0])
-				frame["mabr"] = mabr
-				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-				frame["rectangle"] = {
-					"size": mabr.size,
-					"angle": mabr.angle,
-				}
-			
-			result.frame_count += 1
-	
-	# 4. 如果 dry_run，返回预览结果
-	if dry_run:
-		result.frames_info = frames_data
+	if body_nodes.is_empty():
+		result.errors.append("未发现 body 形状节点")
 		return result
 	
-	# 5. 单文件模式检查：形状类型变更时禁止单文件操作
-	var skin_scene_path := skin_node.scene_file_path
-	var is_single_file_mode := not target_file_path.is_empty()
-	if is_single_file_mode:
-		var current_type := _detect_current_shape_type(skin_scene_path, "HurtShape")
-		if current_type != -1 and current_type != shape_type:
-			result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
-				ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
-			])
+	# 4. 对每个 body shape 节点执行转换
+	for node_info in body_nodes:
+		# 4a. 构建帧过滤映射
+		var frame_filter := {}
+		if anim_player != null:
+			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
+		
+		# 4b. 扫描轮廓（Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius）
+		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+		var frames_data := await _scan_frames_contours(
+			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
+			[], frame_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
+		)
+		
+		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
+		for sprite_anim_name in frames_data:
+			for frame_idx in frames_data[sprite_anim_name]:
+				var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+				var raw: Array = frame["raw_contours"]
+				var img_w := int(frame["image_size"].x)
+				var img_h := int(frame["image_size"].y)
+				
+				frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
+				frame["width"] = ContourTracer.calc_contour_width(raw)
+				
+				var local_contours: Array[PackedVector2Array] = []
+				for contour in raw:
+					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+				frame["contours"] = local_contours
+				frame.erase("raw_contours")
+				
+				# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
+				if local_contours.size() > 0 and local_contours[0].size() >= 3:
+					var mabr := ContourTracer.calc_mabr(local_contours[0])
+					frame["mabr"] = mabr
+					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+					frame["rectangle"] = {
+						"size": mabr.size,
+						"angle": mabr.angle,
+					}
+				
+				result.frame_count += 1
+		
+		# 4d. 如果 dry_run，返回预览结果
+		if dry_run:
+			result.frames_info = frames_data
 			return result
-	
-	# 6. 修改 skin .tscn（仅类型不匹配时）
-	if _needs_body_tscn_conversion(skin_scene_path, shape_type):
-		_modify_skin_tscn_for_body(skin_scene_path, frames_data, result.errors, shape_type)
-	
-	# 7. 注入 Animation tracks（根据 shape_type 分发）
-	if anim_player != null:
-		match shape_type:
-			ShapeType.POLYGON:
-				_inject_polygon_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
-			ShapeType.CAPSULE:
-				_inject_capsule_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
-			ShapeType.RECTANGLE:
-				_inject_rectangle_tracks_for_body(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+		
+		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
+		var skin_scene_path := skin_node.scene_file_path
+		var is_single_file_mode := not target_file_path.is_empty()
+		if is_single_file_mode:
+			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
+			if current_type != -1 and current_type != shape_type:
+				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
+					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
+				])
+				return result
+		
+		# 4f. 修改 skin .tscn（仅类型不匹配时）
+		if _needs_body_tscn_conversion(skin_scene_path, shape_type):
+			var first_frame_data := _get_first_frame_data(frames_data)
+			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
+		
+		# 4g. 注入 Animation tracks（统一函数）
+		if anim_player != null:
+			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
 	
 	result.frames_info = frames_data
 	return result
@@ -940,85 +972,90 @@ func convert_attack_contours(
 	if sprite_frames == null:
 		return result
 	
-	# 2. 获取 attack 映射
+	# 2. 获取 AnimationPlayer
 	var anim_player := _get_animation_player(skin_node, result.errors)
-	var sprite_to_attack := {}
-	if anim_player != null:
-		sprite_to_attack = _find_attack_mapping_from_tracks(anim_player, skin_node)
 	
-	# 3. 统一扫描（只处理攻击动画，传入帧过滤和 mask 类型）
-	# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
-	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
-	var filter_anims: Array[String] = []
-	filter_anims.assign(sprite_to_attack.keys())
-	var frames_data := await _scan_frames_contours(
-		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		filter_anims, sprite_to_attack, "attack", callback_obj, result.errors, target_file_path, scan_erosion
-	)
+	# 3. 发现 attack 形状节点
+	var shape_nodes := _discover_shape_nodes(skin_node, anim_player)
+	var attack_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "attack")
 	
-	# 4. Attack 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
-	var height_definitions := QuiverCharacter._build_height_definitions()
-	for sprite_anim_name in frames_data:
-		var mapping_info: Dictionary = sprite_to_attack[sprite_anim_name]
-		var attack_node: String = mapping_info["attack_node"]
-		for frame_idx in frames_data[sprite_anim_name]:
-			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
-			var raw: Array = frame["raw_contours"]
-			var img_w := int(frame["image_size"].x)
-			var img_h := int(frame["image_size"].y)
-			
-			frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
-			frame["attack_node"] = attack_node
-			
-			var local_contours: Array[PackedVector2Array] = []
-			for contour in raw:
-				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-			frame["contours"] = local_contours
-			frame.erase("raw_contours")
-			
-			# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
-			if local_contours.size() > 0 and local_contours[0].size() >= 3:
-				var mabr := ContourTracer.calc_mabr(local_contours[0])
-				frame["mabr"] = mabr
-				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-				frame["rectangle"] = {
-					"size": mabr.size,
-					"angle": mabr.angle,
-				}
-			
-			result.frame_count += 1
-	
-	# 5. 如果 dry_run，返回预览结果
-	if dry_run:
-		result.frames_info = frames_data
+	if attack_nodes.is_empty():
 		return result
 	
-	# 6. 单文件模式检查：形状类型变更时禁止单文件操作
-	var skin_scene_path := skin_node.scene_file_path
-	var is_single_file_mode := not target_file_path.is_empty()
-	if is_single_file_mode:
-		var attack_shapes := ["Attack1Shape", "Attack2Shape", "Attack3Shape", "AttackAirShape"]
-		for shape_name in attack_shapes:
-			var current_type := _detect_current_shape_type(skin_scene_path, shape_name)
+	# 4. 对每个 attack shape 节点执行转换
+	for node_info in attack_nodes:
+		# 4a. 构建帧过滤映射
+		var frame_filter := {}
+		if anim_player != null:
+			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
+		
+		# 4b. 扫描轮廓（只处理有 enabled_frames 的动画）
+		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+		var filter_anims: Array[String] = []
+		for anim_name in frame_filter.keys():
+			var filter_info: Dictionary = frame_filter[anim_name]
+			if filter_info.get("enabled_frames") != null:
+				filter_anims.append(anim_name)
+		
+		var frames_data := await _scan_frames_contours(
+			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
+			filter_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
+		)
+		
+		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
+		var height_definitions := QuiverCharacter._build_height_definitions()
+		for sprite_anim_name in frames_data:
+			for frame_idx in frames_data[sprite_anim_name]:
+				var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+				var raw: Array = frame["raw_contours"]
+				var img_w := int(frame["image_size"].x)
+				var img_h := int(frame["image_size"].y)
+				
+				frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
+				frame["attack_node"] = node_info["area_node_name"]
+				
+				var local_contours: Array[PackedVector2Array] = []
+				for contour in raw:
+					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+				frame["contours"] = local_contours
+				frame.erase("raw_contours")
+				
+				# 计算 MABR/Capsule/Rectangle（基于扫描得到的轮廓）
+				if local_contours.size() > 0 and local_contours[0].size() >= 3:
+					var mabr := ContourTracer.calc_mabr(local_contours[0])
+					frame["mabr"] = mabr
+					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+					frame["rectangle"] = {
+						"size": mabr.size,
+						"angle": mabr.angle,
+					}
+				
+				result.frame_count += 1
+		
+		# 4d. 如果 dry_run，返回预览结果
+		if dry_run:
+			result.frames_info = frames_data
+			return result
+		
+		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
+		var skin_scene_path := skin_node.scene_file_path
+		var is_single_file_mode := not target_file_path.is_empty()
+		if is_single_file_mode:
+			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
 				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
 					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
 				])
 				return result
-	
-	# 7. 修改 skin .tscn（仅类型不匹配时）
-	if _needs_attack_tscn_conversion(skin_scene_path, shape_type):
-		_modify_skin_tscn_for_attack(skin_scene_path, frames_data, result.errors, shape_type)
-	
-	# 8. 注入 Animation tracks（根据 shape_type 分发）
-	if anim_player != null:
-		match shape_type:
-			ShapeType.POLYGON:
-				_inject_polygon_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
-			ShapeType.CAPSULE:
-				_inject_capsule_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
-			ShapeType.RECTANGLE:
-				_inject_rectangle_tracks_for_attack(anim_player, sprite_frames, frames_data, result.errors, is_single_file_mode)
+		
+		# 4f. 修改 skin .tscn（仅类型不匹配时）
+		if _needs_attack_tscn_conversion(skin_scene_path, shape_type):
+			var first_frame_data := _get_first_frame_data(frames_data)
+			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
+		
+		# 4g. 注入 Animation tracks（统一函数）
+		if anim_player != null:
+			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors)
 	
 	result.frames_info = frames_data
 	return result
@@ -1145,225 +1182,6 @@ func _insert_node_after_parent(content: String, parent_name: String, new_node: S
 
 
 ## 修改 skin .tscn（Body 转换）
-func _modify_skin_tscn_for_body(tscn_path: String, frames_data: Dictionary, errors: Array[String], shape_type: int = ShapeType.POLYGON) -> void:
-	if not FileAccess.file_exists(tscn_path):
-		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
-		return
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		errors.append("无法读取 skin .tscn: %s" % tscn_path)
-		return
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 获取第一帧数据（用于初始值）
-	var first_frame_data := _get_first_frame_data(frames_data)
-	
-	# 提取现有 HurtShape 的 unique_id（如果有）
-	var unique_id_str := _extract_unique_id(content, "HurtShape")
-	
-	# 删除旧的 HurtShape 节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
-	var old_node_pattern := RegEx.new()
-	old_node_pattern.compile('\\[node name="HurtShape" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*')
-	content = old_node_pattern.sub(content, "")
-	
-	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
-	content = _remove_all_shape_subresources(content)
-	
-	# 根据 shape_type 生成新节点
-	var new_content := ""
-	match shape_type:
-		ShapeType.POLYGON:
-			var polygon_str := ""
-			if first_frame_data.has("contours") and not first_frame_data.contours.is_empty():
-				polygon_str = ContourTracer.format_polygon_array(first_frame_data.contours[0])
-			new_content = '[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nposition = Vector2(0, 0)\npolygon = %s\n\n' % [unique_id_str, polygon_str]
-		
-		ShapeType.CAPSULE:
-			var sub_id := _generate_subresource_id("CapsuleShape2D", "HurtShape")
-			var radius: float = 40.0
-			var height: float = 160.0
-			if first_frame_data.has("capsule"):
-				radius = round(first_frame_data.capsule.radius * 100.0) / 100.0
-				height = round(first_frame_data.capsule.height * 100.0) / 100.0
-			var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
-			content = _insert_subresource(content, sub_resource)
-			new_content = '[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nshape = SubResource("%s")\n\n' % [unique_id_str, sub_id]
-		
-		ShapeType.RECTANGLE:
-			var sub_id := _generate_subresource_id("RectangleShape2D", "HurtShape")
-			var size := Vector2(80, 160)
-			if first_frame_data.has("rectangle"):
-				size = Vector2(
-					round(first_frame_data.rectangle.size.x * 100.0) / 100.0,
-					round(first_frame_data.rectangle.size.y * 100.0) / 100.0
-				)
-			var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
-			content = _insert_subresource(content, sub_resource)
-			new_content = '[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0"%s]\nmodulate = Color(0, 0.0666667, 0.701961, 1)\nshape = SubResource("%s")\n\n' % [unique_id_str, sub_id]
-	
-	# 在 HurtBox 节点之后插入新节点
-	content = _insert_node_after_parent(content, "HurtBox", new_content)
-	
-	# 写回文件
-	file = FileAccess.open(tscn_path, FileAccess.WRITE)
-	if file == null:
-		errors.append("无法写入 skin .tscn: %s" % tscn_path)
-		return
-	
-	file.store_string(content)
-	file.close()
-
-
-## 生成确定性 SubResource ID
-## 基于前缀和节点名生成唯一的 ID，确保多次运行结果一致
-func _generate_subresource_id(prefix: String, node_name: String) -> String:
-	return prefix + "_" + (prefix + "_" + node_name).sha1_text().substr(0, 16)
-
-
-## 检测 .tscn 中指定节点的当前形状类型
-## 返回: ShapeType 枚举值，-1 表示未找到节点
-func _detect_current_shape_type(tscn_path: String, shape_name: String) -> int:
-	if not FileAccess.file_exists(tscn_path):
-		return -1
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		return -1
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 检查是否为 CollisionPolygon2D
-	var polygon_pattern := RegEx.new()
-	polygon_pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
-	if polygon_pattern.search(content) != null:
-		return ShapeType.POLYGON
-	
-	# 检查是否为 CollisionShape2D
-	var shape_pattern := RegEx.new()
-	shape_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
-	var shape_match := shape_pattern.search(content)
-	
-	if shape_match != null:
-		var node_content := shape_match.get_string(0)
-		
-		# 检查 shape 属性引用的 SubResource 类型
-		var sub_ref_pattern := RegEx.new()
-		sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
-		var sub_ref_match := sub_ref_pattern.search(node_content)
-		
-		if sub_ref_match != null:
-			var sub_id := sub_ref_match.get_string(1)
-			
-			# 查找对应的 SubResource 定义
-			var capsule_pattern := RegEx.new()
-			capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="%s"\\]' % sub_id)
-			if capsule_pattern.search(content) != null:
-				return ShapeType.CAPSULE
-			
-			var rectangle_pattern := RegEx.new()
-			rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]' % sub_id)
-			if rectangle_pattern.search(content) != null:
-				return ShapeType.RECTANGLE
-	
-	return -1  # 未找到或无法识别
-
-
-## 检测 Body 的 .tscn 是否需要转换
-## 返回 true 表示当前类型与目标类型不匹配，需要转换
-func _needs_body_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
-	var current_type := _detect_current_shape_type(tscn_path, "HurtShape")
-	if current_type == -1:
-		return true  # 节点不存在，需要创建
-	return current_type != target_shape_type
-
-
-## 修改 skin .tscn（Attack 转换）
-func _modify_skin_tscn_for_attack(tscn_path: String, frames_data: Dictionary, errors: Array[String], shape_type: int = ShapeType.POLYGON) -> void:
-	if not FileAccess.file_exists(tscn_path):
-		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
-		return
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		errors.append("无法读取 skin .tscn: %s" % tscn_path)
-		return
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 收集每个 Attack 节点的第一帧数据
-	var attack_first_data := {}
-	for sprite_anim_name in frames_data.keys():
-		var frame_dict: Dictionary = frames_data[sprite_anim_name]
-		for frame_idx in frame_dict.keys():
-			var frame_info: Dictionary = frame_dict[frame_idx]
-			var attack_node: String = frame_info["attack_node"]
-			if not attack_first_data.has(attack_node):
-				attack_first_data[attack_node] = frame_info
-	
-	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
-	content = _remove_all_shape_subresources(content)
-	
-	# 替换各 AttackShape 节点
-	for attack_node in attack_first_data.keys():
-		var shape_name: String = attack_node + "Shape"
-		var frame_info: Dictionary = attack_first_data[attack_node]
-		
-		# 提取现有 unique_id
-		var unique_id_str := _extract_unique_id(content, shape_name)
-		
-		# 删除旧节点
-		var old_node_pattern := RegEx.new()
-		old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
-		content = old_node_pattern.sub(content, "")
-		
-		# 根据 shape_type 生成新节点
-		var new_content := ""
-		match shape_type:
-			ShapeType.POLYGON:
-				var polygon_str := ""
-				if frame_info.has("contours") and not frame_info.contours.is_empty():
-					polygon_str = ContourTracer.format_polygon_array(frame_info.contours[0])
-				new_content = '[node name="%s" type="CollisionPolygon2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nposition = Vector2(0, 0)\npolygon = %s\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, polygon_str]
-			
-			ShapeType.CAPSULE:
-				var sub_id := _generate_subresource_id("CapsuleShape2D", shape_name)
-				var radius: float = 40.0
-				var height: float = 120.0
-				if frame_info.has("capsule"):
-					radius = round(frame_info.capsule.radius * 100.0) / 100.0
-					height = round(frame_info.capsule.height * 100.0) / 100.0
-				var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
-				content = _insert_subresource(content, sub_resource)
-				new_content = '[node name="%s" type="CollisionShape2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nshape = SubResource("%s")\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, sub_id]
-			
-			ShapeType.RECTANGLE:
-				var sub_id := _generate_subresource_id("RectangleShape2D", shape_name)
-				var size := Vector2(80, 120)
-				if frame_info.has("rectangle"):
-					size = Vector2(
-						round(frame_info.rectangle.size.x * 100.0) / 100.0,
-						round(frame_info.rectangle.size.y * 100.0) / 100.0
-					)
-				var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
-				content = _insert_subresource(content, sub_resource)
-				new_content = '[node name="%s" type="CollisionShape2D" parent="Attacks/%s" index="0"%s]\nmodulate = Color(1, 0.2, 0.101961, 1)\nshape = SubResource("%s")\ndisabled = true\n\n' % [shape_name, attack_node, unique_id_str, sub_id]
-		
-		# 在对应 Attack 节点之后插入新节点
-		content = _insert_node_after_parent(content, attack_node, new_content)
-	
-	# 写回文件
-	file = FileAccess.open(tscn_path, FileAccess.WRITE)
-	if file == null:
-		errors.append("无法写入 skin .tscn: %s" % tscn_path)
-		return
-	
-	file.store_string(content)
-	file.close()
 
 
 ## 检测 Attack 的 .tscn 是否需要转换
@@ -1379,849 +1197,6 @@ func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int) ->
 	return false
 
 
-## 注入 Body 的 polygon tracks
-func _inject_polygon_tracks_for_body(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 全量模式：删除所有形状相关的旧 tracks（兼容三种类型之间的转换）
-			# 单文件模式：保留现有 tracks，只更新目标帧
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [
-					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
-					"AnimatedSprite2D/HurtBox/HurtShape:position",
-					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
-					"AnimatedSprite2D/HurtBox:position",
-					TRACK_PATH_PHYSICAL_WIDTH,
-					"../Collision:shape.height",
-					"../../Collision:shape.height",
-				])
-			
-			# 添加或查找 polygon track 和 width track
-			var polygon_track_idx: int
-			var width_track_idx: int
-			if is_single_file_mode:
-				polygon_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
-				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			else:
-				polygon_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:polygon")
-				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			
-			# 添加 position/rotation tracks，覆盖动画中原有的值
-			# 轮廓多边形以图片中心为原点，HurtShape 的 position 必须为 (0,0)，rotation 必须为 0
-			var hurt_shape_pos_track_idx: int
-			var hurt_shape_rot_track_idx: int
-			var hurt_box_pos_track_idx: int
-			if is_single_file_mode:
-				hurt_shape_pos_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				hurt_shape_rot_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				hurt_box_pos_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
-			else:
-				hurt_shape_pos_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				hurt_shape_rot_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				hurt_box_pos_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox:position")
-				anim.track_insert_key(hurt_shape_pos_track_idx, 0.0, Vector2(0, 0))
-				anim.track_insert_key(hurt_shape_rot_track_idx, 0.0, 0.0)
-				anim.track_insert_key(hurt_box_pos_track_idx, 0.0, Vector2(0, 0))
-			
-			# 提取 flip_h track 数据（用于 polygon 镜像）
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe（只在值变化时）
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_polygon := PackedVector2Array()
-			var prev_width: float = -1.0
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				var contours: Array = frame_info["contours"]
-				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# 宽度 track（逐帧，值变化时插入）
-				var current_width: float = frame_info.get("width", 0.0)
-				if current_width != prev_width:
-					# 单文件模式：删除该时间点的旧关键帧
-					if is_single_file_mode:
-						_remove_key_at_time(anim, width_track_idx, time)
-					anim.track_insert_key(width_track_idx, time, current_width)
-					prev_width = current_width
-				
-				# polygon 镜像（根据 flip_h 状态）
-				if _is_flipped_at_time(flip_track_data, time):
-					current_polygon = _mirror_polygon_x(current_polygon)
-				
-				if current_polygon != prev_polygon:
-					# 单文件模式：删除该时间点的旧关键帧
-					if is_single_file_mode:
-						_remove_key_at_time(anim, polygon_track_idx, time)
-					anim.track_insert_key(polygon_track_idx, time, current_polygon)
-					prev_polygon = current_polygon
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
-##
-## 逻辑：
-## - 查找动画中已有的 Shape:disabled track
-## - 如果找到：逐帧复制关键帧，值取反（disabled=true → visible=false）
-## - 如果没找到：插入默认值 visible=false
-func _inject_visible_track_for_attack(
-	anim: Animation,
-	attack_node: String,
-	shape_name: String,
-	is_single_file_mode: bool
-) -> void:
-	var visible_path := "Attacks/%s:visible" % attack_node
-	var disabled_path := "Attacks/%s/%s:disabled" % [attack_node, shape_name]
-	
-	# 全量模式：删除旧的 visible track
-	var visible_track_idx: int
-	if is_single_file_mode:
-		visible_track_idx = _find_or_add_value_track(anim, visible_path)
-	else:
-		_remove_tracks_by_path(anim, [visible_path])
-		visible_track_idx = _add_value_track(anim, visible_path)
-	
-	# 查找已有的 disabled track
-	var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
-	
-	if disabled_track_idx >= 0:
-		# 有 disabled track：逐帧镜像，值取反
-		var key_count := anim.track_get_key_count(disabled_track_idx)
-		for i in key_count:
-			var time := anim.track_get_key_time(disabled_track_idx, i)
-			var disabled_value: bool = anim.track_get_key_value(disabled_track_idx, i)
-			if is_single_file_mode:
-				_remove_key_at_time(anim, visible_track_idx, time)
-			anim.track_insert_key(visible_track_idx, time, not disabled_value)
-	else:
-		# 没有 disabled track：默认 visible = false
-		if not is_single_file_mode:
-			anim.track_insert_key(visible_track_idx, 0.0, false)
-
-
-## 注入 Attack 的 polygon tracks
-func _inject_polygon_tracks_for_attack(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 获取 attack_node
-			var first_frame: Dictionary = frame_dict.values()[0]
-			var attack_node: String = first_frame["attack_node"]
-			var shape_name: String = attack_node + "Shape"
-			
-			# 定义 track 路径
-			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
-			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
-			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
-			var attack_node_path := "Attacks/%s:position" % attack_node
-			
-			# 全量模式：删除所有形状相关的旧 tracks（兼容三种类型之间的转换）
-			# 单文件模式：保留现有 tracks，只更新目标帧
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, shape_radius_path, shape_height_path, attack_node_path])
-			
-			# 添加或查找 polygon track
-			var polygon_track_idx: int
-			if is_single_file_mode:
-				polygon_track_idx = _find_or_add_value_track(anim, polygon_path)
-			else:
-				polygon_track_idx = _add_value_track(anim, polygon_path)
-			
-			# 添加 position/rotation tracks，覆盖动画中原有的值
-			# 轮廓多边形以图片中心为原点，AttackShape 的 position 必须为 (0,0)，rotation 必须为 0
-			var position_track_idx: int
-			var rotation_track_idx: int
-			if is_single_file_mode:
-				position_track_idx = _find_or_add_value_track(anim, position_path)
-				rotation_track_idx = _find_or_add_value_track(anim, rotation_path)
-			else:
-				position_track_idx = _add_value_track(anim, position_path)
-				rotation_track_idx = _add_value_track(anim, rotation_path)
-				anim.track_insert_key(position_track_idx, 0.0, Vector2(0, 0))
-				anim.track_insert_key(rotation_track_idx, 0.0, 0.0)
-			
-			# 添加 Attack 节点的 position track，跟随 AnimatedSprite2D 的位置
-			# 这样 AttackShape 的世界坐标 = Skin + Sprite.pos + Attack.pos + Shape.pos + polygon
-			# 由于 Shape.pos = (0,0)，Attack.pos = Sprite.pos，所以世界坐标 = Sprite.pos + polygon
-			# 和 HurtBox 的逻辑一致：polygon 以图片中心为原点，跟随 sprite 移动
-			var attack_pos_track_idx: int
-			if is_single_file_mode:
-				attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
-			else:
-				attack_pos_track_idx = _add_value_track(anim, attack_node_path)
-			
-			# 只在非单文件模式下复制 sprite position
-			if not is_single_file_mode:
-				var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
-				if sprite_pos_track_idx >= 0:
-					var key_count := anim.track_get_key_count(sprite_pos_track_idx)
-					for i in key_count:
-						var time := anim.track_get_key_time(sprite_pos_track_idx, i)
-						var value := anim.track_get_key_value(sprite_pos_track_idx, i)
-						anim.track_insert_key(attack_pos_track_idx, time, value)
-				else:
-					anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
-			
-			# 提取 flip_h track 数据（用于 polygon 镜像）
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe（只在值变化时）
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_polygon := PackedVector2Array()
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				var contours: Array = frame_info["contours"]
-				var current_polygon: PackedVector2Array = contours[0] if not contours.is_empty() else PackedVector2Array()
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# polygon 镜像（根据 flip_h 状态）
-				if _is_flipped_at_time(flip_track_data, time):
-					current_polygon = _mirror_polygon_x(current_polygon)
-				
-				if current_polygon != prev_polygon:
-					# 单文件模式：删除该时间点的旧关键帧
-					if is_single_file_mode:
-						_remove_key_at_time(anim, polygon_track_idx, time)
-					anim.track_insert_key(polygon_track_idx, time, current_polygon)
-					prev_polygon = current_polygon
-			
-			# 注入 visible track（与 Shape:disabled 反向同步）
-			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 注入 Body 的 Capsule tracks
-func _inject_capsule_tracks_for_body(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 全量模式：删除所有形状相关的旧 tracks
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [
-					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
-					"AnimatedSprite2D/HurtBox/HurtShape:position",
-					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
-					"AnimatedSprite2D/HurtBox:position",
-					TRACK_PATH_PHYSICAL_WIDTH,
-					"../Collision:shape.height",
-					"../../Collision:shape.height",
-				])
-			
-			# 创建或查找 tracks
-			var radius_track_idx: int
-			var height_track_idx: int
-			var position_track_idx: int
-			var rotation_track_idx: int
-			var width_track_idx: int
-			
-			if is_single_file_mode:
-				radius_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.radius")
-				height_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.height")
-				position_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				rotation_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			else:
-				radius_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.radius")
-				height_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.height")
-				position_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				rotation_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			
-			# 提取 flip_h track 数据
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_center := Vector2(INF, INF)
-			var prev_angle: float = INF
-			var prev_radius: float = -1.0
-			var prev_height: float = -1.0
-			var prev_width: float = -1.0
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				if not frame_info.has("capsule"):
-					continue
-				
-				var capsule: Dictionary = frame_info["capsule"]
-				var current_center: Vector2 = capsule.center
-				var current_angle: float = capsule.angle
-				var current_radius: float = capsule.radius
-				var current_height: float = capsule.height
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# flip_h 镜像处理
-				if _is_flipped_at_time(flip_track_data, time):
-					current_center.x = -current_center.x
-					current_angle = -current_angle
-				
-				# width track（physical_width）
-				var current_width: float = frame_info.get("width", 0.0)
-				if current_width != prev_width:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, width_track_idx, time)
-					anim.track_insert_key(width_track_idx, time, current_width)
-					prev_width = current_width
-				
-				# position track
-				if current_center != prev_center:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, position_track_idx, time)
-					anim.track_insert_key(position_track_idx, time, current_center)
-					prev_center = current_center
-				
-				# rotation track
-				if current_angle != prev_angle:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, rotation_track_idx, time)
-					anim.track_insert_key(rotation_track_idx, time, current_angle)
-					prev_angle = current_angle
-				
-				# radius track
-				if current_radius != prev_radius:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, radius_track_idx, time)
-					anim.track_insert_key(radius_track_idx, time, current_radius)
-					prev_radius = current_radius
-				
-				# height track
-				if current_height != prev_height:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, height_track_idx, time)
-					anim.track_insert_key(height_track_idx, time, current_height)
-					prev_height = current_height
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 注入 Attack 的 Capsule tracks
-func _inject_capsule_tracks_for_attack(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 获取 attack_node
-			var first_frame: Dictionary = frame_dict.values()[0]
-			var attack_node: String = first_frame["attack_node"]
-			var shape_name: String = attack_node + "Shape"
-			
-			# 定义 track 路径
-			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
-			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
-			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
-			var attack_node_path := "Attacks/%s:position" % attack_node
-			
-			# 全量模式：删除所有形状相关的旧 tracks
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, shape_radius_path, shape_height_path, attack_node_path])
-			
-			# 创建或查找 tracks
-			var radius_track_idx: int
-			var height_track_idx: int
-			var position_track_idx: int
-			var rotation_track_idx: int
-			var attack_pos_track_idx: int
-			
-			if is_single_file_mode:
-				radius_track_idx = _find_or_add_value_track(anim, shape_radius_path)
-				height_track_idx = _find_or_add_value_track(anim, shape_height_path)
-				position_track_idx = _find_or_add_value_track(anim, position_path)
-				rotation_track_idx = _find_or_add_value_track(anim, rotation_path)
-				attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
-			else:
-				radius_track_idx = _add_value_track(anim, shape_radius_path)
-				height_track_idx = _add_value_track(anim, shape_height_path)
-				position_track_idx = _add_value_track(anim, position_path)
-				rotation_track_idx = _add_value_track(anim, rotation_path)
-				attack_pos_track_idx = _add_value_track(anim, attack_node_path)
-			
-			# 复制 sprite position 到 attack node position
-			if not is_single_file_mode:
-				var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
-				if sprite_pos_track_idx >= 0:
-					var key_count := anim.track_get_key_count(sprite_pos_track_idx)
-					for i in key_count:
-						var time := anim.track_get_key_time(sprite_pos_track_idx, i)
-						var value := anim.track_get_key_value(sprite_pos_track_idx, i)
-						anim.track_insert_key(attack_pos_track_idx, time, value)
-				else:
-					anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
-			
-			# 提取 flip_h track 数据
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_center := Vector2(INF, INF)
-			var prev_angle: float = INF
-			var prev_radius: float = -1.0
-			var prev_height: float = -1.0
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				if not frame_info.has("capsule"):
-					continue
-				
-				var capsule: Dictionary = frame_info["capsule"]
-				var current_center: Vector2 = capsule.center
-				var current_angle: float = capsule.angle
-				var current_radius: float = capsule.radius
-				var current_height: float = capsule.height
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# flip_h 镜像处理
-				if _is_flipped_at_time(flip_track_data, time):
-					current_center.x = -current_center.x
-					current_angle = -current_angle
-				
-				# position track
-				if current_center != prev_center:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, position_track_idx, time)
-					anim.track_insert_key(position_track_idx, time, current_center)
-					prev_center = current_center
-				
-				# rotation track
-				if current_angle != prev_angle:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, rotation_track_idx, time)
-					anim.track_insert_key(rotation_track_idx, time, current_angle)
-					prev_angle = current_angle
-				
-				# radius track
-				if current_radius != prev_radius:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, radius_track_idx, time)
-					anim.track_insert_key(radius_track_idx, time, current_radius)
-					prev_radius = current_radius
-				
-				# height track
-				if current_height != prev_height:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, height_track_idx, time)
-					anim.track_insert_key(height_track_idx, time, current_height)
-					prev_height = current_height
-			
-			# 注入 visible track（与 Shape:disabled 反向同步）
-			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 注入 Body 的 Rectangle tracks
-func _inject_rectangle_tracks_for_body(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 全量模式：删除所有形状相关的旧 tracks
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [
-					"AnimatedSprite2D/HurtBox/HurtShape:polygon",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.size",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.radius",
-					"AnimatedSprite2D/HurtBox/HurtShape:shape.height",
-					"AnimatedSprite2D/HurtBox/HurtShape:position",
-					"AnimatedSprite2D/HurtBox/HurtShape:rotation",
-					"AnimatedSprite2D/HurtBox:position",
-					TRACK_PATH_PHYSICAL_WIDTH,
-					"../Collision:shape.height",
-					"../../Collision:shape.height",
-				])
-			
-			# 创建或查找 tracks
-			var size_track_idx: int
-			var position_track_idx: int
-			var rotation_track_idx: int
-			var width_track_idx: int
-			
-			if is_single_file_mode:
-				size_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.size")
-				position_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				rotation_track_idx = _find_or_add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			else:
-				size_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:shape.size")
-				position_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:position")
-				rotation_track_idx = _add_value_track(anim, "AnimatedSprite2D/HurtBox/HurtShape:rotation")
-				width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-			
-			# 提取 flip_h track 数据
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_center := Vector2(INF, INF)
-			var prev_angle: float = INF
-			var prev_size := Vector2(INF, INF)
-			var prev_width: float = -1.0
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				if not frame_info.has("mabr") or not frame_info.has("rectangle"):
-					continue
-				
-				var mabr: Dictionary = frame_info["mabr"]
-				var rectangle: Dictionary = frame_info["rectangle"]
-				var current_center: Vector2 = mabr.center
-				var current_angle: float = rectangle.angle
-				var current_size: Vector2 = rectangle.size
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# flip_h 镜像处理
-				if _is_flipped_at_time(flip_track_data, time):
-					current_center.x = -current_center.x
-					current_angle = -current_angle
-				
-				# width track（physical_width）
-				var current_width: float = frame_info.get("width", 0.0)
-				if current_width != prev_width:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, width_track_idx, time)
-					anim.track_insert_key(width_track_idx, time, current_width)
-					prev_width = current_width
-				
-				# position track
-				if current_center != prev_center:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, position_track_idx, time)
-					anim.track_insert_key(position_track_idx, time, current_center)
-					prev_center = current_center
-				
-				# rotation track
-				if current_angle != prev_angle:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, rotation_track_idx, time)
-					anim.track_insert_key(rotation_track_idx, time, current_angle)
-					prev_angle = current_angle
-				
-				# size track
-				if current_size != prev_size:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, size_track_idx, time)
-					anim.track_insert_key(size_track_idx, time, current_size)
-					prev_size = current_size
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 注入 Attack 的 Rectangle tracks
-func _inject_rectangle_tracks_for_attack(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,
-	errors: Array[String],
-	is_single_file_mode: bool = false
-) -> void:
-	var lib_names := anim_player.get_animation_library_list()
-	
-	for lib_name in lib_names:
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			if frame_dict.is_empty():
-				continue
-			
-			# 获取 attack_node
-			var first_frame: Dictionary = frame_dict.values()[0]
-			var attack_node: String = first_frame["attack_node"]
-			var shape_name: String = attack_node + "Shape"
-			
-			# 定义 track 路径
-			var polygon_path := "Attacks/%s/%s:polygon" % [attack_node, shape_name]
-			var position_path := "Attacks/%s/%s:position" % [attack_node, shape_name]
-			var rotation_path := "Attacks/%s/%s:rotation" % [attack_node, shape_name]
-			var shape_size_path := "Attacks/%s/%s:shape.size" % [attack_node, shape_name]
-			var shape_radius_path := "Attacks/%s/%s:shape.radius" % [attack_node, shape_name]
-			var shape_height_path := "Attacks/%s/%s:shape.height" % [attack_node, shape_name]
-			var attack_node_path := "Attacks/%s:position" % attack_node
-			
-			# 全量模式：删除所有形状相关的旧 tracks
-			if not is_single_file_mode:
-				_remove_tracks_by_path(anim, [polygon_path, position_path, rotation_path, shape_size_path, shape_radius_path, shape_height_path, attack_node_path])
-			
-			# 创建或查找 tracks
-			var size_track_idx: int
-			var position_track_idx: int
-			var rotation_track_idx: int
-			var attack_pos_track_idx: int
-			
-			if is_single_file_mode:
-				size_track_idx = _find_or_add_value_track(anim, shape_size_path)
-				position_track_idx = _find_or_add_value_track(anim, position_path)
-				rotation_track_idx = _find_or_add_value_track(anim, rotation_path)
-				attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
-			else:
-				size_track_idx = _add_value_track(anim, shape_size_path)
-				position_track_idx = _add_value_track(anim, position_path)
-				rotation_track_idx = _add_value_track(anim, rotation_path)
-				attack_pos_track_idx = _add_value_track(anim, attack_node_path)
-			
-			# 复制 sprite position 到 attack node position
-			if not is_single_file_mode:
-				var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
-				if sprite_pos_track_idx >= 0:
-					var key_count := anim.track_get_key_count(sprite_pos_track_idx)
-					for i in key_count:
-						var time := anim.track_get_key_time(sprite_pos_track_idx, i)
-						var value := anim.track_get_key_value(sprite_pos_track_idx, i)
-						anim.track_insert_key(attack_pos_track_idx, time, value)
-				else:
-					anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
-			
-			# 提取 flip_h track 数据
-			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入 keyframe
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_center := Vector2(INF, INF)
-			var prev_angle: float = INF
-			var prev_size := Vector2(INF, INF)
-			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
-					continue
-				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				if not frame_info.has("mabr") or not frame_info.has("rectangle"):
-					continue
-				
-				var mabr: Dictionary = frame_info["mabr"]
-				var rectangle: Dictionary = frame_info["rectangle"]
-				var current_center: Vector2 = mabr.center
-				var current_angle: float = rectangle.angle
-				var current_size: Vector2 = rectangle.size
-				
-				var time: float = float(frame_idx) * frame_duration
-				
-				# flip_h 镜像处理
-				if _is_flipped_at_time(flip_track_data, time):
-					current_center.x = -current_center.x
-					current_angle = -current_angle
-				
-				# position track
-				if current_center != prev_center:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, position_track_idx, time)
-					anim.track_insert_key(position_track_idx, time, current_center)
-					prev_center = current_center
-				
-				# rotation track
-				if current_angle != prev_angle:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, rotation_track_idx, time)
-					anim.track_insert_key(rotation_track_idx, time, current_angle)
-					prev_angle = current_angle
-				
-				# size track
-				if current_size != prev_size:
-					if is_single_file_mode:
-						_remove_key_at_time(anim, size_track_idx, time)
-					anim.track_insert_key(size_track_idx, time, current_size)
-					prev_size = current_size
-			
-			# 注入 visible track（与 Shape:disabled 反向同步）
-			_inject_visible_track_for_attack(anim, attack_node, shape_name, is_single_file_mode)
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
 
 ## 根据 sprite_anim_name 确定对应的 Attack 节点名
 func _get_attack_node_name(sprite_anim_name: String) -> String:
@@ -2236,123 +1211,6 @@ func _get_attack_node_name(sprite_anim_name: String) -> String:
 	return ""
 
 
-## 从动画 track 中构建 sprite_anim_name → attack_node 的映射
-##
-## 判断依据：AttackXShape:disabled track 的值中是否包含 false
-## （false = 碰撞体被启用 = 这是攻击动画）
-## 非攻击动画（idle、hurt 等）的 Shape:disabled 值全是 [true]，不会被误判。
-##
-## 返回: {
-##   "attack_1": { "attack_node": "Attack1", "enabled_frames": [1, 2] },
-##   "attack_2": { "attack_node": "Attack2", "enabled_frames": null },
-## }
-## enabled_frames 含义：
-##   null = 全部跳过（无 track 且节点 disabled=true）
-##   []   = 全部处理（无 track 且节点 disabled=false）
-##   [1,2] = 只处理指定帧（有 track，按离散模式采样）
-func _find_attack_mapping_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
-	var mapping := {}
-	
-	for lib_name in anim_player.get_animation_library_list():
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or mapping.has(sprite_anim_name):
-				continue
-			
-			for track_idx in range(anim.get_track_count()):
-				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
-					continue
-				var track_path := str(anim.track_get_path(track_idx))
-				if not track_path.contains("Attacks/") or not track_path.ends_with("Shape:disabled"):
-					continue
-				
-				# 检查关键帧值中是否有 false（碰撞体被启用）
-				var has_enabled := false
-				for key_idx in range(anim.track_get_key_count(track_idx)):
-					if anim.track_get_key_value(track_idx, key_idx) == false:
-						has_enabled = true
-						break
-				
-				if not has_enabled:
-					continue
-				
-				# 从路径提取 Attack 节点名：Attacks/Attack1/Attack1Shape:disabled → Attack1
-				var parts := track_path.split("/")
-				if parts.size() < 2:
-					continue
-				var attack_node_name: String = parts[1]
-				
-				# 解析 disabled track，获取 enabled 帧列表
-				var enabled_frames: Array = _parse_disabled_track(anim, track_idx, sprite_anim_name, skin_node)
-				
-				mapping[sprite_anim_name] = {
-					"attack_node": attack_node_name,
-					"enabled_frames": enabled_frames,
-				}
-				break
-	
-	return mapping
-
-
-## 从动画 track 中构建 sprite_anim_name → body 的帧过滤映射
-##
-## 检查 HurtShape:disabled track，如果存在则解析离散模式获取 enabled 帧列表
-## 如果不存在 disabled track，返回空数组（处理所有帧）
-##
-## 返回: {
-##   "idle": { "enabled_frames": [] },  # 空数组 = 处理所有帧
-##   "hurt": { "enabled_frames": [0, 1, 2] },  # 只处理指定帧
-## }
-func _find_body_mapping_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
-	var mapping := {}
-	
-	for lib_name in anim_player.get_animation_library_list():
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or mapping.has(sprite_anim_name):
-				continue
-			
-			# 查找 HurtShape:disabled track
-			var disabled_track_idx := -1
-			for track_idx in range(anim.get_track_count()):
-				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
-					continue
-				var track_path := str(anim.track_get_path(track_idx))
-				if track_path.ends_with("HurtShape:disabled"):
-					disabled_track_idx = track_idx
-					break
-			
-			# 如果没有 disabled track，处理所有帧
-			if disabled_track_idx == -1:
-				mapping[sprite_anim_name] = {
-					"enabled_frames": [],
-				}
-				continue
-			
-			# 解析 disabled track，获取 enabled 帧列表
-			var enabled_frames: Array = _parse_disabled_track(anim, disabled_track_idx, sprite_anim_name, skin_node)
-			
-			mapping[sprite_anim_name] = {
-				"enabled_frames": enabled_frames,
-			}
-	
-	return mapping
 
 
 ## 解析 disabled track 的离散模式，返回 disabled=false 的帧索引
@@ -2676,5 +1534,554 @@ func _calc_bounding_box(contours: Array[PackedVector2Array]) -> Rect2:
 			max_y = max(max_y, vertex.y)
 	
 	return Rect2(min_x, min_y, max_x - min_x, max_y - min_y)
+
+
+## 发现所有碰撞形状节点（双通道）
+##
+## 通道 1：从动画 track 发现（重新转换优先）
+## 通道 2：从场景树发现（首次转换回退）
+##
+## 返回: Array[Dictionary]，每个元素包含：
+## - shape_path: String         # 完整路径，如 "AnimatedSprite2D/HurtBox/HurtShape"
+## - shape_name: String         # 节点名，如 "HurtShape"
+## - parent_path: String        # 父节点路径，如 "AnimatedSprite2D/HurtBox"
+## - category: String           # "body" 或 "attack"
+## - area_node_name: String     # Area2D 节点名，如 "HurtBox" 或 "Attack1"
+## - initial_disabled: bool     # 节点初始 disabled 值
+## - node_type: String          # "CollisionPolygon2D" 或 "CollisionShape2D"
+func _discover_shape_nodes(skin_node: Node, anim_player: AnimationPlayer) -> Array:
+	var discovered := {}
+	
+	# 通道 1：从动画 track 发现
+	if anim_player != null:
+		var from_tracks := _discover_from_tracks(anim_player, skin_node)
+		for shape_path in from_tracks:
+			discovered[shape_path] = from_tracks[shape_path]
+	
+	# 通道 2：从场景树发现（补充缺失的节点）
+	var from_scene := _discover_from_scene_tree(skin_node)
+	for info in from_scene:
+		var shape_path: String = info["shape_path"]
+		if not discovered.has(shape_path):
+			discovered[shape_path] = info
+	
+	return discovered.values()
+
+
+## 从动画 track 发现碰撞形状节点
+##
+## 遍历所有动画的所有 track，匹配碰撞形状属性后缀
+func _discover_from_tracks(anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
+	var discovered := {}
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			for track_idx in range(anim.get_track_count()):
+				if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
+					continue
+				
+				var track_path := str(anim.track_get_path(track_idx))
+				
+				# 检查是否匹配形状属性
+				for prop in ALL_SHAPE_PROPS:
+					if track_path.ends_with(":" + prop):
+						var node_path := track_path.substr(0, track_path.length() - prop.length() - 1)
+						if not discovered.has(node_path):
+							var info := _build_info_from_path(node_path, skin_node)
+							if not info.is_empty():
+								discovered[node_path] = info
+						break
+				
+				# 也检查 disabled 属性
+				if track_path.ends_with(":disabled"):
+					var node_path := track_path.substr(0, track_path.length() - "disabled".length() - 1)
+					if not discovered.has(node_path):
+						var info := _build_info_from_path(node_path, skin_node)
+						if not info.is_empty():
+							discovered[node_path] = info
+	
+	return discovered
+
+
+## 从场景树发现碰撞形状节点
+##
+## 遍历 AnimatedSprite2D/HurtBox 和 Attacks 下的 Area2D 子节点
+func _discover_from_scene_tree(skin_node: Node) -> Array:
+	var discovered := []
+	
+	# Body: AnimatedSprite2D/HurtBox 下的碰撞形状
+	var hurt_box := skin_node.get_node_or_null(BODY_BOX_PATH)
+	if hurt_box != null:
+		for child in hurt_box.get_children():
+			if child is CollisionShape2D or child is CollisionPolygon2D:
+				discovered.append(_build_info_from_node(child, "body", hurt_box))
+	
+	# Attack: Attacks 下的 Area2D 子节点
+	var attacks := skin_node.get_node_or_null(ATTACKS_PATH)
+	if attacks != null:
+		for child in attacks.get_children():
+			if child is Area2D:
+				for shape_child in child.get_children():
+					if shape_child is CollisionShape2D or shape_child is CollisionPolygon2D:
+						discovered.append(_build_info_from_node(shape_child, "attack", child))
+	
+	return discovered
+
+
+## 从 track 路径构建 ShapeNodeInfo
+##
+## 路径格式：
+## - Body: "AnimatedSprite2D/HurtBox/HurtShape"
+## - Attack: "Attacks/Attack1/Attack1Shape"
+func _build_info_from_path(node_path: String, skin_node: Node) -> Dictionary:
+	var parts := node_path.split("/")
+	if parts.size() < 2:
+		return {}
+	
+	var shape_name: String = parts[parts.size() - 1]
+	var parent_path := node_path.substr(0, node_path.length() - shape_name.length() - 1)
+	
+	# 分类：路径以 "Attacks/" 开头 → attack，否则 → body
+	var category := "attack" if node_path.begins_with(ATTACKS_PATH + "/") else "body"
+	
+	# Area2D 节点名：倒数第二个部分
+	var area_node_name: String = parts[parts.size() - 2]
+	
+	# 尝试从场景树获取节点信息
+	var shape_node := skin_node.get_node_or_null(node_path)
+	var initial_disabled := true
+	var node_type := "CollisionShape2D"
+	
+	if shape_node != null:
+		if shape_node is CollisionPolygon2D:
+			node_type = "CollisionPolygon2D"
+		elif shape_node is CollisionShape2D:
+			node_type = "CollisionShape2D"
+		initial_disabled = shape_node.disabled if shape_node.has_method("get") and "disabled" in shape_node else true
+	
+	return {
+		"shape_path": node_path,
+		"shape_name": shape_name,
+		"parent_path": parent_path,
+		"category": category,
+		"area_node_name": area_node_name,
+		"initial_disabled": initial_disabled,
+		"node_type": node_type,
+	}
+
+
+## 从场景树节点构建 ShapeNodeInfo
+func _build_info_from_node(shape_node: Node, category: String, area_node: Node) -> Dictionary:
+	var shape_path := str(shape_node.get_path()).replace(str(shape_node.get_tree().root.get_path()) + "/", "")
+	var shape_name: String = shape_node.name
+	var parent_path := str(area_node.get_path()).replace(str(area_node.get_tree().root.get_path()) + "/", "")
+	var area_node_name: String = area_node.name
+	
+	var initial_disabled := true
+	if "disabled" in shape_node:
+		initial_disabled = shape_node.disabled
+	
+	var node_type := "CollisionShape2D"
+	if shape_node is CollisionPolygon2D:
+		node_type = "CollisionPolygon2D"
+	
+	return {
+		"shape_path": shape_path,
+		"shape_name": shape_name,
+		"parent_path": parent_path,
+		"category": category,
+		"area_node_name": area_node_name,
+		"initial_disabled": initial_disabled,
+		"node_type": node_type,
+	}
+
+
+## 为指定形状节点构建帧过滤映射
+##
+## 遍历所有动画，确定每个动画需要处理的帧
+##
+## 返回: { sprite_anim_name: { "enabled_frames": Array/null } }
+## - null = 跳过该动画
+## - [] = 处理所有帧
+## - [1,2,3] = 只处理指定帧
+func _build_frame_filter_for_node(
+	shape_info: Dictionary,
+	anim_player: AnimationPlayer,
+	skin_node: Node
+) -> Dictionary:
+	var filter := {}
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or filter.has(sprite_anim_name):
+				continue
+			
+			# 查找该 shape 的 disabled track
+			var disabled_path := shape_info["shape_path"] + ":disabled"
+			var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
+			
+			if disabled_track_idx >= 0:
+				# 有 disabled track：解析离散模式，返回 disabled=false 的帧
+				var enabled_frames: Array = _parse_disabled_track(anim, disabled_track_idx, sprite_anim_name, skin_node)
+				filter[sprite_anim_name] = { "enabled_frames": enabled_frames }
+			else:
+				# 没有 disabled track：读取节点初始 disabled 值
+				if not shape_info["initial_disabled"]:
+					# 初始 disabled=false → 处理所有帧
+					filter[sprite_anim_name] = { "enabled_frames": [] }
+				else:
+					# 初始 disabled=true → 跳过
+					filter[sprite_anim_name] = { "enabled_frames": null }
+	
+	return filter
+
+
+## 统一 track 注入函数
+##
+## 根据 shape_type 和 ShapeNodeInfo 动态生成 track 路径并注入
+func _inject_tracks(
+	anim_player: AnimationPlayer,
+	sprite_frames: SpriteFrames,
+	shape_info: Dictionary,
+	shape_type: int,
+	frames_data: Dictionary,
+	is_single_file_mode: bool,
+	errors: Array[String]
+) -> void:
+	var config: Dictionary = SHAPE_CONFIGS[shape_type]
+	var shape_tracks: Array = config["tracks"]
+	
+	# 计算其他形状类型的属性（用于清理）
+	var other_props: Array = ALL_SHAPE_PROPS.filter(func(p): return p not in shape_tracks)
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
+				continue
+			
+			var frame_dict: Dictionary = frames_data[sprite_anim_name]
+			if frame_dict.is_empty():
+				continue
+			
+			# 全量模式：清理其他形状类型的旧属性 track
+			if not is_single_file_mode:
+				var remove_paths: Array[String] = []
+				for prop in other_props:
+					remove_paths.append(shape_info["shape_path"] + ":" + prop)
+				_remove_tracks_by_path(anim, remove_paths)
+			
+			# 创建/查找当前形状类型的 track
+			var track_indices := {}
+			for prop in shape_tracks:
+				var path := shape_info["shape_path"] + ":" + prop
+				var track_idx: int
+				if is_single_file_mode:
+					track_idx = _find_or_add_value_track(anim, path)
+				else:
+					track_idx = _add_value_track(anim, path)
+				track_indices[prop] = track_idx
+			
+			# 额外 tracks
+			if shape_info["category"] == "body":
+				# physical_width track（Skin 节点自身属性）
+				_inject_width_track(anim, frame_dict, is_single_file_mode)
+			
+			if shape_info["category"] == "attack":
+				# Attack 节点 position track（跟随 sprite 位置）
+				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
+			
+			# 提取 flip_h track 数据
+			var flip_track_data := _extract_flip_h_track(anim)
+			
+			# 逐帧插入关键帧（只在值变化时）
+			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
+			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
+			var prev_values := {}
+			
+			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				if not frame_dict.has(frame_idx):
+					continue
+				
+				var frame_info: Dictionary = frame_dict[frame_idx]
+				var time: float = float(frame_idx) * frame_duration
+				
+				for prop in shape_tracks:
+					var value := _get_track_value(prop, frame_info, flip_track_data, time)
+					if value == null:
+						continue
+					
+					if value != prev_values.get(prop):
+						if is_single_file_mode:
+							_remove_key_at_time(anim, track_indices[prop], time)
+						anim.track_insert_key(track_indices[prop], time, value)
+						prev_values[prop] = value
+			
+			# Attack 额外：注入 visible track
+			if shape_info["category"] == "attack":
+				_inject_visible_track(anim, shape_info, is_single_file_mode)
+			
+			# 保存 Animation
+			var resource_path := anim.resource_path
+			if not resource_path.is_empty():
+				var err := ResourceSaver.save(anim, resource_path)
+				if err != OK:
+					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+
+
+## 获取 track 属性值（含 flip_h 镜像）
+func _get_track_value(
+	prop: String,
+	frame_info: Dictionary,
+	flip_track_data: Array,
+	time: float
+) -> Variant:
+	var is_flipped := _is_flipped_at_time(flip_track_data, time)
+	
+	match prop:
+		"polygon":
+			var contours: Array = frame_info.get("contours", [])
+			if contours.is_empty():
+				return PackedVector2Array()
+			var polygon: PackedVector2Array = contours[0]
+			return _mirror_polygon_x(polygon) if is_flipped else polygon
+		
+		"position":
+			var center: Vector2 = frame_info.get("center", Vector2.ZERO)
+			if is_flipped:
+				center.x = -center.x
+			return center
+		
+		"rotation":
+			var angle: float = frame_info.get("angle", 0.0)
+			return -angle if is_flipped else angle
+		
+		"shape.radius":
+			if not frame_info.has("capsule"):
+				return null
+			return frame_info["capsule"]["radius"]
+		
+		"shape.height":
+			if not frame_info.has("capsule"):
+				return null
+			return frame_info["capsule"]["height"]
+		
+		"shape.size":
+			if not frame_info.has("rectangle"):
+				return null
+			return frame_info["rectangle"]["size"]
+	
+	return null
+
+
+## 注入 Body 的 physical_width track
+func _inject_width_track(
+	anim: Animation,
+	frame_dict: Dictionary,
+	is_single_file_mode: bool
+) -> void:
+	var width_track_idx: int
+	if is_single_file_mode:
+		width_track_idx = _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+	else:
+		width_track_idx = _add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
+	
+	var prev_width: float = -1.0
+	
+	for frame_idx in frame_dict.keys():
+		var frame_info: Dictionary = frame_dict[frame_idx]
+		var current_width: float = frame_info.get("width", 0.0)
+		
+		if current_width != prev_width:
+			var time: float = float(frame_idx) * (1.0 / 24.0)
+			if is_single_file_mode:
+				_remove_key_at_time(anim, width_track_idx, time)
+			anim.track_insert_key(width_track_idx, time, current_width)
+			prev_width = current_width
+
+
+## 注入 Attack 节点的 position track（跟随 sprite 位置）
+func _inject_attack_node_position(
+	anim: Animation,
+	shape_info: Dictionary,
+	is_single_file_mode: bool
+) -> void:
+	var attack_node_path := shape_info["parent_path"] + ":position"
+	var attack_pos_track_idx: int
+	
+	if is_single_file_mode:
+		attack_pos_track_idx = _find_or_add_value_track(anim, attack_node_path)
+	else:
+		attack_pos_track_idx = _add_value_track(anim, attack_node_path)
+	
+	# 只在非单文件模式下复制 sprite position
+	if not is_single_file_mode:
+		var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
+		if sprite_pos_track_idx >= 0:
+			var key_count := anim.track_get_key_count(sprite_pos_track_idx)
+			for i in key_count:
+				var time := anim.track_get_key_time(sprite_pos_track_idx, i)
+				var value := anim.track_get_key_value(sprite_pos_track_idx, i)
+				anim.track_insert_key(attack_pos_track_idx, time, value)
+		else:
+			anim.track_insert_key(attack_pos_track_idx, 0.0, Vector2(0, 0))
+
+
+## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
+func _inject_visible_track(
+	anim: Animation,
+	shape_info: Dictionary,
+	is_single_file_mode: bool
+) -> void:
+	var visible_path := shape_info["parent_path"] + ":visible"
+	var disabled_path := shape_info["shape_path"] + ":disabled"
+	
+	var visible_track_idx: int
+	if is_single_file_mode:
+		visible_track_idx = _find_or_add_value_track(anim, visible_path)
+	else:
+		_remove_tracks_by_path(anim, [visible_path])
+		visible_track_idx = _add_value_track(anim, visible_path)
+	
+	# 查找已有的 disabled track
+	var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
+	
+	if disabled_track_idx >= 0:
+		# 有 disabled track：逐帧镜像，值取反
+		var key_count := anim.track_get_key_count(disabled_track_idx)
+		for i in key_count:
+			var time := anim.track_get_key_time(disabled_track_idx, i)
+			var disabled_value: bool = anim.track_get_key_value(disabled_track_idx, i)
+			if is_single_file_mode:
+				_remove_key_at_time(anim, visible_track_idx, time)
+			anim.track_insert_key(visible_track_idx, time, not disabled_value)
+	else:
+		# 没有 disabled track：默认 visible = false
+		if not is_single_file_mode:
+			anim.track_insert_key(visible_track_idx, 0.0, false)
+
+
+## 统一 .tscn 节点修改函数
+##
+## 只在形状类型不匹配时修改，只改 type 不改路径
+## 使用 shape_info 中的动态路径，不硬编码节点名
+func _modify_tscn_node(
+	tscn_path: String,
+	shape_info: Dictionary,
+	shape_type: int,
+	first_frame_data: Dictionary,
+	errors: Array[String]
+) -> void:
+	if not FileAccess.file_exists(tscn_path):
+		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
+		return
+	
+	var file := FileAccess.open(tscn_path, FileAccess.READ)
+	if file == null:
+		errors.append("无法读取 skin .tscn: %s" % tscn_path)
+		return
+	
+	var content := file.get_as_text()
+	file.close()
+	
+	var shape_name: String = shape_info["shape_name"]
+	var parent_path: String = shape_info["parent_path"]
+	var category: String = shape_info["category"]
+	
+	# 提取现有 unique_id（如果有）
+	var unique_id_str := _extract_unique_id(content, shape_name)
+	
+	# 删除旧节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
+	var old_node_pattern := RegEx.new()
+	old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+	content = old_node_pattern.sub(content, "")
+	
+	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
+	content = _remove_all_shape_subresources(content)
+	
+	# 根据 shape_type 生成新节点
+	var config: Dictionary = SHAPE_CONFIGS[shape_type]
+	var node_type: String = config["node_type"]
+	var new_content := ""
+	
+	# modulate 颜色：body 蓝色，attack 红色
+	var modulate_color := "Color(0, 0.0666667, 0.701961, 1)" if category == "body" else "Color(1, 0.2, 0.101961, 1)"
+	
+	match shape_type:
+		ShapeType.POLYGON:
+			var polygon_str := ""
+			if first_frame_data.has("contours") and not first_frame_data["contours"].is_empty():
+				polygon_str = ContourTracer.format_polygon_array(first_frame_data["contours"][0])
+			new_content = '[node name="%s" type="CollisionPolygon2D" parent="%s" index="0"%s]\nmodulate = %s\nposition = Vector2(0, 0)\npolygon = %s\n' % [shape_name, parent_path, unique_id_str, modulate_color, polygon_str]
+			if category == "attack":
+				new_content += "disabled = true\n"
+			new_content += "\n"
+		
+		ShapeType.CAPSULE:
+			var sub_id := _generate_subresource_id("CapsuleShape2D", shape_name)
+			var radius: float = 40.0
+			var height: float = 160.0 if category == "body" else 120.0
+			if first_frame_data.has("capsule"):
+				radius = round(first_frame_data["capsule"]["radius"] * 100.0) / 100.0
+				height = round(first_frame_data["capsule"]["height"] * 100.0) / 100.0
+			var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
+			content = _insert_subresource(content, sub_resource)
+			new_content = '[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
+			if category == "attack":
+				new_content += "disabled = true\n"
+			new_content += "\n"
+		
+		ShapeType.RECTANGLE:
+			var sub_id := _generate_subresource_id("RectangleShape2D", shape_name)
+			var size := Vector2(80, 160) if category == "body" else Vector2(80, 120)
+			if first_frame_data.has("rectangle"):
+				size = Vector2(
+					round(first_frame_data["rectangle"]["size"].x * 100.0) / 100.0,
+					round(first_frame_data["rectangle"]["size"].y * 100.0) / 100.0
+				)
+			var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
+			content = _insert_subresource(content, sub_resource)
+			new_content = '[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
+			if category == "attack":
+				new_content += "disabled = true\n"
+			new_content += "\n"
+	
+	# 在对应父节点之后插入新节点
+	var area_node_name: String = shape_info["area_node_name"]
+	content = _insert_node_after_parent(content, area_node_name, new_content)
+	
+	# 写回文件
+	file = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if file == null:
+		errors.append("无法写入 skin .tscn: %s" % tscn_path)
+		return
+	
+	file.store_string(content)
+	file.close()
 
 ### -----------------------------------------------------------------------------------------------
