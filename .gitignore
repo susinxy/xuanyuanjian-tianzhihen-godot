@@ -18,6 +18,7 @@ export_presets.cfg
 # OS-specific
 .DS_Store
 Thumbs.db
+.stfolder
 
 # Editor files
 .vscode/
