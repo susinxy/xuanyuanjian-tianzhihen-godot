@@ -73,7 +73,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [331.0]
+"values": [385.0]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -85,7 +85,7 @@ tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [350.0]
+"values": [392.0]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
@@ -174,14 +174,14 @@ tracks/13/keys = {
 tracks/14/type = "value"
 tracks/14/imported = false
 tracks/14/enabled = true
-tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
 tracks/14/interp = 0
 tracks/14/loop_wrap = true
 tracks/14/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(396.63516, 181.98514)]
+"values": [PackedVector2Array(-82, -194.5, 192, -143.5, 193, -143.5, 17, 195.5, 15, 195.5, -56, 47.5, -56, 46.5, -191, 122.5, -192, 122.5, -82, -195.5)]
 }
 tracks/15/type = "value"
 tracks/15/imported = false
@@ -193,7 +193,7 @@ tracks/15/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(18.730518, -11.36437)]
+"values": [Vector2(0, 0)]
 }
 tracks/16/type = "value"
 tracks/16/imported = false
@@ -205,5 +205,5 @@ tracks/16/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [-1.0067126252767065]
+"values": [0.0]
 }

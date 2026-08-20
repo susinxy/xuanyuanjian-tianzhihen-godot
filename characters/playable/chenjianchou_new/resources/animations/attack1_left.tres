@@ -115,7 +115,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0, 0.16666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [112.0, 225.0]
+"values": [148.0, 281.0]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -127,7 +127,7 @@ tracks/9/keys = {
 "times": PackedFloat32Array(0, 0.16666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [304.0, 351.0]
+"values": [330.0, 371.0]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
@@ -172,10 +172,10 @@ tracks/13/path = NodePath(".:attack_heights")
 tracks/13/interp = 0
 tracks/13/loop_wrap = true
 tracks/13/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.041666668),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [[290.0], [192.5]]
+"values": [[290.0]]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
@@ -192,132 +192,72 @@ tracks/14/keys = {
 tracks/15/type = "value"
 tracks/15/imported = false
 tracks/15/enabled = true
-tracks/15/path = NodePath("Attacks/Attack1/Attack1Shape:position")
+tracks/15/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
 tracks/15/interp = 0
 tracks/15/loop_wrap = true
 tracks/15/keys = {
-"times": PackedFloat32Array(0.041666668),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.16666667),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [Vector2(-88.09656, -102.35862)]
+"values": [PackedVector2Array(-75.5, -139.5, -46.5, -61.5, -46.5, -60.5, -193.5, -113.5, -194.5, -113.5, -75.5, -140.5), PackedVector2Array(40.5, -180.5, 192.5, 166.5, 193.5, 166.5, 46.5, 40.5, 44.5, 40.5, -86.5, 167.5, -87.5, 167.5, 40.5, -181.5)]
 }
 tracks/16/type = "value"
 tracks/16/imported = false
 tracks/16/enabled = true
-tracks/16/path = NodePath("Attacks/Attack1/Attack1Shape:rotation")
+tracks/16/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
 tracks/16/interp = 0
 tracks/16/loop_wrap = true
 tracks/16/keys = {
-"times": PackedFloat32Array(0.041666668),
+"times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [-4.65363315745021]
+"values": [Vector2(0, 0)]
 }
 tracks/17/type = "value"
 tracks/17/imported = false
 tracks/17/enabled = true
-tracks/17/path = NodePath("Attacks/Attack1/Attack1Shape:shape:radius")
+tracks/17/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
 tracks/17/interp = 0
 tracks/17/loop_wrap = true
 tracks/17/keys = {
-"times": PackedFloat32Array(0.041666668),
+"times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [13.095013]
+"values": [0.0]
 }
 tracks/18/type = "value"
 tracks/18/imported = false
 tracks/18/enabled = true
-tracks/18/path = NodePath("Attacks/Attack1/Attack1Shape:shape:height")
+tracks/18/path = NodePath("Attacks/Attack1/Attack1Shape:polygon")
 tracks/18/interp = 0
 tracks/18/loop_wrap = true
 tracks/18/keys = {
 "times": PackedFloat32Array(0.041666668),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [60.836018]
+"values": [PackedVector2Array(-75.5, -139.5, -46.5, -61.5, -46.5, -60.5, -193.5, -113.5, -194.5, -113.5, -75.5, -140.5)]
 }
 tracks/19/type = "value"
 tracks/19/imported = false
 tracks/19/enabled = true
-tracks/19/path = NodePath("Attacks/AttackAir/AttackAirShape:shape:radius")
+tracks/19/path = NodePath("Attacks/Attack1/Attack1Shape:position")
 tracks/19/interp = 0
 tracks/19/loop_wrap = true
 tracks/19/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.041666668),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [13.095013, 112.5]
+"values": [Vector2(0, 0)]
 }
 tracks/20/type = "value"
 tracks/20/imported = false
 tracks/20/enabled = true
-tracks/20/path = NodePath("Attacks/AttackAir/AttackAirShape:shape:height")
+tracks/20/path = NodePath("Attacks/Attack1/Attack1Shape:rotation")
 tracks/20/interp = 0
 tracks/20/loop_wrap = true
 tracks/20/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.041666668),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [60.836018, 317.0]
-}
-tracks/21/type = "value"
-tracks/21/imported = false
-tracks/21/enabled = true
-tracks/21/path = NodePath("Attacks/AttackAir/AttackAirShape:position")
-tracks/21/interp = 0
-tracks/21/loop_wrap = true
-tracks/21/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [Vector2(-88.09656, -102.35862), Vector2(53, -3)]
-}
-tracks/22/type = "value"
-tracks/22/imported = false
-tracks/22/enabled = true
-tracks/22/path = NodePath("Attacks/AttackAir/AttackAirShape:rotation")
-tracks/22/interp = 0
-tracks/22/loop_wrap = true
-tracks/22/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [-4.65363315745021, -3.141592653589793]
-}
-tracks/23/type = "value"
-tracks/23/imported = false
-tracks/23/enabled = true
-tracks/23/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
-tracks/23/interp = 0
-tracks/23/loop_wrap = true
-tracks/23/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [Vector2(60.836018, 26.190025), Vector2(225, 317)]
-}
-tracks/24/type = "value"
-tracks/24/imported = false
-tracks/24/enabled = true
-tracks/24/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
-tracks/24/interp = 0
-tracks/24/loop_wrap = true
-tracks/24/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [Vector2(-88.09656, -102.35862), Vector2(53, -3)]
-}
-tracks/25/type = "value"
-tracks/25/imported = false
-tracks/25/enabled = true
-tracks/25/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
-tracks/25/interp = 0
-tracks/25/loop_wrap = true
-tracks/25/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
-"update": 1,
-"values": [-3.0828368306553138, -3.141592653589793]
+"values": [0.0]
 }

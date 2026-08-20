@@ -19,8 +19,8 @@ _data = {
 }
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_bdf308dd5cb1837d"]
-radius = 129.73
-height = 368.35
+radius = 13.095013
+height = 60.836018
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_bc99c0993361d7b1"]
 radius = 129.73
@@ -31,11 +31,8 @@ radius = 129.73
 height = 368.35
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_07e1e1ff8ffec35e"]
-radius = 129.73
-height = 368.35
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_cbe60476e70ca8cf"]
-size = Vector2(411.45, 183.56)
+radius = 112.5
+height = 317.0
 
 [node name="ChenjianchouNewSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
@@ -88,23 +85,9 @@ animation = &"idle"
 monitorable = false
 script = ExtResource("5_k0gpy")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
+[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
 modulate = Color(0, 0.0666667, 0.701961, 1)
-shape = SubResource("RectangleShape2D_cbe60476e70ca8cf")
+polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
@@ -115,13 +98,6 @@ position = Vector2(53, -164)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("8_uylrb")
-
-
-
-
-
-
-
 
 [node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=930854560]
 modulate = Color(1, 0.2, 0.101961, 1)
@@ -136,13 +112,6 @@ monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("9_cutyj")
 
-
-
-
-
-
-
-
 [node name="Attack2Shape" type="CollisionShape2D" parent="Attacks/Attack2" index="0" unique_id=1482232703]
 modulate = Color(1, 0.2, 0.101961, 1)
 shape = SubResource("CapsuleShape2D_bc99c0993361d7b1")
@@ -156,13 +125,6 @@ monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
 
-
-
-
-
-
-
-
 [node name="Attack3Shape" type="CollisionShape2D" parent="Attacks/Attack3" index="0" unique_id=1786663361]
 modulate = Color(1, 0.2, 0.101961, 1)
 shape = SubResource("CapsuleShape2D_c902dde55357cd82")
@@ -171,20 +133,12 @@ disabled = true
 [node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:chenjianchou_new"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(80, -277)
+position = Vector2(53, -164)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
-
-
-
-
-
-
-
 
 [node name="AttackAirShape" type="CollisionShape2D" parent="Attacks/AttackAir" index="0" unique_id=78482173]
 modulate = Color(1, 0.2, 0.101961, 1)
 shape = SubResource("CapsuleShape2D_07e1e1ff8ffec35e")
 disabled = true
-
