@@ -866,103 +866,89 @@ func convert_body_contours(
 		result.errors.append("未发现 body 形状节点")
 		return result
 	
-	# 4. 对每个 body shape 节点执行转换（阶段 1：收集数据 + per-shape tracks）
-	var all_shape_data := {}  # { shape_path: frames_data }
 	var skin_scene_path := skin_node.scene_file_path
 	var is_single_file_mode := not target_file_path.is_empty()
 	
-	for node_info in body_nodes:
-		# 4a. 找出引用了这个 shape_node 的动画
-		var relevant_anims: Array[String] = []
-		if anim_player != null:
-			for lib_name in anim_player.get_animation_library_list():
-				var library := anim_player.get_animation_library(lib_name)
-				if library == null:
-					continue
-				for anim_name in library.get_animation_list():
-					var anim := library.get_animation(anim_name)
-					if anim == null:
-						continue
-					if _animation_references_shape(anim, node_info):
-						var sprite_anim_name := _find_sprite_anim_name(anim)
-						if not sprite_anim_name.is_empty():
-							relevant_anims.append(sprite_anim_name)
-		
-		# 4b. 构建帧过滤映射（只针对相关动画）
-		var frame_filter := {}
-		if anim_player != null:
-			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
-		
-		# 4c. 扫描轮廓（只扫描相关动画）
-		# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
-		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
-		var frames_data := await _scan_frames_contours(
-			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			relevant_anims, frame_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
-		)
-		
-		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle（纯计算）
-		for sprite_anim_name in frames_data:
-			for frame_idx in frames_data[sprite_anim_name]:
-				var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
-				var raw: Array = frame["raw_contours"]
-				var img_w := int(frame["image_size"].x)
-				var img_h := int(frame["image_size"].y)
-				
-				frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
-				frame["width"] = ContourTracer.calc_contour_width(raw)
-				
-				var local_contours: Array[PackedVector2Array] = []
-				for contour in raw:
-					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-				frame["contours"] = local_contours
-				
-				if local_contours.size() > 0 and local_contours[0].size() >= 3:
-					var mabr := ContourTracer.calc_mabr(local_contours[0])
-					frame["mabr"] = mabr
-					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-					frame["rectangle"] = {
-						"size": mabr.size,
-						"angle": mabr.angle,
-					}
-				
-				frame.erase("raw_contours")
-				result.frame_count += 1
-		
-		# 4d. 如果 dry_run，返回预览结果
-		if dry_run:
-			result.frames_info = frames_data
-			return result
-		
-		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
-		if is_single_file_mode:
+	# 4. 构建统一帧过滤 + 找出所有相关动画
+	var unified_filter := {}
+	var relevant_anims: Array[String] = []
+	if anim_player != null:
+		unified_filter = _build_unified_frame_filter(body_nodes, anim_player, skin_node)
+		relevant_anims = _find_all_relevant_anims(body_nodes, anim_player)
+	
+	# 5. 扫描一次
+	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+	var frames_data := await _scan_frames_contours(
+		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
+		relevant_anims, unified_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
+	)
+	
+	# 6. 后处理一次（纯计算）
+	for sprite_anim_name in frames_data:
+		for frame_idx in frames_data[sprite_anim_name]:
+			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+			var raw: Array = frame["raw_contours"]
+			var img_w := int(frame["image_size"].x)
+			var img_h := int(frame["image_size"].y)
+			
+			frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
+			frame["width"] = ContourTracer.calc_contour_width(raw)
+			
+			var local_contours: Array[PackedVector2Array] = []
+			for contour in raw:
+				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+			frame["contours"] = local_contours
+			
+			if local_contours.size() > 0 and local_contours[0].size() >= 3:
+				var mabr := ContourTracer.calc_mabr(local_contours[0])
+				frame["mabr"] = mabr
+				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+				frame["rectangle"] = {
+					"size": mabr.size,
+					"angle": mabr.angle,
+				}
+			
+			frame.erase("raw_contours")
+			result.frame_count += 1
+	
+	# 7. dry_run
+	if dry_run:
+		result.frames_info = frames_data
+		return result
+	
+	# 8. 单文件模式检查
+	if is_single_file_mode:
+		for node_info in body_nodes:
 			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
 				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
 					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
 				])
 				return result
-		
-		# 4f. 修改 skin .tscn（仅类型不匹配时）
-		if _needs_body_tscn_conversion(skin_scene_path, shape_type):
+	
+	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
+	var shape_type_changed := {}
+	for node_info in body_nodes:
+		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
+		shape_type_changed[node_info["shape_name"]] = current_type != -1 and current_type != shape_type
+	
+	# 10. 修改 .tscn（仅类型不匹配时）
+	if _needs_body_tscn_conversion(skin_scene_path, shape_type):
+		for node_info in body_nodes:
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
-		
-		# 4g. 注入 per-shape Animation tracks（不包含共享 track）
-		if anim_player != null:
-			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
-		
-		# 4h. 收集数据用于后续共享 track 写入
-		all_shape_data[node_info["shape_path"]] = frames_data
-		result.frames_info = frames_data
 	
-	# 5. 阶段 2：统一写入共享 track（只写一次，确保幂等性）
-	if anim_player != null and not dry_run:
-		# Body 通常只有一个 shape，但为一致性也使用统一写入
-		for shape_path in all_shape_data:
-			_inject_shared_body_tracks_once(anim_player, sprite_frames, all_shape_data[shape_path], is_single_file_mode, result.errors)
-			break  # 只处理第一个 body shape 的数据
+	# 11. 构建 per-shape 过滤映射
+	var per_shape_filters := {}
+	if anim_player != null:
+		for node_info in body_nodes:
+			per_shape_filters[node_info["shape_path"]] = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 	
+	# 12. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
+	if anim_player != null:
+		_inject_all_tracks(anim_player, sprite_frames, body_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
+	
+	result.frames_info = frames_data
 	return result
 
 
@@ -1012,14 +998,28 @@ func convert_attack_contours(
 	if attack_nodes.is_empty():
 		return result
 	
-	# 4. 对每个 attack shape 节点执行转换（阶段 1：收集数据 + per-shape tracks）
-	var all_shape_data := {}  # { shape_path: frames_data }
 	var skin_scene_path := skin_node.scene_file_path
 	var is_single_file_mode := not target_file_path.is_empty()
 	
-	for node_info in attack_nodes:
-		# 4a. 找出引用了这个 shape_node 的动画
-		var relevant_anims: Array[String] = []
+	# 4. 构建统一帧过滤 + 找出所有相关动画
+	var unified_filter := {}
+	var relevant_anims: Array[String] = []
+	if anim_player != null:
+		unified_filter = _build_unified_frame_filter(attack_nodes, anim_player, skin_node)
+		relevant_anims = _find_all_relevant_anims(attack_nodes, anim_player)
+	
+	# 5. 扫描一次
+	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+	var frames_data := await _scan_frames_contours(
+		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
+		relevant_anims, unified_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
+	)
+	
+	# 6. 后处理一次（纯计算）
+	var height_definitions := QuiverCharacter._build_height_definitions()
+	for sprite_anim_name in frames_data:
+		# 确定该动画映射到哪个 attack 节点
+		var attack_node_name := ""
 		if anim_player != null:
 			for lib_name in anim_player.get_animation_library_list():
 				var library := anim_player.get_animation_library(lib_name)
@@ -1029,88 +1029,79 @@ func convert_attack_contours(
 					var anim := library.get_animation(anim_name)
 					if anim == null:
 						continue
-					if _animation_references_shape(anim, node_info):
-						var sprite_anim_name := _find_sprite_anim_name(anim)
-						if not sprite_anim_name.is_empty():
-							relevant_anims.append(sprite_anim_name)
+					if _find_sprite_anim_name(anim) == sprite_anim_name:
+						attack_node_name = _find_attack_node_for_anim(anim, attack_nodes, sprite_anim_name, skin_node)
+						break
+				if not attack_node_name.is_empty():
+					break
 		
-		# 4b. 构建帧过滤映射（只针对相关动画）
-		var frame_filter := {}
-		if anim_player != null:
-			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
-		
-		# 4c. 扫描轮廓（只扫描相关动画）
-		# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
-		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
-		var frames_data := await _scan_frames_contours(
-			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			relevant_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
-		)
-		
-		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle（纯计算）
-		var height_definitions := QuiverCharacter._build_height_definitions()
-		for sprite_anim_name in frames_data:
-			for frame_idx in frames_data[sprite_anim_name]:
-				var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
-				var raw: Array = frame["raw_contours"]
-				var img_w := int(frame["image_size"].x)
-				var img_h := int(frame["image_size"].y)
-				
-				frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
-				frame["attack_node"] = node_info["area_node_name"]
-				
-				var local_contours: Array[PackedVector2Array] = []
-				for contour in raw:
-					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-				frame["contours"] = local_contours
-				
-				if local_contours.size() > 0 and local_contours[0].size() >= 3:
-					var mabr := ContourTracer.calc_mabr(local_contours[0])
-					frame["mabr"] = mabr
-					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-					frame["rectangle"] = {
-						"size": mabr.size,
-						"angle": mabr.angle,
-					}
-				
-				frame.erase("raw_contours")
-				
-				result.frame_count += 1
-		
-		# 4d. 如果 dry_run，返回预览结果
-		if dry_run:
-			result.frames_info = frames_data
-			return result
-		
-		# 4e. 单文件模式检查：形状类型变更时禁止单文件操作
-		if is_single_file_mode:
+		for frame_idx in frames_data[sprite_anim_name]:
+			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
+			var raw: Array = frame["raw_contours"]
+			var img_w := int(frame["image_size"].x)
+			var img_h := int(frame["image_size"].y)
+			
+			frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
+			frame["attack_node"] = attack_node_name
+			
+			var local_contours: Array[PackedVector2Array] = []
+			for contour in raw:
+				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
+			frame["contours"] = local_contours
+			
+			if local_contours.size() > 0 and local_contours[0].size() >= 3:
+				var mabr := ContourTracer.calc_mabr(local_contours[0])
+				frame["mabr"] = mabr
+				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+				frame["rectangle"] = {
+					"size": mabr.size,
+					"angle": mabr.angle,
+				}
+			
+			frame.erase("raw_contours")
+			result.frame_count += 1
+	
+	# 7. dry_run
+	if dry_run:
+		result.frames_info = frames_data
+		return result
+	
+	# 8. 单文件模式检查
+	if is_single_file_mode:
+		for node_info in attack_nodes:
 			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
 				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
 					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
 				])
 				return result
-		
-		# 4f. 修改 skin .tscn（仅类型不匹配时）
-		var attack_shape_names: Array[String] = []
-		for attack_node_info in attack_nodes:
-			attack_shape_names.append(attack_node_info["shape_name"])
-		if _needs_attack_tscn_conversion(skin_scene_path, shape_type, attack_shape_names):
+	
+	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
+	var shape_type_changed := {}
+	for node_info in attack_nodes:
+		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
+		shape_type_changed[node_info["shape_name"]] = current_type != -1 and current_type != shape_type
+	
+	# 10. 修改 .tscn（每个 shape 各自修改，SubResource 只删除自己的）
+	var attack_shape_names: Array[String] = []
+	for node_info in attack_nodes:
+		attack_shape_names.append(node_info["shape_name"])
+	if _needs_attack_tscn_conversion(skin_scene_path, shape_type, attack_shape_names):
+		for node_info in attack_nodes:
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
-		
-		# 4g. 注入 per-shape Animation tracks（不包含共享 track）
-		if anim_player != null:
-			_inject_tracks(anim_player, sprite_frames, node_info, shape_type, frames_data, is_single_file_mode, result.errors, skin_scene_path)
-		
-		# 4h. 收集数据用于后续共享 track 写入
-		all_shape_data[node_info["shape_path"]] = frames_data
-		result.frames_info = frames_data
 	
-	# 5. 阶段 2：统一写入共享 track（只写一次，确保幂等性）
-	if anim_player != null and not dry_run:
-		_inject_shared_attack_tracks_once(anim_player, sprite_frames, all_shape_data, is_single_file_mode, result.errors)
+	# 11. 构建 per-shape 过滤映射（用于 _inject_all_tracks 内层判断）
+	var per_shape_filters := {}
+	if anim_player != null:
+		for node_info in attack_nodes:
+			per_shape_filters[node_info["shape_path"]] = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 	
+	# 12. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
+	if anim_player != null:
+		_inject_all_tracks(anim_player, sprite_frames, attack_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
+	
+	result.frames_info = frames_data
 	return result
 
 
@@ -1170,6 +1161,35 @@ func _extract_unique_id(content: String, node_name: String) -> String:
 	if match != null:
 		return " unique_id=" + match.get_string(1)
 	return ""
+
+
+## 删除指定节点引用的 SubResource（只删除该节点自己的，不影响其他 shape）
+##
+## 1. 找到 shape_name 节点定义
+## 2. 提取 shape = SubResource("xxx") 的 id
+## 3. 删除对应的 [sub_resource type="..." id="xxx"] 段
+func _remove_shape_subresource_for_node(content: String, shape_name: String) -> String:
+	var node_pattern := RegEx.new()
+	node_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+	var node_match := node_pattern.search(content)
+	if node_match == null:
+		return content
+	
+	var node_content := node_match.get_string(0)
+	
+	var sub_ref_pattern := RegEx.new()
+	sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
+	var sub_ref_match := sub_ref_pattern.search(node_content)
+	if sub_ref_match == null:
+		return content
+	
+	var sub_id := sub_ref_match.get_string(1)
+	
+	var sub_pattern := RegEx.new()
+	sub_pattern.compile('\\[sub_resource type="[^"]*" id="%s"\\]\\n(?:.*\\n)*?\\n' % sub_id.replace(".", "\\."))
+	content = sub_pattern.sub(content, "")
+	
+	return content
 
 
 ## 删除 .tscn 中所有 CapsuleShape2D 和 RectangleShape2D SubResources
@@ -1769,6 +1789,73 @@ func _animation_references_shape(anim: Animation, shape_info: Dictionary) -> boo
 	return false
 
 
+## 找出引用了任一 shape 节点的动画的 sprite_anim_name 列表
+func _find_all_relevant_anims(
+	shape_nodes: Array,
+	anim_player: AnimationPlayer
+) -> Array[String]:
+	var relevant_anims: Array[String] = []
+	if anim_player == null:
+		return relevant_anims
+	for lib_name in anim_player.get_animation_library_list():
+		var library := anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			for node_info in shape_nodes:
+				if _animation_references_shape(anim, node_info):
+					var sprite_anim_name := _find_sprite_anim_name(anim)
+					if not sprite_anim_name.is_empty() and sprite_anim_name not in relevant_anims:
+						relevant_anims.append(sprite_anim_name)
+					break
+	return relevant_anims
+
+
+## 构建统一的帧过滤映射（合并所有 shape 的过滤信息）
+##
+## 对每个动画，取所有 shape 的 enabled_frames 的并集
+## - 如果所有 shape 都返回 null → 跳过该动画
+## - 如果任一 shape 返回 [] → 处理所有帧
+## - 否则 → 取所有非 null 的 enabled_frames 的并集
+##
+## 返回: { sprite_anim_name: { "enabled_frames": Array/null } }
+func _build_unified_frame_filter(
+	shape_nodes: Array,
+	anim_player: AnimationPlayer,
+	skin_node: Node
+) -> Dictionary:
+	var unified := {}
+	
+	for node_info in shape_nodes:
+		var node_filter := _build_frame_filter_for_node(node_info, anim_player, skin_node)
+		for sprite_anim in node_filter:
+			var new_enabled = node_filter[sprite_anim]["enabled_frames"]
+			
+			if not unified.has(sprite_anim):
+				unified[sprite_anim] = { "enabled_frames": new_enabled }
+				continue
+			
+			var existing = unified[sprite_anim]["enabled_frames"]
+			
+			if existing == null:
+				unified[sprite_anim]["enabled_frames"] = new_enabled
+			elif new_enabled == null:
+				pass
+			elif existing is Array and existing.is_empty():
+				pass
+			elif new_enabled is Array and new_enabled.is_empty():
+				unified[sprite_anim]["enabled_frames"] = []
+			elif existing is Array and new_enabled is Array:
+				for f in new_enabled:
+					if f not in existing:
+						existing.append(f)
+	
+	return unified
+
+
 ## 为指定形状节点构建帧过滤映射
 ##
 ## 遍历所有动画，确定每个动画需要处理的帧
@@ -1822,110 +1909,51 @@ func _build_frame_filter_for_node(
 	return filter
 
 
-## 统一写入 Attack 共享 track（只写一次，确保幂等性）
-##
-## 合并所有 shape 的 attack_heights 数据，写入 .:attack_heights track
-func _inject_shared_attack_tracks_once(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	all_shape_data: Dictionary,  # { shape_path: frames_data }
-	is_single_file_mode: bool,
-	errors: Array[String]
-) -> void:
-	# 合并所有 shape 的 attack_heights
-	var merged_heights := {}  # { sprite_anim: { frame_idx: attack_heights } }
-	for shape_path in all_shape_data:
-		var frames_data: Dictionary = all_shape_data[shape_path]
-		for sprite_anim in frames_data:
-			if not merged_heights.has(sprite_anim):
-				merged_heights[sprite_anim] = {}
-			for frame_idx in frames_data[sprite_anim]:
-				var frame_info: Dictionary = frames_data[sprite_anim][frame_idx]
-				var heights: Array = frame_info.get("attack_heights", [])
-				# 如果同一帧有多个 shape 的数据，取第一个（通常不会发生）
-				if not merged_heights[sprite_anim].has(frame_idx):
-					merged_heights[sprite_anim][frame_idx] = heights
-	
-	# 写入 .:attack_heights track（只写一次）
-	for lib_name in anim_player.get_animation_library_list():
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
+## 确定动画映射到哪个 attack 节点（通过检查哪个 shape 有 enabled 帧）
+func _find_attack_node_for_anim(
+	anim: Animation,
+	attack_nodes: Array,
+	sprite_anim_name: String,
+	skin_node: Node
+) -> String:
+	for node_info in attack_nodes:
+		if not _animation_references_shape(anim, node_info):
 			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not merged_heights.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = merged_heights[sprite_anim_name]
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			_inject_attack_heights_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+		var disabled_path: String = node_info["shape_path"] + ":disabled"
+		var disabled_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
+		if disabled_idx >= 0:
+			var enabled_frames := _parse_disabled_track(anim, disabled_idx, sprite_anim_name, skin_node)
+			if not enabled_frames.is_empty():
+				return node_info["area_node_name"]
+		elif not node_info["initial_disabled"]:
+			return node_info["area_node_name"]
+	return ""
 
 
-## 统一写入 Body 共享 track（只写一次，确保幂等性）
+## 统一 track 注入函数（遍历动画一次，内层按 shape 分发）
 ##
-## 写入 .:physical_width 和 .:physical_height track
-func _inject_shared_body_tracks_once(
+## 遍历所有动画，对每个动画：
+##   1. 按 shape 写入 per-shape tracks（polygon/position/rotation + visible + attack_node_position）
+##   2. 写入共享 tracks（physical_width/height 或 attack_heights）
+##   3. 保存一次
+##
+## per_shape_filters: { shape_path: { sprite_anim: { "enabled_frames": null/[]/[1,2] } } }
+## shape_type_changed: { shape_name: bool }
+func _inject_all_tracks(
 	anim_player: AnimationPlayer,
 	sprite_frames: SpriteFrames,
-	frames_data: Dictionary,  # { sprite_anim: { frame_idx: frame_info } }
-	is_single_file_mode: bool,
-	errors: Array[String]
-) -> void:
-	# 写入 .:physical_width 和 .:physical_height track（只写一次）
-	for lib_name in anim_player.get_animation_library_list():
-		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
-		if library == null:
-			continue
-		
-		for anim_name in library.get_animation_list():
-			var anim := library.get_animation(anim_name)
-			if anim == null:
-				continue
-			
-			var sprite_anim_name := _find_sprite_anim_name(anim)
-			if sprite_anim_name.is_empty() or not frames_data.has(sprite_anim_name):
-				continue
-			
-			var frame_dict: Dictionary = frames_data[sprite_anim_name]
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-			_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
-
-
-## 统一 track 注入函数
-##
-## 根据 shape_type 和 ShapeNodeInfo 动态生成 track 路径并注入
-func _inject_tracks(
-	anim_player: AnimationPlayer,
-	sprite_frames: SpriteFrames,
-	shape_info: Dictionary,
+	shape_nodes: Array,
 	shape_type: int,
 	frames_data: Dictionary,
+	per_shape_filters: Dictionary,
 	is_single_file_mode: bool,
 	errors: Array[String],
-	tscn_path: String
+	tscn_path: String,
+	shape_type_changed: Dictionary
 ) -> void:
 	var config: Dictionary = SHAPE_CONFIGS[shape_type]
 	var shape_tracks: Array = config["tracks"]
+	var category: String = shape_nodes[0]["category"] if shape_nodes.size() > 0 else ""
 	
 	for lib_name in anim_player.get_animation_library_list():
 		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
@@ -1945,59 +1973,82 @@ func _inject_tracks(
 			if frame_dict.is_empty():
 				continue
 			
-			# 全量模式：清除该 shape 节点的所有 shape 相关 keyframe
-			# 不删除 track 本身，只清除 keyframe，确保 track 顺序稳定
-			if not is_single_file_mode:
-				_clear_tracks_by_path_prefix(anim, shape_info["shape_path"] + ":")
-			
-			# 额外 tracks（必须在 shape tracks 之前处理，避免删除操作影响 track_indices）
-			# 注意：共享 track（physical_width, physical_height, attack_heights）已移至外部统一写入
-			if shape_info["category"] == "attack":
-				_inject_attack_node_position(anim, shape_info, is_single_file_mode)
-			
-			# 创建/查找当前形状类型的 track（必须在额外 tracks 之后，避免被删除操作影响）
-			var track_indices := {}
-			for prop in shape_tracks:
-				var path: String = shape_info["shape_path"] + ":" + prop
-				var track_idx := _find_or_add_value_track(anim, path)
-				track_indices[prop] = track_idx
-			
-			# 提取 flip_h track 数据
+			var anim_modified := false
 			var flip_track_data := _extract_flip_h_track(anim)
-			
-			# 逐帧插入关键帧（只在值变化时）
 			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
 			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
-			var prev_values := {}
 			
-			for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
-				if not frame_dict.has(frame_idx):
+			# 内层：按 shape 写入 per-shape tracks
+			for node_info in shape_nodes:
+				var shape_filter: Dictionary = per_shape_filters.get(node_info["shape_path"], {})
+				var filter_info: Dictionary = shape_filter.get(sprite_anim_name, {})
+				var enabled_frames = filter_info.get("enabled_frames", null)
+				if enabled_frames == null:
 					continue
 				
-				var frame_info: Dictionary = frame_dict[frame_idx]
-				var time: float = float(frame_idx) * frame_duration
+				# 全量模式：shape type 变更时删除旧 tracks，否则只清除 keyframe
+				if not is_single_file_mode:
+					if shape_type_changed.get(node_info["shape_name"], false):
+						_remove_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
+					else:
+						_clear_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
 				
+				# Attack node position
+				if category == "attack":
+					_inject_attack_node_position(anim, node_info, is_single_file_mode)
+				
+				# 创建 shape tracks
+				var track_indices := {}
 				for prop in shape_tracks:
-					var value := _get_track_value(prop, frame_info, shape_type, flip_track_data, time)
-					if value == null:
+					var path: String = node_info["shape_path"] + ":" + prop
+					track_indices[prop] = _find_or_add_value_track(anim, path)
+				
+				# 逐帧插入关键帧
+				var prev_values := {}
+				for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+					if not frame_dict.has(frame_idx):
+						continue
+					if enabled_frames is Array and not enabled_frames.is_empty() and frame_idx not in enabled_frames:
 						continue
 					
-					if value != prev_values.get(prop):
-						if is_single_file_mode:
-							_remove_key_at_time(anim, track_indices[prop], time)
-						anim.track_insert_key(track_indices[prop], time, value)
-						prev_values[prop] = value
+					var frame_info: Dictionary = frame_dict[frame_idx]
+					var time: float = float(frame_idx) * frame_duration
+					
+					for prop in shape_tracks:
+						var value := _get_track_value(prop, frame_info, shape_type, flip_track_data, time)
+						if value == null:
+							continue
+						if value != prev_values.get(prop):
+							if is_single_file_mode:
+								_remove_key_at_time(anim, track_indices[prop], time)
+							anim.track_insert_key(track_indices[prop], time, value)
+							prev_values[prop] = value
+				
+				# Visible track（attack only）
+				if category == "attack":
+					_inject_visible_track(anim, node_info, is_single_file_mode)
+				
+				anim_modified = true
 			
-			# Attack 额外：注入 visible track
-			if shape_info["category"] == "attack":
-				_inject_visible_track(anim, shape_info, is_single_file_mode)
+			# 共享 tracks
+			if category == "body":
+				_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+				anim_modified = true
+			elif category == "attack":
+				var heights_frame_dict := {}
+				for fi in frame_dict:
+					heights_frame_dict[fi] = { "attack_heights": frame_dict[fi].get("attack_heights", []) }
+				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps, is_single_file_mode)
+				anim_modified = true
 			
-			# 保存 Animation
-			var resource_path := anim.resource_path
-			if not resource_path.is_empty():
-				var err := ResourceSaver.save(anim, resource_path)
-				if err != OK:
-					errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+			# 每个动画保存一次
+			if anim_modified:
+				var resource_path := anim.resource_path
+				if not resource_path.is_empty():
+					var err := ResourceSaver.save(anim, resource_path)
+					if err != OK:
+						errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
 
 
 ## 获取 track 属性值（含 flip_h 镜像）
@@ -2227,13 +2278,13 @@ func _modify_tscn_node(
 	# 提取现有 unique_id（如果有）
 	var unique_id_str := _extract_unique_id(content, shape_name)
 	
+	# 删除当前 shape 节点引用的 SubResource（只删除自己的，不影响其他 shape）
+	content = _remove_shape_subresource_for_node(content, shape_name)
+	
 	# 删除旧节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
 	var old_node_pattern := RegEx.new()
 	old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
 	content = old_node_pattern.sub(content, "")
-	
-	# 删除所有旧的 CapsuleShape2D 和 RectangleShape2D SubResources
-	content = _remove_all_shape_subresources(content)
 	
 	# 根据 shape_type 生成新节点
 	var config: Dictionary = SHAPE_CONFIGS[shape_type]
