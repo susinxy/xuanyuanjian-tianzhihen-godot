@@ -893,13 +893,15 @@ func convert_body_contours(
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4c. 扫描轮廓（只扫描相关动画，始终使用 erosion=0，获取原始轮廓用于 polygon track）
+		# 4c. 扫描轮廓（只扫描相关动画）
+		# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
+		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			relevant_anims, frame_filter, "body", callback_obj, result.errors, target_file_path, 0
+			relevant_anims, frame_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
 		)
 		
-		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle
+		# 4c. 后处理：计算 physical_height/width + 坐标转换 + MABR/Capsule/Rectangle（纯计算）
 		for sprite_anim_name in frames_data:
 			for frame_idx in frames_data[sprite_anim_name]:
 				var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
@@ -915,44 +917,14 @@ func convert_body_contours(
 					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 				frame["contours"] = local_contours
 				
-				# 如果 Capsule/Rectangle 模式且 erosion_radius > 0，提取腐蚀后的轮廓用于 MABR
-				if shape_type != ShapeType.POLYGON and erosion_radius > 0:
-					# 重新提取腐蚀后的轮廓
-					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
-					var mask: Image = null
-					var base_path: String = str(frame["png_path"]).replace(".png", "")
-					var specific_mask_path: String = base_path + ".body.mask.png"
-					var generic_mask_path: String = base_path + ".mask.png"
-					if FileAccess.file_exists(specific_mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
-					elif FileAccess.file_exists(generic_mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
-					
-					var eroded_raw := ContourTracer.trace_contours(
-						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
-					)
-					var eroded_local: Array[PackedVector2Array] = []
-					for contour in eroded_raw:
-						eroded_local.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-					
-					if eroded_local.size() > 0 and eroded_local[0].size() >= 3:
-						var mabr := ContourTracer.calc_mabr(eroded_local[0])
-						frame["mabr"] = mabr
-						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-						frame["rectangle"] = {
-							"size": mabr.size,
-							"angle": mabr.angle,
-						}
-				else:
-					# Polygon 模式或无腐蚀，基于原始轮廓计算 MABR
-					if local_contours.size() > 0 and local_contours[0].size() >= 3:
-						var mabr := ContourTracer.calc_mabr(local_contours[0])
-						frame["mabr"] = mabr
-						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-						frame["rectangle"] = {
-							"size": mabr.size,
-							"angle": mabr.angle,
-						}
+				if local_contours.size() > 0 and local_contours[0].size() >= 3:
+					var mabr := ContourTracer.calc_mabr(local_contours[0])
+					frame["mabr"] = mabr
+					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+					frame["rectangle"] = {
+						"size": mabr.size,
+						"angle": mabr.angle,
+					}
 				
 				frame.erase("raw_contours")
 				result.frame_count += 1
@@ -1067,13 +1039,15 @@ func convert_attack_contours(
 		if anim_player != null:
 			frame_filter = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 		
-		# 4c. 扫描轮廓（只扫描相关动画，始终使用 erosion=0，获取原始轮廓用于 polygon track）
+		# 4c. 扫描轮廓（只扫描相关动画）
+		# Polygon 模式不腐蚀，Capsule/Rectangle 模式使用 erosion_radius
+		var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 		var frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-			relevant_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, 0
+			relevant_anims, frame_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
 		)
 		
-		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle
+		# 4c. 后处理：计算 attack_heights + 坐标转换 + MABR/Capsule/Rectangle（纯计算）
 		var height_definitions := QuiverCharacter._build_height_definitions()
 		for sprite_anim_name in frames_data:
 			for frame_idx in frames_data[sprite_anim_name]:
@@ -1090,44 +1064,14 @@ func convert_attack_contours(
 					local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 				frame["contours"] = local_contours
 				
-				# 如果 Capsule/Rectangle 模式且 erosion_radius > 0，提取腐蚀后的轮廓用于 MABR
-				if shape_type != ShapeType.POLYGON and erosion_radius > 0:
-					# 重新提取腐蚀后的轮廓
-					var image := Image.load_from_file(ProjectSettings.globalize_path(frame["png_path"]))
-					var mask: Image = null
-					var base_path: String = str(frame["png_path"]).replace(".png", "")
-					var specific_mask_path: String = base_path + ".attack.mask.png"
-					var generic_mask_path: String = base_path + ".mask.png"
-					if FileAccess.file_exists(specific_mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
-					elif FileAccess.file_exists(generic_mask_path):
-						mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
-					
-					var eroded_raw := ContourTracer.trace_contours(
-						image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius
-					)
-					var eroded_local: Array[PackedVector2Array] = []
-					for contour in eroded_raw:
-						eroded_local.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-					
-					if eroded_local.size() > 0 and eroded_local[0].size() >= 3:
-						var mabr := ContourTracer.calc_mabr(eroded_local[0])
-						frame["mabr"] = mabr
-						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-						frame["rectangle"] = {
-							"size": mabr.size,
-							"angle": mabr.angle,
-						}
-				else:
-					# Polygon 模式或无腐蚀，基于原始轮廓计算 MABR
-					if local_contours.size() > 0 and local_contours[0].size() >= 3:
-						var mabr := ContourTracer.calc_mabr(local_contours[0])
-						frame["mabr"] = mabr
-						frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-						frame["rectangle"] = {
-							"size": mabr.size,
-							"angle": mabr.angle,
-						}
+				if local_contours.size() > 0 and local_contours[0].size() >= 3:
+					var mabr := ContourTracer.calc_mabr(local_contours[0])
+					frame["mabr"] = mabr
+					frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
+					frame["rectangle"] = {
+						"size": mabr.size,
+						"angle": mabr.angle,
+					}
 				
 				frame.erase("raw_contours")
 				
