@@ -950,17 +950,18 @@ func _convert_contours_common(
 		result.frames_info = frames_data
 		return result
 	
-	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
+	# 9. 预计算 shape type 变更状态（在修改场景树之前，从场景树读取）
 	var shape_type_changed := {}
 	for node_info in shape_nodes:
-		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
+		var shape_node := skin_node.get_node_or_null(node_info["shape_path"])
+		var current_type := _detect_shape_type_from_node(shape_node)
 		shape_type_changed[node_info["shape_name"]] = current_type != -1 and current_type != shape_type
 	
-	# 11. 修改 .tscn（仅类型不匹配时）
-	if needs_tscn_conversion.call(skin_scene_path, shape_type, shape_nodes):
+	# 11. 修改场景树节点（仅类型不匹配时，不直接写 .tscn 文件）
+	if needs_tscn_conversion.call(skin_node, shape_type, shape_nodes):
 		for node_info in shape_nodes:
 			var first_frame_data := _get_first_frame_data(frames_data)
-			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
+			_modify_scene_tree_node(skin_node, node_info, shape_type, first_frame_data, result.errors)
 	
 	# 12. 构建 per-shape 过滤映射
 	var per_shape_filters := {}
@@ -1016,54 +1017,13 @@ func _postprocess_attack_frame(frame: Dictionary, raw: Array, img_w: int, img_h:
 
 
 ## Body .tscn 判断
-func _needs_body_tscn_wrapper(tscn_path: String, shape_type: int, shape_nodes: Array) -> bool:
-	return _needs_body_tscn_conversion(tscn_path, shape_type)
+func _needs_body_tscn_wrapper(skin_node: Node, shape_type: int, shape_nodes: Array) -> bool:
+	return _needs_body_tscn_conversion(skin_node, shape_type)
 
 
 ## Attack .tscn 判断
-func _needs_attack_tscn_wrapper(tscn_path: String, shape_type: int, shape_nodes: Array) -> bool:
-	var shape_names: Array[String] = []
-	for node_info in shape_nodes:
-		shape_names.append(node_info["shape_name"])
-	return _needs_attack_tscn_conversion(tscn_path, shape_type, shape_names)
-
-
-## 从 .tscn 文件读取节点的 position
-func _read_shape_position_from_tscn(tscn_path: String, node_name: String) -> Vector2:
-	if not FileAccess.file_exists(tscn_path):
-		return Vector2.ZERO
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		return Vector2.ZERO
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 查找节点定义
-	var node_pattern := RegEx.new()
-	node_pattern.compile('\\[node name="%s"[^\\]]*\\]' % node_name)
-	var node_match := node_pattern.search(content)
-	if node_match == null:
-		return Vector2.ZERO
-	
-	# 在节点定义之后查找 position 属性
-	var search_start := node_match.get_end()
-	var next_node_start := content.find("[node ", search_start)
-	if next_node_start == -1:
-		next_node_start = content.length()
-	
-	var node_content := content.substr(search_start, next_node_start - search_start)
-	
-	var pos_pattern := RegEx.new()
-	pos_pattern.compile('position = Vector2\\(([^,]+), ([^)]+)\\)')
-	var pos_match := pos_pattern.search(node_content)
-	if pos_match == null:
-		return Vector2.ZERO
-	
-	var x := float(pos_match.get_string(1))
-	var y := float(pos_match.get_string(2))
-	return Vector2(x, y)
+func _needs_attack_tscn_wrapper(skin_node: Node, shape_type: int, shape_nodes: Array) -> bool:
+	return _needs_attack_tscn_conversion(skin_node, shape_type, shape_nodes)
 
 
 ## 获取 frames_data 中第一帧的数据
@@ -1075,183 +1035,44 @@ func _get_first_frame_data(frames_data: Dictionary) -> Dictionary:
 	return {}
 
 
-## 从 .tscn 内容中提取节点的 unique_id
-## 返回: " unique_id=123456" 或 ""（如果没有）
-func _extract_unique_id(content: String, node_name: String) -> String:
-	var pattern := RegEx.new()
-	pattern.compile('\\[node name="%s"[^\\]]*unique_id=(\\d+)' % node_name)
-	var match := pattern.search(content)
-	if match != null:
-		return " unique_id=" + match.get_string(1)
-	return ""
+## 从场景树节点检测 shape 类型
+## 返回 ShapeType 枚举值，-1 表示无法识别
+func _detect_shape_type_from_node(shape_node: Node) -> int:
+	if shape_node == null:
+		return -1
+	if shape_node is CollisionPolygon2D:
+		return ShapeType.POLYGON
+	if shape_node is CollisionShape2D:
+		var shape = shape_node.shape
+		if shape is CapsuleShape2D:
+			return ShapeType.CAPSULE
+		if shape is RectangleShape2D:
+			return ShapeType.RECTANGLE
+	return -1
 
 
-## 删除指定节点引用的 SubResource（只删除该节点自己的，不影响其他 shape）
-##
-## 1. 找到 shape_name 节点定义
-## 2. 提取 shape = SubResource("xxx") 的 id
-## 3. 删除对应的 [sub_resource type="..." id="xxx"] 段
-func _remove_shape_subresource_for_node(content: String, shape_name: String) -> String:
-	var node_pattern := RegEx.new()
-	node_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
-	var node_match := node_pattern.search(content)
-	if node_match == null:
-		return content
-	
-	var node_content := node_match.get_string(0)
-	
-	var sub_ref_pattern := RegEx.new()
-	sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
-	var sub_ref_match := sub_ref_pattern.search(node_content)
-	if sub_ref_match == null:
-		return content
-	
-	var sub_id := sub_ref_match.get_string(1)
-	
-	var sub_pattern := RegEx.new()
-	sub_pattern.compile('\\[sub_resource type="[^"]*" id="%s"\\]\\n(?:.*\\n)*?\\n' % sub_id.replace(".", "\\."))
-	content = sub_pattern.sub(content, "")
-	
-	return content
-
-
-## 删除 .tscn 中所有 CapsuleShape2D 和 RectangleShape2D SubResources
-func _remove_all_shape_subresources(content: String) -> String:
-	# 删除 CapsuleShape2D SubResources
-	var capsule_pattern := RegEx.new()
-	capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="[^"]*"\\]\\nradius = [^\\n]+\\nheight = [^\\n]+\\n\\n')
-	content = capsule_pattern.sub(content, "")
-	
-	# 删除 RectangleShape2D SubResources
-	var rectangle_pattern := RegEx.new()
-	rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="[^"]*"\\]\\nsize = Vector2\\([^)]+\\)\\n\\n')
-	content = rectangle_pattern.sub(content, "")
-	
-	return content
-
-
-## 在 .tscn 中插入 SubResource（在最后一个 SubResource 之后，或 [gd_scene] 之后）
-func _insert_subresource(content: String, sub_resource: String) -> String:
-	# 找到最后一个 SubResource 的末尾
-	var pattern := RegEx.new()
-	pattern.compile('\\[sub_resource[^\\]]*\\]\\n(?:.*\\n)*?\\n')
-	var matches := pattern.search_all(content)
-	
-	if matches.size() > 0:
-		var last_end: int = matches[-1].get_end()
-		return content.insert(last_end, sub_resource)
-	
-	# 没有 SubResource，在 [gd_scene] 之后插入
-	var gd_scene_pattern := RegEx.new()
-	gd_scene_pattern.compile('\\[gd_scene[^\\]]*\\]\\n')
-	var gd_scene_match := gd_scene_pattern.search(content)
-	if gd_scene_match != null:
-		return content.insert(gd_scene_match.get_end(), "\n" + sub_resource)
-	
-	# 兜底：在文件开头插入
-	return sub_resource + content
-
-
-## 在 .tscn 中插入节点（在父节点的所有子节点之后）
-func _insert_node_after_parent(content: String, parent_name: String, new_node: String) -> String:
-	# 找到父节点的位置
-	var parent_pattern := RegEx.new()
-	parent_pattern.compile('\\[node name="%s"[^\\]]*\\]' % parent_name)
-	var parent_match := parent_pattern.search(content)
-	
-	if parent_match == null:
-		# 找不到父节点，追加到文件末尾
-		return content + new_node
-	
-	# 找到父节点之后的下一个节点位置
-	var search_start: int = parent_match.get_end()
-	var next_node_pattern := RegEx.new()
-	next_node_pattern.compile('\\n\\[node ')
-	var next_node_match := next_node_pattern.search(content, search_start)
-	
-	if next_node_match != null:
-		# 在下一个节点之前插入
-		return content.insert(next_node_match.get_start() + 1, new_node)
-	
-	# 没有后续节点，追加到文件末尾
-	return content + "\n" + new_node
-
-
-## 修改 skin .tscn（Body 转换）
-
-
-## 检测 Attack 的 .tscn 是否需要转换
-## 返回 true 表示至少有一个 AttackXShape 的类型与目标类型不匹配
-func _needs_body_tscn_conversion(tscn_path: String, target_shape_type: int) -> bool:
-	var current_type := _detect_current_shape_type(tscn_path, "HurtShape")
+## 检测 Body 是否需要转换（从场景树读取）
+func _needs_body_tscn_conversion(skin_node: Node, target_shape_type: int) -> bool:
+	var hurt_shape := skin_node.get_node_or_null("AnimatedSprite2D/HurtBox/HurtShape")
+	var current_type := _detect_shape_type_from_node(hurt_shape)
 	if current_type == -1:
-		return true  # 节点不存在，需要创建
+		return true
 	return current_type != target_shape_type
 
 
-func _needs_attack_tscn_conversion(tscn_path: String, target_shape_type: int, attack_shape_names: Array[String]) -> bool:
-	for shape_name in attack_shape_names:
-		var current_type := _detect_current_shape_type(tscn_path, shape_name)
+## 检测 Attack 是否需要转换（从场景树读取）
+func _needs_attack_tscn_conversion(skin_node: Node, target_shape_type: int, shape_nodes: Array) -> bool:
+	for node_info in shape_nodes:
+		var shape_node := skin_node.get_node_or_null(node_info["shape_path"])
+		var current_type := _detect_shape_type_from_node(shape_node)
 		if current_type == -1:
-			continue  # 节点不存在，跳过（可能该攻击类型未使用）
+			continue
 		if current_type != target_shape_type:
-			return true  # 至少有一个类型不匹配
+			return true
 	return false
 
 
-## 检测 .tscn 中指定形状节点的当前类型
-## 返回 ShapeType 枚举值，-1 表示未找到或无法识别
-func _detect_current_shape_type(tscn_path: String, shape_name: String) -> int:
-	if not FileAccess.file_exists(tscn_path):
-		return -1
-	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		return -1
-	
-	var content := file.get_as_text()
-	file.close()
-	
-	# 检查是否为 CollisionPolygon2D
-	var polygon_pattern := RegEx.new()
-	polygon_pattern.compile('\\[node name="%s" type="CollisionPolygon2D"' % shape_name)
-	if polygon_pattern.search(content) != null:
-		return ShapeType.POLYGON
-	
-	# 检查是否为 CollisionShape2D
-	var shape_pattern := RegEx.new()
-	shape_pattern.compile('\\[node name="%s" type="CollisionShape2D"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
-	var shape_match := shape_pattern.search(content)
-	
-	if shape_match != null:
-		var node_content := shape_match.get_string(0)
-		
-		# 检查 shape 属性引用的 SubResource 类型
-		var sub_ref_pattern := RegEx.new()
-		sub_ref_pattern.compile('shape = SubResource\\("([^"]+)"\\)')
-		var sub_ref_match := sub_ref_pattern.search(node_content)
-		
-		if sub_ref_match != null:
-			var sub_id := sub_ref_match.get_string(1)
-			
-			# 查找对应的 SubResource 定义
-			var capsule_pattern := RegEx.new()
-			capsule_pattern.compile('\\[sub_resource type="CapsuleShape2D" id="%s"\\]' % sub_id)
-			if capsule_pattern.search(content) != null:
-				return ShapeType.CAPSULE
-			
-			var rectangle_pattern := RegEx.new()
-			rectangle_pattern.compile('\\[sub_resource type="RectangleShape2D" id="%s"\\]' % sub_id)
-			if rectangle_pattern.search(content) != null:
-				return ShapeType.RECTANGLE
-	
-	return -1  # 未找到或无法识别
 
-
-## 生成确定性的 SubResource ID
-## 基于前缀和节点名生成唯一的 ID，确保多次运行结果一致
-func _generate_subresource_id(prefix: String, node_name: String) -> String:
-	return prefix + "_" + (prefix + "_" + node_name).sha1_text().substr(0, 16)
 
 
 
@@ -1962,13 +1783,9 @@ func _inject_all_tracks(
 				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps)
 				anim_modified = true
 			
-			# 每个动画保存一次
+			# 每个动画标记为已修改（不直接保存，用户 Ctrl+S 时保存）
 			if anim_modified:
-				var resource_path := anim.resource_path
-				if not resource_path.is_empty():
-					var err := ResourceSaver.save(anim, resource_path)
-					if err != OK:
-						errors.append("动画 '%s' 保存失败 (error=%d)" % [anim.resource_name, err])
+				anim.emit_changed()
 
 
 ## 获取 track 属性值（含 flip_h 镜像）
@@ -2149,103 +1966,64 @@ func _inject_visible_track(
 		anim.track_insert_key(visible_track_idx, 0.0, false)
 
 
-## 统一 .tscn 节点修改函数
-##
-## 只在形状类型不匹配时修改，只改 type 不改路径
-## 使用 shape_info 中的动态路径，不硬编码节点名
-func _modify_tscn_node(
-	tscn_path: String,
+## 修改场景树中的 shape 节点（不直接写 .tscn 文件）
+## 编辑器会自动标记场景为"已修改"，用户 Ctrl+S 时保存
+func _modify_scene_tree_node(
+	skin_node: Node,
 	shape_info: Dictionary,
 	shape_type: int,
 	first_frame_data: Dictionary,
 	errors: Array[String]
 ) -> void:
-	if not FileAccess.file_exists(tscn_path):
-		errors.append("skin .tscn 文件不存在: %s" % tscn_path)
+	var parent := skin_node.get_node_or_null(shape_info["parent_path"])
+	if parent == null:
+		errors.append("父节点不存在: %s" % shape_info["parent_path"])
 		return
 	
-	var file := FileAccess.open(tscn_path, FileAccess.READ)
-	if file == null:
-		errors.append("无法读取 skin .tscn: %s" % tscn_path)
-		return
+	var shape_name := shape_info["shape_name"]
+	var old_node := parent.get_node_or_null(shape_name)
 	
-	var content := file.get_as_text()
-	file.close()
+	# 删除旧节点
+	if old_node != null:
+		old_node.queue_free()
 	
-	var shape_name: String = shape_info["shape_name"]
-	var parent_path: String = shape_info["parent_path"]
-	var category: String = shape_info["category"]
-	
-	# 提取现有 unique_id（如果有）
-	var unique_id_str := _extract_unique_id(content, shape_name)
-	
-	# 删除当前 shape 节点引用的 SubResource（只删除自己的，不影响其他 shape）
-	content = _remove_shape_subresource_for_node(content, shape_name)
-	
-	# 删除旧节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
-	# 同时删除节点之前的空行，避免空行累积
-	var old_node_pattern := RegEx.new()
-	old_node_pattern.compile('(?:\\n)*\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
-	content = old_node_pattern.sub(content, "")
-	
-	# 根据 shape_type 生成新节点
-	var config: Dictionary = SHAPE_CONFIGS[shape_type]
-	var node_type: String = config["node_type"]
-	var new_content := ""
-	
-	# modulate 颜色：body 蓝色，attack 红色
-	var modulate_color := "Color(0, 0.0666667, 0.701961, 1)" if category == "body" else "Color(1, 0.2, 0.101961, 1)"
-	
+	# 创建新节点
+	var new_node: Node
 	match shape_type:
 		ShapeType.POLYGON:
-			var polygon_str := ""
+			new_node = CollisionPolygon2D.new()
+			new_node.name = shape_name
 			if first_frame_data.has("contours") and not first_frame_data["contours"].is_empty():
-				polygon_str = ContourTracer.format_polygon_array(first_frame_data["contours"][0])
-			new_content = '\n[node name="%s" type="CollisionPolygon2D" parent="%s" index="0"%s]\nmodulate = %s\nposition = Vector2(0, 0)\npolygon = %s\n' % [shape_name, parent_path, unique_id_str, modulate_color, polygon_str]
-			if category == "attack":
-				new_content += "disabled = true\n"
-			new_content += "\n"
+				new_node.polygon = first_frame_data["contours"][0]
 		
 		ShapeType.CAPSULE:
-			var sub_id := _generate_subresource_id("CapsuleShape2D", shape_name)
-			var radius: float = 40.0
-			var height: float = 160.0 if category == "body" else 120.0
+			new_node = CollisionShape2D.new()
+			new_node.name = shape_name
+			var capsule := CapsuleShape2D.new()
+			capsule.radius = 40.0
+			capsule.height = 160.0 if shape_info["category"] == "body" else 120.0
 			if first_frame_data.has("capsule"):
-				radius = round(first_frame_data["capsule"]["radius"] * 100.0) / 100.0
-				height = round(first_frame_data["capsule"]["height"] * 100.0) / 100.0
-			var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
-			content = _insert_subresource(content, sub_resource)
-			new_content = '\n[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
-			if category == "attack":
-				new_content += "disabled = true\n"
-			new_content += "\n"
+				capsule.radius = first_frame_data["capsule"]["radius"]
+				capsule.height = first_frame_data["capsule"]["height"]
+			new_node.shape = capsule
 		
 		ShapeType.RECTANGLE:
-			var sub_id := _generate_subresource_id("RectangleShape2D", shape_name)
-			var size := Vector2(80, 160) if category == "body" else Vector2(80, 120)
+			new_node = CollisionShape2D.new()
+			new_node.name = shape_name
+			var rect := RectangleShape2D.new()
+			rect.size = Vector2(80, 160) if shape_info["category"] == "body" else Vector2(80, 120)
 			if first_frame_data.has("rectangle"):
-				size = Vector2(
-					round(first_frame_data["rectangle"]["size"].x * 100.0) / 100.0,
-					round(first_frame_data["rectangle"]["size"].y * 100.0) / 100.0
-				)
-			var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
-			content = _insert_subresource(content, sub_resource)
-			new_content = '\n[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
-			if category == "attack":
-				new_content += "disabled = true\n"
-			new_content += "\n"
+				rect.size = first_frame_data["rectangle"]["size"]
+			new_node.shape = rect
 	
-	# 在对应父节点之后插入新节点
-	var area_node_name: String = shape_info["area_node_name"]
-	content = _insert_node_after_parent(content, area_node_name, new_content)
+	# 设置通用属性
+	new_node.modulate = Color(0, 0.0666667, 0.701961, 1) if shape_info["category"] == "body" else Color(1, 0.2, 0.101961, 1)
+	if shape_info["category"] == "attack":
+		new_node.disabled = true
 	
-	# 写回文件
-	file = FileAccess.open(tscn_path, FileAccess.WRITE)
-	if file == null:
-		errors.append("无法写入 skin .tscn: %s" % tscn_path)
-		return
-	
-	file.store_string(content)
-	file.close()
+	# 添加到父节点
+	parent.add_child(new_node)
+	new_node.owner = skin_node.owner  # 确保节点被场景拥有，Ctrl+S 时会保存
+
 
 ### -----------------------------------------------------------------------------------------------
