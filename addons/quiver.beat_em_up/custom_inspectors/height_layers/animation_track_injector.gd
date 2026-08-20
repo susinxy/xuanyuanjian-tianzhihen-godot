@@ -1985,7 +1985,8 @@ func _modify_scene_tree_node(
 	
 	# 删除旧节点
 	if old_node != null:
-		old_node.queue_free()
+		parent.remove_child(old_node)  # 立即从父节点移除，避免命名冲突
+		old_node.queue_free()  # 延迟释放内存
 	
 	# 创建新节点
 	var new_node: Node
