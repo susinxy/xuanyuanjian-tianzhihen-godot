@@ -1980,18 +1980,19 @@ func _inject_all_tracks(
 			
 			# 内层：按 shape 写入 per-shape tracks
 			for node_info in shape_nodes:
-				var shape_filter: Dictionary = per_shape_filters.get(node_info["shape_path"], {})
-				var filter_info: Dictionary = shape_filter.get(sprite_anim_name, {})
-				var enabled_frames = filter_info.get("enabled_frames", null)
-				if enabled_frames == null:
-					continue
-				
 				# 全量模式：shape type 变更时删除旧 tracks，否则只清除 keyframe
+				# 必须在 enabled_frames 检查之前执行，确保即使所有帧都 disabled 也会清除旧 tracks
 				if not is_single_file_mode:
 					if shape_type_changed.get(node_info["shape_name"], false):
 						_remove_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
 					else:
 						_clear_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
+				
+				var shape_filter: Dictionary = per_shape_filters.get(node_info["shape_path"], {})
+				var filter_info: Dictionary = shape_filter.get(sprite_anim_name, {})
+				var enabled_frames = filter_info.get("enabled_frames", null)
+				if enabled_frames == null:
+					continue
 				
 				# Attack node position
 				if category == "attack":
