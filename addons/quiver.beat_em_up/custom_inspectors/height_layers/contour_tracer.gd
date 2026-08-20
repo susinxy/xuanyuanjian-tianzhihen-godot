@@ -585,20 +585,22 @@ static func _get_bitmap_true_rect(bitmap: BitMap) -> Rect2i:
 
 ## 对 BitMap 做形态学腐蚀（erosion）
 ##
-## 使用数学等价变换：腐蚀(A, r) = NOT(膨胀(NOT(A), r))
 ## 利用 Godot 内置 grow_mask（C++ 实现，O(W×H)）替代 GDScript 三层循环（O(radius×W×H)）
+## grow_mask(pixels, rect)：pixels < 0 时为腐蚀，pixels > 0 时为膨胀
 ##
 ## 用途：收紧轮廓，去除武器/披风等薄突出部分，使 MABR/Capsule/Rectangle 更紧凑
 static func _erode_bitmap(bitmap: BitMap, erosion_radius: int) -> BitMap:
 	if erosion_radius <= 0:
 		return bitmap
 	
-	var inverted := bitmap.duplicate()
-	inverted.invert()
-	inverted.grow_mask(erosion_radius)
-	inverted.invert()
+	var result := bitmap.duplicate()
+	var size := bitmap.get_size()
+	var rect := Rect2i(Vector2i.ZERO, size)
 	
-	return inverted
+	# 使用负数 pixels 进行腐蚀
+	result.grow_mask(-erosion_radius, rect)
+	
+	return result
 
 
 ## 根据高度值找到对应的高度层
