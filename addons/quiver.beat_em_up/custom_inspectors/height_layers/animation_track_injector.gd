@@ -1980,7 +1980,7 @@ func _modify_scene_tree_node(
 		errors.append("父节点不存在: %s" % shape_info["parent_path"])
 		return
 	
-	var shape_name := shape_info["shape_name"]
+	var shape_name: String = shape_info["shape_name"]
 	var old_node := parent.get_node_or_null(shape_name)
 	
 	# 删除旧节点
