@@ -555,20 +555,6 @@ func _find_or_add_value_track(anim: Animation, track_path: String) -> int:
 	return _add_value_track(anim, track_path)
 
 
-## 删除指定时间点的关键帧（如果存在）
-## 使用容差 0.001 秒来匹配时间点
-func _remove_key_at_time(anim: Animation, track_idx: int, time: float) -> void:
-	var epsilon := 0.001
-	var key_count := anim.track_get_key_count(track_idx)
-	
-	# 从后往前遍历，避免删除时索引变化
-	for i in range(key_count - 1, -1, -1):
-		var key_time := anim.track_get_key_time(track_idx, i)
-		if abs(key_time - time) < epsilon:
-			anim.track_remove_key(track_idx, i)
-			break
-
-
 ## 清除 track 的所有关键帧（不删除 track 本身）
 func _clear_track_keys(anim: Animation, track_idx: int) -> void:
 	for i in range(anim.track_get_key_count(track_idx) - 1, -1, -1):
@@ -728,7 +714,6 @@ func _scan_frames_contours(
 	mask_suffix: String,
 	callback_obj: Object,
 	errors: Array[String],
-	target_file_path: String = "",
 	erosion_radius: int = 0
 ) -> Dictionary:
 	var frames_data := {}
@@ -762,10 +747,6 @@ func _scan_frames_contours(
 				continue
 			
 			var png_path := texture.resource_path
-			
-			# 如果指定了目标文件，跳过其他文件
-			if not target_file_path.is_empty() and png_path != target_file_path:
-				continue
 			
 			frames_to_process.append({
 				"sprite_anim_name": sprite_anim_name,
@@ -840,12 +821,11 @@ func convert_body_contours(
 	erosion_radius: int,
 	shape_type: int,
 	dry_run: bool,
-	callback_obj: Object,
-	target_file_path: String = ""
+	callback_obj: Object
 ) -> Dictionary:
 	return await _convert_contours_common(
 		skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
-		erosion_radius, shape_type, dry_run, callback_obj, target_file_path,
+		erosion_radius, shape_type, dry_run, callback_obj,
 		"body",
 		Callable(self, "_pre_postprocess_body"),
 		Callable(self, "_postprocess_body_frame"),
@@ -863,12 +843,11 @@ func convert_attack_contours(
 	erosion_radius: int,
 	shape_type: int,
 	dry_run: bool,
-	callback_obj: Object,
-	target_file_path: String = ""
+	callback_obj: Object
 ) -> Dictionary:
 	return await _convert_contours_common(
 		skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
-		erosion_radius, shape_type, dry_run, callback_obj, target_file_path,
+		erosion_radius, shape_type, dry_run, callback_obj,
 		"attack",
 		Callable(self, "_pre_postprocess_attack"),
 		Callable(self, "_postprocess_attack_frame"),
@@ -887,7 +866,6 @@ func _convert_contours_common(
 	shape_type: int,
 	dry_run: bool,
 	callback_obj: Object,
-	target_file_path: String,
 	category: String,
 	pre_postprocess_callback: Callable,
 	postprocess_frame_callback: Callable,
@@ -919,7 +897,6 @@ func _convert_contours_common(
 		return result
 	
 	var skin_scene_path := skin_node.scene_file_path
-	var is_single_file_mode := not target_file_path.is_empty()
 	
 	# 4. 构建统一帧过滤 + 找出所有相关动画
 	var unified_filter := {}
@@ -932,7 +909,7 @@ func _convert_contours_common(
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		relevant_anims, unified_filter, category, callback_obj, result.errors, target_file_path, scan_erosion
+		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion
 	)
 	
 	# 6. 预处理（如构建 attack 映射表）
@@ -973,17 +950,7 @@ func _convert_contours_common(
 		result.frames_info = frames_data
 		return result
 	
-	# 9. 单文件模式检查
-	if is_single_file_mode:
-		for node_info in shape_nodes:
-			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
-			if current_type != -1 and current_type != shape_type:
-				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
-					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
-				])
-				return result
-	
-	# 10. 预计算 shape type 变更状态（在修改 .tscn 之前）
+	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
 	var shape_type_changed := {}
 	for node_info in shape_nodes:
 		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
@@ -1003,7 +970,7 @@ func _convert_contours_common(
 	
 	# 13. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
 	if anim_player != null:
-		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
+		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, result.errors, skin_scene_path, shape_type_changed)
 	
 	result.frames_info = frames_data
 	return result
@@ -1902,7 +1869,6 @@ func _inject_all_tracks(
 	shape_type: int,
 	frames_data: Dictionary,
 	per_shape_filters: Dictionary,
-	is_single_file_mode: bool,
 	errors: Array[String],
 	tscn_path: String,
 	shape_type_changed: Dictionary
@@ -1936,13 +1902,12 @@ func _inject_all_tracks(
 			
 			# 内层：按 shape 写入 per-shape tracks
 			for node_info in shape_nodes:
-				# 全量模式：shape type 变更时删除旧 tracks，否则只清除 keyframe
+				# shape type 变更时删除旧 tracks，否则只清除 keyframe
 				# 必须在 enabled_frames 检查之前执行，确保即使所有帧都 disabled 也会清除旧 tracks
-				if not is_single_file_mode:
-					if shape_type_changed.get(node_info["shape_name"], false):
-						_remove_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
-					else:
-						_clear_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
+				if shape_type_changed.get(node_info["shape_name"], false):
+					_remove_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
+				else:
+					_clear_tracks_by_path_prefix(anim, node_info["shape_path"] + ":")
 				
 				var shape_filter: Dictionary = per_shape_filters.get(node_info["shape_path"], {})
 				var filter_info: Dictionary = shape_filter.get(sprite_anim_name, {})
@@ -1952,7 +1917,7 @@ func _inject_all_tracks(
 				
 				# Attack node position
 				if category == "attack":
-					_inject_attack_node_position(anim, node_info, is_single_file_mode)
+					_inject_attack_node_position(anim, node_info)
 				
 				# 创建 shape tracks
 				var track_indices := {}
@@ -1976,27 +1941,25 @@ func _inject_all_tracks(
 						if value == null:
 							continue
 						if value != prev_values.get(prop):
-							if is_single_file_mode:
-								_remove_key_at_time(anim, track_indices[prop], time)
 							anim.track_insert_key(track_indices[prop], time, value)
 							prev_values[prop] = value
 				
 				# Visible track（attack only）
 				if category == "attack":
-					_inject_visible_track(anim, node_info, is_single_file_mode)
+					_inject_visible_track(anim, node_info)
 				
 				anim_modified = true
 			
 			# 共享 tracks
 			if category == "body":
-				_inject_width_track(anim, frame_dict, sprite_fps, is_single_file_mode)
-				_inject_physical_height_track(anim, frame_dict, sprite_fps, is_single_file_mode)
+				_inject_width_track(anim, frame_dict, sprite_fps)
+				_inject_physical_height_track(anim, frame_dict, sprite_fps)
 				anim_modified = true
 			elif category == "attack":
 				var heights_frame_dict := {}
 				for fi in frame_dict:
 					heights_frame_dict[fi] = { "attack_heights": frame_dict[fi].get("attack_heights", []) }
-				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps, is_single_file_mode)
+				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps)
 				anim_modified = true
 			
 			# 每个动画保存一次
@@ -2080,12 +2043,10 @@ func _get_track_value(
 func _inject_width_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float,
-	is_single_file_mode: bool
+	sprite_fps: float
 ) -> void:
 	var width_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
-	if not is_single_file_mode:
-		_clear_track_keys(anim, width_track_idx)
+	_clear_track_keys(anim, width_track_idx)
 	
 	var prev_width: float = -1.0
 	
@@ -2095,8 +2056,6 @@ func _inject_width_track(
 		
 		if current_width != prev_width:
 			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			if is_single_file_mode:
-				_remove_key_at_time(anim, width_track_idx, time)
 			anim.track_insert_key(width_track_idx, time, current_width)
 			prev_width = current_width
 
@@ -2105,12 +2064,10 @@ func _inject_width_track(
 func _inject_physical_height_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float,
-	is_single_file_mode: bool
+	sprite_fps: float
 ) -> void:
 	var height_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
-	if not is_single_file_mode:
-		_clear_track_keys(anim, height_track_idx)
+	_clear_track_keys(anim, height_track_idx)
 	
 	var prev_height: float = -1.0
 	
@@ -2120,8 +2077,6 @@ func _inject_physical_height_track(
 		
 		if current_height != prev_height:
 			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			if is_single_file_mode:
-				_remove_key_at_time(anim, height_track_idx, time)
 			anim.track_insert_key(height_track_idx, time, current_height)
 			prev_height = current_height
 
@@ -2130,12 +2085,10 @@ func _inject_physical_height_track(
 func _inject_attack_heights_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float,
-	is_single_file_mode: bool
+	sprite_fps: float
 ) -> void:
 	var heights_track_idx := _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
-	if not is_single_file_mode:
-		_clear_track_keys(anim, heights_track_idx)
+	_clear_track_keys(anim, heights_track_idx)
 	
 	var prev_heights: Array = []
 	
@@ -2145,8 +2098,6 @@ func _inject_attack_heights_track(
 		
 		if current_heights != prev_heights:
 			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			if is_single_file_mode:
-				_remove_key_at_time(anim, heights_track_idx, time)
 			anim.track_insert_key(heights_track_idx, time, current_heights)
 			prev_heights = current_heights
 
@@ -2154,13 +2105,11 @@ func _inject_attack_heights_track(
 ## 注入 Attack 节点的 position track（跟随 sprite 位置）
 func _inject_attack_node_position(
 	anim: Animation,
-	shape_info: Dictionary,
-	is_single_file_mode: bool
+	shape_info: Dictionary
 ) -> void:
 	var attack_node_path: String = shape_info["parent_path"] + ":position"
 	var attack_pos_track_idx := _find_or_add_value_track(anim, attack_node_path)
-	if not is_single_file_mode:
-		_clear_track_keys(anim, attack_pos_track_idx)
+	_clear_track_keys(anim, attack_pos_track_idx)
 	
 	# 复制 sprite position
 	var sprite_pos_track_idx := anim.find_track("AnimatedSprite2D:position", Animation.TYPE_VALUE)
@@ -2177,15 +2126,13 @@ func _inject_attack_node_position(
 ## 注入 Attack 的 visible track（与 Shape:disabled 反向同步）
 func _inject_visible_track(
 	anim: Animation,
-	shape_info: Dictionary,
-	is_single_file_mode: bool
+	shape_info: Dictionary
 ) -> void:
 	var visible_path: String = shape_info["parent_path"] + ":visible"
 	var disabled_path: String = shape_info["shape_path"] + ":disabled"
 	
 	var visible_track_idx := _find_or_add_value_track(anim, visible_path)
-	if not is_single_file_mode:
-		_clear_track_keys(anim, visible_track_idx)
+	_clear_track_keys(anim, visible_track_idx)
 	
 	# 查找已有的 disabled track
 	var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
@@ -2196,13 +2143,10 @@ func _inject_visible_track(
 		for i in key_count:
 			var time := anim.track_get_key_time(disabled_track_idx, i)
 			var disabled_value: bool = anim.track_get_key_value(disabled_track_idx, i)
-			if is_single_file_mode:
-				_remove_key_at_time(anim, visible_track_idx, time)
 			anim.track_insert_key(visible_track_idx, time, not disabled_value)
 	else:
 		# 没有 disabled track：默认 visible = false
-		if not is_single_file_mode:
-			anim.track_insert_key(visible_track_idx, 0.0, false)
+		anim.track_insert_key(visible_track_idx, 0.0, false)
 
 
 ## 统一 .tscn 节点修改函数

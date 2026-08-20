@@ -27,8 +27,14 @@ const AnimationTrackInjector = preload(
 )
 
 # 持久化文件路径（跨 widget 重建）
-static var _persisted_convert_file_path: String = ""
 static var _persisted_preview_file_path: String = ""
+
+# 持久化转换参数（跨 widget 重建）
+static var _persisted_alpha_threshold: float = 0.5
+static var _persisted_simplify_tolerance: float = 100.0
+static var _persisted_min_area_ratio: float = 0.3
+static var _persisted_erosion_radius: int = 0
+static var _persisted_shape_type: int = 0
 
 var _skin_node: QuiverCharacterSkinAnimTree = null
 
@@ -43,11 +49,6 @@ var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
 var _erosion_radius_spinbox: SpinBox
-
-# 转换区域文件选择 UI
-var _convert_file_path: LineEdit
-var _convert_file_select_btn: Button
-var _convert_file_clear_btn: Button
 
 # 预览区域 UI
 var _preview_file_path: LineEdit
@@ -75,12 +76,17 @@ func _ready() -> void:
 	_build_ui()
 	
 	# 恢复持久化的文件路径
-	if not _persisted_convert_file_path.is_empty():
-		_convert_file_path.text = _persisted_convert_file_path
 	if not _persisted_preview_file_path.is_empty():
 		_preview_file_path.text = _persisted_preview_file_path
 		_preview_contour_btn.disabled = false
 		_preview_mask_btn.disabled = false
+	
+	# 恢复持久化的转换参数
+	_alpha_threshold_spinbox.value = _persisted_alpha_threshold
+	_simplify_tolerance_spinbox.value = _persisted_simplify_tolerance
+	_min_area_ratio_spinbox.value = _persisted_min_area_ratio
+	_erosion_radius_spinbox.value = _persisted_erosion_radius
+	_shape_type_option.selected = _persisted_shape_type
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -217,31 +223,6 @@ func _build_ui() -> void:
 	_attack_contour_btn.pressed.connect(_on_attack_contour_pressed)
 	contour_btn_container.add_child(_attack_contour_btn)
 	
-	# 指定文件（可选，留空则全量转换）
-	var convert_file_label := Label.new()
-	convert_file_label.text = "指定文件:"
-	convert_file_label.custom_minimum_size.x = 80
-	add_child(convert_file_label)
-	
-	var convert_file_row := HBoxContainer.new()
-	add_child(convert_file_row)
-	
-	_convert_file_path = LineEdit.new()
-	_convert_file_path.placeholder_text = "留空则全量转换..."
-	_convert_file_path.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_convert_file_path.editable = false
-	convert_file_row.add_child(_convert_file_path)
-	
-	_convert_file_select_btn = Button.new()
-	_convert_file_select_btn.text = "浏览"
-	_convert_file_select_btn.pressed.connect(_on_convert_file_select_btn_pressed)
-	convert_file_row.add_child(_convert_file_select_btn)
-	
-	_convert_file_clear_btn = Button.new()
-	_convert_file_clear_btn.text = "清空"
-	_convert_file_clear_btn.pressed.connect(_on_convert_file_clear_pressed)
-	convert_file_row.add_child(_convert_file_clear_btn)
-	
 	# 轮廓转换状态
 	_contour_status_label = Label.new()
 	_contour_status_label.text = "就绪"
@@ -279,17 +260,13 @@ func _on_body_contour_pressed() -> void:
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
 	
-	var target_file := _convert_file_path.text
-	if target_file.is_empty():
-		_contour_status_label.text = "⏳ Body 轮廓转换中..."
-	else:
-		_contour_status_label.text = "⏳ Body 单文件转换: %s" % target_file.get_file()
+	_contour_status_label.text = "⏳ Body 轮廓转换中..."
 	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	_execute_contour_conversion_async("body", target_file)
+	_execute_contour_conversion_async("body")
 
 
 func _on_attack_contour_pressed() -> void:
@@ -299,48 +276,23 @@ func _on_attack_contour_pressed() -> void:
 	_body_contour_btn.disabled = true
 	_attack_contour_btn.disabled = true
 	
-	var target_file := _convert_file_path.text
-	if target_file.is_empty():
-		_contour_status_label.text = "⏳ Attack 轮廓转换中..."
-	else:
-		_contour_status_label.text = "⏳ Attack 单文件转换: %s" % target_file.get_file()
+	_contour_status_label.text = "⏳ Attack 轮廓转换中..."
 	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	_execute_contour_conversion_async("attack", target_file)
+	_execute_contour_conversion_async("attack")
 
 
-## 转换区域文件选择按钮点击
-func _on_convert_file_select_btn_pressed() -> void:
-	var file_dialog := FileDialog.new()
-	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	file_dialog.access = FileDialog.ACCESS_RESOURCES
-	file_dialog.filters = ["*.png ; PNG Images"]
-	file_dialog.current_dir = "res://characters/playable/"
+func _execute_contour_conversion_async(mode: String) -> void:
+	# 保存当前参数到 static 变量（持久化）
+	_persisted_alpha_threshold = _alpha_threshold_spinbox.value
+	_persisted_simplify_tolerance = _simplify_tolerance_spinbox.value
+	_persisted_min_area_ratio = _min_area_ratio_spinbox.value
+	_persisted_erosion_radius = int(_erosion_radius_spinbox.value)
+	_persisted_shape_type = _shape_type_option.selected
 	
-	file_dialog.file_selected.connect(func(path: String):
-		_convert_file_path.text = path
-		_persisted_convert_file_path = path
-		file_dialog.queue_free()
-	)
-	
-	file_dialog.canceled.connect(func():
-		file_dialog.queue_free()
-	)
-	
-	add_child(file_dialog)
-	file_dialog.popup_centered(Vector2i(800, 600))
-
-
-## 清空转换区域文件选择
-func _on_convert_file_clear_pressed() -> void:
-	_convert_file_path.text = ""
-	_persisted_convert_file_path = ""
-
-
-func _execute_contour_conversion_async(mode: String, target_file_path: String = "") -> void:
 	var injector := AnimationTrackInjector.new()
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
 	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
@@ -350,9 +302,9 @@ func _execute_contour_conversion_async(mode: String, target_file_path: String = 
 	
 	var result: Dictionary
 	if mode == "body":
-		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self, target_file_path)
+		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self)
 	else:
-		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self, target_file_path)
+		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self)
 	
 	# 显示结果
 	var error_count: int = result.errors.size()
