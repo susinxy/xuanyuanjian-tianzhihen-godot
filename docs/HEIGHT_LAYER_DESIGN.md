@@ -1,8 +1,8 @@
 # 2.5D 高度层战斗系统 - 设计文档
 
-> **版本**: 4.1.0  
+> **版本**: 4.2.0  
 > **创建日期**: 2026-08-11  
-> **最后更新**: 2026-08-14  
+> **最后更新**: 2026-08-20  
 > **状态**: Phase 1-5 已完成（方案 C + 10 层配置化 + speed_X 跳跃/击飞配置）  
 > **变更记录**:
 > - v2.0 — 重构数据流架构，base_height 从 _skin.position.y 派生（method track 同步），移除 base_X 文件名标注，保留 Quiver _skin_velocity_y 机制
@@ -13,6 +13,7 @@
 > - v3.1 — `base_height` 改为计算属性（`get: return -position.y`），移除 `_sync_base_height()` method track，解决跳跃时 base_height 不实时更新的问题
 > - v4.0 — **10 层配置化系统**：从 5 层扩展到 10 层（layers 15-24）；边界值从 `project.godot` 的 `standard_height` 运行时计算；每对 `*_low`/`*_high` 层区分标准跳跃能力；删除废弃的 `HeightLayerSystem.gd`
 > - v4.1 — **Phase 5 完成**：跳跃和击飞动画 `speed_X` 配置实现；Inspector 扫描工具自动提取 speed 值并写入 `QuiverAttributes.jump_force`（跳跃）和 `QuiverAttributes.knockback_weight`（击飞权重）；chen_jingchou 的 jump 动画已标注 `speed_2400`，knockout 动画已标注 `speed_2`
+> - v4.2 — **轮廓转换工具完成**：Inspector 面板新增轮廓转换功能（Polygon/Capsule/Rectangle 三形状类型）；ContourTracer 静态工具类（MABR 算法、形态学腐蚀）；MaskEditorDialog 交互式蒙版绘制；AnimationTrackInjector 场景树操作替代直接写文件；详见 `docs/PLUGIN_ARCHITECTURE.md` 第 15 章
 
 ---
 
@@ -464,6 +465,8 @@ func _runtime_ready() -> void:
 
 ### 7.1.2 QuiverCharacter 新增变量
 
+> ⚠️ 以下为示意性代码（5 层硬编码），实际实现已改为 10 层配置化系统，通过 `_build_height_definitions()` 从 `project.godot` 的 `standard_height` 运行时计算。详见 `docs/PLUGIN_ARCHITECTURE.md` 第 2 章。
+
 ```gdscript
 # quiver_character.gd 新增部分
 
@@ -566,6 +569,8 @@ var base_height: float:
 ```
 
 ### 7.3 Collision Layer 更新
+
+> ⚠️ 以下为示意性代码（5 层 `range(15, 20)`），实际实现已改为 10 层系统（layers 15-24），使用 `HEIGHT_LAYER_FIRST` / `HEIGHT_LAYER_LAST` 常量和 `_build_height_definitions()` 动态计算。详见 `docs/PLUGIN_ARCHITECTURE.md` 第 2 章。
 
 ```gdscript
 # 以下方法位于 QuiverCharacter
@@ -1242,14 +1247,13 @@ knockout_00_speed_2_physical_180.png
 
 ## 十六、扩展计划
 
-**当前设计版本**：v2.2
+**当前设计版本**：v4.2.0
 
-### 近期扩展（v2.3）
+### 近期扩展（v4.3+）
 
 1. **Inspector 辅助工具**
-   - 高度数据预览
    - Layer 实时预览（显示当前占据哪些高度层）
-   - 批量重命名工具（自动从文件名提取高度参数）
+   - 轮廓转换工具增强（更多形状类型、批量处理优化）
 
 2. **动画混合**
    - 支持 Lerp 过渡（可选）
@@ -1259,10 +1263,10 @@ knockout_00_speed_2_physical_180.png
    - GrabBox 应用相同的高度 Layer 机制
    - 验证 HitBox 方案后再统一实施
 
-### 远期扩展（v3.0）
+### 远期扩展（v5.0）
 
 1. **多层级攻击**
-   - 支持更细粒度的 Layer 划分（如 8-10 层）
+   - 支持更细粒度的 Layer 划分（如 12-16 层）
    - 支持自定义 Layer 配置（每角色独立配置）
 
 2. **物理体动态高度**
