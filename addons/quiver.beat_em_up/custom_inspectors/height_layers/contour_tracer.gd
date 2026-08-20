@@ -585,41 +585,20 @@ static func _get_bitmap_true_rect(bitmap: BitMap) -> Rect2i:
 
 ## 对 BitMap 做形态学腐蚀（erosion）
 ##
-## 每次腐蚀：如果像素的 4-邻居中有 false，则该像素置为 false
-## 重复 erosion_radius 次，等效于向内收缩 erosion_radius 像素
+## 使用数学等价变换：腐蚀(A, r) = NOT(膨胀(NOT(A), r))
+## 利用 Godot 内置 grow_mask（C++ 实现，O(W×H)）替代 GDScript 三层循环（O(radius×W×H)）
 ##
 ## 用途：收紧轮廓，去除武器/披风等薄突出部分，使 MABR/Capsule/Rectangle 更紧凑
 static func _erode_bitmap(bitmap: BitMap, erosion_radius: int) -> BitMap:
 	if erosion_radius <= 0:
 		return bitmap
 	
-	var result := bitmap.duplicate()
-	var size := bitmap.get_size()
+	var inverted := bitmap.duplicate()
+	inverted.invert()
+	inverted.grow_mask(erosion_radius)
+	inverted.invert()
 	
-	for _iteration in range(erosion_radius):
-		var temp := result.duplicate()
-		for y in range(size.y):
-			for x in range(size.x):
-				if not result.get_bit(x, y):
-					continue
-				# 检查 4-邻居（上下左右）
-				var has_false_neighbor := false
-				if x == 0 or x == size.x - 1 or y == 0 or y == size.y - 1:
-					has_false_neighbor = true
-				elif not result.get_bit(x - 1, y):
-					has_false_neighbor = true
-				elif not result.get_bit(x + 1, y):
-					has_false_neighbor = true
-				elif not result.get_bit(x, y - 1):
-					has_false_neighbor = true
-				elif not result.get_bit(x, y + 1):
-					has_false_neighbor = true
-				
-				if has_false_neighbor:
-					temp.set_bit(x, y, false)
-		result = temp
-	
-	return result
+	return inverted
 
 
 ## 根据高度值找到对应的高度层
