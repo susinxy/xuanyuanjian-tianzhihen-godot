@@ -2183,8 +2183,9 @@ func _modify_tscn_node(
 	content = _remove_shape_subresource_for_node(content, shape_name)
 	
 	# 删除旧节点（兼容 CollisionShape2D 和 CollisionPolygon2D）
+	# 同时删除节点之前的空行，避免空行累积
 	var old_node_pattern := RegEx.new()
-	old_node_pattern.compile('\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
+	old_node_pattern.compile('(?:\\n)*\\[node name="%s" type="Collision(?:Shape2D|Polygon2D)"[^\\]]*\\](?:\\n(?!\\[node ).*)*' % shape_name)
 	content = old_node_pattern.sub(content, "")
 	
 	# 根据 shape_type 生成新节点
@@ -2200,7 +2201,7 @@ func _modify_tscn_node(
 			var polygon_str := ""
 			if first_frame_data.has("contours") and not first_frame_data["contours"].is_empty():
 				polygon_str = ContourTracer.format_polygon_array(first_frame_data["contours"][0])
-			new_content = '[node name="%s" type="CollisionPolygon2D" parent="%s" index="0"%s]\nmodulate = %s\nposition = Vector2(0, 0)\npolygon = %s\n' % [shape_name, parent_path, unique_id_str, modulate_color, polygon_str]
+			new_content = '\n[node name="%s" type="CollisionPolygon2D" parent="%s" index="0"%s]\nmodulate = %s\nposition = Vector2(0, 0)\npolygon = %s\n' % [shape_name, parent_path, unique_id_str, modulate_color, polygon_str]
 			if category == "attack":
 				new_content += "disabled = true\n"
 			new_content += "\n"
@@ -2214,7 +2215,7 @@ func _modify_tscn_node(
 				height = round(first_frame_data["capsule"]["height"] * 100.0) / 100.0
 			var sub_resource := '[sub_resource type="CapsuleShape2D" id="%s"]\nradius = %.2f\nheight = %.2f\n\n' % [sub_id, radius, height]
 			content = _insert_subresource(content, sub_resource)
-			new_content = '[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
+			new_content = '\n[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
 			if category == "attack":
 				new_content += "disabled = true\n"
 			new_content += "\n"
@@ -2229,7 +2230,7 @@ func _modify_tscn_node(
 				)
 			var sub_resource := '[sub_resource type="RectangleShape2D" id="%s"]\nsize = Vector2(%.2f, %.2f)\n\n' % [sub_id, size.x, size.y]
 			content = _insert_subresource(content, sub_resource)
-			new_content = '[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
+			new_content = '\n[node name="%s" type="CollisionShape2D" parent="%s" index="0"%s]\nmodulate = %s\nshape = SubResource("%s")\n' % [shape_name, parent_path, unique_id_str, modulate_color, sub_id]
 			if category == "attack":
 				new_content += "disabled = true\n"
 			new_content += "\n"
