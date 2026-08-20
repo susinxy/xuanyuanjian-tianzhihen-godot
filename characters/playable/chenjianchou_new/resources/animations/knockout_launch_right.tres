@@ -258,7 +258,7 @@ tracks/20/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [271.0]
+"values": [205.0]
 }
 tracks/21/type = "value"
 tracks/21/imported = false
@@ -270,41 +270,53 @@ tracks/21/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [428.0]
+"values": [408.0]
 }
 tracks/22/type = "value"
 tracks/22/imported = false
 tracks/22/enabled = true
-tracks/22/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
+tracks/22/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:radius")
 tracks/22/interp = 0
 tracks/22/loop_wrap = true
 tracks/22/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [PackedVector2Array(-99, -213, -120, 185, -120, 186, 11, 84, 12, 84, 99, 212, 100, 212, 36, -48, 36, -50, 150, -99, 151, -99, -99, -214)]
+"values": [91.4019]
 }
 tracks/23/type = "value"
 tracks/23/imported = false
 tracks/23/enabled = true
-tracks/23/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/23/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:height")
 tracks/23/interp = 0
 tracks/23/loop_wrap = true
 tracks/23/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 0)]
+"values": [394.5809]
 }
 tracks/24/type = "value"
 tracks/24/imported = false
 tracks/24/enabled = true
-tracks/24/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/24/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
 tracks/24/interp = 0
 tracks/24/loop_wrap = true
 tracks/24/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [0.0]
+"values": [Vector2(-30.222649, -1.9095132)]
+}
+tracks/25/type = "value"
+tracks/25/imported = false
+tracks/25/enabled = true
+tracks/25/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/25/interp = 0
+tracks/25/loop_wrap = true
+tracks/25/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [3.0520888342868036]
 }
