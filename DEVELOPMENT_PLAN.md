@@ -1,6 +1,6 @@
 # 天之痕 ARPG 重制 — MVP 实施计划
 
-> **最后更新**: 2026-08-11
+> **最后更新**: 2026-08-20
 > **MVP 目标**: 序章·大雁岭，验证全要素
 
 ---
@@ -20,21 +20,9 @@
 
 ## 二、技术挑战分析
 
-### 2.1 镜头系统改造（优先级：最高）
+### 2.1 镜头系统改造 ✅ 已完成（2026-08-16）
 
-Quiver 的 `QuiverLevelCamera` 目前只有 **左右** 屏幕边缘碰撞墙（防止角色走出屏幕）。ARPG 需要四边碰撞。
-
-**现状**：
-- `ScreenLimits` 只有 Left（layer 3）和 Right 两个 CollisionShape2D
-- `_process()` 里每帧计算左右碰撞位置
-- `delimitate_room()` 已经支持 limit_top / limit_bottom（用于 FightRoom 边界），但没有对应的碰撞形状
-
-**需要做的事**：
-- 在 `ScreenLimits` 下添加 Top 和 Bottom 两个 CollisionShape2D
-- 修改 `_process()` 让它们每帧跟随镜头，和左右墙壁同样的逻辑
-- 修改 `_update_collision_limits_width()` / `_update_collision_limits_length()` 处理上下墙
-
-**注意**：这是对插件的修改。**按 AGENTS.md 的规则**，必须同步更新 `docs/PLUGIN_ARCHITECTURE.md`，并记录变更。
+~~Quiver 的 `QuiverLevelCamera` 目前只有 **左右** 屏幕边缘碰撞墙。~~ 已添加 Top/Bottom 碰撞，实现四方向屏幕边界。使用高度层 API 动态设置碰撞层（layers 15-24 bitmask）。`PLUGIN_ARCHITECTURE.md` 已同步更新。
 
 ### 2.2 角色切换系统（优先级：中期）
 
@@ -77,26 +65,20 @@ Quiver 的 `CombatSystem` 只处理物理伤害。需要自建：
 
 **目标**：一个可以跑起来的"占位"战斗关卡。
 
-#### Step 0.1 — 创建干净角色
-- `xuanyuan-sword/characters/playable/chen_jingqiu/` 清空重建
-- 继承 `quiver_character_base.tscn`
-- 占位 sprite（纯色方块 ColorRect 即可）
-- 状态机最小可用：Idle → Walk → Attack（单发）→ Hurt
+#### Step 0.1 — 创建干净角色 ✅
+- `chen_jingqiu/` 已重建（2026-08-16），继承 `quiver_character_base.tscn`
+- 当前使用 `chenjianchou_new/` 作为开发测试角色（非正式角色）
+- 完整状态机，HurtBox/HitBox 配置正确，使用高度层碰撞系统
 
-#### Step 0.2 — 完整动作状态机
-- 添加 HurtBox（`player_hurt_box` preset）
-- 添加 HitBox（`player_hit_box` preset），带 basic_attack.tres
-- 添加 Jump/Air 状态（Impulse / MidAir / Landing）
-- 添加 Combo（Combo1 → Combo2 → Combo3）
-- 添加 Hurthurt_mid/hurt_high）
-- 添加 Knockout/Launch/MidAir/Bounce
-- 添加 Recovery（倒地起身）
-- 添加 Die
+#### Step 0.2 — 完整动作状态机 ✅
+- HurtBox/HitBox 已配置（使用高度层 + faction group，不再使用碰撞预设）
+- Jump/Air、Combo、Hurt、Knockout、Die 状态均已实现
+- 轮廓转换工具可自动从 sprite PNG 生成碰撞形状（Polygon/Capsule/Rectangle）
 
-#### Step 0.3 — 镜头系统改造（修改插件）
-- 在 `QuiverLevelCamera` 的 `ScreenLimits` 添加 Top/Bottom 碰撞
-- 修改 `_process()` 支持上下墙
-- 更新 `docs/PLUGIN_ARCHITECTURE.md` 记录变更
+#### Step 0.3 — 镜头系统改造（修改插件） ✅
+- `QuiverLevelCamera` 已添加 Top/Bottom 屏幕边界碰撞（2026-08-16）
+- 使用高度层 API 动态设置碰撞层
+- `docs/PLUGIN_ARCHITECTURE.md` 已同步更新
 
 #### Step 0.4 — 第一个 FightRoom 测试关卡
 - 创建 `scenes/stages/prologue/` 目录
