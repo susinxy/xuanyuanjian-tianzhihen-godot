@@ -1,8 +1,8 @@
 # Quiver Beat-em-up 插件架构源码分析
 
 > **分析日期**: 2026-08-11
-> **最后更新**: 2026-08-16
-> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构
+> **最后更新**: 2026-08-20
+> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构 + 轮廓转换工具
 > **用途**: 记录插件所有系统的设计、实现细节和使用方式
 
 ---
@@ -986,12 +986,12 @@ func _parse_begin(object: Object) -> void:
 |---|---|---|
 | `create_new_action/` | `QuiverStateMachine` / `QuiverState` 节点（属于 `QuiverCharacter` 的） | 从列表中选择 action state 添加到状态机 |
 | `create_new_ai_state/` | `QuiverAiStateMachine` / `QuiverAiState` 节点 | 创建新的 AI 行为状态 |
-| `create_mirrored_animation/` | 动画节点 | 创建镜像动画（left/right） |
+| `create_mirrored_animation/` | 动画节点 | 创建镜像动画（left/right），支持 flip_h、position、rotation、polygon 属性镜像 |
 | `states_dropdown/` | `QuiverActionAttack` 等需要选择其他状态的脚本 | 提供状态下拉列表 |
 | `ai_states_dropdown/` | AI 状态脚本 | 提供 AI 状态下拉列表 |
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`characters/playable/_template/character_template.tscn`） | **创建/删除角色** |
-| **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名，注入高度层轨道** |
+| **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）** |
 
 ### Height Layers Inspector（新增）
 
@@ -1004,10 +1004,12 @@ func _parse_begin(object: Object) -> void:
 ```
 custom_inspectors/height_layers/
 ├── inspector_plugin.gd              # EditorInspectorPlugin 入口
-├── height_layers_widget.gd          # UI 组件（VBoxContainer, @tool）
+├── height_layers_widget.gd          # Inspector UI 组件（VBoxContainer, @tool）
 ├── height_layers_widget.tscn        # Widget 场景
-├── animation_track_injector.gd      # 轨道注入核心（extends RefCounted）
-└── character_height_data.gd         # 帧高度数据解析（extends RefCounted）
+├── animation_track_injector.gd      # 轨道注入核心 + 轮廓转换管道（extends RefCounted, @tool）
+├── character_height_data.gd         # 帧高度数据解析（extends Resource）
+├── contour_tracer.gd                # 轮廓提取 + 几何计算（extends RefCounted, 全静态方法, @tool）
+└── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool）
 ```
 
 **工作流程**：
@@ -1045,6 +1047,322 @@ AnimationTrackInjector.run(skin_node, dry_run)
 - 注入器自动清理旧版 `_sync_base_height` method tracks
 - method track 每帧调用（与动画 FPS 同步）
 - 支持增量扫描（异步，不阻塞编辑器）
+
+**CharacterHeightData 文件名解析**：
+
+`CharacterHeightData.parse_height_from_filename(filename)` 从 PNG 文件名中提取高度标注，返回字典：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `physical` | float | 物理高度（`_physical_<N>` 标注），-1.0 表示未标注 |
+| `width` | float | 物理宽度（`_width_<N>` 标注），-1.0 表示未标注 |
+| `attack_heights` | Array | 攻击高度列表（`_attack_<N>_<N>...` 标注） |
+| `speed` | float | 速度值（`_speed_<N>` 标注），-1.0 表示未标注 |
+| `errors` | Array | 解析错误列表 |
+
+文件名示例：`walk_01_physical_120_width_40.png` → `{physical: 120.0, width: 40.0, attack_heights: [], speed: -1.0, errors: []}`
+
+---
+
+## 15. 轮廓转换工具系统
+
+Inspector 面板中的轮廓转换工具，从角色 sprite PNG 图像自动提取轮廓多边形，生成碰撞形状（Polygon/Capsule/Rectangle）并注入逐帧动画轨道。与 Height Layers Inspector 共享同一个 Inspector Widget（选中 `QuiverCharacterSkinAnimTree` 节点时激活）。
+
+### 15.1 系统概述
+
+**触发方式**：
+1. 打开角色皮肤场景（如 `chenjianchou_new_skin.tscn`）
+2. 选中根节点（QuiverCharacterSkinAnimTree）
+3. Inspector 面板显示 "Contour Preview & Mask Editor" 和 "Contour Polygon Conversion" 区域
+
+**组件依赖图**：
+```
+inspector_plugin.gd (EditorInspectorPlugin)
+    └── height_layers_widget.gd (VBoxContainer, Inspector UI)
+            ├── animation_track_injector.gd (RefCounted, 转换管道编排)
+            │       ├── character_height_data.gd (Resource, 文件名解析)
+            │       └── contour_tracer.gd (RefCounted, 静态几何计算)
+            └── mask_editor_dialog.gd (AcceptDialog, 蒙版绘制)
+                    └── contour_tracer.gd (预览用)
+```
+
+**数据流**：
+```
+PNG 文件 → ContourTracer.trace_contours() → 轮廓多边形
+    ↓
+AnimationTrackInjector._convert_contours_common()
+    ├── ContourTracer.calc_mabr() → MABR
+    ├── ContourTracer.calc_capsule_from_mabr() → Capsule 参数
+    ├── ContourTracer.pixels_to_shape_local() → 局部坐标
+    ├── ContourTracer.calc_physical_height() → 物理高度
+    └── ContourTracer.calc_attack_heights() → 攻击高度
+    ↓
+_modify_scene_tree_node() → 场景树节点替换（CollisionPolygon2D / CollisionShape2D）
+_inject_all_tracks() → Animation 资源轨道注入
+    ↓
+用户 Ctrl+S → .tscn + .tres 保存到磁盘
+```
+
+### 15.2 ShapeType 枚举与 SHAPE_CONFIGS
+
+`AnimationTrackInjector` 定义了三种碰撞形状类型：
+
+```gdscript
+enum ShapeType {
+    POLYGON = 0,    # CollisionPolygon2D + :polygon track（精确轮廓）
+    CAPSULE = 1,    # CollisionShape2D + CapsuleShape2D（MABR 推导）
+    RECTANGLE = 2   # CollisionShape2D + RectangleShape2D（MABR 推导）
+}
+```
+
+**SHAPE_CONFIGS 数据驱动配置**：
+
+每种 ShapeType 对应一组轨道配置，定义节点类型和需要注入的 track 属性列表：
+
+| ShapeType | 场景节点类型 | Track 属性 | 数据来源 |
+|-----------|-------------|-----------|---------|
+| POLYGON | `CollisionPolygon2D` | `:polygon`, `:position`(0,0), `:rotation`(0) | `trace_contours()` 原始轮廓 |
+| CAPSULE | `CollisionShape2D` + `CapsuleShape2D` | `:shape:radius`, `:shape:height`, `:position`, `:rotation` | MABR 短边=直径，长边=总高度 |
+| RECTANGLE | `CollisionShape2D` + `RectangleShape2D` | `:shape:size`, `:position`, `:rotation` | MABR 尺寸和角度 |
+
+### 15.3 ContourTracer — 轮廓提取与几何计算
+
+`class_name ContourTracer`，extends `RefCounted`，`@tool`。全静态方法，无实例状态。
+
+**核心算法**：使用 Godot 内置 `BitMap` API（实现 Marching Squares）+ `opaque_to_polygons()`（Ramer-Douglas-Peucker 简化）。
+
+#### 15.3.1 公共 API
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `trace_contours()` | `image, mask, alpha_threshold, simplify_tolerance, max_size, min_area_ratio, erosion_radius` | `Array[PackedVector2Array]` | 主入口：从 PNG 提取轮廓多边形。处理缩放、蒙版叠加、腐蚀、自适应容差重试 |
+| `calc_physical_height()` | `contours, image_height` | `float` | 轮廓最高点（min Y）到图像底边的距离 |
+| `calc_contour_width()` | `contours` | `float` | 所有轮廓的水平跨度（max X - min X） |
+| `calc_attack_heights()` | `contours, image_height, height_definitions` | `Array` | 每个轮廓中点高度，按高度层分组去重 |
+| `pixels_to_shape_local()` | `vertices, img_w, img_h, shape_pos` | `PackedVector2Array` | 像素坐标 → CollisionPolygon2D 局部坐标（中心原点） |
+| `format_polygon_array()` | `vertices` | `String` | 格式化为 `.tscn` 文本 `PackedVector2Array(x, y, ...)` |
+| `calc_mabr()` | `points` | `Dictionary` | **最小面积外接矩形**（O(n²) 凸包投影，Freeman & Shapira 1975）。返回 `{center, size, angle, area, corners}` |
+| `calc_aabb()` | `points` | `Dictionary` | 轴对齐包围盒。返回 `{center, size, area}` |
+| `is_point_in_mabr()` | `point, mabr, tolerance` | `bool` | 点在旋转矩形内判定 |
+| `calc_capsule_from_mabr()` | `mabr` | `Dictionary` | 从 MABR 推导 CapsuleShape2D 参数：短边=直径，长边=总高度。返回 `{center, radius, height, angle}` |
+| `generate_capsule_polygon()` | `center, radius, total_height, angle, segments` | `PackedVector2Array` | 生成约 32 顶点的近似胶囊多边形（预览渲染用） |
+| `run_mabr_tests()` | — | `Array[String]` | 内置 MABR 单元测试（9 个用例：正方形、菱形、矩形、单点、两点、共线、三角形、空集、不规则） |
+
+#### 15.3.2 关键设计决策
+
+**自适应容差重试**：如果 `opaque_to_polygons()` 产生退化输出（无有效多边形满足 min_area），容差减半重试直到 0.5。
+
+**形态学腐蚀**：使用 `BitMap.grow_mask(-radius, rect)`（Godot C++ 实现，O(W×H)）在轮廓提取前收缩不透明区域，去除武器、披风、头发等细长突出。仅用于 MABR 形状（Capsule/Rectangle），Polygon 模式腐蚀半径固定为 0。
+
+**蒙版优先级**：`{name}.{category}.mask.png`（特定类别）> `{name}.mask.png`（通用）> 无蒙版（全图 alpha 扫描）。
+
+**最大尺寸保护**：超过 `max_size`（默认 512px）的图像先缩小再处理，结果按比例放大还原。
+
+### 15.4 MaskEditorDialog — 交互式蒙版绘制
+
+extends `AcceptDialog`，`@tool`。无 `class_name`（通过 `preload` 加载）。
+
+**功能**：在 sprite PNG 上绘制/擦除蒙版覆盖层，控制轮廓提取的区域范围。蒙版保存为 `.mask.png` 文件。
+
+**UI 结构**：
+```
+AcceptDialog (title: "Mask Editor")
+└── HSplitContainer
+    ├── 左侧：画布区域
+    │   └── SubViewportContainer → SubViewport
+    │       ├── TextureRect（背景：原始 PNG）
+    │       ├── TextureRect（蒙版覆盖：红色半透明）
+    │       └── Node2D（画笔预览圆圈）
+    └── 右侧：工具面板
+        ├── 文件名标签
+        ├── 蒙版类型选择（Generic / Body / Attack）
+        ├── 画笔 / 橡皮擦切换按钮
+        ├── 画笔大小（5-100px）
+        ├── "Preview Contour" 按钮 + 预览图
+        ├── "Save Mask" / "Clear Mask" 按钮
+        └── 状态标签
+```
+
+**蒙版类型系统**：
+
+| 类型 | 文件名格式 | 使用场景 |
+|------|-----------|---------|
+| Generic (id=0) | `{name}.mask.png` | Body 和 Attack 扫描均使用 |
+| Body (id=1) | `{name}.body.mask.png` | 仅 Body 轮廓扫描使用 |
+| Attack (id=2) | `{name}.attack.mask.png` | 仅 Attack 轮廓扫描使用 |
+
+**绘制机制**：
+- 左键：绘制（白色不透明）或擦除（透明），取决于当前工具
+- 右键：临时橡皮擦（松开恢复）
+- 鼠标滚轮：缩放（0.25x ~ 4x）
+- 画笔为圆形，半径由 SpinBox 控制，鼠标移动时插值画线
+
+**预览功能**："Preview Contour" 按钮调用 `ContourTracer.trace_contours()` 提取当前蒙版下的轮廓，在右侧 TextureRect 中显示红色轮廓线叠加在原始图像上。
+
+### 15.5 AnimationTrackInjector 轮廓转换管道
+
+`class_name AnimationTrackInjector`，extends `RefCounted`，`@tool`。
+
+#### 15.5.1 公共入口
+
+| 方法 | 说明 |
+|------|------|
+| `convert_body_contours(skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, dry_run, callback_obj)` | Body 轮廓转换（异步），返回 `{frame_count, errors, frames_info, png_renames}` |
+| `convert_attack_contours(...)` | Attack 轮廓转换（异步），参数同 Body |
+| `preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)` | 单文件轮廓预览（不修改任何文件），返回轮廓、MABR、Capsule、Rectangle、physical_height、attack_heights、image |
+
+#### 15.5.2 `_convert_contours_common()` — 统一转换管道（13 步）
+
+Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别特定行为：
+
+1. 从 `AnimatedSprite2D` 子节点获取 `SpriteFrames`
+2. 从 `AnimationPlayer` 子节点获取动画库
+3. 从场景树发现 shape 节点（`_discover_shape_nodes()`）— Body: HurtBox 子节点；Attack: Attacks 下 Area2D 的子节点
+4. 构建统一帧过滤（`_build_unified_frame_filter()`）+ 找出所有相关动画
+5. **单次扫描**：`_scan_frames_contours()` — 遍历帧，加载 PNG，检查蒙版（specific > generic > none），调用 `ContourTracer.trace_contours()`
+6. 前处理回调（Body: 无操作；Attack: 构建 sprite_anim → attack_node 映射）
+7. 后处理每帧：类别特定字段 + 坐标变换 + MABR + Capsule + Rectangle 计算
+8. 如果 `dry_run`：返回 frames_data 不做修改
+9. 预计算 shape 类型变更状态（检测当前 vs 目标类型）
+10. 修改场景树节点（仅当类型不匹配时，`_modify_scene_tree_node()`）
+11. 构建 per-shape 过滤映射
+12. 统一轨道注入（`_inject_all_tracks()`）
+13. 返回结果
+
+#### 15.5.3 场景树操作
+
+**`_modify_scene_tree_node(skin_node, shape_info, shape_type, first_frame_data, errors)`**：
+
+替换场景树中的碰撞形状节点：
+
+1. 获取父节点（`skin_node.get_node_or_null(parent_path)`）
+2. 获取旧节点（`parent.get_node_or_null(shape_name)`）
+3. **先 `parent.remove_child(old_node)` 再 `old_node.queue_free()`** — 立即从父节点移除避免命名冲突
+4. 根据 `ShapeType` 创建新节点：
+   - `POLYGON` → `CollisionPolygon2D`，设置首帧轮廓为初始 polygon
+   - `CAPSULE` → `CollisionShape2D` + `CapsuleShape2D`，设置首帧参数（默认 r=40, h=160 body / h=120 attack）
+   - `RECTANGLE` → `CollisionShape2D` + `RectangleShape2D`，设置首帧 MABR 尺寸
+5. 设置颜色（Body: 蓝色，Attack: 橙色）
+6. Attack 形状默认 `disabled = true`
+7. `parent.add_child(new_node)` + `new_node.owner = skin_node.owner`（确保 Ctrl+S 时保存）
+
+**`_detect_shape_type_from_node(shape_node)`**：
+
+从场景树节点类型检测当前 ShapeType：
+- `CollisionPolygon2D` → `POLYGON`
+- `CollisionShape2D` + `CapsuleShape2D` → `CAPSULE`
+- `CollisionShape2D` + `RectangleShape2D` → `RECTANGLE`
+- 其他 → `POLYGON`（默认）
+
+**保存机制**：不直接写文件。修改场景树节点后调用 `anim.emit_changed()` 标记修改，编辑器自动标记场景为"已修改"，用户 Ctrl+S 统一保存。
+
+#### 15.5.4 轨道注入架构
+
+**Per-shape tracks**（每个 shape 节点独立写入）：
+
+| ShapeType | Track 路径 | 值类型 | 说明 |
+|-----------|-----------|--------|------|
+| POLYGON | `shape_path:polygon` | `PackedVector2Array` | 逐帧轮廓多边形 |
+| POLYGON | `shape_path:position` | `Vector2` | 固定 (0,0) |
+| POLYGON | `shape_path:rotation` | `float` | 固定 0 |
+| CAPSULE | `shape_path:shape:radius` | `float` | 胶囊半径 |
+| CAPSULE | `shape_path:shape:height` | `float` | 胶囊总高度 |
+| CAPSULE | `shape_path:position` | `Vector2` | 位置偏移 |
+| CAPSULE | `shape_path:rotation` | `float` | 旋转角度 |
+| RECTANGLE | `shape_path:shape:size` | `Vector2` | 矩形尺寸 |
+| RECTANGLE | `shape_path:position` | `Vector2` | 位置偏移 |
+| RECTANGLE | `shape_path:rotation` | `float` | 旋转角度 |
+
+**Shared tracks**（每个动画写入一次）：
+
+| 类别 | Track 路径 | 说明 |
+|------|-----------|------|
+| Body | `.:physical_height` | Skin 物理高度 |
+| Body | `.:physical_width` | Skin 物理宽度（CapsuleShape2D.height 代理） |
+| Attack | `.:attack_heights` | Skin 攻击高度数组 |
+
+**Auxiliary tracks**（辅助轨道）：
+
+| 类别 | Track 路径 | 说明 |
+|------|-----------|------|
+| Attack | `parent_path:position` | 复制 `AnimatedSprite2D:position` 到攻击 Area2D |
+| Attack | `parent_path:visible` | 反转 `:disabled` 轨道（Attack 可见性） |
+
+**轨道属性**：所有 value track 使用 `INTERPOLATION_NEAREST` + `UPDATE_DISCRETE`。
+
+**flip_h 镜像支持**：读取 `AnimatedSprite2D:flip_h` 轨道，当 `flip_h = true` 时：
+- `:polygon` — 所有 X 坐标取反
+- `:position` — X 坐标取反
+- `:rotation` — 角度取反
+
+**优化**：keyframe 仅在值与前一帧不同时插入。
+
+**Track 清理策略**：
+- Shape 类型变更时：通过 `_remove_tracks_by_path_prefix()` **删除**旧类型的所有 tracks
+- Shape 类型不变时：通过 `_clear_tracks_by_path_prefix()` **清除** keyframes 但保留 tracks（维持 track 顺序稳定）
+- 清理操作在 Phase 0（`frames_data` 检查之前）执行，防止残留旧类型的 tracks
+
+#### 15.5.5 帧过滤机制
+
+**`_build_unified_frame_filter()`**：合并所有 shape 节点的 disabled track 数据，确定每个动画需要处理哪些帧。
+
+**`_build_frame_filter_for_node()`**：解析单个 shape 节点的 `:disabled` 轨道离散 keyframe，采样每帧的 disabled 状态，返回 enabled 帧列表。
+
+**`_find_all_relevant_anims()`**：遍历所有动画，找出引用了任何 shape 节点的 sprite 动画名。
+
+**设计原则**：只处理引用了 shape_node 的动画。如果某个动画没有引用某个 shape 节点的 tracks，说明该动画不打算修改该节点，不处理。
+
+### 15.6 Height Layers Widget — Inspector UI
+
+`height_layers_widget.gd`，extends `VBoxContainer`，`@tool`。无 `class_name`。
+
+**UI 结构**：
+```
+VBoxContainer (this widget)
+├── [轮廓预览区]
+│   ├── 文件选择（LineEdit + Browse 按钮，过滤 *.png）
+│   ├── 预览参数（独立于转换参数）
+│   │   ├── Alpha threshold (0-1)
+│   │   ├── Simplify tolerance (0-256px)
+│   │   ├── Min area ratio (0.1-0.8)
+│   │   └── Erosion radius (0-100px)
+│   ├── 操作按钮（Preview Contour / Edit Mask / MABR Test）
+│   ├── RichTextLabel（结果输出）
+│   └── TextureRect（预览图像）
+│
+├── [轮廓转换区]
+│   ├── 转换参数（独立于预览参数）
+│   │   ├── Alpha threshold
+│   │   ├── Simplify tolerance
+│   │   ├── Min area ratio
+│   │   ├── Shape type（Polygon / Capsule / Rectangle）
+│   │   └── Erosion radius（仅 MABR 形状生效）
+│   ├── 转换按钮（Body Contour Conversion / Attack Contour Conversion）
+│   ├── 状态标签
+│   └── RichTextLabel（转换结果）
+```
+
+**双参数集设计**：预览参数和转换参数独立控制，允许用户在单文件上调参实验而不影响批量转换设置。
+
+**静态持久化**：所有参数和选中文件路径存储为 `static` 变量，跨 widget 重建存活（Inspector 每次选择变化时重建自定义控件）。
+
+**异步执行**：所有转换操作使用 `await` 避免阻塞编辑器 UI。进度回调 `_on_contour_progress()` 逐帧更新状态标签。
+
+**SubViewport 渲染预览**：预览图像使用临时 SubViewport + Node2D 覆盖层绘制轮廓（绿色填充 + 红色边线）、MABR（蓝色半透明）、胶囊（品红色），捕获为 ImageTexture 后释放 SubViewport。
+
+**Shape 类型默认参数**：切换 ShapeType 时自动设置合理默认值：
+- Polygon: erosion=0, tolerance=100（精确轮廓）
+- Capsule/Rectangle: erosion=20, tolerance=5（紧凑 MABR）
+
+### 15.7 CreateMirroredAnimation 多边形镜像支持
+
+`create_mirrored_animation_button.gd` 的镜像动画功能扩展了对 `:polygon` 属性的支持：
+
+**`_is_mirrorable_property(property_name)`**：除 `flip_h`、`position`、`rotation` 外，现在也匹配以 `:polygon` 结尾的属性路径。
+
+**`_mirror_track_values(anim, track_index, subpath)`**：对 `PackedVector2Array` 类型的 polygon 值，逐顶点取反 X 坐标实现水平镜像。
+
+---
 
 ### Character Creator Inspector（新增）
 
@@ -1105,7 +1423,7 @@ InspectorPlugin 生成 scenes/_test_<char_name>.tscn（使用 .replace() 替换 
 
 ---
 
-## 15. UID 管理最佳实践
+## 16. UID 管理最佳实践
 
 ### UID 是什么
 
