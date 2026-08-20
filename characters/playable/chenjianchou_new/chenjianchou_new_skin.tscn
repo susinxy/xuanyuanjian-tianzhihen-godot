@@ -18,6 +18,10 @@ _data = {
 &"RESET": ExtResource("4_vrxwg")
 }
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_eb6ffa9d85a2b790"]
+radius = 91.78
+height = 411.45
+
 [node name="ChenjianchouNewSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
 attributes = ExtResource("6_iqdvs")
@@ -69,9 +73,14 @@ animation = &"idle"
 monitorable = false
 script = ExtResource("5_k0gpy")
 
-[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
+
+
+
+
+
+[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
 modulate = Color(0, 0.0666667, 0.701961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
+shape = SubResource("CapsuleShape2D_eb6ffa9d85a2b790")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
@@ -83,9 +92,12 @@ monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("8_uylrb")
 
+
+
 [node name="Attack1Shape" type="CollisionPolygon2D" parent="Attacks/Attack1" index="0" unique_id=930854560]
 modulate = Color(1, 0.2, 0.101961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
+position = Vector2(0, 0)
+polygon = PackedVector2Array(-77.50, -225.50, -181.50, 62.50, -181.50, 63.50, 206.50, 22.50, 208.50, 22.50, -77.50, -226.50)
 disabled = true
 
 [node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:chenjianchou_new"]]
@@ -96,33 +108,43 @@ monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("9_cutyj")
 
+
+
 [node name="Attack2Shape" type="CollisionPolygon2D" parent="Attacks/Attack2" index="0" unique_id=1482232703]
 modulate = Color(1, 0.2, 0.101961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
+position = Vector2(0, 0)
+polygon = PackedVector2Array(-77.50, -225.50, -181.50, 62.50, -181.50, 63.50, 206.50, 22.50, 208.50, 22.50, -77.50, -226.50)
 disabled = true
 
 [node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:chenjianchou_new"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(53, -165)
+position = Vector2(80, -277)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
 
+
+
 [node name="Attack3Shape" type="CollisionPolygon2D" parent="Attacks/Attack3" index="0" unique_id=1786663361]
 modulate = Color(1, 0.2, 0.101961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
+position = Vector2(0, 0)
+polygon = PackedVector2Array(-77.50, -225.50, -181.50, 62.50, -181.50, 63.50, 206.50, 22.50, 208.50, 22.50, -77.50, -226.50)
 disabled = true
 
 [node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:chenjianchou_new"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(53, -165)
+position = Vector2(80, -277)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
 
+
+
 [node name="AttackAirShape" type="CollisionPolygon2D" parent="Attacks/AttackAir" index="0" unique_id=78482173]
 modulate = Color(1, 0.2, 0.101961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
+position = Vector2(0, 0)
+polygon = PackedVector2Array(-77.50, -225.50, -181.50, 62.50, -181.50, 63.50, 206.50, 22.50, 208.50, 22.50, -77.50, -226.50)
 disabled = true
+

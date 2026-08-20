@@ -843,128 +843,18 @@ func convert_body_contours(
 	callback_obj: Object,
 	target_file_path: String = ""
 ) -> Dictionary:
-	var result := {
-		"frame_count": 0,
-		"errors": [] as Array[String],
-		"frames_info": {},
-		"png_renames": {},
-	}
-	
-	# 1. 获取 SpriteFrames
-	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
-	if sprite_frames == null:
-		return result
-	
-	# 2. 获取 AnimationPlayer
-	var anim_player := _get_animation_player(skin_node, result.errors)
-	
-	# 3. 发现 body 形状节点
-	var shape_nodes := _discover_shape_nodes(skin_node)
-	var body_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "body")
-	
-	if body_nodes.is_empty():
-		result.errors.append("未发现 body 形状节点")
-		return result
-	
-	var skin_scene_path := skin_node.scene_file_path
-	var is_single_file_mode := not target_file_path.is_empty()
-	
-	# 4. 构建统一帧过滤 + 找出所有相关动画
-	var unified_filter := {}
-	var relevant_anims: Array[String] = []
-	if anim_player != null:
-		unified_filter = _build_unified_frame_filter(body_nodes, anim_player, skin_node)
-		relevant_anims = _find_all_relevant_anims(body_nodes, anim_player)
-	
-	# 5. 扫描一次
-	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
-	var frames_data := await _scan_frames_contours(
-		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		relevant_anims, unified_filter, "body", callback_obj, result.errors, target_file_path, scan_erosion
+	return await _convert_contours_common(
+		skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
+		erosion_radius, shape_type, dry_run, callback_obj, target_file_path,
+		"body",
+		Callable(self, "_pre_postprocess_body"),
+		Callable(self, "_postprocess_body_frame"),
+		Callable(self, "_needs_body_tscn_wrapper"),
+		"未发现 body 形状节点"
 	)
-	
-	# 6. 后处理一次（纯计算）
-	for sprite_anim_name in frames_data:
-		for frame_idx in frames_data[sprite_anim_name]:
-			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
-			var raw: Array = frame["raw_contours"]
-			var img_w := int(frame["image_size"].x)
-			var img_h := int(frame["image_size"].y)
-			
-			frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
-			frame["width"] = ContourTracer.calc_contour_width(raw)
-			
-			var local_contours: Array[PackedVector2Array] = []
-			for contour in raw:
-				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
-			frame["contours"] = local_contours
-			
-			if local_contours.size() > 0 and local_contours[0].size() >= 3:
-				var mabr := ContourTracer.calc_mabr(local_contours[0])
-				frame["mabr"] = mabr
-				frame["capsule"] = ContourTracer.calc_capsule_from_mabr(mabr)
-				frame["rectangle"] = {
-					"size": mabr.size,
-					"angle": mabr.angle,
-				}
-			
-			frame.erase("raw_contours")
-			result.frame_count += 1
-	
-	# 7. dry_run
-	if dry_run:
-		result.frames_info = frames_data
-		return result
-	
-	# 8. 单文件模式检查
-	if is_single_file_mode:
-		for node_info in body_nodes:
-			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
-			if current_type != -1 and current_type != shape_type:
-				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
-					ShapeType.keys()[current_type], ShapeType.keys()[shape_type]
-				])
-				return result
-	
-	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
-	var shape_type_changed := {}
-	for node_info in body_nodes:
-		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
-		shape_type_changed[node_info["shape_name"]] = current_type != -1 and current_type != shape_type
-	
-	# 10. 修改 .tscn（仅类型不匹配时）
-	if _needs_body_tscn_conversion(skin_scene_path, shape_type):
-		for node_info in body_nodes:
-			var first_frame_data := _get_first_frame_data(frames_data)
-			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
-	
-	# 11. 构建 per-shape 过滤映射
-	var per_shape_filters := {}
-	if anim_player != null:
-		for node_info in body_nodes:
-			per_shape_filters[node_info["shape_path"]] = _build_frame_filter_for_node(node_info, anim_player, skin_node)
-	
-	# 12. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
-	if anim_player != null:
-		_inject_all_tracks(anim_player, sprite_frames, body_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
-	
-	result.frames_info = frames_data
-	return result
 
 
 ## Attack 轮廓转换
-##
-## 从 PNG 提取轮廓多边形，替换 AttackShape 的 CollisionShape2D 为 CollisionPolygon2D
-## 自动计算 attack_heights，更新动画 tracks
-##
-## 参数:
-## - skin_node: QuiverCharacterSkinAnimTree 节点
-## - alpha_threshold: alpha 阈值（0.0-1.0）
-## - simplify_tolerance: Douglas-Peucker 简化容差（像素）
-## - dry_run: 如果为 true，只预览不实际修改
-## - callback_obj: 拥有 _on_contour_progress(current, total, filename) 方法的对象
-##
-## 返回: { frame_count: int, errors: Array[String], frames_info: Dictionary, png_renames: Dictionary }
 func convert_attack_contours(
 	skin_node: Node,
 	alpha_threshold: float,
@@ -975,6 +865,34 @@ func convert_attack_contours(
 	dry_run: bool,
 	callback_obj: Object,
 	target_file_path: String = ""
+) -> Dictionary:
+	return await _convert_contours_common(
+		skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
+		erosion_radius, shape_type, dry_run, callback_obj, target_file_path,
+		"attack",
+		Callable(self, "_pre_postprocess_attack"),
+		Callable(self, "_postprocess_attack_frame"),
+		Callable(self, "_needs_attack_tscn_wrapper"),
+		""
+	)
+
+
+## 通用轮廓转换核心流程
+func _convert_contours_common(
+	skin_node: Node,
+	alpha_threshold: float,
+	simplify_tolerance: float,
+	min_area_ratio: float,
+	erosion_radius: int,
+	shape_type: int,
+	dry_run: bool,
+	callback_obj: Object,
+	target_file_path: String,
+	category: String,
+	pre_postprocess_callback: Callable,
+	postprocess_frame_callback: Callable,
+	needs_tscn_conversion: Callable,
+	empty_error_message: String = ""
 ) -> Dictionary:
 	var result := {
 		"frame_count": 0,
@@ -991,11 +909,13 @@ func convert_attack_contours(
 	# 2. 获取 AnimationPlayer
 	var anim_player := _get_animation_player(skin_node, result.errors)
 	
-	# 3. 发现 attack 形状节点
-	var shape_nodes := _discover_shape_nodes(skin_node)
-	var attack_nodes: Array = shape_nodes.filter(func(n): return n["category"] == "attack")
+	# 3. 发现 shape 节点
+	var all_shape_nodes := _discover_shape_nodes(skin_node)
+	var shape_nodes: Array = all_shape_nodes.filter(func(n): return n["category"] == category)
 	
-	if attack_nodes.is_empty():
+	if shape_nodes.is_empty():
+		if not empty_error_message.is_empty():
+			result.errors.append(empty_error_message)
 		return result
 	
 	var skin_scene_path := skin_node.scene_file_path
@@ -1005,50 +925,37 @@ func convert_attack_contours(
 	var unified_filter := {}
 	var relevant_anims: Array[String] = []
 	if anim_player != null:
-		unified_filter = _build_unified_frame_filter(attack_nodes, anim_player, skin_node)
-		relevant_anims = _find_all_relevant_anims(attack_nodes, anim_player)
+		unified_filter = _build_unified_frame_filter(shape_nodes, anim_player, skin_node)
+		relevant_anims = _find_all_relevant_anims(shape_nodes, anim_player)
 	
 	# 5. 扫描一次
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		relevant_anims, unified_filter, "attack", callback_obj, result.errors, target_file_path, scan_erosion
+		relevant_anims, unified_filter, category, callback_obj, result.errors, target_file_path, scan_erosion
 	)
 	
-	# 6. 后处理一次（纯计算）
-	var height_definitions := QuiverCharacter._build_height_definitions()
+	# 6. 预处理（如构建 attack 映射表）
+	var preprocess_data: Dictionary = pre_postprocess_callback.call(shape_nodes, anim_player, skin_node)
+	
+	# 7. 后处理一次（纯计算）
 	for sprite_anim_name in frames_data:
-		# 确定该动画映射到哪个 attack 节点
-		var attack_node_name := ""
-		if anim_player != null:
-			for lib_name in anim_player.get_animation_library_list():
-				var library := anim_player.get_animation_library(lib_name)
-				if library == null:
-					continue
-				for anim_name in library.get_animation_list():
-					var anim := library.get_animation(anim_name)
-					if anim == null:
-						continue
-					if _find_sprite_anim_name(anim) == sprite_anim_name:
-						attack_node_name = _find_attack_node_for_anim(anim, attack_nodes, sprite_anim_name, skin_node)
-						break
-				if not attack_node_name.is_empty():
-					break
-		
 		for frame_idx in frames_data[sprite_anim_name]:
 			var frame: Dictionary = frames_data[sprite_anim_name][frame_idx]
 			var raw: Array = frame["raw_contours"]
 			var img_w := int(frame["image_size"].x)
 			var img_h := int(frame["image_size"].y)
 			
-			frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
-			frame["attack_node"] = attack_node_name
+			# 7a. 调用回调设置 category 特有字段
+			postprocess_frame_callback.call(frame, raw, img_w, img_h, sprite_anim_name, preprocess_data)
 			
+			# 7b. 公共处理：坐标变换
 			var local_contours: Array[PackedVector2Array] = []
 			for contour in raw:
 				local_contours.append(ContourTracer.pixels_to_shape_local(contour, img_w, img_h))
 			frame["contours"] = local_contours
 			
+			# 7c. 公共处理：MABR + capsule + rectangle
 			if local_contours.size() > 0 and local_contours[0].size() >= 3:
 				var mabr := ContourTracer.calc_mabr(local_contours[0])
 				frame["mabr"] = mabr
@@ -1061,14 +968,14 @@ func convert_attack_contours(
 			frame.erase("raw_contours")
 			result.frame_count += 1
 	
-	# 7. dry_run
+	# 8. dry_run
 	if dry_run:
 		result.frames_info = frames_data
 		return result
 	
-	# 8. 单文件模式检查
+	# 9. 单文件模式检查
 	if is_single_file_mode:
-		for node_info in attack_nodes:
+		for node_info in shape_nodes:
 			var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 			if current_type != -1 and current_type != shape_type:
 				result.errors.append("形状类型变更（%s → %s）时不支持单文件模式，请先执行全量转换" % [
@@ -1076,33 +983,82 @@ func convert_attack_contours(
 				])
 				return result
 	
-	# 9. 预计算 shape type 变更状态（在修改 .tscn 之前）
+	# 10. 预计算 shape type 变更状态（在修改 .tscn 之前）
 	var shape_type_changed := {}
-	for node_info in attack_nodes:
+	for node_info in shape_nodes:
 		var current_type := _detect_current_shape_type(skin_scene_path, node_info["shape_name"])
 		shape_type_changed[node_info["shape_name"]] = current_type != -1 and current_type != shape_type
 	
-	# 10. 修改 .tscn（每个 shape 各自修改，SubResource 只删除自己的）
-	var attack_shape_names: Array[String] = []
-	for node_info in attack_nodes:
-		attack_shape_names.append(node_info["shape_name"])
-	if _needs_attack_tscn_conversion(skin_scene_path, shape_type, attack_shape_names):
-		for node_info in attack_nodes:
+	# 11. 修改 .tscn（仅类型不匹配时）
+	if needs_tscn_conversion.call(skin_scene_path, shape_type, shape_nodes):
+		for node_info in shape_nodes:
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_tscn_node(skin_scene_path, node_info, shape_type, first_frame_data, result.errors)
 	
-	# 11. 构建 per-shape 过滤映射（用于 _inject_all_tracks 内层判断）
+	# 12. 构建 per-shape 过滤映射
 	var per_shape_filters := {}
 	if anim_player != null:
-		for node_info in attack_nodes:
+		for node_info in shape_nodes:
 			per_shape_filters[node_info["shape_path"]] = _build_frame_filter_for_node(node_info, anim_player, skin_node)
 	
-	# 12. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
+	# 13. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
 	if anim_player != null:
-		_inject_all_tracks(anim_player, sprite_frames, attack_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
+		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, is_single_file_mode, result.errors, skin_scene_path, shape_type_changed)
 	
 	result.frames_info = frames_data
 	return result
+
+
+## Body 预处理：无操作
+func _pre_postprocess_body(shape_nodes: Array, anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
+	return {}
+
+
+## Attack 预处理：构建 sprite_anim → attack_node 映射表
+func _pre_postprocess_attack(shape_nodes: Array, anim_player: AnimationPlayer, skin_node: Node) -> Dictionary:
+	var sprite_to_attack_node := {}
+	if anim_player == null:
+		return sprite_to_attack_node
+	
+	for lib_name in anim_player.get_animation_library_list():
+		var library := anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			var san := _find_sprite_anim_name(anim)
+			if not san.is_empty() and not sprite_to_attack_node.has(san):
+				sprite_to_attack_node[san] = _find_attack_node_for_anim(anim, shape_nodes, san, skin_node)
+	
+	return sprite_to_attack_node
+
+
+## Body 帧后处理：设置 physical_height + width
+func _postprocess_body_frame(frame: Dictionary, raw: Array, img_w: int, img_h: int, sprite_anim_name: String, preprocess_data: Dictionary) -> void:
+	frame["physical_height"] = ContourTracer.calc_physical_height(raw, img_h)
+	frame["width"] = ContourTracer.calc_contour_width(raw)
+
+
+## Attack 帧后处理：设置 attack_heights + attack_node
+func _postprocess_attack_frame(frame: Dictionary, raw: Array, img_w: int, img_h: int, sprite_anim_name: String, preprocess_data: Dictionary) -> void:
+	var height_definitions := QuiverCharacter._build_height_definitions()
+	frame["attack_heights"] = ContourTracer.calc_attack_heights(raw, img_h, height_definitions)
+	frame["attack_node"] = preprocess_data.get(sprite_anim_name, "")
+
+
+## Body .tscn 判断
+func _needs_body_tscn_wrapper(tscn_path: String, shape_type: int, shape_nodes: Array) -> bool:
+	return _needs_body_tscn_conversion(tscn_path, shape_type)
+
+
+## Attack .tscn 判断
+func _needs_attack_tscn_wrapper(tscn_path: String, shape_type: int, shape_nodes: Array) -> bool:
+	var shape_names: Array[String] = []
+	for node_info in shape_nodes:
+		shape_names.append(node_info["shape_name"])
+	return _needs_attack_tscn_conversion(tscn_path, shape_type, shape_names)
 
 
 ## 从 .tscn 文件读取节点的 position
