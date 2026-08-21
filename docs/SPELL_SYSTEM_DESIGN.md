@@ -1,6 +1,6 @@
 # 法术系统设计文档
 
-> **版本**: 1.2.0  
+> **版本**: 1.3.0  
 > **创建日期**: 2026-08-20  
 > **最后更新**: 2026-08-21  
 > **状态**: 设计阶段（待实施）
@@ -1324,33 +1324,73 @@ func _can_handle(object: Object) -> bool:
 
 ### 9.1 法术模板目录结构
 
+模板中只包含**静态文件**。动画相关文件（animation_tree_root.tres、各动画 .tres）
+由 `spell_creator.gd` 在创建法术时**程序化生成**，不放入模板。
+
+**原因**：动画 .tres 文件中的 `ext_resource` 引用路径包含 `__CLASS__`（PascalCase 类名），
+而 AnimationNodeBlendTree 内部使用 `&"__CLASS__/active_right"` 格式引用动画。
+如果在模板中硬编码这些引用，占位符替换时需要处理 .tres 文件内部的嵌套字符串，
+容易出错。程序化生成可以在创建时直接写入正确的路径，避免替换错误。
+
 ```
 spells/_template/
 ├── spell_template.tscn          # Inspector 触发器（class_name SpellTemplate）
-├── spell_template.gd
-├── __NAME__.tscn                # 法术主场景（Area2D）
+├── spell_template.gd            # @tool extends Node, class_name SpellTemplate
+├── __NAME__.tscn                # 法术主场景（Area2D 根节点，详见 9.4）
 ├── __NAME__.gd                  # extends SpellBase
-├── __NAME___skin.tscn           # 法术 skin（继承 spell_skin_base.tscn）
+├── __NAME___skin.tscn           # 法术 skin（继承 spell_skin_base.tscn，详见 9.5）
 ├── __NAME___skin.gd             # extends SpellSkinAnimTree
 └── resources/
-    ├── __NAME___definition.tres # SpellDefinition 占位
-    ├── __NAME___attack_data.tres
-    ├── anim_library___NAME__.tres
-    ├── spriteframes___NAME__.tres
-    ├── animations/
-    │   ├── animation_tree_root.tres
-    │   └── (各动画 .tres)
+    ├── __NAME___definition.tres # SpellDefinition 占位（详见 9.6）
+    ├── spriteframes___NAME__.tres # SpriteFrames（1 个 active 动画，详见 9.8）
+    └── attacks/
+        └── __NAME___attack_data.tres # QuiverAttackData 占位（详见 9.7）
     └── sprites/
-        └── (占位 PNG)
+        └── placeholder.png      # 64×64 纯色占位 PNG
 ```
+
+#### 9.1.1 EXCLUDED_FILES 列表
+
+`spell_creator.gd` 复制模板时排除以下文件（不复制到新法术目录）：
+
+```gdscript
+const EXCLUDED_FILES = [
+    "spell_template.tscn",
+    "spell_template.gd",
+    "spell_template.gd.uid",
+    "README.md",
+]
+```
+
+**排除理由**：
+- `spell_template.tscn/gd`：Inspector 触发器，只在模板目录中有意义
+- `.uid` 文件：Godot 自动生成 UID 缓存文件，复制会导致 UID 重复警告
+- `README.md`：模板文档，不属于新法术
+
+#### 9.1.2 程序化生成的文件
+
+以下文件由 `spell_creator.gd` 在创建法术时生成，不放入模板：
+
+| 文件 | 生成方式 | 说明 |
+|------|---------|------|
+| `resources/animations/animation_tree_root.tres` | `_generate_animation_tree()` | AnimationNodeBlendTree + AnimationNodeStateMachine |
+| `resources/animations/RESET.tres` | `_generate_reset_animation()` | 重置动画（恢复默认状态） |
+| `resources/animations/active_right.tres` | `_generate_active_animation()` | active 状态动画（右朝向） |
+| `resources/animations/active_left.tres` | `_generate_active_animation()` | active 状态动画（左朝向，metadata 镜像） |
+| `resources/anim_library___NAME__.tres` | `_generate_animation_library()` | AnimationLibrary，引用上述动画文件 |
 
 ### 9.2 占位符
 
-| Token | 替换为 |
-|-------|--------|
-| `__NAME__` | spell_name (snake_case) |
-| `__CLASS__` | PascalName (PascalCase) |
-| `__DISPLAY_NAME__` | 中文显示名 |
+| Token | 替换为 | 出现位置 |
+|-------|--------|---------|
+| `__NAME__` | spell_name (snake_case) | 文件路径、group 名、资源路径 |
+| `__CLASS__` | PascalName (PascalCase) | 节点名、脚本 class 引用 |
+| `__DISPLAY_NAME__` | 中文显示名 | SpellDefinition.display_name |
+
+**为什么只有 3 个 token（角色模板有 8 个）**：
+- 角色模板的 `__FACTION__`、`__MOVE_SPEED__` 等 token 用于 QuiverAttributes 的初始值
+- 法术的 SpellDefinition 不需要这些属性，`mana_cost`/`cooldown`/`max_lifetime` 使用默认值（0.0/0.0/5.0），用户在 Inspector 中调整
+- `icon` 和 `spell_scene` 初始为 null，用户在 Inspector 中手动设置
 
 ### 9.3 法术创建 Inspector
 
@@ -1359,24 +1399,311 @@ spells/_template/
   inspector_plugin.gd          — _can_handle: SpellTemplate class_name
   create_new_spell_widget.gd   — UI（创建/删除/测试）
   create_new_spell_widget.tscn
-  spell_creator.gd             — 4 步管道（复制→重命名→替换占位符→扫描）
+  spell_creator.gd             — 5 步管道（复制→重命名→替换→生成动画→扫描）
   spell_deleter.gd             — 递归删除
 ```
+
+#### spell_creator.gd 5 步管道
+
+与角色创建器（CharacterCreator）的 4 步管道相比，新增第 5 步动画生成：
+
+```
+Step 1: DirAccess.make_dir_recursive_absolute(target_dir)
+  → 创建 res://spells/<spell_name>/
+
+Step 2: _copy_directory_recursive(TEMPLATE_DIR, target_dir)
+  → 复制模板目录（排除 EXCLUDED_FILES）
+  → 二进制文件（.png）: 原始字节复制
+  → 文本文件（.gd, .tscn, .tres）: 文本复制
+
+Step 3: _rename_files_recursive(target_dir, spell_name)
+  → 将文件名中的 __NAME__ 替换为 spell_name
+  → 例：__NAME__.tscn → fire_ball.tscn
+
+Step 4: _replace_placeholders_recursive(target_dir, spell_name, pascal_name, display_name)
+  → 在所有 .gd/.tscn/.tres 文件中替换 3 个 token
+  → __NAME__ → fire_ball, __CLASS__ → FireBall, __DISPLAY_NAME__ → 火球术
+
+Step 5: _generate_animation_files(target_dir, pascal_name)
+  → 程序化生成动画相关文件（详见 9.9）
+  → 生成 animation_tree_root.tres, RESET.tres, active_right.tres, active_left.tres, anim_library.tres
+```
+
+#### spell_deleter.gd
+
+与 CharacterDeleter 逻辑一致：
+- 拒绝删除 `_template`、`.`、`..`
+- 递归删除法术目录及其所有文件
+- 返回 true/false
+
+### 9.4 法术主场景 __NAME__.tscn（精确格式）
+
+```
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://spells/__NAME__/__NAME__.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://spells/__NAME__/__NAME___skin.tscn" id="2_skin"]
+
+[node name="__CLASS__" type="Area2D"]
+script = ExtResource("1_script")
+_path_skin = NodePath("__CLASS__Skin")
+_path_hitboxes_container = NodePath("__CLASS__Skin/Attacks")
+
+[node name="__CLASS__Skin" parent="." index="0" instance=ExtResource("2_skin")]
+```
+
+**与角色模板 __NAME__.tscn 的关键差异**：
+- 根节点是 `Area2D`（角色模板继承 `quiver_character_base.tscn` 的 CharacterBody2D）
+- 无 StateMachine（法术生命周期由 SpellBase 代码管理，不是 Quiver 状态机）
+- 无 Collision 子节点（法术本身不需要物理碰撞体）
+- 只有 2 个 ext_resource（极简）
+- 不设置 `_attributes`（SpellBase 通过 cast() 接收施放者属性）
+
+### 9.5 法术 skin 场景 __NAME___skin.tscn（精确格式）
+
+```
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" path="res://spells/_base/spell_skin_base.tscn" id="1_base"]
+[ext_resource type="AnimationLibrary" path="res://spells/__NAME__/resources/anim_library___NAME__.tres" id="2_animlib"]
+[ext_resource type="AnimationNodeBlendTree" path="res://spells/__NAME__/resources/animations/animation_tree_root.tres" id="3_tree"]
+[ext_resource type="SpriteFrames" path="res://spells/__NAME__/resources/spriteframes___NAME__.tres" id="4_sprites"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
+[ext_resource type="Resource" path="res://spells/__NAME__/resources/attacks/__NAME___attack_data.tres" id="6_attack"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/RESET.tres" id="7_reset"]
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]
+_data = {
+&"RESET": ExtResource("7_reset")
+}
+
+[sub_resource type="RectangleShape2D" id="RectShape_attack1"]
+size = Vector2(80, 80)
+
+[node name="__CLASS__Skin" instance=ExtResource("1_base")]
+_path_playback = "parameters/state_machine/playback"
+
+[node name="AnimationPlayer" parent="." index="0"]
+callback_mode_process = 0
+libraries/ = SubResource("AnimationLibrary_reset")
+libraries/__CLASS__ = ExtResource("2_animlib")
+
+[node name="AnimationTree" parent="." index="1"]
+active = false
+callback_mode_process = 0
+tree_root = ExtResource("3_tree")
+parameters/state_machine/active/blend_position = 1.0
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2"]
+position = Vector2(0, -80)
+sprite_frames = ExtResource("4_sprites")
+animation = &"active"
+
+[node name="Attacks" type="Node2D" parent="." index="3"]
+
+[node name="Attack1" type="Area2D" parent="Attacks" index="0" groups=["area2d:__NAME__"]]
+visible = false
+modulate = Color(1, 0.2, 0.101961, 1)
+monitoring = false
+script = ExtResource("5_hitbox")
+attack_data = ExtResource("6_attack")
+
+[node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0"]
+modulate = Color(1, 0.2, 0.101961, 1)
+shape = SubResource("RectShape_attack1")
+disabled = true
+```
+
+**与角色模板 __NAME___skin.tscn 的关键差异**：
+- 继承 `spell_skin_base.tscn`（不是 `quiver_character_skin_base.tscn`）
+- 无 `attributes` 属性（SpellSkin 不继承 QuiverCharacterSkin，无此 export）
+- 无 `_has_grab` / `_has_grabbed` 属性
+- 无 `HurtBox` 节点（法术不被攻击）
+- 只有 1 个 Attack（Attack1），不是 4 个
+- `_path_playback` 覆盖为小写 `"parameters/state_machine/playback"`（与动画树内部节点名一致）
+- 无 `metadata/_edit_*_guides_`（编辑器辅助线，用户自行添加）
+- 无 `unique_id`（Godot 编辑器自动生成）
+
+### 9.6 SpellDefinition 占位资源 __NAME___definition.tres（精确格式）
+
+```
+[gd_resource type="Resource" script_class="SpellDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://spells/_base/spell_definition.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+spell_id = &"__NAME__"
+display_name = "__DISPLAY_NAME__"
+description = ""
+mana_cost = 0.0
+max_lifetime = 5.0
+cooldown = 0.0
+```
+
+**说明**：
+- `icon`（Texture2D）和 `spell_scene`（PackedScene）初始为 null，用户在 Godot Inspector 中手动设置
+- `mana_cost` / `cooldown` 默认 0.0（免费、无 CD），用户在 Inspector 中调整
+- `allowed_states` 和 `disallowed_states` 使用 GDScript 代码中的默认值，不在 .tres 中显式设置
+
+### 9.7 QuiverAttackData 占位资源 __NAME___attack_data.tres（精确格式）
+
+```
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+attack_damage = 10.0
+hurt_type = 1
+knockback = 1
+launch_angle = 15
+```
+
+与角色模板的 `punch1_attack_data.tres` 格式一致。用户在 Inspector 中调整伤害值。
+
+### 9.8 SpriteFrames 占位资源 spriteframes___NAME__.tres（精确格式）
+
+1 个动画类别（`active`），2 帧，使用同一个占位 PNG：
+
+```
+[gd_resource type="SpriteFrames" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://spells/__NAME__/resources/sprites/placeholder.png" id="1_placeholder"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_placeholder")
+}, {
+"duration": 1.0,
+"texture": ExtResource("1_placeholder")
+}],
+"loop": false,
+"name": &"active",
+"speed": 24.0
+}]
+```
+
+**说明**：
+- 只有 1 个动画 `active`（用户后续添加更多动画类别）
+- 2 帧使用同一个 `placeholder.png`（64×64 纯色方块）
+- `speed = 24.0`（与角色模板一致，24fps）
+- 用户替换 sprite PNG 后，在 SpriteFrames 编辑器中重新配置帧
+
+### 9.9 程序化生成动画文件
+
+`spell_creator.gd` 的 `_generate_animation_files(target_dir, pascal_name)` 方法生成以下 5 个文件：
+
+#### animation_tree_root.tres
+
+最简 AnimationNodeBlendTree 结构：
+
+```
+AnimationNodeBlendTree (root)
+├── time_scale (AnimationNodeTimeScale)
+└── state_machine (AnimationNodeStateMachine)
+    ├── Start → active (transition)
+    └── active → BlendSpace1D
+        ├── active_right (AnimationNodeAnimation, blend=+0.1)
+        └── active_left (AnimationNodeAnimation, blend=-0.1)
+```
+
+生成的 .tres 包含：
+- 2 个 `AnimationNodeAnimation` sub_resource（引用 `&"<pascal_name>/active_right"` 和 `&"<pascal_name>/active_left"`）
+- 1 个 `AnimationNodeBlendSpace1D` sub_resource（active 状态）
+- 1 个 `AnimationNodeStateMachineTransition` sub_resource（Start → active）
+- 1 个 `AnimationNodeStateMachine` sub_resource（包含 active 状态和 Start → active 转换）
+- 1 个 `AnimationNodeTimeScale` sub_resource
+- root resource 连接 output → time_scale → state_machine
+
+#### RESET.tres
+
+重置动画（恢复默认状态），tracks：
+- `AnimatedSprite2D:frame` → 0
+- `AnimatedSprite2D:animation` → `&"active"`
+- `AnimatedSprite2D:flip_h` → false
+- `AnimatedSprite2D:modulate` → Color(1,1,1,1)
+- `Attacks/Attack1:visible` → false
+- `Attacks/Attack1/Attack1Shape:disabled` → true
+
+#### active_right.tres
+
+active 状态动画（右朝向），tracks：
+- `AnimatedSprite2D:position` → Vector2(0, -80)
+- `AnimatedSprite2D:frame` → 0（第 1 帧）
+- `AnimatedSprite2D:animation` → `&"active"`
+- `AnimatedSprite2D:flip_h` → false
+- **method track** (path="."):
+  - t=0.083s: `end_of_spell_animation()`
+- `Attacks/Attack1/Attack1Shape:disabled` → true（默认关闭，用户修改为实际时序）
+- `Attacks/Attack1:visible` → false（默认隐藏）
+
+末尾 metadata：
+```
+metadata/mirrored_name = "active_left.tres"
+metadata/should_overwrite = true
+```
+
+#### active_left.tres
+
+与 active_right.tres 结构一致，差异：
+- `AnimatedSprite2D:flip_h` → true
+- `metadata/mirrored_name = "active_right.tres"`
+
+#### anim_library___NAME__.tres
+
+AnimationLibrary，引用上述 4 个动画文件 + RESET：
+
+```
+[gd_resource type="AnimationLibrary" load_steps=5 format=3]
+
+[ext_resource type="Animation" path="res://spells/<name>/resources/animations/active_right.tres" id="1"]
+[ext_resource type="Animation" path="res://spells/<name>/resources/animations/active_left.tres" id="2"]
+
+[resource]
+_data = {
+"active_left": ExtResource("2"),
+"active_right": ExtResource("1")
+}
+```
+
+注意：RESET 动画不在 AnimationLibrary 中，而是通过 `__NAME___skin.tscn` 的
+`AnimationPlayer.libraries/` 内联 AnimationLibrary sub_resource 引用。
 
 ---
 
 ## 十、基础场景结构
 
-### 10.1 spell_skin_base.tscn
+### 10.1 spell_skin_base.tscn（精确格式）
+
+与 `quiver_character_skin_base.tscn` 结构一致，提供 AnimationPlayer + AnimationTree 基础节点：
 
 ```
-SpellSkinBase (Node2D)  ← script: spell_skin_anim_tree.gd
-├── AnimationPlayer (AnimationPlayer)
-└── AnimationTree (AnimationTree)
-    anim_player = "../AnimationPlayer"
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://spells/_base/spell_skin_anim_tree.gd" id="1_script"]
+
+[node name="SpellSkinBase" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[node name="AnimationTree" type="AnimationTree" parent="."]
+anim_player = NodePath("../AnimationPlayer")
 ```
+
+**与 quiver_character_skin_base.tscn 的差异**：
+- 脚本路径指向 `spells/_base/spell_skin_anim_tree.gd`（不是插件内的 `quiver_character_skin_anim_tree.gd`）
+- 无 `has_grab` / `has_grabbed` 属性（SpellSkin 不需要抓取系统）
+- 根节点名为 `SpellSkinBase`（不是 `CharacterSkinBase`）
+- 无 `uid`（Godot 自动生成）
 
 ### 10.2 法术主场景（__NAME__.tscn）
+
+树形结构概览：
 
 ```
 __CLASS__ (Area2D)  ← script: __NAME__.gd
@@ -1388,6 +1715,8 @@ __CLASS__ (Area2D)  ← script: __NAME__.gd
 │       └── Attack1 (Area2D)  ← QuiverHitBox script
 │           └── Attack1Shape (CollisionShape2D)
 ```
+
+精确 .tscn 格式详见 9.4 节。
 
 ---
 
