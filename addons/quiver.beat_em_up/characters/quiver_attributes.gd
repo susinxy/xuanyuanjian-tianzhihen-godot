@@ -21,6 +21,8 @@ extends Resource
 
 signal health_changed
 signal health_depleted
+signal mana_changed
+signal mana_depleted
 signal hurt_requested(knockback: QuiverKnockbackData)
 signal knockout_requested(knockback: QuiverKnockbackData)
 signal wall_bounced
@@ -51,6 +53,9 @@ const KNOCKBACK_VALUES = {
 @export_group("Base Stats")
 ## Max health for the character, when their life bar is full.
 @export_range(0, 1, 1, "or_greater") var health_max := 100
+
+## Max mana for the character (spell casting resource).
+@export_range(0, 1, 1, "or_greater") var mana_max := 100
 
 ## Max movement speed for the character.
 @export_range(0, 1000, 1, "or_greater") var move_speed := 600
@@ -103,6 +108,10 @@ const KNOCKBACK_VALUES = {
 var health_current := health_max:
 	set=_set_health_current
 
+## Character's current mana. Used for spell casting.
+var mana_current := mana_max:
+	set=_set_mana_current
+
 ## Amount of knockback character has received, will be used to calculate bounce the next time
 ## it hits a wall or the ground.
 var knockback_amount := 0:
@@ -114,6 +123,9 @@ var ground_level := 0.0
 
 var character_node: QuiverCharacter = null
 var grabbed_offset: Marker2D = null
+
+# Modifier system for buffs/debuffs
+var _modifier_records: Array[Dictionary] = []
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
@@ -196,6 +208,47 @@ func _set_health_current(value: int) -> void:
 			health_changed.emit()
 		else:
 			health_depleted.emit()
+
+func _set_mana_current(value: float) -> void:
+	var has_changed = value != mana_current
+	mana_current = clamp(value, 0.0, float(mana_max))
+	if has_changed:
+		if mana_current > 0:
+			mana_changed.emit()
+		else:
+			mana_depleted.emit()
+
+### Public Methods --------------------------------------------------------------------------------
+
+func add_modifier(mod_id: StringName, attribute: StringName, type: String, value: float, source: Node = null) -> void:
+	var base_value: float = get(attribute)
+	_modifier_records.append({
+		"id": mod_id,
+		"attribute": attribute,
+		"type": type,
+		"value": value,
+		"source": source,
+		"base_value": base_value,
+	})
+	if type == "add":
+		set(attribute, base_value + value)
+	elif type == "multiply":
+		set(attribute, base_value * value)
+
+func remove_modifier(mod_id: StringName) -> void:
+	for i in range(_modifier_records.size() - 1, -1, -1):
+		if _modifier_records[i]["id"] == mod_id:
+			var record: Dictionary = _modifier_records[i]
+			set(record["attribute"], record["base_value"])
+			_modifier_records.remove_at(i)
+			break
+
+func remove_modifiers_from_source(source: Node) -> void:
+	for i in range(_modifier_records.size() - 1, -1, -1):
+		if _modifier_records[i]["source"] == source:
+			var record: Dictionary = _modifier_records[i]
+			set(record["attribute"], record["base_value"])
+			_modifier_records.remove_at(i)
 
 ### -----------------------------------------------------------------------------------------------
 

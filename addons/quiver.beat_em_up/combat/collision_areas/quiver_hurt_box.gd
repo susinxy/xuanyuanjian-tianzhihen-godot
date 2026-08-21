@@ -159,6 +159,11 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 				_get_treated_launch_vector(hit_box)
 		)
 		CombatSystem.apply_knockback(knockback, character_attributes)
+		
+		# 通知法术命中
+		var owner = hit_box.owner
+		if owner and owner.has_method("on_hit"):
+			owner.on_hit(self)
 
 
 func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void: 

@@ -250,6 +250,7 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 
 @export_group("Base Stats")
 @export var health_max := 100           # 最大 HP（range 0-1, or_greater）
+@export var mana_max := 100              # 最大法力值（range 0-1, or_greater）
 @export var move_speed := 600            # 移动速度
 @export var air_control := 0.6          # 空中操控系数 (0.0-1.0)
 @export var jump_force := -1200         # 起跳力（负数=向上，由 jump 动画 speed_X 设置）
@@ -262,10 +263,12 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export var can_be_grabbed := true      # 可被抓取
 
 var health_current := health_max        # 当前 HP（setter 触发 health_changed 信号）
+var mana_current := mana_max            # 当前法力值（setter 触发 mana_changed 信号）
 var knockback_amount := 0               # 累积击退量
 var ground_level := 0.0                 # 当前地面高度（Y 坐标）
 var character_node: QuiverCharacter     # 关联的角色节点
 var grabbed_offset: Marker2D            # 被抓取时的偏移标记
+var _modifier_records: Array[Dictionary]  # 活跃的属性修改器记录
 ```
 
 ### 信号
@@ -273,6 +276,8 @@ var grabbed_offset: Marker2D            # 被抓取时的偏移标记
 ```gdscript
 signal health_changed          # HP 变化
 signal health_depleted         # HP 归零
+signal mana_changed            # 法力值变化
+signal mana_depleted           # 法力值归零
 signal hurt_requested(knockback: QuiverKnockbackData)     # 被击中，请求硬直动画
 signal knockout_requested(knockback: QuiverKnockbackData)  # 请求击飞
 signal wall_bounced            # 撞墙反弹
@@ -291,7 +296,18 @@ func should_knockout() -> bool    # 击退量达到 MEDIUM 或已死亡
 func is_alive() -> bool
 func get_health_as_percentage() -> float
 func reset() -> void              # 重置所有状态（HP、无敌、霸体、可被抓取）
+
+# Modifier 系统（用于 Buff/Debuff）
+func add_modifier(mod_id: StringName, attribute: StringName, type: String, value: float, source: Node = null)
+func remove_modifier(mod_id: StringName)
+func remove_modifiers_from_source(source: Node)
 ```
+
+**Modifier 系统说明**：
+- `add_modifier()`: 记录 base_value，然后直接修改属性值（type="add" 加法，type="multiply" 乘法）
+- `remove_modifier()`: 按 ID 查找并移除，恢复 base_value
+- `remove_modifiers_from_source()`: 按来源节点批量移除所有相关 modifier
+- 实现方式：方式 B（直接修改属性值，记录 base_value 用于恢复）
 
 ### 内部类 `HitLaneLimits`
 

@@ -289,4 +289,22 @@ static func _build_height_definitions() -> Array:
 		result.append({"min": min_h, "max": max_h, "layer": HEIGHT_LAYER_FIRST + i})
 	return result
 
+## 获取高度层定义（公开包装方法，供外部调用）
+static func get_height_definitions() -> Array:
+	return _build_height_definitions()
+
+## 将高度值转换为层号（公开方法，供外部调用）
+static func height_to_layer(height: float, height_definitions: Array) -> int:
+	for def in height_definitions:
+		if height > def["min"] and height <= def["max"]:
+			return def["layer"]
+	return HEIGHT_LAYER_FIRST
+
+## 将层号数组转换为 bitmask（公开方法，供外部调用）
+static func layers_to_bitmask(layers: Array) -> int:
+	var mask := 0
+	for layer in layers:
+		mask |= (1 << (layer - 1))
+	return mask
+
 ### -----------------------------------------------------------------------------------------------
