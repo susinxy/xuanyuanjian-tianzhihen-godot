@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dhyayseyvi01s"
-path="res://.godot/imported/placeholder.png-1d3855d0c9aad00f7c47d17650195d89.ctex"
+path="res://.godot/imported/placeholder.png-6cd5f9bcd980b9ba67ea7473733685ca.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://spells/fire_ball/resources/sprites/placeholder.png"
-dest_files=["res://.godot/imported/placeholder.png-1d3855d0c9aad00f7c47d17650195d89.ctex"]
+source_file="res://spells/piercing_projectile/resources/sprites/placeholder.png"
+dest_files=["res://.godot/imported/placeholder.png-6cd5f9bcd980b9ba67ea7473733685ca.ctex"]
 
 [params]
 
