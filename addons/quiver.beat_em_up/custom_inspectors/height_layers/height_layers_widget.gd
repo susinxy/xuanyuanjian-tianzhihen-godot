@@ -336,8 +336,8 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	
 	_contour_result_label.text = "\n".join(lines)
 	
-	# 恢复按钮状态
-	_body_contour_btn.disabled = false
+	# 恢复按钮状态（法术模式下 Body 保持禁用）
+	_body_contour_btn.disabled = not _show_body_button
 	_attack_contour_btn.disabled = false
 	
 	if error_count == 0:
