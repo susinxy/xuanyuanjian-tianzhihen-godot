@@ -36,7 +36,8 @@ static var _persisted_min_area_ratio: float = 0.3
 static var _persisted_erosion_radius: int = 0
 static var _persisted_shape_type: int = 0
 
-var _skin_node: QuiverCharacterSkinAnimTree = null
+var _skin_node: Node = null
+var _show_body_button: bool = true
 
 # 轮廓转换 UI
 var _body_contour_btn: Button
@@ -96,7 +97,12 @@ func _ready() -> void:
 
 ## 由 inspector_plugin 调用，传入皮肤节点引用
 func set_skin_node(skin_node: Node) -> void:
-	_skin_node = skin_node as QuiverCharacterSkinAnimTree
+	_skin_node = skin_node
+
+
+## 法术模式：隐藏 Body 按钮（法术不需要身体轮廓转换）
+func hide_body_button() -> void:
+	_show_body_button = false
 
 
 ### Private Methods -------------------------------------------------------------------------------
@@ -235,6 +241,11 @@ func _build_ui() -> void:
 	_contour_result_label.text = ""
 	_contour_result_label.custom_minimum_size = Vector2(0, 100)
 	add_child(_contour_result_label)
+	
+	# 法术模式：禁用 Body 按钮
+	if not _show_body_button:
+		_body_contour_btn.disabled = true
+		_body_contour_btn.tooltip_text = "法术不需要 Body 轮廓转换"
 
 
 ## 轮廓转换进度回调
