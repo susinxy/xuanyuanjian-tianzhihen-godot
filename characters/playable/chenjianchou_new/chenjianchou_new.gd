@@ -35,7 +35,7 @@ func _ready() -> void:
 	_spell_manager = SpellManager.new(self)
 
 func _physics_process(delta: float) -> void:
-	super()
+	super(delta)
 	_spell_manager.tick(delta)
 
 ### -----------------------------------------------------------------------------------------------
