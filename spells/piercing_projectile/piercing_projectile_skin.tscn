@@ -1,0 +1,50 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://spells/_base/spell_skin_base.tscn" id="1_base"]
+[ext_resource type="AnimationLibrary" path="res://spells/piercing_projectile/resources/anim_library_piercing_projectile.tres" id="2_animlib"]
+[ext_resource type="AnimationNodeBlendTree" path="res://spells/piercing_projectile/resources/animations/animation_tree_root.tres" id="3_tree"]
+[ext_resource type="SpriteFrames" path="res://spells/piercing_projectile/resources/spriteframes_piercing_projectile.tres" id="4_sprites"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
+[ext_resource type="Resource" path="res://spells/piercing_projectile/resources/attacks/piercing_projectile_attack_data.tres" id="6_attack"]
+[ext_resource type="Animation" path="res://spells/piercing_projectile/resources/animations/RESET.tres" id="7_reset"]
+[ext_resource type="Script" path="res://spells/piercing_projectile/piercing_projectile_skin.gd" id="8_script"]
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]
+_data = {
+&"RESET": ExtResource("7_reset")
+}
+
+[sub_resource type="RectangleShape2D" id="RectShape_attack1"]
+size = Vector2(80, 80)
+
+[node name="PiercingProjectileSkin" instance=ExtResource("1_base")]
+script = ExtResource("8_script")
+_path_playback = "parameters/state_machine/playback"
+
+[node name="AnimationPlayer" parent="." index="0"]
+callback_mode_process = 0
+libraries/ = SubResource("AnimationLibrary_reset")
+libraries/PiercingProjectile = ExtResource("2_animlib")
+
+[node name="AnimationTree" parent="." index="1"]
+active = false
+callback_mode_process = 0
+tree_root = ExtResource("3_tree")
+parameters/state_machine/active/blend_position = 1.0
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2"]
+position = Vector2(0, -80)
+sprite_frames = ExtResource("4_sprites")
+animation = &"active"
+
+[node name="Attack1" type="Area2D" parent="Attacks" index="0" groups=["area2d:piercing_projectile"]]
+visible = false
+modulate = Color(1, 0.2, 0.101961, 1)
+monitoring = false
+script = ExtResource("5_hitbox")
+attack_data = ExtResource("6_attack")
+
+[node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0"]
+modulate = Color(1, 0.2, 0.101961, 1)
+shape = SubResource("RectShape_attack1")
+disabled = true
