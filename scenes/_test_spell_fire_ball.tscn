@@ -85,5 +85,5 @@ text = "=== 法术测试 ===
 [node name="DebugOverlay" type="CanvasLayer" parent="."]
 layer = 10
 script = ExtResource("7_debug_overlay")
-player_path = NodePath("Character")
-enemy_path = NodePath("Enemy")
+player_path = NodePath("../Character")
+enemy_path = NodePath("../Enemy")

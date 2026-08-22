@@ -179,6 +179,25 @@ func _update_display() -> void:
 		if skin:
 			text += "      skin.attack_heights: %s\n" % str(skin.attack_heights)
 			text += "      skin.hitboxes 数量: %d\n" % skin.hitboxes.size()
+			
+			# 显示动画状态信息
+			var animation_list = skin.get("_animation_list")
+			if animation_list != null:
+				text += "      skin._animation_list: %s\n" % str(animation_list)
+			else:
+				text += "      skin._animation_list: NOT FOUND\n"
+			
+			var animation_tree = skin.get("_animation_tree")
+			if animation_tree:
+				text += "      AnimationTree.active: %s\n" % str(animation_tree.active)
+				var playback = skin.get("_playback")
+				if playback:
+					var current_node = playback.get_current_node()
+					text += "      当前播放节点: %s\n" % str(current_node)
+				else:
+					text += "      _playback: NOT FOUND\n"
+			else:
+				text += "      AnimationTree: NOT FOUND\n"
 		
 		# 递归查找 hitboxes
 		var hitboxes = _find_hitboxes_recursive(fb)
