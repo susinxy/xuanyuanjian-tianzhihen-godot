@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeBlendTree" format=3 uid="uid://b2mjtswltst4r"]
+[gd_resource type="AnimationNodeBlendTree" format=3]
 
 [sub_resource type="AnimationNodeAnimation" id="AnimNode_active_right"]
 animation = &"PiercingProjectile/active_right"

@@ -77,7 +77,7 @@ func _copy_directory_recursive(source: String, destination: String) -> bool:
                 if not _copy_directory_recursive(source_path, dest_path):
                     return false
             else:
-                if file_name not in EXCLUDED_FILES:
+                if file_name not in EXCLUDED_FILES and not file_name.ends_with(".uid"):
                     if not _copy_file(source_path, dest_path):
                         return false
         
@@ -123,6 +123,9 @@ func _copy_file_text(source: String, destination: String) -> bool:
     var content := src_file.get_as_text()
     src_file.close()
     
+    # 剥离嵌入的 UID（避免新法术继承模板的 UID 导致冲突）
+    content = _strip_embedded_uid(content)
+    
     var dest_file := FileAccess.open(destination, FileAccess.WRITE)
     if dest_file == null:
         push_error("Failed to open destination file (text): %s" % destination)
@@ -131,6 +134,12 @@ func _copy_file_text(source: String, destination: String) -> bool:
     dest_file.store_string(content)
     dest_file.close()
     return true
+
+
+func _strip_embedded_uid(content: String) -> String:
+    var regex := RegEx.new()
+    regex.compile("(\\[gd_(?:scene|resource)[^\\]]*?)\\s+uid=\"[^\"]+\"")
+    return regex.sub(content, "$1", true)
 
 
 func _rename_files_recursive(directory: String, spell_name: String) -> bool:
