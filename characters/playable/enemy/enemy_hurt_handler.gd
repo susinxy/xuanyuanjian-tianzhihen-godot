@@ -32,6 +32,13 @@ func _ready() -> void:
 		push_warning("HurtHandler: EnemySkin not found")
 		return
 	
+	# 移除 enemy 与 player 的物理碰撞（保留高度层碰撞）
+	enemy.set_collision_layer_value(1, false)
+	enemy.set_collision_mask_value(1, false)
+	
+	# 手动设置 physical_height（动画轨道没有更新它）
+	_skin.physical_height = 180.0
+	
 	# 设置朝向
 	_skin.skin_direction = facing_direction
 	
