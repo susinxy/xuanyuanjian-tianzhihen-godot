@@ -32,6 +32,8 @@ func _ready() -> void:
 	
 	if attributes != null:
 		attributes.reset()
+		# 手动初始化 ground_level（因为 StateMachine 被移除，QuiverActionGround 不会更新它）
+		attributes.ground_level = global_position.y
 	
 	if QuiverEditorHelper.is_standalone_run(self):
 		QuiverEditorHelper.add_debug_camera2D_to(self, Vector2(0,-0.8))
