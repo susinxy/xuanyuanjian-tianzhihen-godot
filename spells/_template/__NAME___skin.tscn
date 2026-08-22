@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://spells/_base/spell_skin_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://spells/_template/__NAME___skin.gd" id="2_script"]
+
+[node name="__CLASS__Skin" instance=ExtResource("1_base")]
+script = ExtResource("2_script")
+_path_playback = "parameters/state_machine/playback"
