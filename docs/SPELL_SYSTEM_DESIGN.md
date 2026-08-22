@@ -1470,7 +1470,7 @@ _path_skin = NodePath("__CLASS__Skin")
 ### 9.5 法术 skin 场景 __NAME___skin.tscn（精确格式）
 
 ```
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://spells/_base/spell_skin_base.tscn" id="1_base"]
 [ext_resource type="AnimationLibrary" path="res://spells/__NAME__/resources/anim_library___NAME__.tres" id="2_animlib"]
@@ -1479,6 +1479,7 @@ _path_skin = NodePath("__CLASS__Skin")
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
 [ext_resource type="Resource" path="res://spells/__NAME__/resources/attacks/__NAME___attack_data.tres" id="6_attack"]
 [ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/RESET.tres" id="7_reset"]
+[ext_resource type="Script" path="res://spells/_template/__NAME___skin.gd" id="8_script"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]
 _data = {
@@ -1489,6 +1490,7 @@ _data = {
 size = Vector2(80, 80)
 
 [node name="__CLASS__Skin" instance=ExtResource("1_base")]
+script = ExtResource("8_script")
 _path_playback = "parameters/state_machine/playback"
 
 [node name="AnimationPlayer" parent="." index="0"]
@@ -1507,8 +1509,6 @@ position = Vector2(0, -80)
 sprite_frames = ExtResource("4_sprites")
 animation = &"active"
 
-[node name="Attacks" type="Node2D" parent="." index="3"]
-
 [node name="Attack1" type="Area2D" parent="Attacks" index="0" groups=["area2d:__NAME__"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
@@ -1524,6 +1524,7 @@ disabled = true
 
 **与角色模板 __NAME___skin.tscn 的关键差异**：
 - 继承 `spell_skin_base.tscn`（不是 `quiver_character_skin_base.tscn`）
+- `Attacks` 节点由 base 场景提供，不在此文件中重新定义（否则会创建 `Attacks2` 重复节点）
 - 无 `attributes` 属性（SpellSkin 不继承 QuiverCharacterSkin，无此 export）
 - 无 `_has_grab` / `_has_grabbed` 属性
 - 无 `HurtBox` 节点（法术不被攻击）
