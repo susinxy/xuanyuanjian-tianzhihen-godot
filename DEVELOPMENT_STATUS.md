@@ -52,7 +52,7 @@
 - SpellDefinition / SpellSlot / SpellManager / SpellBase / SpellSkin / SpellSkinAnimTree
 - 模板创建 Inspector（5 步管道 + 程序化动画生成）
 - 轮廓转换 Widget（attack only）
-- fire_ball 和 piercing_projectile 示例法术
+- fire_ball 示例法术
 - 输入映射 spell_1/2/3/4（数字键 1-4）
 
 ## 后续开发路线

@@ -1250,7 +1250,6 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
         ↓ spell_hit.emit(hurtbox)     # 信号（可选监听）
         ↓ _on_hit(hurtbox)            # 子类钩子
             → fire_ball: 播放爆炸动画 → end() → destroy()
-            → piercing_projectile: 计数，达到上限才销毁
 ```
 
 **queue_free 安全性**：`queue_free()` 是延迟删除（当前帧结束时），不会中断当前信号链。
@@ -2084,33 +2083,6 @@ func _physics_process(delta: float) -> void:
         _elapsed += delta
         if _elapsed >= summon_duration:
             queue_free()
-```
-
-### 12.7 穿透弹道法术（piercing_projectile.gd）
-
-```gdscript
-extends SpellBase
-
-## 飞行速度
-@export var speed: float = 600.0
-
-## 最大穿透次数
-@export var max_hits: int = 3
-
-var _hit_count: int = 0
-
-func _on_active(delta: float) -> void:
-    position += direction * speed * delta
-
-func _on_hit(hurtbox: QuiverHurtBox) -> void:
-    _hit_count += 1
-    if _hit_count >= max_hits:
-        end()  # 穿透次数用完，销毁
-
-func get_spawn_offset(direction: Vector2) -> Vector2:
-    # 从施放者前方较远处发射
-    var base := super.get_spawn_offset(direction)
-    return base + Vector2(20.0 * direction.x, 0.0)
 ```
 
 ---
