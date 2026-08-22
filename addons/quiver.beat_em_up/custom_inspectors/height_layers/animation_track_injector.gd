@@ -881,20 +881,15 @@ func _convert_contours_common(
 	
 	# 1. 获取 SpriteFrames
 	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
-	print("[DEBUG] Step 1 - sprite_frames: %s" % (sprite_frames if sprite_frames else "null"))
 	if sprite_frames == null:
 		return result
 	
 	# 2. 获取 AnimationPlayer
 	var anim_player := _get_animation_player(skin_node, result.errors)
-	print("[DEBUG] Step 2 - anim_player: %s" % (anim_player if anim_player else "null"))
 	
 	# 3. 发现 shape 节点
 	var all_shape_nodes := _discover_shape_nodes(skin_node)
 	var shape_nodes: Array = all_shape_nodes.filter(func(n): return n["category"] == category)
-	print("[DEBUG] Step 3 - all_shape_nodes: %d, filtered %s nodes: %d" % [all_shape_nodes.size(), category, shape_nodes.size()])
-	for node_info in shape_nodes:
-		print("[DEBUG]   - %s: %s" % [node_info["shape_path"], node_info["shape_name"]])
 	
 	if shape_nodes.is_empty():
 		if not empty_error_message.is_empty():
@@ -909,10 +904,6 @@ func _convert_contours_common(
 	if anim_player != null:
 		unified_filter = _build_unified_frame_filter(shape_nodes, anim_player, skin_node)
 		relevant_anims = _find_all_relevant_anims(shape_nodes, anim_player)
-		print("[DEBUG] Step 4 - unified_filter keys: %s" % unified_filter.keys())
-		for anim_name in unified_filter:
-			print("[DEBUG]   - %s: %s" % [anim_name, unified_filter[anim_name]])
-		print("[DEBUG] Step 4 - relevant_anims: %s" % relevant_anims)
 	
 	# 5. 扫描一次
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
@@ -920,9 +911,6 @@ func _convert_contours_common(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
 		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion
 	)
-	print("[DEBUG] Step 5 - frames_data keys: %s" % frames_data.keys())
-	for anim_name in frames_data:
-		print("[DEBUG]   - %s: %d frames" % [anim_name, frames_data[anim_name].size()])
 	
 	# 6. 预处理（如构建 attack 映射表）
 	var preprocess_data: Dictionary = pre_postprocess_callback.call(shape_nodes, anim_player, skin_node)
@@ -1112,7 +1100,6 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 	# 获取 SpriteFrames 的 FPS
 	var sprite_frames := _get_sprite_frames(skin_node, [])
 	if sprite_frames == null:
-		print("[DEBUG _parse_disabled] sprite_frames is null!")
 		return enabled_frames
 	
 	var fps := sprite_frames.get_animation_speed(sprite_anim_name)
@@ -1121,20 +1108,14 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 	
 	var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
 	var frame_duration := 1.0 / fps
-	print("[DEBUG _parse_disabled] sprite_anim=%s, fps=%f, frame_count=%d, frame_duration=%f" % [sprite_anim_name, fps, frame_count, frame_duration])
-	print("[DEBUG _parse_disabled] track_idx=%d, track_path=%s" % [track_idx, anim.track_get_path(track_idx)])
 	
 	# 读取所有 keyframe（按时间排序）
 	var key_count := anim.track_get_key_count(track_idx)
-	print("[DEBUG _parse_disabled] key_count=%d" % key_count)
 	var keyframes: Array = []
 	for i in range(key_count):
-		var kf_time := anim.track_get_key_time(track_idx, i)
-		var kf_value = anim.track_get_key_value(track_idx, i)
-		print("[DEBUG _parse_disabled]   keyframe[%d]: time=%f, value=%s (type=%s)" % [i, kf_time, str(kf_value), typeof(kf_value)])
 		keyframes.append({
-			"time": kf_time,
-			"value": kf_value,
+			"time": anim.track_get_key_time(track_idx, i),
+			"value": anim.track_get_key_value(track_idx, i),
 		})
 	
 	# 对每帧采样（离散模式：取最后一个 <= 帧时间的 keyframe 值）
@@ -1638,7 +1619,6 @@ func _build_frame_filter_for_node(
 		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
 		if library == null:
 			continue
-		print("[DEBUG filter] lib_name='%s', anim_list=%s" % [lib_name, library.get_animation_list()])
 		
 		for anim_name in library.get_animation_list():
 			var anim := library.get_animation(anim_name)
@@ -1646,33 +1626,64 @@ func _build_frame_filter_for_node(
 				continue
 			
 			var sprite_anim_name := _find_sprite_anim_name(anim)
-			print("[DEBUG filter]   anim_name=%s, sprite_anim_name='%s'" % [anim_name, sprite_anim_name])
-			if sprite_anim_name.is_empty() or filter.has(sprite_anim_name):
+			if sprite_anim_name.is_empty():
 				continue
 			
 			# 查找该 shape 的 disabled track
 			var disabled_path: String = shape_info["shape_path"] + ":disabled"
 			var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
-			print("[DEBUG filter] sprite_anim=%s, disabled_path=%s, track_idx=%d" % [sprite_anim_name, disabled_path, disabled_track_idx])
 			
+			var new_enabled_frames
 			if disabled_track_idx >= 0:
 				# 有 disabled track：解析离散模式，返回 disabled=false 的帧
 				var enabled_frames: Array = _parse_disabled_track(anim, disabled_track_idx, sprite_anim_name, skin_node)
 				if enabled_frames.is_empty():
 					# 有 disabled track 但所有帧都是 disabled=true → 跳过
-					filter[sprite_anim_name] = { "enabled_frames": null }
+					new_enabled_frames = null
 				else:
-					filter[sprite_anim_name] = { "enabled_frames": enabled_frames }
+					new_enabled_frames = enabled_frames
 			else:
 				# 没有 disabled track：读取节点初始 disabled 值
 				if not shape_info["initial_disabled"]:
 					# 初始 disabled=false → 处理所有帧
-					filter[sprite_anim_name] = { "enabled_frames": [] }
+					new_enabled_frames = []
 				else:
 					# 初始 disabled=true → 跳过
-					filter[sprite_anim_name] = { "enabled_frames": null }
+					new_enabled_frames = null
+			
+			# 合并或新增 filter entry
+			if filter.has(sprite_anim_name):
+				var existing = filter[sprite_anim_name]["enabled_frames"]
+				filter[sprite_anim_name]["enabled_frames"] = _merge_enabled_frames(existing, new_enabled_frames)
+			else:
+				filter[sprite_anim_name] = { "enabled_frames": new_enabled_frames }
 	
 	return filter
+
+
+## 合并两个 enabled_frames 值（取并集，优先选择更宽松的）
+## null = 全部跳过（空集）
+## [] = 全部处理（全集）
+## [0, 1] = 只处理指定帧（子集）
+static func _merge_enabled_frames(existing, new_frames):
+	# []（全集）∪ 任何 = []（全集）
+	if existing is Array and existing.is_empty():
+		return []
+	if new_frames is Array and new_frames.is_empty():
+		return []
+	
+	# null（空集）∪ X = X
+	if existing == null:
+		return new_frames
+	if new_frames == null:
+		return existing
+	
+	# 两个都是具体数组，取并集
+	var merged = existing.duplicate()
+	for f in new_frames:
+		if f not in merged:
+			merged.append(f)
+	return merged
 
 
 ## 确定动画映射到哪个 attack 节点（通过检查哪个 shape 有 enabled 帧）
