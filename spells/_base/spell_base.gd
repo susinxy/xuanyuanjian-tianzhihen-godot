@@ -49,14 +49,12 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
         caster_attributes = caster.attributes
     
     for group in caster.get_groups():
-        if group.begins_with("area2d:"):
-            add_to_group(group)
+        add_to_group(group)
     
     if _skin:
         for hitbox in _skin.hitboxes:
             for group in caster.get_groups():
-                if group.begins_with("area2d:"):
-                    hitbox.add_to_group(group)
+                hitbox.add_to_group(group)
             hitbox.character_attributes = caster_attributes
     
     if _skin:
@@ -92,24 +90,22 @@ func _update_hitbox_layers() -> void:
         return
     
     var ah: Array = _skin.attack_heights
-    if ah.is_empty():
-        return
-    
-    var base_h: float = _skin.base_height
-    var height_defs := QuiverCharacter.get_height_definitions()
     var all_mask := QuiverCharacter.get_all_height_layers_mask()
     
     var target_bits := 0
-    for h in ah:
-        var absolute_h: float = base_h + h
-        var layer := QuiverCharacter.height_to_layer(absolute_h, height_defs)
-        target_bits |= (1 << (layer - 1))
+    if not ah.is_empty():
+        var base_h: float = _skin.base_height
+        var height_defs := QuiverCharacter.get_height_definitions()
+        for h in ah:
+            var absolute_h: float = base_h + h
+            var layer := QuiverCharacter.height_to_layer(absolute_h, height_defs)
+            target_bits |= (1 << (layer - 1))
     
     if target_bits != _cached_hitbox_height_bits:
         _cached_hitbox_height_bits = target_bits
         for hitbox in _skin.hitboxes:
             hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | target_bits
-            hitbox.collision_mask = all_mask
+            hitbox.collision_mask = (hitbox.collision_mask & ~all_mask) | all_mask
 
 func end() -> void:
     if state == SpellState.DEAD or state == SpellState.ENDING:
@@ -143,13 +139,12 @@ func _on_hit(hurtbox: QuiverHurtBox) -> void:
 func get_spawn_offset(direction: Vector2) -> Vector2:
     var char_height: float = 160.0
     var char_width: float = 40.0
-    if caster:
-        var skin = caster.get_node_or_null("Skin")
-        if skin:
-            if skin.get("physical_height") != null:
-                char_height = skin.physical_height
-            if skin.get("physical_width") != null:
-                char_width = skin.physical_width
+    if caster and caster.get("_skin"):
+        var skin = caster._skin
+        if skin.get("physical_height") != null:
+            char_height = skin.physical_height
+        if skin.get("physical_width") != null:
+            char_width = skin.physical_width
     
     var x_offset := (char_width * 0.5 + 30.0) * direction.x
     var y_offset := -char_height * 0.6
