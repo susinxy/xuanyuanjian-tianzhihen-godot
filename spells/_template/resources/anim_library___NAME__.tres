@@ -1,0 +1,10 @@
+[gd_resource type="AnimationLibrary" load_steps=3 format=3]
+
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_right.tres" id="1_ar"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_left.tres" id="2_al"]
+
+[resource]
+_data = {
+"active_left": ExtResource("2_al"),
+"active_right": ExtResource("1_ar")
+}

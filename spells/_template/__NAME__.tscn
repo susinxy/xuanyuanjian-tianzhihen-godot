@@ -1,13 +1,10 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://spells/_template/__NAME__.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://spells/_template/__NAME___skin.tscn" id="2_skin"]
+[ext_resource type="Script" path="res://spells/__NAME__/__NAME__.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://spells/__NAME__/__NAME___skin.tscn" id="2_skin"]
 
-[node name="__CLASS__" type="Area2D" groups=["__FACTION__"]]
+[node name="__CLASS__" type="Area2D"]
 script = ExtResource("1_script")
 _path_skin = NodePath("__CLASS__Skin")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." index="0"]
-disabled = true
-
-[node name="__CLASS__Skin" parent="." index="1" instance=ExtResource("2_skin")]
+[node name="__CLASS__Skin" parent="." index="0" instance=ExtResource("2_skin")]

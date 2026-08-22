@@ -1340,13 +1340,20 @@ spells/_template/
 ├── __NAME__.gd                  # extends SpellBase
 ├── __NAME___skin.tscn           # 法术 skin（继承 spell_skin_base.tscn，详见 9.5）
 ├── __NAME___skin.gd             # extends SpellSkinAnimTree
+├── README.md                    # 模板使用说明
 └── resources/
     ├── __NAME___definition.tres # SpellDefinition 占位（详见 9.6）
     ├── spriteframes___NAME__.tres # SpriteFrames（1 个 active 动画，详见 9.8）
-    └── attacks/
-        └── __NAME___attack_data.tres # QuiverAttackData 占位（详见 9.7）
-    └── sprites/
-        └── placeholder.png      # 64×64 纯色占位 PNG
+    ├── anim_library___NAME__.tres # AnimationLibrary 占位（详见 9.9）
+    ├── attacks/
+    │   └── __NAME___attack_data.tres # QuiverAttackData 占位（详见 9.7）
+    ├── sprites/
+    │   └── placeholder.png      # 占位 PNG
+    └── animations/
+        ├── animation_tree_root.tres # AnimationNodeBlendTree（详见 9.9）
+        ├── RESET.tres               # 重置动画
+        ├── active_right.tres        # active 右朝向动画
+        └── active_left.tres         # active 左朝向动画
 ```
 
 #### 9.1.1 EXCLUDED_FILES 列表
@@ -1369,7 +1376,8 @@ const EXCLUDED_FILES = [
 
 #### 9.1.2 程序化生成的文件
 
-以下文件由 `spell_creator.gd` 在创建法术时生成，不放入模板：
+以下文件在模板中包含**有效的占位符版本**（确保 Godot 可以加载模板场景不报错），
+但 `spell_creator.gd` 在创建新法术时会**覆盖**这些文件，生成与法术名称匹配的最终版本：
 
 | 文件 | 生成方式 | 说明 |
 |------|---------|------|
@@ -1447,7 +1455,6 @@ Step 5: _generate_animation_files(target_dir, pascal_name)
 [node name="__CLASS__" type="Area2D"]
 script = ExtResource("1_script")
 _path_skin = NodePath("__CLASS__Skin")
-_path_hitboxes_container = NodePath("__CLASS__Skin/Attacks")
 
 [node name="__CLASS__Skin" parent="." index="0" instance=ExtResource("2_skin")]
 ```
@@ -1458,6 +1465,7 @@ _path_hitboxes_container = NodePath("__CLASS__Skin/Attacks")
 - 无 Collision 子节点（法术本身不需要物理碰撞体）
 - 只有 2 个 ext_resource（极简）
 - 不设置 `_attributes`（SpellBase 通过 cast() 接收施放者属性）
+- 不设置 `_path_hitboxes_container`（HitBox 通过 `_skin.hitboxes` 访问，遵循角色系统模式）
 
 ### 9.5 法术 skin 场景 __NAME___skin.tscn（精确格式）
 
