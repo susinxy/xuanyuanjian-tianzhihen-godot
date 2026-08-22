@@ -224,3 +224,302 @@ func _replace_in_file(file_path: String, spell_name: String, pascal_name: String
     file.store_string(content)
     file.close()
     return true
+
+
+func _generate_animation_files(target_dir: String, spell_name: String, pascal_name: String) -> bool:
+    var anim_dir = target_dir.path_join("resources/animations")
+    
+    # Generate animation_tree_root.tres
+    if not _generate_animation_tree(anim_dir, spell_name, pascal_name):
+        return false
+    
+    # Generate RESET.tres
+    if not _generate_reset_animation(anim_dir):
+        return false
+    
+    # Generate active_right.tres
+    if not _generate_active_animation(anim_dir, "right", false):
+        return false
+    
+    # Generate active_left.tres
+    if not _generate_active_animation(anim_dir, "left", true):
+        return false
+    
+    # Generate anim_library
+    if not _generate_animation_library(target_dir, spell_name):
+        return false
+    
+    return true
+
+
+func _generate_animation_tree(anim_dir: String, spell_name: String, pascal_name: String) -> bool:
+    var lib_prefix = pascal_name
+    var content = """[gd_resource type="AnimationNodeBlendTree" format=3]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_right"]
+animation = &"{lib}/active_right"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_left"]
+animation = &"{lib}/active_left"
+
+[sub_resource type="AnimationNodeBlendSpace1D" id="BlendSpace_active"]
+blend_point_0/node = SubResource("AnimNode_active_right")
+blend_point_0/pos = 0.1
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("AnimNode_active_left")
+blend_point_1/pos = -0.1
+blend_point_1/name = &"1"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_active"]
+advance_mode = 1
+
+[sub_resource type="AnimationNodeStateMachine" id="StateMachine"]
+states/Start/position = Vector2(100, 100)
+states/active/node = SubResource("BlendSpace_active")
+states/active/position = Vector2(300, 100)
+transitions = ["Start", "active", SubResource("Transition_start_active")]
+
+[sub_resource type="AnimationNodeTimeScale" id="TimeScale"]
+
+[resource]
+graph_offset = Vector2(-200, -50)
+nodes/output/position = Vector2(500, 100)
+nodes/state_machine/node = SubResource("StateMachine")
+nodes/state_machine/position = Vector2(0, 100)
+nodes/time_scale/node = SubResource("TimeScale")
+nodes/time_scale/position = Vector2(250, 100)
+node_connections = [&"output", 0, &"time_scale", &"time_scale", 0, &"state_machine"]
+""".replace("{lib}", lib_prefix)
+    
+    var file_path = anim_dir.path_join("animation_tree_root.tres")
+    var file := FileAccess.open(file_path, FileAccess.WRITE)
+    if file == null:
+        push_error("Failed to create animation_tree_root.tres")
+        return false
+    file.store_string(content)
+    file.close()
+    return true
+
+
+func _generate_reset_animation(anim_dir: String) -> bool:
+    var content = """[gd_resource type="Animation" format=3]
+
+[resource]
+resource_name = "RESET"
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("AnimatedSprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AnimatedSprite2D:animation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [&"active"]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [false]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("AnimatedSprite2D:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("Attacks/Attack1:visible")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Attacks/Attack1/Attack1Shape:disabled")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+"""
+    var file_path = anim_dir.path_join("RESET.tres")
+    var file := FileAccess.open(file_path, FileAccess.WRITE)
+    if file == null:
+        push_error("Failed to create RESET.tres")
+        return false
+    file.store_string(content)
+    file.close()
+    return true
+
+
+func _generate_active_animation(anim_dir: String, side: String, is_left: bool) -> bool:
+    var flip_h = "true" if is_left else "false"
+    var mirror_name = "active_left.tres" if not is_left else "active_right.tres"
+    
+    var content = """[gd_resource type="Animation" format=3]
+
+[resource]
+resource_name = "active"
+length = 0.0833334
+step = 0.0416667
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("AnimatedSprite2D:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, -80)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AnimatedSprite2D:frame")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AnimatedSprite2D:animation")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [&"active"]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [{flip}]
+}
+tracks/4/type = "method"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath(".")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.0833334),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": [],
+"method": &"end_of_spell_animation"
+}]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Attacks/Attack1/Attack1Shape:disabled")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("Attacks/Attack1:visible")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+metadata/mirrored_name = "{mirror}"
+metadata/should_overwrite = true
+""".replace("{flip}", flip_h).replace("{mirror}", mirror_name)
+    
+    var file_name = "active_%s.tres" % side
+    var file_path = anim_dir.path_join(file_name)
+    var file := FileAccess.open(file_path, FileAccess.WRITE)
+    if file == null:
+        push_error("Failed to create %s" % file_name)
+        return false
+    file.store_string(content)
+    file.close()
+    return true
+
+
+func _generate_animation_library(target_dir: String, spell_name: String) -> bool:
+    var anim_dir_rel = "resources/animations"
+    var content = """[gd_resource type="AnimationLibrary" load_steps=3 format=3]
+
+[ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_right.tres" id="1_right"]
+[ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_left.tres" id="2_left"]
+
+[resource]
+_data = {
+"active_left": ExtResource("2_left"),
+"active_right": ExtResource("1_right")
+}
+""".replace("{name}", spell_name).replace("{anim_dir}", anim_dir_rel)
+    
+    var file_path = target_dir.path_join("resources/anim_library_%s.tres" % spell_name)
+    var file := FileAccess.open(file_path, FileAccess.WRITE)
+    if file == null:
+        push_error("Failed to create anim_library_%s.tres" % spell_name)
+        return false
+    file.store_string(content)
+    file.close()
+    return true
