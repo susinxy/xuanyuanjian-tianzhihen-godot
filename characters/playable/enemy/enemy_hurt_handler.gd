@@ -65,7 +65,7 @@ func _on_hurt_requested(knockback_data: QuiverKnockbackData) -> void:
 	_is_hurt = true
 	
 	# 根据 knockback 强度选择动画
-	if knockback_data.strength >= QuiverKnockbackData.KnockbackStrength.HIGH:
+	if knockback_data.strength >= CombatSystem.KnockbackStrength.MEDIUM:
 		_skin.transition_to(&"hurt_high")
 	else:
 		_skin.transition_to(&"hurt_mid")
