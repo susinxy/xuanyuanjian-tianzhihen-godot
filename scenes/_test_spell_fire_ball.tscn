@@ -1,6 +1,6 @@
 [gd_scene load_steps=8 format=3]
 
-[ext_resource type="PackedScene" path="res://characters/playable/chen_jingchou/chen_jingchou.tscn" id="1_character"]
+[ext_resource type="PackedScene" path="res://characters/playable/chenjianchou_new/chenjianchou_new.tscn" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="3_enemy"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="4_attack_data"]
@@ -71,7 +71,7 @@ offset_right = 600.0
 offset_bottom = 200.0
 text = "=== 法术测试 ===
 
-角色: chen_jingchou
+角色: chenjianchou_new
 法术: fire_ball
 
 操作:
