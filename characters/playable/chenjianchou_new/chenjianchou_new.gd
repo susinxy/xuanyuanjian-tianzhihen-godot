@@ -13,6 +13,7 @@ extends QuiverCharacter
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 #--- private variables - order: export > normal var > onready -------------------------------------
+var _spell_manager: SpellManager
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -30,6 +31,12 @@ func _ready() -> void:
 	
 	if QuiverEditorHelper.is_standalone_run(self):
 		QuiverEditorHelper.add_debug_camera2D_to(self, Vector2(0,-0.8))
+	
+	_spell_manager = SpellManager.new(self)
+
+func _physics_process(delta: float) -> void:
+	super()
+	_spell_manager.tick(delta)
 
 ### -----------------------------------------------------------------------------------------------
 
