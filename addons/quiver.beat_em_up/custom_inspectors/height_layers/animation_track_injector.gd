@@ -2024,7 +2024,9 @@ func _modify_scene_tree_node(
 	
 	# 添加到父节点
 	parent.add_child(new_node)
-	new_node.owner = skin_node.owner  # 确保节点被场景拥有，Ctrl+S 时会保存
+	# 确保节点被场景拥有，Ctrl+S 时会保存
+	# 当 skin_node 是场景根节点时，owner 为 null，使用 skin_node 自身作为 owner
+	new_node.owner = skin_node.owner if skin_node.owner else skin_node
 
 
 ### -----------------------------------------------------------------------------------------------
