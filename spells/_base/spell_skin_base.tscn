@@ -9,3 +9,5 @@ script = ExtResource("1_script")
 
 [node name="AnimationTree" type="AnimationTree" parent="."]
 anim_player = NodePath("../AnimationPlayer")
+
+[node name="Attacks" type="Node2D" parent="."]

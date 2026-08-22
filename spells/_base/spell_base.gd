@@ -12,10 +12,8 @@ var _elapsed_time: float = 0.0
 var _cached_hitbox_height_bits: int = -1
 
 @export_node_path("SpellSkin") var _path_skin := ^"Skin"
-@export_node_path("Node2D") var _path_hitboxes_container := ^"Attacks"
 
 @onready var _skin: SpellSkin = get_node_or_null(_path_skin)
-@onready var _hitboxes: Array[QuiverHitBox] = []
 
 signal spell_cast
 signal spell_hit(target: Area2D)
@@ -27,12 +25,6 @@ signal spell_timeout
 func _ready() -> void:
     if Engine.is_editor_hint():
         return
-    
-    var hitboxes_container := get_node_or_null(_path_hitboxes_container) as Node2D
-    if hitboxes_container:
-        for child in hitboxes_container.get_children():
-            if child is QuiverHitBox:
-                _hitboxes.append(child)
     
     if _skin:
         _skin.spell_animation_finished.connect(_on_skin_animation_finished)
@@ -60,11 +52,12 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
         if group.begins_with("area2d:"):
             add_to_group(group)
     
-    for hitbox in _hitboxes:
-        for group in caster.get_groups():
-            if group.begins_with("area2d:"):
-                hitbox.add_to_group(group)
-        hitbox.character_attributes = caster_attributes
+    if _skin:
+        for hitbox in _skin.hitboxes:
+            for group in caster.get_groups():
+                if group.begins_with("area2d:"):
+                    hitbox.add_to_group(group)
+            hitbox.character_attributes = caster_attributes
     
     if _skin:
         _skin.skin_direction = SpellSkin.SkinDirection.RIGHT \
@@ -114,7 +107,7 @@ func _update_hitbox_layers() -> void:
     
     if target_bits != _cached_hitbox_height_bits:
         _cached_hitbox_height_bits = target_bits
-        for hitbox in _hitboxes:
+        for hitbox in _skin.hitboxes:
             hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | target_bits
             hitbox.collision_mask = all_mask
 
@@ -178,16 +171,18 @@ func _on_skin_animation_finished() -> void:
     pass
 
 func _on_skin_hitbox_activated() -> void:
-    for hitbox in _hitboxes:
-        for child in hitbox.get_children():
-            if child is CollisionShape2D or child is CollisionPolygon2D:
-                child.disabled = false
+    if _skin:
+        for hitbox in _skin.hitboxes:
+            for child in hitbox.get_children():
+                if child is CollisionShape2D or child is CollisionPolygon2D:
+                    child.disabled = false
 
 func _on_skin_hitbox_deactivated() -> void:
-    for hitbox in _hitboxes:
-        for child in hitbox.get_children():
-            if child is CollisionShape2D or child is CollisionPolygon2D:
-                child.disabled = true
+    if _skin:
+        for hitbox in _skin.hitboxes:
+            for child in hitbox.get_children():
+                if child is CollisionShape2D or child is CollisionPolygon2D:
+                    child.disabled = true
 
 func _on_skin_effect_triggered() -> void:
     pass
