@@ -171,3 +171,56 @@ func _rename_files_recursive(directory: String, spell_name: String) -> bool:
                 return false
     
     return true
+
+
+func _replace_placeholders_recursive(
+    directory: String,
+    spell_name: String,
+    pascal_name: String,
+    display_name: String
+) -> bool:
+    var dir := DirAccess.open(directory)
+    if dir == null:
+        push_error("Failed to open directory for placeholder replacement: %s" % directory)
+        return false
+    
+    dir.list_dir_begin()
+    var file_name := dir.get_next()
+    
+    while not file_name.is_empty():
+        if file_name != "." and file_name != "..":
+            var file_path = directory.path_join(file_name)
+            
+            if dir.current_is_dir():
+                if not _replace_placeholders_recursive(file_path, spell_name, pascal_name, display_name):
+                    return false
+            else:
+                var ext := file_name.get_extension()
+                if ext in ["gd", "tscn", "tres"]:
+                    if not _replace_in_file(file_path, spell_name, pascal_name, display_name):
+                        return false
+        
+        file_name = dir.get_next()
+    
+    return true
+
+
+func _replace_in_file(file_path: String, spell_name: String, pascal_name: String, display_name: String) -> bool:
+    var file := FileAccess.open(file_path, FileAccess.READ)
+    if file == null:
+        push_error("Failed to open file for placeholder replacement: %s" % file_path)
+        return false
+    var content := file.get_as_text()
+    file.close()
+    
+    content = content.replace(TOKEN_NAME, spell_name)
+    content = content.replace(TOKEN_CLASS, pascal_name)
+    content = content.replace(TOKEN_DISPLAY, display_name)
+    
+    file = FileAccess.open(file_path, FileAccess.WRITE)
+    if file == null:
+        push_error("Failed to write back file after placeholder replacement: %s" % file_path)
+        return false
+    file.store_string(content)
+    file.close()
+    return true
