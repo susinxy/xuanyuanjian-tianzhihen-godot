@@ -131,3 +131,43 @@ func _copy_file_text(source: String, destination: String) -> bool:
     dest_file.store_string(content)
     dest_file.close()
     return true
+
+
+func _rename_files_recursive(directory: String, spell_name: String) -> bool:
+    var dir := DirAccess.open(directory)
+    if dir == null:
+        push_error("Failed to open directory for renaming: %s" % directory)
+        return false
+    
+    dir.list_dir_begin()
+    var file_name := dir.get_next()
+    var files_to_rename := []
+    
+    while not file_name.is_empty():
+        if file_name != "." and file_name != "..":
+            if not dir.current_is_dir() and file_name.find(TOKEN_NAME) != -1:
+                var new_name = file_name.replace(TOKEN_NAME, spell_name)
+                files_to_rename.append({"old": file_name, "new": new_name})
+            elif dir.current_is_dir():
+                if not _rename_files_recursive(directory.path_join(file_name), spell_name):
+                    return false
+        file_name = dir.get_next()
+    
+    for rename_data in files_to_rename:
+        var old_path = directory.path_join(rename_data["old"])
+        var new_path = directory.path_join(rename_data["new"])
+        if dir.rename(rename_data["old"], rename_data["new"]) != OK:
+            push_error("Failed to rename file: %s -> %s" % [old_path, new_path])
+            return false
+    
+    var dir_name := directory.get_file()
+    if dir_name.find(TOKEN_NAME) != -1:
+        var parent_dir = directory.get_base_dir()
+        var new_dir_name = dir_name.replace(TOKEN_NAME, spell_name)
+        var parent := DirAccess.open(parent_dir)
+        if parent != null:
+            if parent.rename(dir_name, new_dir_name) != OK:
+                push_error("Failed to rename directory: %s -> %s" % [directory, parent_dir.path_join(new_dir_name)])
+                return false
+    
+    return true
