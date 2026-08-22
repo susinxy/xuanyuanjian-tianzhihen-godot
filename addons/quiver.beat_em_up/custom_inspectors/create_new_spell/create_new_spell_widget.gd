@@ -164,7 +164,7 @@ func _auto_generate_class_name(snake: String) -> String:
 
 func _validate_all_inputs() -> void:
     var spell_name = _spell_name_edit.text.strip_edges()
-    var class_name = _class_name_edit.text.strip_edges()
+    var pascal_name = _class_name_edit.text.strip_edges()
     var display_name = _display_name_edit.text.strip_edges()
     
     # Validate snake_case
@@ -184,7 +184,7 @@ func _validate_all_inputs() -> void:
         return
     
     # Validate PascalCase
-    if class_name.is_empty() or not _validate_pascal_case(class_name):
+    if pascal_name.is_empty() or not _validate_pascal_case(pascal_name):
         _set_status("Invalid class name", Color.RED)
         _create_btn.disabled = true
         return
@@ -195,7 +195,7 @@ func _validate_all_inputs() -> void:
         _create_btn.disabled = true
         return
     
-    _set_status("Ready: %s (%s)" % [class_name, display_name], Color.GREEN)
+    _set_status("Ready: %s (%s)" % [pascal_name, display_name], Color.GREEN)
     _create_btn.disabled = false
 
 
@@ -222,11 +222,11 @@ func _set_status(text: String, color: Color) -> void:
 
 func _on_create_pressed() -> void:
     var spell_name = _spell_name_edit.text.strip_edges()
-    var class_name = _class_name_edit.text.strip_edges()
+    var pascal_name = _class_name_edit.text.strip_edges()
     var display_name = _display_name_edit.text.strip_edges()
     
     var creator := SpellCreator.new()
-    if creator.create_spell(spell_name, class_name, display_name):
+    if creator.create_spell(spell_name, pascal_name, display_name):
         _set_status("✓ Created: %s" % spell_name, Color.GREEN)
         _spell_name_edit.text = ""
         _class_name_edit.text = ""
