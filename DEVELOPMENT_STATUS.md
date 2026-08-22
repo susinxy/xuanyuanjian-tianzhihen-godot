@@ -47,6 +47,14 @@
 - Height Layers Widget UI：双参数集（预览/转换独立）、异步执行、SubViewport 渲染预览
 - chenjianchou_new 角色已通过 Polygon 模式生成 body/attack 碰撞形状数据
 
+### 法术系统（2026-08-22）
+
+- SpellDefinition / SpellSlot / SpellManager / SpellBase / SpellSkin / SpellSkinAnimTree
+- 模板创建 Inspector（5 步管道 + 程序化动画生成）
+- 轮廓转换 Widget（attack only）
+- fire_ball 和 piercing_projectile 示例法术
+- 输入映射 spell_1/2/3/4（数字键 1-4）
+
 ## 后续开发路线
 
 以 `template-beat-em-up/` 为架构样板，在 xuanyuan-sword 下继续搭建:
