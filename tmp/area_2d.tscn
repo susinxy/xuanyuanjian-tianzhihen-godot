@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://dmqvgswpyhguq"]
+
+[ext_resource type="Script" uid="uid://cylsjba2pp6qv" path="res://tmp/area_2d.gd" id="1_nibbf"]
+[ext_resource type="PackedScene" path="res://spells/_base/spell_skin_base.tscn" id="2_lloyy"]
+
+[node name="Area2D" type="Area2D" unique_id=501461646]
+script = ExtResource("1_nibbf")
+
+[node name="Skin" parent="." unique_id=1646121817 instance=ExtResource("2_lloyy")]

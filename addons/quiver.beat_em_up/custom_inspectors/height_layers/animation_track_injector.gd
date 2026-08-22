@@ -1112,6 +1112,7 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 	# 获取 SpriteFrames 的 FPS
 	var sprite_frames := _get_sprite_frames(skin_node, [])
 	if sprite_frames == null:
+		print("[DEBUG _parse_disabled] sprite_frames is null!")
 		return enabled_frames
 	
 	var fps := sprite_frames.get_animation_speed(sprite_anim_name)
@@ -1120,14 +1121,20 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 	
 	var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
 	var frame_duration := 1.0 / fps
+	print("[DEBUG _parse_disabled] sprite_anim=%s, fps=%f, frame_count=%d, frame_duration=%f" % [sprite_anim_name, fps, frame_count, frame_duration])
+	print("[DEBUG _parse_disabled] track_idx=%d, track_path=%s" % [track_idx, anim.track_get_path(track_idx)])
 	
 	# 读取所有 keyframe（按时间排序）
 	var key_count := anim.track_get_key_count(track_idx)
+	print("[DEBUG _parse_disabled] key_count=%d" % key_count)
 	var keyframes: Array = []
 	for i in range(key_count):
+		var kf_time := anim.track_get_key_time(track_idx, i)
+		var kf_value = anim.track_get_key_value(track_idx, i)
+		print("[DEBUG _parse_disabled]   keyframe[%d]: time=%f, value=%s (type=%s)" % [i, kf_time, str(kf_value), typeof(kf_value)])
 		keyframes.append({
-			"time": anim.track_get_key_time(track_idx, i),
-			"value": anim.track_get_key_value(track_idx, i),
+			"time": kf_time,
+			"value": kf_value,
 		})
 	
 	# 对每帧采样（离散模式：取最后一个 <= 帧时间的 keyframe 值）
@@ -1631,6 +1638,7 @@ func _build_frame_filter_for_node(
 		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
 		if library == null:
 			continue
+		print("[DEBUG filter] lib_name='%s', anim_list=%s" % [lib_name, library.get_animation_list()])
 		
 		for anim_name in library.get_animation_list():
 			var anim := library.get_animation(anim_name)
@@ -1638,12 +1646,14 @@ func _build_frame_filter_for_node(
 				continue
 			
 			var sprite_anim_name := _find_sprite_anim_name(anim)
+			print("[DEBUG filter]   anim_name=%s, sprite_anim_name='%s'" % [anim_name, sprite_anim_name])
 			if sprite_anim_name.is_empty() or filter.has(sprite_anim_name):
 				continue
 			
 			# 查找该 shape 的 disabled track
 			var disabled_path: String = shape_info["shape_path"] + ":disabled"
 			var disabled_track_idx := anim.find_track(disabled_path, Animation.TYPE_VALUE)
+			print("[DEBUG filter] sprite_anim=%s, disabled_path=%s, track_idx=%d" % [sprite_anim_name, disabled_path, disabled_track_idx])
 			
 			if disabled_track_idx >= 0:
 				# 有 disabled track：解析离散模式，返回 disabled=false 的帧
