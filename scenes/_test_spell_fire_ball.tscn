@@ -1,0 +1,82 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" path="res://characters/playable/chen_jingchou/chen_jingchou.tscn" id="1_character"]
+[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
+[ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="3_enemy"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="4_attack_data"]
+[ext_resource type="Script" path="res://scripts/_test_spell_helper_fire_ball.gd" id="5_test_helper"]
+[ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
+
+[sub_resource type="Resource" id="test_attack_data"]
+script = ExtResource("4_attack_data")
+attack_damage = 50.0
+hurt_type = 0
+knockback = 3
+launch_angle = 30
+
+[sub_resource type="RectangleShape2D" id="ground_shape"]
+size = Vector2(8000, 200)
+
+[node name="TestSpellStage" type="Node2D"]
+
+[node name="Background" type="ColorRect" parent="."]
+offset_left = -2000.0
+offset_top = -500.0
+offset_right = 6000.0
+offset_bottom = 2000.0
+color = Color(0.05, 0.05, 0.05, 1)
+
+[node name="GroundLine" type="ColorRect" parent="."]
+offset_left = -2000.0
+offset_top = 495.0
+offset_right = 6000.0
+offset_bottom = 505.0
+color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(2000, 600)
+collision_layer = 16384
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("ground_shape")
+
+[node name="Character" parent="." instance=ExtResource("1_character")]
+position = Vector2(200, 480)
+
+[node name="TestSpellHelper" type="Node" parent="Character"]
+script = ExtResource("5_test_helper")
+
+[node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
+offset = Vector2(0, -80)
+zoom = 0.85
+limit_left = 0
+limit_top = -500
+limit_right = 6000
+limit_bottom = 1000
+
+[node name="Enemy" parent="." instance=ExtResource("3_enemy")]
+position = Vector2(522, 480)
+
+[node name="HurtHandler" type="Node" parent="Enemy"]
+script = ExtResource("6_hurt_handler")
+
+[node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
+attack_data = SubResource("test_attack_data")
+
+[node name="DebugLabel" type="Label" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 600.0
+offset_bottom = 200.0
+text = "=== 法术测试 ===
+
+角色: chen_jingchou
+法术: fire_ball
+
+操作:
+  WASD - 移动
+  Space - 跳跃
+  J - 攻击
+  1 - 施放法术
+
+按 ESC 退出测试"

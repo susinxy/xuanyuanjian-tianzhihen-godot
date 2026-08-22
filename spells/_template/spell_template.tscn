@@ -1,6 +1,6 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dggj6dqfgkw8o"]
 
-[ext_resource type="Script" path="res://spells/_template/spell_template.gd" id="1_template"]
+[ext_resource type="Script" uid="uid://wxbcdd5d5xch" path="res://spells/_template/spell_template.gd" id="1_template"]
 
-[node name="SpellTemplate" type="Node"]
+[node name="SpellTemplate" type="Node" unique_id=855198030]
 script = ExtResource("1_template")

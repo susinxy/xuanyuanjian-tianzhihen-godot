@@ -74,7 +74,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 		push_error("[SpellTest] Spell definition not found: %s" % spell_definition_path)
 		return
 	
-	var test_scene_template = """[gd_scene load_steps=7 format=3]
+	var test_scene_template = """[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -82,6 +82,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="4_attack_data"]
 [ext_resource type="Script" path="" id="5_test_helper"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
+[ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("4_attack_data")
@@ -155,6 +156,12 @@ text = "=== 法术测试 ===
   1 - 施放法术
 
 按 ESC 退出测试"
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+layer = 10
+script = ExtResource("7_debug_overlay")
+player_path = NodePath("../Character")
+enemy_path = NodePath("../Enemy")
 """
 	
 	var helper_script_content = """extends Node

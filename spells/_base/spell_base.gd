@@ -26,6 +26,9 @@ func _ready() -> void:
     if Engine.is_editor_hint():
         return
     
+    # 添加到 fireballs 组以便调试面板追踪
+    add_to_group("fireballs")
+    
     if _skin:
         _skin.spell_animation_finished.connect(_on_skin_animation_finished)
         _skin.spell_hitbox_activated.connect(_on_skin_hitbox_activated)
