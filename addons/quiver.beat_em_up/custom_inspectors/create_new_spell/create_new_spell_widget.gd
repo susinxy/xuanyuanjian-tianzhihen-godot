@@ -8,12 +8,14 @@ extends VBoxContainer
 
 signal spell_created(spell_name: String)
 signal spell_deleted(spell_name: String)
+signal spell_test_requested(char_name: String, spell_name: String)
 
 #--- enums ----------------------------------------------------------------------------------------
 
 #--- constants ------------------------------------------------------------------------------------
 
 const SPELL_DIR = "res://spells/"
+const CHARACTER_DIR = "res://characters/playable/"
 
 #--- public variables - order: export > normal var & onready --------------------------------------
 
@@ -29,6 +31,10 @@ var _delete_dropdown: OptionButton
 var _delete_path_label: Label
 var _delete_btn: Button
 
+var _test_char_dropdown: OptionButton
+var _test_spell_dropdown: OptionButton
+var _test_btn: Button
+
 var _is_updating_class_name := false
 
 ### -----------------------------------------------------------------------------------------------
@@ -41,8 +47,10 @@ func _ready() -> void:
 		return
 	_build_ui()
 	_refresh_spell_list()
+	_refresh_character_list()
 	if EditorInterface.get_resource_filesystem():
 		EditorInterface.get_resource_filesystem().filesystem_changed.connect(_refresh_spell_list)
+		EditorInterface.get_resource_filesystem().filesystem_changed.connect(_refresh_character_list)
 
 
 func _notification(what: int) -> void:
@@ -50,6 +58,8 @@ func _notification(what: int) -> void:
 		if EditorInterface.get_resource_filesystem():
 			if EditorInterface.get_resource_filesystem().filesystem_changed.is_connected(_refresh_spell_list):
 				EditorInterface.get_resource_filesystem().filesystem_changed.disconnect(_refresh_spell_list)
+			if EditorInterface.get_resource_filesystem().filesystem_changed.is_connected(_refresh_character_list):
+				EditorInterface.get_resource_filesystem().filesystem_changed.disconnect(_refresh_character_list)
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -142,6 +152,53 @@ func _build_ui() -> void:
 	_delete_btn.disabled = true
 	_delete_btn.pressed.connect(_on_delete_pressed)
 	add_child(_delete_btn)
+	
+	add_child(HSeparator.new())
+	
+	# === Test Section ===
+	var test_header := Label.new()
+	test_header.text = "🧪 Test Spell"
+	test_header.add_theme_font_size_override("font_size", 16)
+	add_child(test_header)
+	add_child(HSeparator.new())
+	
+	# Character dropdown
+	var test_char_hbox := HBoxContainer.new()
+	var test_char_label := Label.new()
+	test_char_label.text = "Character:"
+	test_char_label.custom_minimum_size.x = 120
+	test_char_hbox.add_child(test_char_label)
+	_test_char_dropdown = OptionButton.new()
+	_test_char_dropdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_char_dropdown.item_selected.connect(_on_test_char_selected)
+	test_char_hbox.add_child(_test_char_dropdown)
+	add_child(test_char_hbox)
+	
+	# Spell dropdown
+	var test_spell_hbox := HBoxContainer.new()
+	var test_spell_label := Label.new()
+	test_spell_label.text = "Spell:"
+	test_spell_label.custom_minimum_size.x = 120
+	test_spell_hbox.add_child(test_spell_label)
+	_test_spell_dropdown = OptionButton.new()
+	_test_spell_dropdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_test_spell_dropdown.item_selected.connect(_on_test_spell_selected)
+	test_spell_hbox.add_child(_test_spell_dropdown)
+	add_child(test_spell_hbox)
+	
+	# Test button
+	_test_btn = Button.new()
+	_test_btn.text = "Run Test ▶"
+	_test_btn.disabled = true
+	_test_btn.modulate = Color(0.4, 0.8, 0.4)
+	_test_btn.pressed.connect(_on_test_pressed)
+	add_child(_test_btn)
+	
+	# Test info
+	var test_info := Label.new()
+	test_info.text = "生成临时测试场景并运行，按 ESC 退出测试"
+	test_info.add_theme_color_override("font_color", Color.GRAY)
+	add_child(test_info)
 
 
 func _on_spell_name_changed(new_text: String) -> void:
@@ -239,6 +296,7 @@ func _on_create_pressed() -> void:
 
 func _refresh_spell_list() -> void:
 	_delete_dropdown.clear()
+	_test_spell_dropdown.clear()
 	var dir := DirAccess.open(SPELL_DIR)
 	if dir == null:
 		return
@@ -256,9 +314,34 @@ func _refresh_spell_list() -> void:
 	spells.sort()
 	for spell in spells:
 		_delete_dropdown.add_item(spell)
+		_test_spell_dropdown.add_item(spell)
 	
 	_delete_btn.disabled = true
 	_delete_path_label.text = ""
+	_update_test_btn_state()
+
+
+func _refresh_character_list() -> void:
+	_test_char_dropdown.clear()
+	var dir := DirAccess.open(CHARACTER_DIR)
+	if dir == null:
+		return
+	
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	var characters := []
+	
+	while not file_name.is_empty():
+		if file_name != "." and file_name != ".." and file_name != "_template":
+			if dir.current_is_dir():
+				characters.append(file_name)
+		file_name = dir.get_next()
+	
+	characters.sort()
+	for char_name in characters:
+		_test_char_dropdown.add_item(char_name)
+	
+	_update_test_btn_state()
 
 
 func _on_delete_dropdown_selected(index: int) -> void:
@@ -288,5 +371,30 @@ func _on_delete_pressed() -> void:
 		dialog.queue_free()
 	)
 	dialog.canceled.connect(func(): dialog.queue_free())
+
+
+func _on_test_char_selected(_index: int) -> void:
+	_update_test_btn_state()
+
+
+func _on_test_spell_selected(_index: int) -> void:
+	_update_test_btn_state()
+
+
+func _update_test_btn_state() -> void:
+	var char_selected := _test_char_dropdown.selected >= 0
+	var spell_selected := _test_spell_dropdown.selected >= 0
+	_test_btn.disabled = not (char_selected and spell_selected)
+
+
+func _on_test_pressed() -> void:
+	var char_index := _test_char_dropdown.selected
+	var spell_index := _test_spell_dropdown.selected
+	if char_index < 0 or spell_index < 0:
+		return
+	var char_name := _test_char_dropdown.get_item_text(char_index)
+	var spell_name := _test_spell_dropdown.get_item_text(spell_index)
+	_set_status("🧪 Testing spell '%s' with '%s'..." % [spell_name, char_name], Color.CYAN)
+	spell_test_requested.emit(char_name, spell_name)
 
 ### -----------------------------------------------------------------------------------------------
