@@ -74,13 +74,14 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 		push_error("[SpellTest] Spell definition not found: %s" % spell_definition_path)
 		return
 	
-	var test_scene_template = """[gd_scene load_steps=6 format=3]
+	var test_scene_template = """[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="3_enemy"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="4_attack_data"]
 [ext_resource type="Script" path="" id="5_test_helper"]
+[ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("4_attack_data")
@@ -130,6 +131,9 @@ limit_bottom = 1000
 
 [node name="Enemy" parent="." instance=ExtResource("3_enemy")]
 position = Vector2(522, 480)
+
+[node name="HurtHandler" type="Node" parent="Enemy"]
+script = ExtResource("6_hurt_handler")
 
 [node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
 attack_data = SubResource("test_attack_data")
