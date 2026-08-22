@@ -36,7 +36,8 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
-	_spell_manager.tick(delta)
+	if _spell_manager:
+		_spell_manager.tick(delta)
 
 ### -----------------------------------------------------------------------------------------------
 
