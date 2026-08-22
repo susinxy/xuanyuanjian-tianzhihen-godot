@@ -94,6 +94,15 @@ func _search_tree_recursive(node: Node, result: Array):
 		_search_tree_recursive(child, result)
 
 
+func _find_hitboxes_recursive(node: Node) -> Array:
+	var result = []
+	if node is QuiverHitBox:
+		result.append(node)
+	for child in node.get_children():
+		result.append_array(_find_hitboxes_recursive(child))
+	return result
+
+
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
@@ -165,19 +174,27 @@ func _update_display() -> void:
 		text += "      collision_mask: 0x%X\n" % fb.collision_mask
 		text += "      高度层: %s\n" % _format_height_layers(fb.collision_layer)
 		
-		# 检查 fireball 的 hitboxes
-		var hitboxes = fb.get_children().filter(func(n): return n is QuiverHitBox)
+		# 显示 skin 信息
+		var skin = fb.get("_skin")
+		if skin:
+			text += "      skin.attack_heights: %s\n" % str(skin.attack_heights)
+			text += "      skin.hitboxes 数量: %d\n" % skin.hitboxes.size()
+		
+		# 递归查找 hitboxes
+		var hitboxes = _find_hitboxes_recursive(fb)
 		if hitboxes.size() > 0:
 			var hb = hitboxes[0]
-			text += "      HitBox layer: 0x%X\n" % hb.collision_layer
-			text += "      HitBox mask: 0x%X\n" % hb.collision_mask
+			text += "      HitBox layer: 0x%X 高度层:%s\n" % [hb.collision_layer, _format_height_layers(hb.collision_layer)]
+			text += "      HitBox mask: 0x%X 高度层:%s\n" % [hb.collision_mask, _format_height_layers(hb.collision_mask)]
 			text += "      HitBox monitoring: %s\n" % str(hb.monitoring)
+		else:
+			text += "      HitBox: NOT FOUND\n"
 	
 	# 碰撞检测分析
 	text += "\n【碰撞分析】\n"
 	if _enemy_hurtbox and fireballs.size() > 0:
 		var fb = fireballs[0]
-		var hitboxes = fb.get_children().filter(func(n): return n is QuiverHitBox)
+		var hitboxes = _find_hitboxes_recursive(fb)
 		if hitboxes.size() > 0:
 			var hb = hitboxes[0]
 			var can_detect = (hb.collision_layer & _enemy_hurtbox.collision_mask) != 0
