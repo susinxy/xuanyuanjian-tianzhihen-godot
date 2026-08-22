@@ -1,0 +1,35 @@
+[gd_resource type="AnimationNodeBlendTree" format=3]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_right"]
+animation = &"FireBall/active_right"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_left"]
+animation = &"FireBall/active_left"
+
+[sub_resource type="AnimationNodeBlendSpace1D" id="BlendSpace_active"]
+blend_point_0/node = SubResource("AnimNode_active_right")
+blend_point_0/pos = 0.1
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("AnimNode_active_left")
+blend_point_1/pos = -0.1
+blend_point_1/name = &"1"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_active"]
+advance_mode = 1
+
+[sub_resource type="AnimationNodeStateMachine" id="StateMachine"]
+states/Start/position = Vector2(100, 100)
+states/active/node = SubResource("BlendSpace_active")
+states/active/position = Vector2(300, 100)
+transitions = ["Start", "active", SubResource("Transition_start_active")]
+
+[sub_resource type="AnimationNodeTimeScale" id="TimeScale"]
+
+[resource]
+graph_offset = Vector2(-200, -50)
+nodes/output/position = Vector2(500, 100)
+nodes/state_machine/node = SubResource("StateMachine")
+nodes/state_machine/position = Vector2(0, 100)
+nodes/time_scale/node = SubResource("TimeScale")
+nodes/time_scale/position = Vector2(250, 100)
+node_connections = [&"output", 0, &"time_scale", &"time_scale", 0, &"state_machine"]

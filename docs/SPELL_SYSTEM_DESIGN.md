@@ -1479,7 +1479,7 @@ _path_skin = NodePath("__CLASS__Skin")
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
 [ext_resource type="Resource" path="res://spells/__NAME__/resources/attacks/__NAME___attack_data.tres" id="6_attack"]
 [ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/RESET.tres" id="7_reset"]
-[ext_resource type="Script" path="res://spells/_template/__NAME___skin.gd" id="8_script"]
+[ext_resource type="Script" path="res://spells/__NAME__/__NAME___skin.gd" id="8_script"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]
 _data = {
