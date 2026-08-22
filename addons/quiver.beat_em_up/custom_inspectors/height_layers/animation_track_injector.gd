@@ -881,15 +881,20 @@ func _convert_contours_common(
 	
 	# 1. 获取 SpriteFrames
 	var sprite_frames := _get_sprite_frames(skin_node, result.errors)
+	print("[DEBUG] Step 1 - sprite_frames: %s" % (sprite_frames if sprite_frames else "null"))
 	if sprite_frames == null:
 		return result
 	
 	# 2. 获取 AnimationPlayer
 	var anim_player := _get_animation_player(skin_node, result.errors)
+	print("[DEBUG] Step 2 - anim_player: %s" % (anim_player if anim_player else "null"))
 	
 	# 3. 发现 shape 节点
 	var all_shape_nodes := _discover_shape_nodes(skin_node)
 	var shape_nodes: Array = all_shape_nodes.filter(func(n): return n["category"] == category)
+	print("[DEBUG] Step 3 - all_shape_nodes: %d, filtered %s nodes: %d" % [all_shape_nodes.size(), category, shape_nodes.size()])
+	for node_info in shape_nodes:
+		print("[DEBUG]   - %s: %s" % [node_info["shape_path"], node_info["shape_name"]])
 	
 	if shape_nodes.is_empty():
 		if not empty_error_message.is_empty():
@@ -904,6 +909,10 @@ func _convert_contours_common(
 	if anim_player != null:
 		unified_filter = _build_unified_frame_filter(shape_nodes, anim_player, skin_node)
 		relevant_anims = _find_all_relevant_anims(shape_nodes, anim_player)
+		print("[DEBUG] Step 4 - unified_filter keys: %s" % unified_filter.keys())
+		for anim_name in unified_filter:
+			print("[DEBUG]   - %s: %s" % [anim_name, unified_filter[anim_name]])
+		print("[DEBUG] Step 4 - relevant_anims: %s" % relevant_anims)
 	
 	# 5. 扫描一次
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
@@ -911,6 +920,9 @@ func _convert_contours_common(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
 		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion
 	)
+	print("[DEBUG] Step 5 - frames_data keys: %s" % frames_data.keys())
+	for anim_name in frames_data:
+		print("[DEBUG]   - %s: %d frames" % [anim_name, frames_data[anim_name].size()])
 	
 	# 6. 预处理（如构建 attack 映射表）
 	var preprocess_data: Dictionary = pre_postprocess_callback.call(shape_nodes, anim_player, skin_node)
