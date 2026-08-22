@@ -6,7 +6,7 @@
 [ext_resource type="SpriteFrames" path="res://spells/fire_ball/resources/spriteframes_fire_ball.tres" id="4_sprites"]
 [ext_resource type="Script" uid="uid://b87n2n1uw4f1g" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
 [ext_resource type="Resource" path="res://spells/fire_ball/resources/attacks/fire_ball_attack_data.tres" id="6_attack"]
-[ext_resource type="Animation" path="res://spells/fire_ball/resources/animations/RESET.tres" id="7_reset"]
+[ext_resource type="Animation" uid="uid://d2l8y5m8q6s1h" path="res://spells/fire_ball/resources/animations/RESET.tres" id="7_reset"]
 [ext_resource type="Script" uid="uid://tbfvhbj0cjc0" path="res://spells/fire_ball/fire_ball_skin.gd" id="8_script"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]
@@ -36,13 +36,12 @@ sprite_frames = ExtResource("4_sprites")
 animation = &"active"
 
 [node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=1703451244 groups=["area2d:fire_ball"]]
-visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(0, -80)
 monitoring = false
 script = ExtResource("5_hitbox")
 attack_data = ExtResource("6_attack")
 
 [node name="Attack1Shape" type="CollisionPolygon2D" parent="Attacks/Attack1" index="0" unique_id=1336832845]
 modulate = Color(1, 0.2, 0.101961, 1)
-polygon = PackedVector2Array(10, -178, -140, 169, -141, 169, 6, 44, 6, 42, 139, 169, 140, 169, 10, -179)
-disabled = true
+polygon = PackedVector2Array(-10, -178, 140, 169, 141, 169, -6, 44, -6, 42, -139, 169, -140, 169, -10, -179)
