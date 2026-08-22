@@ -1,7 +1,7 @@
 # 开发状态说明
 
 > **生效日期**: 2026-08-11
-> **最后更新**: 2026-08-20
+> **最后更新**: 2026-08-23
 
 ## 决策：xuanyuan-sword 正式从零开始
 
@@ -47,13 +47,18 @@
 - Height Layers Widget UI：双参数集（预览/转换独立）、异步执行、SubViewport 渲染预览
 - chenjianchou_new 角色已通过 Polygon 模式生成 body/attack 碰撞形状数据
 
-### 法术系统（2026-08-22）
+### 法术系统（2026-08-22~23）
 
 - SpellDefinition / SpellSlot / SpellManager / SpellBase / SpellSkin / SpellSkinAnimTree
 - 模板创建 Inspector（5 步管道 + 程序化动画生成）
 - 轮廓转换 Widget（attack only）
-- fire_ball 示例法术
+- fire_ball 示例法术（碰撞验证通过）
 - 输入映射 spell_1/2/3/4（数字键 1-4）
+- QuiverAttributes 扩展（mana + Modifier 系统）
+- QuiverCharacter 新增 3 个 public static 高度层方法
+- QuiverHurtBox 命中通知（hit_box.owner.on_hit）
+- UID 冲突问题已修复（.uid 排除 + 嵌入 UID 剥离）
+- 角色集成 SpellManager（进行中）
 
 ## 后续开发路线
 

@@ -4,7 +4,7 @@
 
 ## 创建新法术
 
-在 Godot 编辑器中使用 **Spell Creator Inspector**（待实现，阶段 5）：
+在 Godot 编辑器中使用 **Spell Creator Inspector**：
 
 1. 打开 `spells/_template/spell_template.tscn`
 2. 选中根节点 `SpellTemplate`
@@ -37,7 +37,7 @@
 
 ## 删除法术
 
-在 Inspector 的 "Delete Spell" 区域（待实现，阶段 5）：
+在 Inspector 的 "Delete Spell" 区域：
 
 1. 从下拉菜单选择要删除的法术
 2. 点击 "Delete 🗑️" 按钮
@@ -314,7 +314,7 @@ func _on_cast() -> void:
 
 ## 更多资源
 
-- 查看完整法术示例：`spells/fire_ball/`（待创建，阶段 7）
+- 查看完整法术示例：`spells/fire_ball/`
 - 了解法术系统设计：`docs/SPELL_SYSTEM_DESIGN.md`
 - 了解 Quiver 插件：`addons/quiver.beat_em_up/`
 - 阅读插件架构文档：`docs/PLUGIN_ARCHITECTURE.md`
