@@ -103,6 +103,15 @@ func _find_hitboxes_recursive(node: Node) -> Array:
 	return result
 
 
+func _find_collision_shapes_recursive(node: Node) -> Array:
+	var result = []
+	if node is CollisionShape2D or node is CollisionPolygon2D:
+		result.append(node)
+	for child in node.get_children():
+		result.append_array(_find_collision_shapes_recursive(child))
+	return result
+
+
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
@@ -206,6 +215,15 @@ func _update_display() -> void:
 			text += "      HitBox layer: 0x%X 高度层:%s\n" % [hb.collision_layer, _format_height_layers(hb.collision_layer)]
 			text += "      HitBox mask: 0x%X 高度层:%s\n" % [hb.collision_mask, _format_height_layers(hb.collision_mask)]
 			text += "      HitBox monitoring: %s\n" % str(hb.monitoring)
+			
+			# 显示 CollisionShape2D/CollisionPolygon2D 的 disabled 状态
+			var collision_shapes = _find_collision_shapes_recursive(hb)
+			if collision_shapes.size() > 0:
+				for cs in collision_shapes:
+					var shape_type = "CollisionShape2D" if cs is CollisionShape2D else "CollisionPolygon2D"
+					text += "      %s (%s) disabled: %s\n" % [cs.name, shape_type, str(cs.disabled)]
+			else:
+				text += "      CollisionShape: NOT FOUND\n"
 		else:
 			text += "      HitBox: NOT FOUND\n"
 	
