@@ -80,6 +80,20 @@ func _find_nodes() -> void:
 		print("[Debug] Enemy NOT found")
 
 
+func _find_all_spells() -> Array:
+	var spells = []
+	if get_tree().current_scene:
+		_search_tree_recursive(get_tree().current_scene, spells)
+	return spells
+
+
+func _search_tree_recursive(node: Node, result: Array):
+	if node is SpellBase:
+		result.append(node)
+	for child in node.get_children():
+		_search_tree_recursive(child, result)
+
+
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
@@ -142,7 +156,7 @@ func _update_display() -> void:
 	text += "\n"
 	
 	# Fireball 信息
-	var fireballs = get_tree().get_nodes_in_group("fireballs")
+	var fireballs = _find_all_spells()
 	text += "【FIREBALLS】 (数量: %d)\n" % fireballs.size()
 	for i in range(min(3, fireballs.size())):  # 最多显示 3 个
 		var fb = fireballs[i]
