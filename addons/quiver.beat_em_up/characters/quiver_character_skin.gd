@@ -33,8 +33,6 @@ signal grab_frame_reached(ref_position: Marker2D)
 
 #--- enums ----------------------------------------------------------------------------------------
 
-enum SkinDirection { LEFT = -1, RIGHT = 1 }
-
 #--- constants ------------------------------------------------------------------------------------
 
 #--- public variables - order: export > normal var > onready --------------------------------------
@@ -51,9 +49,11 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 			get_tree().set_group(StringName(get_path()), "character_attributes", attributes)
 
 
-@export var skin_direction: SkinDirection = SkinDirection.RIGHT:
+@export var skin_direction: Vector2 = Vector2.RIGHT:
 	set(value):
-		var has_changed := value != skin_direction
+		if value is int or value is float:
+			value = Vector2.LEFT if value < 0 else Vector2.RIGHT
+		var has_changed := not value.is_equal_approx(skin_direction)
 		skin_direction = value
 		
 		if has_changed:

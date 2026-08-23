@@ -29,7 +29,8 @@ extends QuiverCharacterSkin
 ## See [member _path_animation_tree] for "private" reasoning.
 @export var _path_playback := "parameters/StateMachine/playback"
 
-var _blend_positions := []
+var _blend_positions_1d := []
+var _blend_positions_2d := []
 
 @onready var _animation_tree := get_node(_path_animation_tree) as AnimationTree
 @onready var _playback := _animation_tree.get(_path_playback) as AnimationNodeStateMachinePlayback
@@ -89,7 +90,9 @@ func end_of_skin_animation(_animation_name := "") -> void:
 
 func _populate_animation_list() -> void:
 	_find_all_animation_nodes_from()
-	_blend_positions = _get_blend_position_paths_from(_animation_tree)
+	_blend_positions_1d.clear()
+	_blend_positions_2d.clear()
+	_categorize_blend_positions(_animation_tree.tree_root, "parameters")
 
 
 func _skin_direction_updated() -> void:
@@ -125,7 +128,9 @@ func _set_animation_tree_condition(path: StringName, value: bool) -> void:
 
 
 func _update_blend_directions() -> void:
-	for path in _blend_positions:
+	for path in _blend_positions_1d:
+		_animation_tree[path] = skin_direction.x
+	for path in _blend_positions_2d:
 		_animation_tree[path] = skin_direction
 
 
@@ -137,6 +142,27 @@ func _get_blend_position_paths_from(animation_tree: AnimationTree) -> Array:
 			blend_positions.append(property.name)
 	
 	return blend_positions
+
+
+func _categorize_blend_positions(node: AnimationNode, path: String) -> void:
+	if node == null:
+		return
+	
+	for prop in node.get_property_list():
+		if prop.hint_string == "AnimationNode":
+			var child = node.get(prop.name)
+			if child == null:
+				continue
+			var parameter_name = _get_actual_parameter_name(prop.name)
+			var child_path = path.path_join(parameter_name)
+			if child is AnimationNodeBlendSpace1D:
+				_blend_positions_1d.append(child_path.path_join("blend_position"))
+				_categorize_blend_positions(child, child_path)
+			elif child is AnimationNodeBlendSpace2D:
+				_blend_positions_2d.append(child_path.path_join("blend_position"))
+				_categorize_blend_positions(child, child_path)
+			else:
+				_categorize_blend_positions(child, child_path)
 
 
 func _find_all_animation_nodes_from(
