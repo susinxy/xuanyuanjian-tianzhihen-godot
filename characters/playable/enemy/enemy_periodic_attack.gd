@@ -34,7 +34,7 @@ func _ready() -> void:
 	if _skin == null:
 		return
 	
-	_skin.skin_direction = facing_direction
+	_skin.skin_direction = Vector2.RIGHT if facing_direction > 0 else Vector2.LEFT
 	_skin.skin_animation_finished.connect(_on_skin_animation_finished)
 	_skin.transition_to(&"idle")
 	_timer = rest_duration

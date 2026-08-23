@@ -1,9 +1,9 @@
 # 多方向动画系统设计
 
-> **版本**: 0.5.0
+> **版本**: 0.5.1
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
-> **状态**: 设计完成，验证完成，待实施
+> **状态**: Phase A 代码完成，待验证
 > **关联文档**: HEIGHT_LAYER_DESIGN.md, SPELL_SYSTEM_DESIGN.md, PLUGIN_ARCHITECTURE.md
 > **变更记录**:
 > - v0.1.0 — 初稿（统一 8 方向方案）
@@ -15,6 +15,7 @@
 > - v0.4.2 — 4 项设计决策确认：删除死代码常量、明确 resource_name/flip_h/SpriteFrames 命名规则
 > - v0.4.3 — §8.2 角色创建工具确认无需改动（通用复制器）、§8.3 镜像动画工具确认无需改动（命名逻辑兼容 8 方向）
 > - v0.5.0 — 附录 D 验证完成：§3.2 从零改动改为需修改 _update_blend_directions()（BlendSpace1D 运行时不接受 Vector2 赋值，必须分离 1D/2D 路径）；BlendSpace2D .tres 格式确认（name 字段会被写入，triangles/auto_triangles 默认省略）
+> - v0.5.1 — §2.5 修正：GDScript 静态类型检查拒绝 int→Vector2 赋值（setter 运行时兼容无效），enemy_hurt_handler.gd 和 enemy_periodic_attack.gd 需在赋值点显式转换；改动文件数 7→10
 
 ---
 
@@ -139,14 +140,16 @@
 | `spell_manager.gd` | 59 | `skin.skin_direction == -1` | `Vector2 == -1` 永远 false | `skin.skin_direction.x < 0` |
 | `quiver_action_walk.gd` | 98 | `facing_direction != _skin.skin_direction` | `int != Vector2` 永远 true | 整段移除（见 §4.1） |
 
-**敌人代码赋值**（setter 兼容可处理，无需改动）：
+**敌人代码赋值**（编译时类型检查拒绝，需要显式转换）：
 
-| 文件 | 行 | 代码 | 处理 |
-|------|-----|------|------|
-| `enemy_hurt_handler.gd` | 11, 43 | `@export var facing_direction: int = -1` → `_skin.skin_direction = facing_direction` | setter 自动转换 int → Vector2.LEFT/RIGHT |
-| `enemy_periodic_attack.gd` | 14, 37 | `@export var facing_direction: int = 1` → `_skin.skin_direction = facing_direction` | 同上 |
+| 文件 | 行 | 当前代码 | 问题 | 修复代码 |
+|------|-----|---------|------|---------|
+| `enemy_hurt_handler.gd` | 43 | `_skin.skin_direction = facing_direction` | `int` 赋值给 `Vector2` 属性，编译报错 | `_skin.skin_direction = Vector2.RIGHT if facing_direction > 0 else Vector2.LEFT` |
+| `enemy_periodic_attack.gd` | 37 | `_skin.skin_direction = facing_direction` | 同上 | `_skin.skin_direction = Vector2.RIGHT if facing_direction > 0 else Vector2.LEFT` |
 
-**决策**：敌人的 `facing_direction` 保留 `@export int` 类型，只需左右方向。setter 的兼容转换自动处理 int → Vector2 转换，无需修改这些文件。
+**原因**：GDScript 静态类型检查器在编译时拒绝 `int → Vector2` 的赋值。setter 的运行时兼容转换（`var raw = value`）永远不会被调用，因为赋值在编译阶段就被拒绝了。
+
+**决策**：敌人的 `facing_direction` 保留 `@export int` 类型（Inspector 中方便设置），在赋值点显式转换为 `Vector2`。
 
 ---
 
@@ -853,11 +856,15 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 |------|---------|---------|
 | `quiver_character_skin.gd` | 修改（~10 行） | 所有角色 |
 | `quiver_character_skin_anim_tree.gd` | 修改（~30 行） | 分离 1D/2D blend_position 路径分类与赋值 |
-| `quiver_action_walk.gd` | 修改（~20 行） | Walk 状态行为 |
+| `quiver_action_walk.gd` | 重写（~100 行） | Walk 状态行为，移除 turn 动画 |
 | `quiver_action_attack.gd` | 修改（~5 行） | 攻击方向量化锁定 |
-| `quiver_action_mid_air.gd` | 无改动 | jump 保持 2 方向，向后兼容 |
-| `quiver_action_follow.gd` | 修改（~5 行） | AI 跟随方向 |
+| `quiver_action_mid_air.gd` | 修改（~3 行） | 空中朝向比较修复 |
+| `quiver_action_follow.gd` | 重写（~50 行） | AI 跟随方向，移除 turn 动画 |
 | `quiver_action_idle_ai.gd` | 修改（~3 行） | AI 闲置朝向 |
+| `quiver_action_grab_idle.gd` | 修改（~1 行） | Grab 释放方向比较修复 |
+| `spell_manager.gd` | 修改（~1 行） | 法术方向比较修复 |
+| `enemy_hurt_handler.gd` | 修改（~1 行） | 敌人朝向显式转换 |
+| `enemy_periodic_attack.gd` | 修改（~1 行） | 敌人朝向显式转换 |
 | `animation_tree_root.tres` | 修改 5 个节点 | 每个角色各一份 |
 | `*_skin.tscn` | 修改 5 个默认值 | 每个角色各一份 |
 | 动画 `.tres` × 18 新增 | 新增 | 每个角色各一套 |
@@ -877,19 +884,23 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `quiver_action_mid_air.gd` | 130-133 | 空中朝向 | `sign(vel.x)` → int | 不变（setter 自动兼容） | **否** |
 | `quiver_action_grab_idle.gd` | 71 | Grab 释放方向比较 | `skin_direction == 1` | `skin_direction.x > 0` | **是**（比较修复） |
 | `quiver_action_attack.gd` | 77-89 | 攻击 enter() | 不操作方向 | 新增 4 方向量化 | **是**（新增代码） |
-| `enemy_hurt_handler.gd` | 11, 43 | 敌人 facing | `@export int` → 赋值 | setter 兼容转换 | **否** |
-| `enemy_periodic_attack.gd` | 14, 37 | 敌人 facing | `@export int` → 赋值 | setter 兼容转换 | **否** |
+| `enemy_hurt_handler.gd` | 11, 43 | 敌人 facing | `@export int` → 赋值 | 显式转换为 Vector2 | **是**（赋值修复） |
+| `enemy_periodic_attack.gd` | 14, 37 | 敌人 facing | `@export int` → 赋值 | 显式转换为 Vector2 | **是**（赋值修复） |
 | `spell_base.gd` | 61 | 法术施放 | SpellSkin（独立） | 不改 | **否** |
 | `spell_manager.gd` | 59 | 法术方向比较 | `skin_direction == -1` | `skin_direction.x < 0` | **是**（比较修复） |
 
-**需要改动的文件总计**：7 个
+**需要改动的文件总计**：10 个
 - `quiver_character_skin.gd`
+- `quiver_character_skin_anim_tree.gd`
 - `quiver_action_walk.gd`
 - `quiver_action_follow.gd`
 - `quiver_action_idle_ai.gd`
 - `quiver_action_grab_idle.gd`
 - `quiver_action_attack.gd`
+- `quiver_action_mid_air.gd`
 - `spell_manager.gd`
+- `enemy_hurt_handler.gd`
+- `enemy_periodic_attack.gd`
 
 ---
 

@@ -40,7 +40,7 @@ func _ready() -> void:
 	_skin.physical_height = 180.0
 	
 	# 设置朝向
-	_skin.skin_direction = facing_direction
+	_skin.skin_direction = Vector2.RIGHT if facing_direction > 0 else Vector2.LEFT
 	
 	# 连接信号
 	_skin.skin_animation_finished.connect(_on_animation_finished)
