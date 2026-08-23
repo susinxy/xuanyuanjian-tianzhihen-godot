@@ -1,6 +1,6 @@
 # 多方向动画系统设计
 
-> **版本**: 0.4.2
+> **版本**: 0.4.3
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
 > **状态**: 设计完成，待 Godot 前置验证（附录 D）
@@ -13,6 +13,7 @@
 > - v0.4.0 — 按"脚本变动"和"动画资源变动"重组文档结构，分为 Part A 和 Part B
 > - v0.4.1 — 修复 6 处数据矛盾：动画文件数 96→56、精灵方向 2+2→3+1、新增文件 16→18、library 条目 56→58、改动文件数 6→7、load_steps 补充
 > - v0.4.2 — 4 项设计决策确认：删除死代码常量、明确 resource_name/flip_h/SpriteFrames 命名规则
+> - v0.4.3 — §8.2 角色创建工具确认无需改动（通用复制器）、§8.3 镜像动画工具确认无需改动（命名逻辑兼容 8 方向）
 
 ---
 
@@ -684,21 +685,42 @@ jump_left.tres         jump_right.tres
 | `_template/resources/spriteframes___NAME__.tres` | 新增 23 个 SpriteFrames 动画 |
 | `_template/resources/anim_library___NAME__.tres` | 注册新动画（从 40 条目扩展到 58 条目，load_steps 从 41 改为 59） |
 
-### 8.2 角色创建工具 `character_creator.gd`
+### 8.2 角色创建工具 `character_creator.gd` — 无需改动
 
-角色创建器（Inspector 工具）复制模板文件并替换占位符。需要更新：
+**确认状态**：✅ 无需改动
 
-- 复制 8 方向动画文件（不只是 left/right）
-- 替换动画文件中的库前缀（`__CLASS__/` → `CharacterName/`）
-- 更新 `anim_library_*.tres` 中的条目数
+角色创建器（Inspector 工具）是通用的文件复制器，复制 `_template/` 目录并替换占位符（`__NAME__` → 角色名）。多方向后：
 
-[待细化：具体代码改动细节]
+- ✅ 动画文件复制：工具递归复制整个 `resources/animations/` 目录，自动包含新增的 18 个方向文件
+- ✅ 占位符替换：`__CLASS__` 替换在 `.tres` 文件内通用，不限于方向数
+- ✅ `anim_library_*.tres`：模板中已包含 58 个条目，复制后自动替换占位符
 
-### 8.3 镜像动画工具 `create_mirrored_animation_button.gd`
+**注意**：模板中的 `anim_library___NAME__.tres` 需要预先包含所有 58 个动画条目（包括新增的 18 个方向动画），创建工具会原样复制并替换占位符。
 
-需要确认：
-- 是否正确处理 8 方向的命名（`_right` → `_left`，`_up_right` → `_up_left`）
-- 是否正确处理 BlendSpace2D 的镜像点位置
+### 8.3 镜像动画工具 `create_mirrored_animation_button.gd` — 无需改动
+
+**确认状态**：✅ 无需改动
+
+工具的命名逻辑（`_get_mirrored_name` 函数，第 147-154 行）：
+
+```gdscript
+if anim_name.ends_with("left"):
+    new_name = anim_name.replace("left", "right")
+elif anim_name.ends_with("right"):
+    new_name = anim_name.replace("right", "left")
+```
+
+**8 方向的兼容性**：
+- ✅ `idle_up_right` 以 "right" 结尾 → `idle_up_left`
+- ✅ `idle_down_right` 以 "right" 结尾 → `idle_down_left`
+- ✅ `walk_up_right` 以 "right" 结尾 → `walk_up_left`
+
+**镜像内容**（无需改动）：
+- ✅ `flip_h` 轨迹：`false` → `true`
+- ✅ `position.x`：取反
+- ✅ `polygon.x`：取反
+
+**使用方式**：美术完成手绘方向后，在 Inspector 中选择动画，点击"生成镜像动画"按钮，工具自动生成镜像文件。
 
 ---
 
