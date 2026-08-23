@@ -86,6 +86,12 @@ func enter(msg: = {}) -> void:
 		_should_combo = false
 		_state_machine.set_process_unhandled_input(_can_combo)
 	
+	var dir := _skin.skin_direction
+	if abs(dir.x) >= abs(dir.y):
+		_skin.skin_direction = Vector2(sign(dir.x), 0)
+	else:
+		_skin.skin_direction = Vector2(0, sign(dir.y))
+	
 	_skin.transition_to(_skin_state)
 
 
