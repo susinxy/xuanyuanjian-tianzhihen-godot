@@ -184,7 +184,7 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
 
 ### 3.6 cast() 时序保护
 
-**问题**：`cast()` 依赖 `@onready` 变量（`_skin`、`_hitboxes`），必须在 `_ready()` 之后调用。如果 `add_child()` 和 `cast()` 在同一帧调用，`@onready` 可能还未就绪。
+**问题**：`cast()` 依赖 `@onready` 变量（`_skin`），必须在 `_ready()` 之后调用。如果 `add_child()` 和 `cast()` 在同一帧调用，`@onready` 可能还未就绪。
 
 **决策**：`cast()` 内部加 `if not is_inside_tree(): await ready` 保护。
 
@@ -494,10 +494,8 @@ var _cached_hitbox_height_bits: int = -1
 
 ## 节点引用
 @export_node_path("SpellSkin") var _path_skin := ^"Skin"
-@export_node_path("Node2D") var _path_hitboxes_container := ^"Attacks"
 
 @onready var _skin: SpellSkin = get_node_or_null(_path_skin)
-@onready var _hitboxes: Array[QuiverHitBox] = []
 
 ## 信号
 signal spell_cast
@@ -511,12 +509,7 @@ func _ready() -> void:
     if Engine.is_editor_hint():
         return
     
-    # 收集 HitBox 引用
-    var hitboxes_container := get_node_or_null(_path_hitboxes_container) as Node2D
-    if hitboxes_container:
-        for child in hitboxes_container.get_children():
-            if child is QuiverHitBox:
-                _hitboxes.append(child)
+    # HitBox 引用通过 _skin.hitboxes 访问（SpellSkin 在 _runtime_ready 中收集）
     
     # 连接 SpellSkin 信号
     if _skin:
@@ -549,16 +542,14 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
     if caster.get("attributes") != null:
         caster_attributes = caster.attributes
     
-    # 继承施放者 faction group
+    # 继承施放者所有 group（QuiverHurtBox.are_factions_equal() 只检查 area2d: 前缀）
     for group in caster.get_groups():
-        if group.begins_with("area2d:"):
-            add_to_group(group)
+        add_to_group(group)
     
     # 传播 faction 到所有 HitBox
-    for hitbox in _hitboxes:
+    for hitbox in _skin.hitboxes:
         for group in caster.get_groups():
-            if group.begins_with("area2d:"):
-                hitbox.add_to_group(group)
+            hitbox.add_to_group(group)
         hitbox.character_attributes = caster_attributes
         # attack_data 已在 HitBox 节点的 .tscn 中配置，无需额外传递
     
@@ -648,7 +639,7 @@ func _update_hitbox_layers() -> void:
     # 只在 bitmask 变化时更新（缓存优化，与 QuiverCharacter._update_hitbox_layers 一致）
     if target_bits != _cached_hitbox_height_bits:
         _cached_hitbox_height_bits = target_bits
-        for hitbox in _hitboxes:
+        for hitbox in _skin.hitboxes:
             # 保留非高度层 bit，只修改高度层 bit
             hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | target_bits
             hitbox.collision_mask = all_mask
@@ -704,13 +695,13 @@ func _on_skin_animation_finished() -> void:
     pass
 
 func _on_skin_hitbox_activated() -> void:
-    for hitbox in _hitboxes:
+    for hitbox in _skin.hitboxes:
         for child in hitbox.get_children():
             if child is CollisionShape2D or child is CollisionPolygon2D:
                 child.disabled = false
 
 func _on_skin_hitbox_deactivated() -> void:
-    for hitbox in _hitboxes:
+    for hitbox in _skin.hitboxes:
         for child in hitbox.get_children():
             if child is CollisionShape2D or child is CollisionPolygon2D:
                 child.disabled = true
@@ -757,8 +748,7 @@ var base_height: float:
 ## 攻击高度层数据（由动画 track 写入）
 @export var attack_heights: Array = []
 
-## HitBox 引用
-@export_node_path("Node2D") var _path_hitboxes_container := ^"Attacks"
+## HitBox 引用（由 SpellSkin 在 _runtime_ready 中收集）
 var hitboxes: Array[QuiverHitBox] = []
 
 ## 动画列表
@@ -783,7 +773,7 @@ func _ready() -> void:
 func _runtime_ready() -> void:
     _skin_direction_updated()
     
-    var hitboxes_container := get_node_or_null(_path_hitboxes_container) as Node2D
+    var hitboxes_container := get_node_or_null("Attacks") as Node2D
     if hitboxes_container:
         for child in hitboxes_container.get_children():
             if child is QuiverHitBox:
@@ -861,7 +851,7 @@ class_name SpellSkinAnimTree
 extends SpellSkin
 
 @export_node_path("AnimationTree") var _path_animation_tree := ^"AnimationTree"
-@export var _path_playback := "parameters/StateMachine/playback"
+@export var _path_playback := "parameters/state_machine/playback"
 
 var _blend_positions := []
 
@@ -988,13 +978,28 @@ var _spell_manager: SpellManager
 
 func _ready() -> void:
     super()
+    if Engine.is_editor_hint():
+        QuiverEditorHelper.disable_all_processing(self)
+        return
+    
+    if attributes != null:
+        attributes.reset()
+    
     _spell_manager = SpellManager.new(self)
+    Events.player_died.connect(_on_player_died)
+    
+    if QuiverEditorHelper.is_standalone_run(self):
+        QuiverEditorHelper.add_debug_camera2D_to(self, Vector2(0,-0.8))
 
 func _physics_process(delta: float) -> void:
-    super()
+    super(delta)
+    if Engine.is_editor_hint():
+        return
     _spell_manager.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
+    if Engine.is_editor_hint():
+        return
     if event.is_action_pressed("spell_1"):
         _spell_manager.cast_spell_by_index(0)
     elif event.is_action_pressed("spell_2"):
@@ -1004,9 +1009,10 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event.is_action_pressed("spell_4"):
         _spell_manager.cast_spell_by_index(3)
 
-## 施放者死亡时解散所有召唤物
-func _die() -> void:
-    _spell_manager.dismiss_all_summons()
+## 角色死亡时解散所有召唤物（监听 Events.player_died 信号）
+func _on_player_died() -> void:
+    if _state_machine and _state_machine.state_name == &"Die":
+        _spell_manager.dismiss_all_summons()
 
 ## 外部接口：学习法术
 func learn_spell(spell_def: SpellDefinition) -> bool:
@@ -1020,6 +1026,8 @@ func forget_spell(index: int) -> void:
 func get_spell_manager() -> SpellManager:
     return _spell_manager
 ```
+
+**死亡信号说明**：Quiver 中角色死亡通过 `Events.player_died` 全局信号通知（由 `QuiverActionDie` 在死亡动画播放完成后触发）。角色脚本监听此信号并在自身处于 `Die` 状态时解散召唤物。不使用 `_die()` 方法（QuiverCharacter 基类无此虚函数）。
 
 ### 5.2 完整施放链路
 
@@ -1221,9 +1229,9 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
         CombatSystem.apply_knockback(knockback, character_attributes)
         
         # 新增：通过 owner 通知法术命中
-        var spell = hit_box.owner
-        if spell and spell is SpellBase and spell.has_method("on_hit"):
-            spell.on_hit(self)
+        var owner = hit_box.owner
+        if owner and owner.has_method("on_hit"):
+            owner.on_hit(self)
 ```
 
 **为什么使用 `hit_box.owner`**：
@@ -1231,6 +1239,7 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 - 法术 .tscn 的根节点就是 SpellBase，所以 `hit_box.owner` = SpellBase 实例
 - 不需要修改 QuiverHitBox（不添加任何属性）
 - 不需要信号机制（直接方法调用）
+- 使用 duck typing（`has_method("on_hit")`）而非类型检查（`owner is SpellBase`），解耦 QuiverHurtBox 与法术类层次
 - 非 SpellBase 的 HitBox（如角色攻击）没有 `on_hit` 方法，自动跳过
 
 **完整命中流程**：
@@ -1465,7 +1474,6 @@ _path_skin = NodePath("__CLASS__Skin")
 - 无 Collision 子节点（法术本身不需要物理碰撞体）
 - 只有 2 个 ext_resource（极简）
 - 不设置 `_attributes`（SpellBase 通过 cast() 接收施放者属性）
-- 不设置 `_path_hitboxes_container`（HitBox 通过 `_skin.hitboxes` 访问，遵循角色系统模式）
 
 ### 9.5 法术 skin 场景 __NAME___skin.tscn（精确格式）
 
@@ -1880,10 +1888,10 @@ addons/quiver.beat_em_up/custom_inspectors/create_new_spell/
 
 ```
 addons/quiver.beat_em_up/custom_inspectors/spell_contour/
-├── inspector_plugin.gd
-├── spell_contour_widget.gd
-└── spell_contour_widget.tscn
+└── inspector_plugin.gd
 ```
+
+**实现说明**：直接复用现有的 `HeightLayersWidget`，调用 `hide_body_button()` 隐藏 body 转换按钮（法术无 body 碰撞）。无需创建独立的 widget 文件，避免代码重复。`inspector_plugin.gd` 在 `_parse_begin()` 中实例化 `HeightLayersWidget` 并连接信号。
 
 ---
 
