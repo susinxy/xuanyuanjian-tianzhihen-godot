@@ -51,7 +51,8 @@ signal grab_frame_reached(ref_position: Marker2D)
 
 @export var skin_direction: Vector2 = Vector2.RIGHT:
 	set(value):
-		if value is int or value is float:
+		var val_type = typeof(value)
+		if val_type == TYPE_INT or val_type == TYPE_FLOAT:
 			value = Vector2.LEFT if value < 0 else Vector2.RIGHT
 		var has_changed := not value.is_equal_approx(skin_direction)
 		skin_direction = value
