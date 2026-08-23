@@ -29,9 +29,9 @@ func _ready() -> void:
 	
 	if attributes != null:
 		attributes.reset()
-		attributes.health_depleted.connect(_on_health_depleted)
 	
 	_spell_manager = SpellManager.new(self)
+	Events.player_died.connect(_on_player_died)
 	
 	if QuiverEditorHelper.is_standalone_run(self):
 		QuiverEditorHelper.add_debug_camera2D_to(self, Vector2(0,-0.8))
@@ -73,7 +73,8 @@ func get_spell_manager() -> SpellManager:
 
 ### Private Methods -------------------------------------------------------------------------------
 
-func _on_health_depleted() -> void:
-	_spell_manager.dismiss_all_summons()
+func _on_player_died() -> void:
+	if _state_machine and _state_machine.state_name == &"Die":
+		_spell_manager.dismiss_all_summons()
 
 ### -----------------------------------------------------------------------------------------------
