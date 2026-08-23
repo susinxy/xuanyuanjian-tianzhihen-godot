@@ -958,3 +958,272 @@ blend_point_1/name = &"1"
 - §5.1：BlendSpace2D 精确 `.tres` 格式已确认
 - §5.4：`.tscn` 中 Vector2 格式已确认
 - 附录 B：`quiver_character_skin_anim_tree.gd` 从"无改动"改为"修改 ~30 行"
+
+---
+
+## 附录 E：PNG 资源清单
+
+### 目录结构
+
+所有 PNG 文件放在 `characters/playable/{角色名}/resources/sprites/` 下，按动画类型分子目录：
+
+```
+sprites/
+├── idle/          ← idle 动画
+├── walk/          ← walk 动画
+├── punches/       ← attack1/2/3 动画
+├── air_attack/    ← 空中攻击
+├── jump/          ← 跳跃相关（rising, falling, landing）
+├── hurt/          ← 受击
+├── knock_out/     ← 击飞/倒地
+└── turn_around/   ← 转身（已移除，保留备用）
+```
+
+### 图例
+
+| 标记 | 含义 |
+|------|------|
+| ✅ 已有 | PNG 文件已存在 |
+| 🔄 镜像 | 由镜像工具自动生成，无需手绘 |
+| ⚠️ 需制作 | 需要手绘新的 PNG |
+
+### 8 方向动画
+
+#### 1. IDLE — 8 方向 × 4 帧（BlendSpace2D）
+
+**目录**: `sprites/idle/`  
+**SpriteFrames 动画名**: `idle`, `idle_up`, `idle_up_right`, `idle_up_left`, `idle_down`, `idle_down_right`, `idle_down_left`  
+**Loop**: 是 | **FPS**: 8
+
+| 方向 | 帧0 | 帧1 | 帧2 | 帧3 | 状态 |
+|------|-----|-----|-----|-----|------|
+| **right** | `idle_00.png` | `idle_01.png` | `idle_02.png` | `idle_03.png` | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 镜像 right | 镜像 right | 🔄 镜像 |
+| **up** | `idle_up_00.png` | `idle_up_01.png` | `idle_up_02.png` | `idle_up_03.png` | ⚠️ 需制作 |
+| **up_right** | `idle_up_right_00.png` | `idle_up_right_01.png` | `idle_up_right_02.png` | `idle_up_right_03.png` | ⚠️ 需制作 |
+| **up_left** | 镜像 up_right | 镜像 up_right | 镜像 up_right | 镜像 up_right | 🔄 镜像 |
+| **down** | `idle_down_00.png` | `idle_down_01.png` | `idle_down_02.png` | `idle_down_03.png` | ⚠️ 需制作 |
+| **down_right** | `idle_down_right_00.png` | `idle_down_right_01.png` | `idle_down_right_02.png` | `idle_down_right_03.png` | ⚠️ 需制作 |
+| **down_left** | 镜像 down_right | 镜像 down_right | 镜像 down_right | 镜像 down_right | 🔄 镜像 |
+
+**需制作**: 16 张 PNG | **镜像生成**: 12 张
+
+#### 2. WALK — 8 方向 × 30 帧（BlendSpace2D）
+
+**目录**: `sprites/walk/`  
+**SpriteFrames 动画名**: `walk`, `walk_up`, `walk_up_right`, `walk_up_left`, `walk_down`, `walk_down_right`, `walk_down_left`  
+**Loop**: 是 | **FPS**: 24
+
+| 方向 | 基础帧（12张） | 动画帧数 | 状态 |
+|------|---------------|---------|------|
+| **right** | `walk_00.png` ~ `walk_11.png` | 30帧（重复使用12张） | ✅ 已有 |
+| **left** | 镜像 right | 30帧 | 🔄 镜像 |
+| **up** | `walk_up_00.png` ~ `walk_up_11.png` | 30帧（需12张基础帧） | ⚠️ 需制作 |
+| **up_right** | `walk_up_right_00.png` ~ `walk_up_right_11.png` | 30帧（需12张基础帧） | ⚠️ 需制作 |
+| **up_left** | 镜像 up_right | 30帧 | 🔄 镜像 |
+| **down** | `walk_down_00.png` ~ `walk_down_11.png` | 30帧（需12张基础帧） | ⚠️ 需制作 |
+| **down_right** | `walk_down_right_00.png` ~ `walk_down_right_11.png` | 30帧（需12张基础帧） | ⚠️ 需制作 |
+| **down_left** | 镜像 down_right | 30帧 | 🔄 镜像 |
+
+**需制作**: 48 张 PNG（4方向 × 12基础帧）| **镜像生成**: 36 张
+
+#### 3. ATTACK1 — 4 方向 × 6 帧（BlendSpace2D）
+
+**目录**: `sprites/punches/`  
+**SpriteFrames 动画名**: `attack_1`, `attack_1_up`, `attack_1_down`  
+**Loop**: 否 | **FPS**: 24
+
+| 方向 | 帧0~3 | 帧4~5 | 状态 |
+|------|-------|-------|------|
+| **right** | `punch1_00.png` (×4) | `punch1_01.png` (×2) | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 🔄 镜像 |
+| **up** | `punch1_up_00.png` (×4) | `punch1_up_01.png` (×2) | ⚠️ 需制作 |
+| **down** | `punch1_down_00.png` (×4) | `punch1_down_01.png` (×2) | ⚠️ 需制作 |
+
+**需制作**: 4 张 PNG | **镜像生成**: 2 张
+
+#### 4. ATTACK2 — 4 方向 × 11 帧（BlendSpace2D）
+
+**目录**: `sprites/punches/`  
+**SpriteFrames 动画名**: `attack_2`, `attack_2_up`, `attack_2_down`  
+**Loop**: 是 | **FPS**: 24
+
+| 方向 | 帧0~2 | 帧3~7 | 帧8~10 | 状态 |
+|------|-------|-------|--------|------|
+| **right** | `punch2_00.png` (×3) | `punch2_01.png` (×5) | `punch1_01.png` (×3) | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 镜像 right | 🔄 镜像 |
+| **up** | `punch2_up_00.png` (×3) | `punch2_up_01.png` (×5) | `punch1_up_01.png` (×3) | ⚠️ 需制作 |
+| **down** | `punch2_down_00.png` (×3) | `punch2_down_01.png` (×5) | `punch1_down_01.png` (×3) | ⚠️ 需制作 |
+
+**需制作**: 4 张 PNG | **镜像生成**: 2 张
+
+#### 5. ATTACK3 — 4 方向 × 17 帧（BlendSpace2D）
+
+**目录**: `sprites/punches/`  
+**SpriteFrames 动画名**: `attack_3`, `attack_3_up`, `attack_3_down`  
+**Loop**: 是 | **FPS**: 24
+
+| 方向 | 帧0~4 | 帧5~7 | 帧8~9 | 帧10~13 | 帧14~16 | 状态 |
+|------|-------|-------|-------|---------|---------|------|
+| **right** | `punch3_00.png` (×5) | `punch3_01.png` (×3) | `punch3_02.png` (×2) | `punch3_04.png` (×4) | `punch1_01.png` (×3) | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 镜像 right | 镜像 right | 镜像 right | 🔄 镜像 |
+| **up** | `punch3_up_00.png` (×5) | `punch3_up_01.png` (×3) | `punch3_up_02.png` (×2) | `punch3_up_04.png` (×4) | `punch1_up_01.png` (×3) | ⚠️ 需制作 |
+| **down** | `punch3_down_00.png` (×5) | `punch3_down_01.png` (×3) | `punch3_down_02.png` (×2) | `punch3_down_04.png` (×4) | `punch1_down_01.png` (×3) | ⚠️ 需制作 |
+
+**需制作**: 8 张 PNG | **镜像生成**: 4 张
+
+### 2 方向动画（无需新 PNG）
+
+#### 6. AIR_ATTACK — 2 方向 × 4 帧
+
+**目录**: `sprites/air_attack/`  
+**Loop**: 否 | **FPS**: 24
+
+| 方向 | 帧0~2 | 帧3 | 状态 |
+|------|-------|-----|------|
+| **right** | `air_attack_00.png` (×3) | `air_attack_01.png` | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 🔄 镜像 |
+
+#### 7. JUMP — 2 方向 × 7 帧
+
+**目录**: `sprites/jump/`  
+**Loop**: 否 | **FPS**: 24
+
+| 方向 | 帧0~1 | 帧2~6 | 状态 |
+|------|-------|-------|------|
+| **right** | `jump_01.png` (×2) | `jump_02.png` (×5) | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 🔄 镜像 |
+
+#### 8. RISING — 2 方向 × 1 帧
+
+**目录**: `sprites/jump/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `jump_03.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 9. FALLING — 2 方向 × 1 帧
+
+**目录**: `sprites/jump/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `jump_04.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 10. LANDING — 2 方向 × 5 帧
+
+**目录**: `sprites/jump/`  
+**Loop**: 是 | **FPS**: 24
+
+| 方向 | 帧0~2 | 帧3~4 | 状态 |
+|------|-------|-------|------|
+| **right** | `jump_02.png` (×3) | `jump_01.png` (×2) | ✅ 已有 |
+| **left** | 镜像 right | 镜像 right | 🔄 镜像 |
+
+#### 11. HURT_HIGH — 2 方向 × 1 帧
+
+**目录**: `sprites/hurt/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `hurt_high.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 12. HURT_MID — 2 方向 × 1 帧
+
+**目录**: `sprites/hurt/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `hurt_mid.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 13. KNOCKOUT_LAUNCH — 2 方向 × 1 帧
+
+**目录**: `sprites/knock_out/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `knockout_00.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 14. KNOCKOUT_RISING — 2 方向 × 1 帧
+
+**目录**: `sprites/knock_out/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `knockout_01.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 15. KNOCKOUT_FALLING — 2 方向 × 1 帧
+
+**目录**: `sprites/knock_out/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `knockout_02.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+#### 16. KNOCKOUT_BOUNCE — 2 方向 × 2 帧
+
+**目录**: `sprites/knock_out/`
+
+| 方向 | 帧0 | 帧1 | 状态 |
+|------|-----|-----|------|
+| **right** | `knockout_03.png` | `knockout_04.png` | ✅ 已有 |
+| **left** | 镜像 | 镜像 | 🔄 镜像 |
+
+#### 17. KNOCKOUT_LANDED — 2 方向 × 1 帧
+
+**目录**: `sprites/knock_out/`
+
+| 方向 | PNG | 状态 |
+|------|-----|------|
+| **right** | `knockout_05.png` | ✅ 已有 |
+| **left** | 镜像 | 🔄 镜像 |
+
+### 统计数据
+
+#### 需制作 PNG 汇总
+
+| 动画 | 需手绘的方向 | 基础帧数/方向 | 需制作 PNG 数 |
+|------|-------------|-------------|--------------|
+| idle | up, up_right, down, down_right | 4 | **16 张** |
+| walk | up, up_right, down, down_right | 12 | **48 张** |
+| attack1 | up, down | 2 | **4 张** |
+| attack2 | up, down | 2 | **4 张** |
+| attack3 | up, down | 4 | **8 张** |
+| **合计** | | | **80 张** |
+
+#### 镜像生成汇总
+
+| 来源方向 | 生成方向 | 数量 |
+|---------|---------|------|
+| right → left | idle, walk, attack1, attack2, attack3, 及所有 2 方向动画 | 每个动画 1 个 |
+| up_right → up_left | idle, walk | 2 个 |
+| down_right → down_left | idle, walk | 2 个 |
+
+#### 已有 PNG（无需变动）
+
+| 目录 | 文件数 | 文件列表 |
+|------|--------|---------|
+| `sprites/idle/` | 4 | `idle_00.png` ~ `idle_03.png` |
+| `sprites/walk/` | 12 | `walk_00.png` ~ `walk_11.png` |
+| `sprites/punches/` | 8 | `punch1_00~01`, `punch2_00~01`, `punch3_00~02,04` |
+| `sprites/air_attack/` | 2 | `air_attack_00~01.png` |
+| `sprites/jump/` | 4 | `jump_01~04.png` |
+| `sprites/hurt/` | 2 | `hurt_high.png`, `hurt_mid.png` |
+| `sprites/knock_out/` | 6 | `knockout_00~05.png` |
+| `sprites/turn_around/` | 3 | `turnaround_00~02.png`（已移除，保留备用） |
+| **合计** | **41 张** | |
+
+### 工作优先级
+
+| 优先级 | 内容 | PNG 数 | 说明 |
+|--------|------|--------|------|
+| 🔴 P0 | idle 4 方向 | 16 张 | 最基础，角色站立必须 |
+| 🟡 P1 | walk 4 方向 | 48 张 | 移动必须 |
+| 🟢 P2 | attack1/2/3 上下方向 | 16 张 | 4 方向攻击 |
