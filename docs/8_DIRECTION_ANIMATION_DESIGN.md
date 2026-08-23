@@ -1,6 +1,6 @@
 # 多方向动画系统设计
 
-> **版本**: 0.4.0
+> **版本**: 0.4.1
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
 > **状态**: 设计完成，待 Godot 前置验证（附录 D）
@@ -11,6 +11,7 @@
 > - v0.3.0 — 实现级细化：新增 §2.5 外部代码断点修复、§4.1 Walk 完整目标代码、§4.5 Attack 完整 enter() 代码、附录 C 扩展、附录 D 前置验证清单
 > - v0.3.1 — §4.5 攻击量化改为水平优先（`>=`），斜角方向量化为左右
 > - v0.4.0 — 按"脚本变动"和"动画资源变动"重组文档结构，分为 Part A 和 Part B
+> - v0.4.1 — 修复 6 处数据矛盾：动画文件数 96→56、精灵方向 2+2→3+1、新增文件 16→18、library 条目 56→58、改动文件数 6→7、load_steps 补充
 
 ---
 
@@ -49,9 +50,9 @@
 | 方向类型 | `Vector2`（归一化方向向量） |
 | 混合节点 | idle/walk → BlendSpace2D（8 点），attack → BlendSpace2D（4 点），其余 → BlendSpace1D（不变） |
 | blend_position | `Vector2`（如 `Vector2(1, 0)` 表示 right） |
-| 动画文件数 | idle/walk ×8 + attack ×4 + 其余 ×2 = 96 个 `.tres`（移除 turn） |
+| 动画文件数 | idle/walk ×8 + attack ×4 + 其余 ×2 = 56 个 `.tres`（移除 turn） |
 | 方向判定 | idle/walk/attack 用 `direction.normalized()`；其余保持 `sign(direction.x)` |
-| 精灵方向 | idle/walk: 5 方向手绘 + 3 方向镜像；attack: 2 方向手绘 + 2 方向镜像 |
+| 精灵方向 | idle/walk: 5 方向手绘 + 3 方向镜像；attack: 3 方向手绘 + 1 方向镜像 |
 | turn 过渡 | 移除（BlendSpace2D 方向间过渡天然平滑） |
 
 ---
@@ -669,10 +670,10 @@ jump_left.tres         jump_right.tres
 |------|------|
 | `_template/__NAME___skin.tscn` | 5 个 BlendSpace2D 状态的 `blend_position = 1.0` → `Vector2(1, 0)` |
 | `_template/resources/animations/animation_tree_root.tres` | 5 个节点从 BlendSpace1D → BlendSpace2D（idle, walk, attack1, attack2, attack3） |
-| `_template/resources/animations/` | 新增 16 个方向文件（idle/walk 各 +6，attack1/2/3 各 +2） |
+| `_template/resources/animations/` | 新增 18 个方向文件（idle/walk 各 +6，attack1/2/3 各 +2） |
 | `_template/resources/sprites/` | 新增精灵目录（idle/walk: up_right, up, down_right；attack: up, down） |
 | `_template/resources/spriteframes___NAME__.tres` | 新增 23 个 SpriteFrames 动画 |
-| `_template/resources/anim_library___NAME__.tres` | 注册新动画（从 40 条目扩展到 56 条目） |
+| `_template/resources/anim_library___NAME__.tres` | 注册新动画（从 40 条目扩展到 58 条目，load_steps 从 41 改为 59） |
 
 ### 8.2 角色创建工具 `character_creator.gd`
 
@@ -699,9 +700,9 @@ jump_left.tres         jump_right.tres
 **chen_jingchou**：
 1. `animation_tree_root.tres`：5 个 BlendSpace1D → BlendSpace2D（idle, walk, attack1, attack2, attack3）
 2. `chen_jingchou_skin.tscn`：5 个 `blend_position = 1.0` → `Vector2(1, 0)`
-3. 新增 16 个方向动画文件（idle/walk 各 +6，attack1/2/3 各 +2）
-4. 新增精灵资产（idle/walk: 3 方向手绘 + 3 方向镜像；attack: 2 方向手绘 + 1 方向镜像）
-5. 更新 `anim_library_chen_jingchou.tres`：注册新动画（40 → 56 条目）
+3. 新增 18 个方向动画文件（idle/walk 各 +6，attack1/2/3 各 +2）
+4. 新增精灵资产（idle/walk: 3 方向手绘 + 3 方向镜像；attack: 3 方向手绘 + 1 方向镜像）
+5. 更新 `anim_library_chen_jingchou.tres`：注册新动画（40 → 58 条目，load_steps 从 41 改为 59）
 6. 更新 `spriteframes_chen_jingchou.tres`：新增 SpriteFrames 动画（18 → 41）
 
 **chenjianchou_new**：同上步骤。
@@ -765,9 +766,9 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `quiver_action_idle_ai.gd` | 修改（~3 行） | AI 闲置朝向 |
 | `animation_tree_root.tres` | 修改 5 个节点 | 每个角色各一份 |
 | `*_skin.tscn` | 修改 5 个默认值 | 每个角色各一份 |
-| 动画 `.tres` × 16 新增 | 新增 | 每个角色各一套 |
+| 动画 `.tres` × 18 新增 | 新增 | 每个角色各一套 |
 | `spriteframes_*.tres` | 扩展（+23 动画） | 每个角色各一份 |
-| `anim_library_*.tres` | 扩展（+16 条目） | 每个角色各一份 |
+| `anim_library_*.tres` | 扩展（+18 条目） | 每个角色各一份 |
 
 ## 附录 C：当前所有设置/读取 `skin_direction` 的代码位置
 
@@ -787,7 +788,7 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `spell_base.gd` | 61 | 法术施放 | SpellSkin（独立） | 不改 | **否** |
 | `spell_manager.gd` | 59 | 法术方向比较 | `skin_direction == -1` | `skin_direction.x < 0` | **是**（比较修复） |
 
-**需要改动的文件总计**：6 个
+**需要改动的文件总计**：7 个
 - `quiver_character_skin.gd`
 - `quiver_action_walk.gd`
 - `quiver_action_follow.gd`
