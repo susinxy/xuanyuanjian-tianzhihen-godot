@@ -1,9 +1,9 @@
 # 多方向动画系统设计
 
-> **版本**: 0.4.3
+> **版本**: 0.5.0
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
-> **状态**: 设计完成，待 Godot 前置验证（附录 D）
+> **状态**: 设计完成，验证完成，待实施
 > **关联文档**: HEIGHT_LAYER_DESIGN.md, SPELL_SYSTEM_DESIGN.md, PLUGIN_ARCHITECTURE.md
 > **变更记录**:
 > - v0.1.0 — 初稿（统一 8 方向方案）
@@ -14,6 +14,7 @@
 > - v0.4.1 — 修复 6 处数据矛盾：动画文件数 96→56、精灵方向 2+2→3+1、新增文件 16→18、library 条目 56→58、改动文件数 6→7、load_steps 补充
 > - v0.4.2 — 4 项设计决策确认：删除死代码常量、明确 resource_name/flip_h/SpriteFrames 命名规则
 > - v0.4.3 — §8.2 角色创建工具确认无需改动（通用复制器）、§8.3 镜像动画工具确认无需改动（命名逻辑兼容 8 方向）
+> - v0.5.0 — 附录 D 验证完成：§3.2 从零改动改为需修改 _update_blend_directions()（BlendSpace1D 运行时不接受 Vector2 赋值，必须分离 1D/2D 路径）；BlendSpace2D .tres 格式确认（name 字段会被写入，triangles/auto_triangles 默认省略）
 
 ---
 
@@ -191,22 +192,67 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 3. setter 增加 int/float 兼容转换
 4. 变更检测用 `is_equal_approx()` 替代 `!=`（Vector2 浮点比较）
 
-### 3.2 `quiver_character_skin_anim_tree.gd` — 零改动
+### 3.2 `quiver_character_skin_anim_tree.gd` — 需修改 `_update_blend_directions()`
 
 **位置**：`addons/quiver.beat_em_up/characters/quiver_character_skin_anim_tree.gd`
 
-**关键发现**：此文件**无需改动**。原因：
+**验证发现**：运行时赋值 Vector2 给 BlendSpace1D 的 `blend_position` 属性，值会变成 Vector2 而非 float，导致 BlendSpace1D 无法正确混合。**必须分离 1D 和 2D 路径**。
+
+**需要改动的部分**：
+
+1. **`_blend_positions`** → 分离为 `_blend_positions_1d` 和 `_blend_positions_2d`：
+   ```gdscript
+   var _blend_positions_1d := []
+   var _blend_positions_2d := []
+   ```
+
+2. **`_populate_animation_list()`**：需要区分 BlendSpace 类型：
+   ```gdscript
+   func _populate_animation_list() -> void:
+       _find_all_animation_nodes_from()
+       _blend_positions_1d.clear()
+       _blend_positions_2d.clear()
+       _categorize_blend_positions(_animation_tree.tree_root, "parameters")
+   ```
+
+3. **新增 `_categorize_blend_positions()`**：遍历 AnimationNode 树，根据节点类型分类：
+   ```gdscript
+   func _categorize_blend_positions(node: AnimationNode, path: String) -> void:
+       if node == null:
+           return
+       for prop in node.get_property_list():
+           if prop.hint_string == "AnimationNode":
+               var child = node.get(prop.name)
+               var child_path = path.path_join(prop.name)
+               if child is AnimationNodeBlendSpace1D:
+                   if child_path.ends_with("blend_position"):
+                       _blend_positions_1d.append(child_path + "/blend_position")
+                   _categorize_blend_positions(child, child_path)
+               elif child is AnimationNodeBlendSpace2D:
+                   if child_path.ends_with("blend_position"):
+                       _blend_positions_2d.append(child_path + "/blend_position")
+                   _categorize_blend_positions(child, child_path)
+               else:
+                   _categorize_blend_positions(child, child_path)
+   ```
+
+4. **`_update_blend_directions()`** — 分离赋值：
+   ```gdscript
+   func _update_blend_directions() -> void:
+       for path in _blend_positions_1d:
+           _animation_tree[path] = skin_direction.x
+       for path in _blend_positions_2d:
+           _animation_tree[path] = skin_direction
+   ```
+
+**不需要改动的部分**：
 
 1. **`_get_blend_position_paths_from()`**（第 132-139 行）：
-   - BlendSpace2D 在 AnimationTree 属性列表中也暴露 `blend_position` 属性（类型为 Vector2）
-   - 现有过滤条件 `property.name.ends_with("blend_position")` 对 BlendSpace1D 和 BlendSpace2D 均匹配
+   - BlendSpace2D 的 `blend_position` 属性仍以 `blend_position` 结尾
    - BlendSpace2D 的 `blend_position_x`/`blend_position_y` 子属性以 `_x`/`_y` 结尾，不会被误匹配
+   - 但此方法需要区分类型，改为 `_categorize_blend_positions()` 替代
 
-2. **`_update_blend_directions()`**（第 127-129 行）：
-   - `_animation_tree[path] = skin_direction` 对 BlendSpace1D 赋 float、对 BlendSpace2D 赋 Vector2
-   - Godot 的 AnimationTree 自动处理类型，代码无需分支
-
-3. **`_handle_animation_node()`**（第 180-182 行）：
+2. **`_handle_animation_node()`**（第 180-182 行）：
    - 已包含 `"AnimationNodeBlendSpace2D"` 匹配，无需添加
 
 ### 3.3 插件改动总结
@@ -214,7 +260,7 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 | 文件 | 改动行数 | 复杂度 |
 |------|---------|--------|
 | `quiver_character_skin.gd` | ~10 行 | 低 |
-| `quiver_character_skin_anim_tree.gd` | 0 行 | 零改动 |
+| `quiver_character_skin_anim_tree.gd` | ~30 行 | 中（分离 1D/2D 路径分类与赋值） |
 
 ---
 
@@ -440,17 +486,34 @@ func enter(msg: = {}) -> void:
 **idle/walk（8 方向）— BlendSpace2D（8 个混合点）**：
 
 ```
-AnimationNodeBlendSpace2D (idle)
-  blend_space_mode: 0  (BlendSpace2D 标准 Blend 模式)
-  blend_point_0: idle_right      @ Vector2(1, 0)
-  blend_point_1: idle_up_right   @ Vector2(0.707, -0.707)
-  blend_point_2: idle_up         @ Vector2(0, -1)
-  blend_point_3: idle_up_left    @ Vector2(-0.707, -0.707)
-  blend_point_4: idle_left       @ Vector2(-1, 0)
-  blend_point_5: idle_down_left  @ Vector2(-0.707, 0.707)
-  blend_point_6: idle_down       @ Vector2(0, 1)
-  blend_point_7: idle_down_right @ Vector2(0.707, 0.707)
+[sub_resource type="AnimationNodeBlendSpace2D" id="AnimationNodeBlendSpace2D_idle"]
+blend_point_0/node = SubResource("AnimationNodeAnimation_idle_right")
+blend_point_0/pos = Vector2(1, 0)
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("AnimationNodeAnimation_idle_up_right")
+blend_point_1/pos = Vector2(0.707, -0.707)
+blend_point_1/name = &"1"
+blend_point_2/node = SubResource("AnimationNodeAnimation_idle_up")
+blend_point_2/pos = Vector2(0, -1)
+blend_point_2/name = &"2"
+blend_point_3/node = SubResource("AnimationNodeAnimation_idle_up_left")
+blend_point_3/pos = Vector2(-0.707, -0.707)
+blend_point_3/name = &"3"
+blend_point_4/node = SubResource("AnimationNodeAnimation_idle_left")
+blend_point_4/pos = Vector2(-1, 0)
+blend_point_4/name = &"4"
+blend_point_5/node = SubResource("AnimationNodeAnimation_idle_down_left")
+blend_point_5/pos = Vector2(-0.707, 0.707)
+blend_point_5/name = &"5"
+blend_point_6/node = SubResource("AnimationNodeAnimation_idle_down")
+blend_point_6/pos = Vector2(0, 1)
+blend_point_6/name = &"6"
+blend_point_7/node = SubResource("AnimationNodeAnimation_idle_down_right")
+blend_point_7/pos = Vector2(0.707, 0.707)
+blend_point_7/name = &"7"
 ```
+
+**已验证格式**（附录 D Step 0）：`triangles`、`auto_triangles`、`blend_mode` 均为默认值，不写入 `.tres`。
 
 **attack1/2/3（4 方向）— BlendSpace2D（4 个混合点）**：
 
@@ -741,8 +804,8 @@ elif anim_name.ends_with("right"):
 ### 9.2 SkinDirection 兼容
 
 代码中使用 `SkinDirection.LEFT` / `SkinDirection.RIGHT` 的地方：
-- 改为 `SkinDirection_LEFT` / `SkinDirection_RIGHT` 常量引用
-- 或直接改为 `Vector2.LEFT` / `Vector2.RIGHT`
+- 直接改为 `Vector2.LEFT` / `Vector2.RIGHT`
+- `SkinDirection` 枚举已删除（§3.1），无兼容常量
 
 ### 9.3 外部引用兼容
 
@@ -789,7 +852,7 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | 文件 | 改动类型 | 影响范围 |
 |------|---------|---------|
 | `quiver_character_skin.gd` | 修改（~10 行） | 所有角色 |
-| `quiver_character_skin_anim_tree.gd` | 无改动 | — |
+| `quiver_character_skin_anim_tree.gd` | 修改（~30 行） | 分离 1D/2D blend_position 路径分类与赋值 |
 | `quiver_action_walk.gd` | 修改（~20 行） | Walk 状态行为 |
 | `quiver_action_attack.gd` | 修改（~5 行） | 攻击方向量化锁定 |
 | `quiver_action_mid_air.gd` | 无改动 | jump 保持 2 方向，向后兼容 |
@@ -830,71 +893,57 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 
 ---
 
-## 附录 D：实现前置验证清单
+## 附录 D：实现前置验证结果（已完成）
 
-以下步骤需要用户在 Windows Godot 编辑器中完成。
+### Step 0：BlendSpace2D `.tres` 格式验证 ✅
 
-### Step 0：BlendSpace2D `.tres` 格式验证
+**验证方式**：在 Godot 编辑器中创建 BlendSpace2D 节点并保存，读取生成的 `.tres` 文件。
 
-**目标**：确认手编 `.tres` 文件的精确格式。
+**验证结果**：
 
-**操作步骤**：
+| 项目 | 结论 |
+|------|------|
+| `triangles` 属性 | **不写入**（`auto_triangles=true` 默认时，引擎源码 `PROPERTY_USAGE_NONE` 跳过序列化） |
+| `pos` 精度 | `Vector2(x, y)` 格式，使用引擎默认浮点精度 |
+| `blend_point_<N>/name` | **会写入**，格式为 `&"名称"`（如 `&"BlendSpace2D"`） |
+| `auto_triangles` | **不写入**（默认 `true` 省略） |
+| `blend_mode` | **不写入**（默认 0 = Interpolated 省略） |
+| `min_space` / `max_space` / `snap` | **不写入**（默认值省略） |
 
-1. 在 Godot 编辑器中打开 chen_jingchou 的 `_skin.tscn`
-2. 选中 `AnimationTree` 节点
-3. 在 Inspector 中打开 `tree_root`（`animation_tree_root.tres`）
-4. 将 `idle` 状态的 `AnimationNodeBlendSpace1D` 替换为 `AnimationNodeBlendSpace2D`
-5. 添加 8 个混合点（可先用占位动画），设置对应的 `pos` 值
-6. **保存场景**（Ctrl+S）
-7. 打开 `animation_tree_root.tres` 文件，复制 idle 节点的完整 `.tres` 文本
-
-**需要确认的项目**：
-
-| 项目 | 问题 | 影响 |
-|------|------|------|
-| `triangles` 属性 | 是否需要手写？`auto_triangles=true` 时 Godot 是否自动生成？ | 决定 .tres 是否需要 PackedInt32Array |
-| `pos` 精度 | 是否需要 `0.707107` 还是 `0.707` 够用？ | 决定坐标值格式 |
-| `blend_point_<N>/name` | 字符串值是什么？`"0"` 到 `"7"` 还是方向名？ | 决定 name 字段 |
-| 其他属性 | 除 `blend_point_*` 和 `triangles` 外，是否有其他非默认属性被写入？ | 确保格式完整 |
-| `auto_triangles` | 是否需要显式写入 `auto_triangles = true`？ | 决定是否需要此行 |
-
-### Step 0b：BlendSpace1D 赋值 Vector2 验证
-
-**目标**：确认 BlendSpace1D 的 `blend_position` 接受 Vector2 赋值。
-
-**操作步骤**：
-
-1. 创建一个最小测试场景：CharacterBody2D + AnimationTree（包含一个 BlendSpace1D）
-2. 在 GDScript 中运行：
-   ```gdscript
-   $AnimationTree["parameters/blend_position"] = Vector2(1, 0)
-   print($AnimationTree["parameters/blend_position"])
-   ```
-3. 观察输出：是 `1.0`（自动提取 x）还是报错？
-
-**如果报错**：需要在 `_update_blend_directions()` 中分离 1D 和 2D 路径：
-```gdscript
-func _update_blend_directions() -> void:
-    for path in _blend_positions_1d:
-        _animation_tree[path] = skin_direction.x  # float
-    for path in _blend_positions_2d:
-        _animation_tree[path] = skin_direction    # Vector2
+**BlendSpace2D `.tres` 精确格式**：
+```
+[sub_resource type="AnimationNodeBlendSpace2D" id="AnimationNodeBlendSpace2D_xxxxx"]
+blend_point_0/node = SubResource("AnimationNodeAnimation_xxxxx")
+blend_point_0/pos = Vector2(1, 0)
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("AnimationNodeAnimation_yyyyy")
+blend_point_1/pos = Vector2(0.707, -0.707)
+blend_point_1/name = &"1"
+...
 ```
 
-### Step 0c：.tscn 中 Vector2 值格式验证
+### Step 0b：BlendSpace1D 赋值 Vector2 验证 ✅
 
-**目标**：确认 `.tscn` 文件中 Vector2 属性的写法。
+**验证方式**：在 chen_jingchou 场景运行时，通过代码赋值 Vector2 给 BlendSpace1D 的 `blend_position`。
 
-**操作步骤**：
+**验证结果**：
 
-1. 在 Godot 中修改 `__NAME___skin.tscn` 的某个 BlendSpace2D `blend_position` 为 `Vector2(1, 0)`
-2. 保存后读取 `.tscn` 文件，确认格式
-3. 预期格式：`parameters/state_machine/idle/blend_position = Vector2(1, 0)`
+| 赋值方式 | 结果 |
+|---------|------|
+| `.tscn` 文件中写 `Vector2(1, 0)` | ✅ Godot 接受，无报错 |
+| 运行时 `_animation_tree[path] = Vector2(1, 0)` | ❌ 值变成 Vector2 而非 float，BlendSpace1D 无法正确混合 |
 
-### 验证完成后更新文档
+**结论**：必须在 `_update_blend_directions()` 中分离 1D 和 2D 路径（见 §3.2）。
 
-完成 Step 0/0b/0c 后，将结果更新到以下章节：
-- §5.1：BlendSpace2D 精确 `.tres` 格式
-- §3.2：BlendSpace1D + Vector2 兼容性结论
-- §5.4：`.tscn` 中 Vector2 的精确写法
-- §6.1：新动画文件的占位符 `.tres` 模板
+### Step 0c：.tscn 中 Vector2 值格式验证 ✅
+
+**验证方式**：修改 `_template/__NAME___skin.tscn` 的 `blend_position` 为 `Vector2(1, 0)`，在 Godot 编辑器中加载。
+
+**验证结果**：格式 `parameters/state_machine/idle/blend_position = Vector2(1, 0)` 正确，Godot 无报错。
+
+### 已更新的章节
+
+- §3.2：从"零改动"改为"需修改 `_update_blend_directions()`"
+- §5.1：BlendSpace2D 精确 `.tres` 格式已确认
+- §5.4：`.tscn` 中 Vector2 格式已确认
+- 附录 B：`quiver_character_skin_anim_tree.gd` 从"无改动"改为"修改 ~30 行"
