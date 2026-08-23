@@ -1,17 +1,17 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/characters/quiver_character_skin_base.tscn" id="1_neyaj"]
-[ext_resource type="AnimationLibrary" path="res://characters/playable/__NAME__/resources/anim_library___NAME__.tres" id="3_uxodg"]
-[ext_resource type="AnimationNodeBlendTree" path="res://characters/playable/__NAME__/resources/animations/animation_tree_root.tres" id="4_6ugt2"]
-[ext_resource type="SpriteFrames" path="res://characters/playable/__NAME__/resources/spriteframes___NAME__.tres" id="4_l5bf7"]
-[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/RESET.tres" id="4_vrxwg"]
+[ext_resource type="AnimationLibrary" path="res://characters/playable/test_8_direction/resources/anim_library_test_8_direction.tres" id="3_uxodg"]
+[ext_resource type="AnimationNodeBlendTree" path="res://characters/playable/test_8_direction/resources/animations/animation_tree_root.tres" id="4_6ugt2"]
+[ext_resource type="SpriteFrames" path="res://characters/playable/test_8_direction/resources/spriteframes_test_8_direction.tres" id="4_l5bf7"]
+[ext_resource type="Animation" path="res://characters/playable/test_8_direction/resources/animations/RESET.tres" id="4_vrxwg"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_f1o2m"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hurt_box.gd" id="5_k0gpy"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/__NAME___attributes.tres" id="6_iqdvs"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/punch1_attack_data.tres" id="8_uylrb"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/punch2_attack_data.tres" id="9_cutyj"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/air_kick_attack_data.tres" id="10_556uq"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/punch3_attack_data.tres" id="11_7yi7m"]
+[ext_resource type="Resource" path="res://characters/playable/test_8_direction/resources/test_8_direction_attributes.tres" id="6_iqdvs"]
+[ext_resource type="Resource" path="res://characters/playable/test_8_direction/resources/attacks/punch1_attack_data.tres" id="8_uylrb"]
+[ext_resource type="Resource" path="res://characters/playable/test_8_direction/resources/attacks/punch2_attack_data.tres" id="9_cutyj"]
+[ext_resource type="Resource" path="res://characters/playable/test_8_direction/resources/attacks/air_kick_attack_data.tres" id="10_556uq"]
+[ext_resource type="Resource" path="res://characters/playable/test_8_direction/resources/attacks/punch3_attack_data.tres" id="11_7yi7m"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_6o40w"]
 _data = {
@@ -33,7 +33,7 @@ size = Vector2(161, 329.5)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_e0e1l"]
 size = Vector2(261.336, 79.2264)
 
-[node name="__CLASS__Skin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
+[node name="Test8DirectionSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
 attributes = ExtResource("6_iqdvs")
 _has_grab = false
@@ -44,7 +44,7 @@ metadata/_edit_horizontal_guides_ = [14.0, -445.0, -390.0]
 [node name="AnimationPlayer" parent="." index="0"]
 callback_mode_process = 0
 libraries/ = SubResource("AnimationLibrary_6o40w")
-libraries/__CLASS__ = ExtResource("3_uxodg")
+libraries/Test8Direction = ExtResource("3_uxodg")
 
 [node name="AnimationTree" parent="." index="1"]
 active = false
@@ -77,7 +77,7 @@ position = Vector2(0, -167)
 sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle"
 
-[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:__NAME__", "area2d:wall"]]
+[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:test_8_direction", "area2d:wall"]]
 monitorable = false
 script = ExtResource("5_k0gpy")
 
@@ -88,7 +88,7 @@ shape = SubResource("RectangleShape2D_75u0j")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
-[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:__NAME__"]]
+[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:test_8_direction"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 monitoring = false
@@ -101,7 +101,7 @@ position = Vector2(202, -303)
 shape = SubResource("RectangleShape2D_once2")
 disabled = true
 
-[node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:__NAME__"]]
+[node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:test_8_direction"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 monitoring = false
@@ -114,7 +114,7 @@ position = Vector2(231, -274.5)
 shape = SubResource("RectangleShape2D_tcrug")
 disabled = true
 
-[node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:__NAME__"]]
+[node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:test_8_direction"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 monitoring = false
@@ -127,7 +127,7 @@ position = Vector2(96.5, -389.25)
 shape = SubResource("RectangleShape2D_vo5ct")
 disabled = true
 
-[node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:__NAME__"]]
+[node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:test_8_direction"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 monitoring = false

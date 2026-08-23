@@ -1,10 +1,10 @@
 [gd_resource type="AnimationNodeBlendTree" format=3]
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_3sxcf"]
-animation = &"__CLASS__/air_attack_right"
+animation = &"Test8Direction/air_attack_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_o5ftx"]
-animation = &"__CLASS__/air_attack_left"
+animation = &"Test8Direction/air_attack_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_5b8xh"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_3sxcf")
@@ -15,16 +15,16 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack1_right"]
-animation = &"__CLASS__/attack1_right"
+animation = &"Test8Direction/attack1_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack1_left"]
-animation = &"__CLASS__/attack1_left"
+animation = &"Test8Direction/attack1_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack1_up"]
-animation = &"__CLASS__/attack1_up"
+animation = &"Test8Direction/attack1_up"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack1_down"]
-animation = &"__CLASS__/attack1_down"
+animation = &"Test8Direction/attack1_down"
 
 [sub_resource type="AnimationNodeBlendSpace2D" id="blend_attack1"]
 blend_point_0/node = SubResource("anim_attack1_right")
@@ -41,16 +41,16 @@ blend_point_3/pos = Vector2(0, 1)
 blend_point_3/name = &"3"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack2_right"]
-animation = &"__CLASS__/attack2_right"
+animation = &"Test8Direction/attack2_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack2_left"]
-animation = &"__CLASS__/attack2_left"
+animation = &"Test8Direction/attack2_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack2_up"]
-animation = &"__CLASS__/attack2_up"
+animation = &"Test8Direction/attack2_up"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack2_down"]
-animation = &"__CLASS__/attack2_down"
+animation = &"Test8Direction/attack2_down"
 
 [sub_resource type="AnimationNodeBlendSpace2D" id="blend_attack2"]
 blend_point_0/node = SubResource("anim_attack2_right")
@@ -67,16 +67,16 @@ blend_point_3/pos = Vector2(0, 1)
 blend_point_3/name = &"3"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack3_right"]
-animation = &"__CLASS__/attack3_right"
+animation = &"Test8Direction/attack3_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack3_left"]
-animation = &"__CLASS__/attack3_left"
+animation = &"Test8Direction/attack3_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack3_up"]
-animation = &"__CLASS__/attack3_up"
+animation = &"Test8Direction/attack3_up"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_attack3_down"]
-animation = &"__CLASS__/attack3_down"
+animation = &"Test8Direction/attack3_down"
 
 [sub_resource type="AnimationNodeBlendSpace2D" id="blend_attack3"]
 blend_point_0/node = SubResource("anim_attack3_right")
@@ -93,10 +93,10 @@ blend_point_3/pos = Vector2(0, 1)
 blend_point_3/name = &"3"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_2cuw7"]
-animation = &"__CLASS__/die_right"
+animation = &"Test8Direction/die_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_jesgx"]
-animation = &"__CLASS__/die_left"
+animation = &"Test8Direction/die_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_vwtxw"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_2cuw7")
@@ -107,10 +107,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_3f5s4"]
-animation = &"__CLASS__/falling_right"
+animation = &"Test8Direction/falling_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_m8vhf"]
-animation = &"__CLASS__/falling_left"
+animation = &"Test8Direction/falling_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_0f5u6"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_3f5s4")
@@ -121,10 +121,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_ebat4"]
-animation = &"__CLASS__/hurt_high_right"
+animation = &"Test8Direction/hurt_high_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_7j5bx"]
-animation = &"__CLASS__/hurt_high_left"
+animation = &"Test8Direction/hurt_high_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_b43h3"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_ebat4")
@@ -135,10 +135,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_o00qy"]
-animation = &"__CLASS__/hurt_mid_right"
+animation = &"Test8Direction/hurt_mid_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_d6ix7"]
-animation = &"__CLASS__/hurt_mid_left"
+animation = &"Test8Direction/hurt_mid_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_klb4a"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_o00qy")
@@ -149,28 +149,28 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_right"]
-animation = &"__CLASS__/idle_right"
+animation = &"Test8Direction/idle_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_up_right"]
-animation = &"__CLASS__/idle_up_right"
+animation = &"Test8Direction/idle_up_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_up"]
-animation = &"__CLASS__/idle_up"
+animation = &"Test8Direction/idle_up"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_up_left"]
-animation = &"__CLASS__/idle_up_left"
+animation = &"Test8Direction/idle_up_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_left"]
-animation = &"__CLASS__/idle_left"
+animation = &"Test8Direction/idle_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_down_left"]
-animation = &"__CLASS__/idle_down_left"
+animation = &"Test8Direction/idle_down_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_down"]
-animation = &"__CLASS__/idle_down"
+animation = &"Test8Direction/idle_down"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_idle_down_right"]
-animation = &"__CLASS__/idle_down_right"
+animation = &"Test8Direction/idle_down_right"
 
 [sub_resource type="AnimationNodeBlendSpace2D" id="blend_idle"]
 blend_point_0/node = SubResource("anim_idle_right")
@@ -199,10 +199,10 @@ blend_point_7/pos = Vector2(0.707, 0.707)
 blend_point_7/name = &"7"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_pnvq8"]
-animation = &"__CLASS__/jump_right"
+animation = &"Test8Direction/jump_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_hic0d"]
-animation = &"__CLASS__/jump_left"
+animation = &"Test8Direction/jump_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_j64u3"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_pnvq8")
@@ -213,10 +213,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_j410c"]
-animation = &"__CLASS__/knockout_bounce_right"
+animation = &"Test8Direction/knockout_bounce_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_oyvo0"]
-animation = &"__CLASS__/knockout_bounce_left"
+animation = &"Test8Direction/knockout_bounce_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_37dkv"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_j410c")
@@ -227,10 +227,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_2jrh5"]
-animation = &"__CLASS__/knockout_falling_right"
+animation = &"Test8Direction/knockout_falling_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_88cd6"]
-animation = &"__CLASS__/knockout_falling_left"
+animation = &"Test8Direction/knockout_falling_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_op5hi"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_2jrh5")
@@ -241,10 +241,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_wpecb"]
-animation = &"__CLASS__/getting_up_right"
+animation = &"Test8Direction/getting_up_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_6cdhp"]
-animation = &"__CLASS__/getting_up_left"
+animation = &"Test8Direction/getting_up_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_uhn10"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_wpecb")
@@ -255,10 +255,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_0x0wd"]
-animation = &"__CLASS__/knockout_landed_right"
+animation = &"Test8Direction/knockout_landed_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_juj11"]
-animation = &"__CLASS__/knockout_landed_left"
+animation = &"Test8Direction/knockout_landed_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_tt8q6"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_0x0wd")
@@ -286,10 +286,10 @@ states/knockout_landed/position = Vector2(431, 100)
 transitions = ["Start", "knockout_landed", SubResource("AnimationNodeStateMachineTransition_tlogh"), "knockout_landed", "getting_up", SubResource("AnimationNodeStateMachineTransition_pes0o"), "getting_up", "End", SubResource("AnimationNodeStateMachineTransition_74ry0")]
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_7u1aw"]
-animation = &"__CLASS__/knockout_launch_right"
+animation = &"Test8Direction/knockout_launch_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_n5gsb"]
-animation = &"__CLASS__/knockout_launch_left"
+animation = &"Test8Direction/knockout_launch_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_rjdwd"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_7u1aw")
@@ -300,10 +300,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_c0mdb"]
-animation = &"__CLASS__/knockout_rising_right"
+animation = &"Test8Direction/knockout_rising_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_mgytl"]
-animation = &"__CLASS__/knockout_rising_left"
+animation = &"Test8Direction/knockout_rising_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_y4gin"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_c0mdb")
@@ -314,10 +314,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_p2j18"]
-animation = &"__CLASS__/landing_right"
+animation = &"Test8Direction/landing_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_5a8aj"]
-animation = &"__CLASS__/landing_left"
+animation = &"Test8Direction/landing_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_w3olb"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_p2j18")
@@ -328,10 +328,10 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_txy5g"]
-animation = &"__CLASS__/rising_right"
+animation = &"Test8Direction/rising_right"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_hshnq"]
-animation = &"__CLASS__/rising_left"
+animation = &"Test8Direction/rising_left"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_d6xi7"]
 blend_point_0/node = SubResource("AnimationNodeAnimation_txy5g")
@@ -342,28 +342,28 @@ blend_point_1/pos = -0.1
 blend_point_1/name = &"1"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_right"]
-animation = &"__CLASS__/walk_right"
+animation = &"Test8Direction/walk_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_up_right"]
-animation = &"__CLASS__/walk_up_right"
+animation = &"Test8Direction/walk_up_right"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_up"]
-animation = &"__CLASS__/walk_up"
+animation = &"Test8Direction/walk_up"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_up_left"]
-animation = &"__CLASS__/walk_up_left"
+animation = &"Test8Direction/walk_up_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_left"]
-animation = &"__CLASS__/walk_left"
+animation = &"Test8Direction/walk_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_down_left"]
-animation = &"__CLASS__/walk_down_left"
+animation = &"Test8Direction/walk_down_left"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_down"]
-animation = &"__CLASS__/walk_down"
+animation = &"Test8Direction/walk_down"
 
 [sub_resource type="AnimationNodeAnimation" id="anim_walk_down_right"]
-animation = &"__CLASS__/walk_down_right"
+animation = &"Test8Direction/walk_down_right"
 
 [sub_resource type="AnimationNodeBlendSpace2D" id="blend_walk"]
 blend_point_0/node = SubResource("anim_walk_right")
