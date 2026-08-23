@@ -129,7 +129,7 @@ func _handle_mid_air_animation() -> void:
 
 func _handle_facing_direction() -> void:
 	var facing_direction :int = sign(_character.velocity.x)
-	if facing_direction != 0 and facing_direction != _skin.skin_direction:
+	if facing_direction != 0 and facing_direction != _skin.skin_direction.x:
 		_skin.skin_direction = facing_direction
 
 

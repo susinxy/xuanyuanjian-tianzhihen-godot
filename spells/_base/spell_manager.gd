@@ -56,7 +56,7 @@ func cast_spell(slot: SpellSlot) -> void:
     var dir := Vector2.RIGHT
     if _character.get_node_or_null("Skin"):
         var skin = _character.get_node("Skin")
-        dir = Vector2.LEFT if skin.skin_direction == -1 else Vector2.RIGHT
+        dir = Vector2.LEFT if skin.skin_direction.x < 0 else Vector2.RIGHT
     
     var spawn_parent := _character.get_parent()
     spawn_parent.add_child(spell)

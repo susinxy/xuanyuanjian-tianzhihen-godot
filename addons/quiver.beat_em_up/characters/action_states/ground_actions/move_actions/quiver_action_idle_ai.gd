@@ -44,8 +44,8 @@ func enter(msg: = {}) -> void:
 func process(delta: float) -> void:
 	var player := QuiverCharacterHelper.find_closest_player_to(_character)
 	if is_instance_valid(player):
-		var facing_direction = sign((player.global_position - _character.global_position).x)
-		_skin.skin_direction = 1 if facing_direction >=0 else -1
+		var dir := _character.global_position.direction_to(player.global_position)
+		_skin.skin_direction = dir
 	
 	_move_state.process(delta)
 
