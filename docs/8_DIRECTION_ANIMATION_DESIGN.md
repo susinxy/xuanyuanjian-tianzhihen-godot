@@ -1,9 +1,13 @@
-# 8 方向动画系统设计
+# 多方向动画系统设计
 
-> **版本**: 0.1.0（初稿）
+> **版本**: 0.2.0
 > **创建日期**: 2026-08-23
+> **最后更新**: 2026-08-23
 > **状态**: 设计中，待逐章细化
 > **关联文档**: HEIGHT_LAYER_DESIGN.md, SPELL_SYSTEM_DESIGN.md, PLUGIN_ARCHITECTURE.md
+> **变更记录**:
+> - v0.1.0 — 初稿（统一 8 方向方案）
+> - v0.2.0 — 简化方向分配：idle/walk 8 方向、attack 4 方向、其余保持 2 方向
 
 ---
 
@@ -11,7 +15,15 @@
 
 ### 1.1 设计目标
 
-将游戏视角从横版 beat-em-up 转换为**俯视角/斜 45° ARPG**（天之痕原作风格），角色的所有动作动画支持 8 方向展示。
+将游戏视角从横版 beat-em-up 转换为**俯视角/斜 45° ARPG**（天之痕原作风格），核心动作支持多方向展示。
+
+**方向分配**：
+
+| 方向数 | 动作 | 说明 |
+|--------|------|------|
+| 8 方向 | idle, walk | 站立和行走完整 8 方向 |
+| 4 方向 | attack1, attack2, attack3 | 上下左右（不含斜角） |
+| 2 方向 | jump, rising, falling, landing, air_attack, hurt_mid, hurt_high, die, knockout_* | 左右（保持当前） |
 
 **8 方向**：right、up-right、up、up-left、left、down-left、down、down-right
 
@@ -32,11 +44,11 @@
 | 项目 | 目标值 |
 |------|--------|
 | 方向类型 | `Vector2`（归一化方向向量） |
-| 混合节点 | 全部 `AnimationNodeBlendSpace2D`（8 个混合点） |
+| 混合节点 | idle/walk → BlendSpace2D（8 点），attack → BlendSpace2D（4 点），其余 → BlendSpace1D（不变） |
 | blend_position | `Vector2`（如 `Vector2(1, 0)` 表示 right） |
-| 动画文件数 | 19 动作 × 8 方向 = 152 个 `.tres`（移除 turn） |
-| 方向判定 | `direction.normalized()` — 使用完整 2D 向量 |
-| 精灵方向 | 5 套独立方向精灵 + 3 套镜像生成 |
+| 动画文件数 | idle/walk ×8 + attack ×4 + 其余 ×2 = 96 个 `.tres`（移除 turn） |
+| 方向判定 | idle/walk/attack 用 `direction.normalized()`；其余保持 `sign(direction.x)` |
+| 精灵方向 | idle/walk: 5 方向手绘 + 3 方向镜像；attack: 2 方向手绘 + 2 方向镜像 |
 | turn 过渡 | 移除（BlendSpace2D 方向间过渡天然平滑） |
 
 ---
@@ -48,24 +60,32 @@
 **决策**：`skin_direction` 属性类型从 `SkinDirection` 枚举改为 `Vector2`。
 
 **理由**：
-- 所有状态（idle/walk/attack/jump/hurt/die/knockout）都需要 8 方向
+- idle/walk/attack 需要多方向支持
 - 统一类型消除双属性系统的复杂性
 - BlendSpace2D 的 `blend_position` 原生接受 `Vector2`
+- BlendSpace1D 的 `blend_position` 也接受 `Vector2`（Godot 会自动转换为 float）
 
 **向后兼容**：
 - `SkinDirection` 枚举值保留为常量 `LEFT = -1`、`RIGHT = 1`
 - setter 检测 int/float 输入，自动转换为 `Vector2.LEFT` 或 `Vector2.RIGHT`
 
-### 2.2 BlendSpace2D 选型
+### 2.2 BlendSpace 混合策略
 
-**决策**：使用 Godot 原生 `AnimationNodeBlendSpace2D` 替换所有 `AnimationNodeBlendSpace1D`。
+**决策**：根据动作类型使用不同的 BlendSpace：
+
+| 动作 | BlendSpace 类型 | 混合点数 | blend_position 类型 |
+|------|----------------|---------|-------------------|
+| idle, walk | AnimationNodeBlendSpace2D | 8 个（8 方向） | Vector2 |
+| attack1, attack2, attack3 | AnimationNodeBlendSpace2D | 4 个（上下左右） | Vector2 |
+| 其余 | AnimationNodeBlendSpace1D | 2 个（左右） | float（不变） |
 
 **理由**：
-- Godot 原生支持，无需自定义 AnimationNode
-- 方向间自动平滑过渡（加权混合）
+- idle/walk 需要完整 8 方向（俯视角 ARPG 的核心体验）
+- attack 需要 4 方向（上下左右足以表达攻击朝向）
+- jump/hurt/die 等动作方向性较弱，保持 2 方向节省美术工作量
 - `_update_blend_directions()` 代码逻辑不变（只变赋值类型）
 
-**BlendSpace2D blend mode**：使用默认的 Blend 模式（连续混合），不使用 Discrete 模式。[待细化：是否某些状态需要 Discrete？]
+**BlendSpace2D blend mode**：使用默认的 Blend 模式（连续混合）。
 
 ### 2.3 Turn 动画移除
 
@@ -78,7 +98,9 @@
 
 ### 2.4 镜像策略
 
-**决策**：美术绘制 5 个方向的精灵，剩余 3 个方向由镜像工具自动生成。
+**决策**：根据动作方向数采用不同的镜像策略。
+
+**idle/walk（8 方向）— 5 手绘 + 3 镜像**：
 
 | 手绘方向 | 镜像方向 |
 |---------|---------|
@@ -87,6 +109,14 @@
 | down_right | down_left（水平镜像 down_right） |
 | up | —（对称，不镜像） |
 | down | —（对称，不镜像） |
+
+**attack（4 方向）— 3 手绘 + 1 镜像**：
+
+| 手绘方向 | 镜像方向 |
+|---------|---------|
+| right | left（水平镜像 right） |
+| up | —（上下不对称，需独立绘制） |
+| down | —（上下不对称，需独立绘制） |
 
 **现有工具**：`create_mirrored_animation_button.gd` 已支持 `flip_h`、`position.x`、`polygon` 等轨迹的自动镜像。需要确认是否能正确处理新的命名约定。
 
@@ -216,11 +246,13 @@ func physics_process(delta: float) -> void:
 - `_turn_skin_state` 变量（及对应 Inspector 配置）
 - `enter()` 中的 `_handle_facing_direction()` 调用
 
-### 4.2 `quiver_action_mid_air.gd` — 空中方向
+### 4.2 `quiver_action_mid_air.gd` — 空中方向（不变）
 
 **位置**：`addons/quiver.beat_em_up/characters/action_states/air_actions/jump_actions/quiver_action_mid_air.gd`，第 130-133 行
 
-**当前代码**：
+**决策**：跳跃保持 2 方向（左右），空中方向代码无需改动。
+
+**当前代码**（保持不变）：
 ```gdscript
 func _handle_facing_direction() -> void:
     var facing_direction: int = sign(_character.velocity.x)
@@ -228,15 +260,10 @@ func _handle_facing_direction() -> void:
         _skin.skin_direction = facing_direction
 ```
 
-**目标代码**：
-```gdscript
-func _handle_facing_direction() -> void:
-    var facing := Vector2(_character.velocity.x, _character.velocity.y).normalized()
-    if not facing.is_equal_approx(Vector2.ZERO):
-        _skin.skin_direction = facing
-```
-
-**待细化**：空中方向是否应该包含 Y 分量？垂直分量受重力影响可能导致方向快速变化。可能需要只取水平分量。
+**说明**：
+- `skin_direction` 类型改为 `Vector2` 后，setter 会自动将 int `-1/1` 转换为 `Vector2.LEFT/RIGHT`
+- BlendSpace1D 的 `blend_position` 接受 `Vector2`（Godot 自动提取 x 分量）
+- 无需修改代码，向后兼容自动处理
 
 ### 4.3 `quiver_action_follow.gd` — AI 跟随
 
@@ -274,17 +301,46 @@ var dir := _character.global_position.direction_to(player.global_position)
 _skin.skin_direction = dir
 ```
 
-### 4.5 不需要改动的文件
+### 4.5 攻击方向锁定策略
+
+**决策**：攻击开始时锁定方向，取最近的四方向（上/下/左/右），攻击期间方向不变。
+
+**实现**：`quiver_action_attack.gd` 的 `enter()` 方法中，将当前 `skin_direction`（8 方向 Vector2）量化为最近的 4 方向（上/下/左/右）：
+
+```gdscript
+func enter(msg: = {}) -> void:
+    super(msg)
+    get_parent().enter(msg)
+    
+    # 将当前 8 方向量化为最近的 4 方向
+    var dir := _skin.skin_direction
+    if abs(dir.x) > abs(dir.y):
+        _skin.skin_direction = Vector2(sign(dir.x), 0)  # left or right
+    else:
+        _skin.skin_direction = Vector2(0, sign(dir.y))  # up or down
+    
+    _skin.transition_to(_attack_skin_state)
+    ...
+```
+
+**量化规则**：
+- 输入 `(1, 0)` → `(1, 0)` right
+- 输入 `(0.707, -0.707)` up-right → `(1, 0)` right（|x| > |y| 时取 x）
+- 输入 `(0, -1)` → `(0, -1)` up
+- 输入 `(-0.707, 0.707)` down-left → `(-1, 0)` left
+
+**说明**：攻击状态不响应输入方向变化，`physics_process()` 中不更新 `skin_direction`。
+
+### 4.6 不需要改动的文件
 
 | 文件 | 理由 |
 |------|------|
 | `quiver_action_idle.gd` | 不设置方向 |
 | `quiver_action_move.gd` | 只管 velocity + move_and_slide()，不操作方向 |
-| `quiver_action_attack.gd` | 不设置方向（继承 walk/idle 设置的值） |
-| `quiver_action_hurt.gd` | 不设置方向 |
+| `quiver_action_hurt.gd` | 不设置方向（hurt 保持 2 方向） |
 | `quiver_action_die.gd` | 不设置方向 |
 | `quiver_action_ground.gd` | 不设置方向 |
-| `quiver_action_jump.gd` | 不设置方向 |
+| `quiver_action_jump.gd` | 不设置方向（jump 保持 2 方向） |
 | `quiver_action_impulse.gd` | 不设置方向 |
 | `quiver_action_landing.gd` | 不设置方向 |
 
@@ -292,9 +348,9 @@ _skin.skin_direction = dir
 
 ## 五、动画树结构
 
-### 5.1 BlendSpace2D 配置
+### 5.1 BlendSpace 配置
 
-每个动画状态（idle、walk、attack1 等）从 BlendSpace1D 替换为 BlendSpace2D，包含 8 个混合点：
+**idle/walk（8 方向）— BlendSpace2D（8 个混合点）**：
 
 ```
 AnimationNodeBlendSpace2D (idle)
@@ -309,7 +365,28 @@ AnimationNodeBlendSpace2D (idle)
   blend_point_7: idle_down_right @ Vector2(0.707, 0.707)
 ```
 
+**attack1/2/3（4 方向）— BlendSpace2D（4 个混合点）**：
+
+```
+AnimationNodeBlendSpace2D (attack1)
+  blend_space_mode: 0
+  blend_point_0: attack1_right   @ Vector2(1, 0)
+  blend_point_1: attack1_up      @ Vector2(0, -1)
+  blend_point_2: attack1_left    @ Vector2(-1, 0)
+  blend_point_3: attack1_down    @ Vector2(0, 1)
+```
+
+**其余动作（2 方向）— BlendSpace1D（不变）**：
+
+```
+AnimationNodeBlendSpace1D (jump)
+  blend_point_0: jump_right  @ 0.1
+  blend_point_1: jump_left   @ -0.1
+```
+
 ### 5.2 坐标约定
+
+**8 方向（idle/walk）**：
 
 | 方向 | blend_position | 动画名后缀 | 屏幕方向 |
 |------|---------------|-----------|---------|
@@ -322,48 +399,66 @@ AnimationNodeBlendSpace2D (idle)
 | Down | `(0, 1)` | `_down` | 屏幕下方（朝向镜头） |
 | Down-Right | `(0.707, 0.707)` | `_down_right` | 屏幕右下方 |
 
+**4 方向（attack）**：
+
+| 方向 | blend_position | 动画名后缀 |
+|------|---------------|-----------|
+| Right | `(1, 0)` | `_right` |
+| Up | `(0, -1)` | `_up` |
+| Left | `(-1, 0)` | `_left` |
+| Down | `(0, 1)` | `_down` |
+
+**2 方向（其余）— 不变**：
+
+| 方向 | blend_position | 动画名后缀 |
+|------|---------------|-----------|
+| Right | `1.0` | `_right` |
+| Left | `-1.0` | `_left` |
+
 **坐标轴**：与 Godot 屏幕坐标系一致。X 正方向 = 右，Y 正方向 = 下。
 
 ### 5.3 AnimationNodeStateMachine 状态列表
 
-状态名称不变，只改内部混合节点类型：
-
 ```
 AnimationNodeStateMachine
-├── idle              → BlendSpace2D（8 方向）
-├── walk              → BlendSpace2D（8 方向）
+├── idle              → BlendSpace2D（8 方向）  [改动]
+├── walk              → BlendSpace2D（8 方向）  [改动]
 ├── turn              → [移除或保留为过渡动画备用]
-├── attack1           → BlendSpace2D（8 方向）
-├── attack2           → BlendSpace2D（8 方向）
-├── attack3           → BlendSpace2D（8 方向）
-├── air_attack        → BlendSpace2D（8 方向）
-├── jump              → BlendSpace2D（8 方向）
-├── rising            → BlendSpace2D（8 方向）
-├── falling           → BlendSpace2D（8 方向）
-├── landing           → BlendSpace2D（8 方向）
-├── hurt_mid          → BlendSpace2D（8 方向）
-├── hurt_high         → BlendSpace2D（8 方向）
-├── die               → BlendSpace2D（8 方向）
-├── knockout_launch   → BlendSpace2D（8 方向）
-├── knockout_rising   → BlendSpace2D（8 方向）
-├── knockout_falling  → BlendSpace2D（8 方向）
-├── knockout_bounce   → BlendSpace2D（8 方向）
-└── knockout_ground   → AnimationNodeStateMachine（嵌套）
-    ├── knockout_landed → BlendSpace2D（8 方向）
-    └── getting_up      → BlendSpace2D（8 方向）
+├── attack1           → BlendSpace2D（4 方向）  [改动]
+├── attack2           → BlendSpace2D（4 方向）  [改动]
+├── attack3           → BlendSpace2D（4 方向）  [改动]
+├── air_attack        → BlendSpace1D（2 方向）  [不变]
+├── jump              → BlendSpace1D（2 方向）  [不变]
+├── rising            → BlendSpace1D（2 方向）  [不变]
+├── falling           → BlendSpace1D（2 方向）  [不变]
+├── landing           → BlendSpace1D（2 方向）  [不变]
+├── hurt_mid          → BlendSpace1D（2 方向）  [不变]
+├── hurt_high         → BlendSpace1D（2 方向）  [不变]
+├── die               → BlendSpace1D（2 方向）  [不变]
+├── knockout_launch   → BlendSpace1D（2 方向）  [不变]
+├── knockout_rising   → BlendSpace1D（2 方向）  [不变]
+├── knockout_falling  → BlendSpace1D（2 方向）  [不变]
+├── knockout_bounce   → BlendSpace1D（2 方向）  [不变]
+└── knockout_ground   → AnimationNodeStateMachine（嵌套） [不变]
+    ├── knockout_landed → BlendSpace1D（2 方向）
+    └── getting_up      → BlendSpace1D（2 方向）
 ```
+
+**改动统计**：5 个状态改为 BlendSpace2D（idle, walk, attack1, attack2, attack3），15 个状态保持 BlendSpace1D。
 
 ### 5.4 `.tscn` 默认值变更
 
 ```
-# 当前（BlendSpace1D）:
-parameters/state_machine/idle/blend_position = 1.0
-parameters/state_machine/walk/blend_position = 1.0
-...
-
-# 目标（BlendSpace2D）:
+# BlendSpace2D 状态（idle, walk, attack1, attack2, attack3）:
 parameters/state_machine/idle/blend_position = Vector2(1, 0)
 parameters/state_machine/walk/blend_position = Vector2(1, 0)
+parameters/state_machine/attack1/blend_position = Vector2(1, 0)
+parameters/state_machine/attack2/blend_position = Vector2(1, 0)
+parameters/state_machine/attack3/blend_position = Vector2(1, 0)
+
+# BlendSpace1D 状态（不变）:
+parameters/state_machine/jump/blend_position = 1.0
+parameters/state_machine/hurt_mid/blend_position = 1.0
 ...
 ```
 
@@ -373,36 +468,42 @@ parameters/state_machine/walk/blend_position = Vector2(1, 0)
 
 ### 6.1 文件清单
 
-每个动作 8 个方向文件，总计 19 动作 × 8 = 152 个动画 `.tres` 文件。
+| 方向数 | 动作 | 文件数 |
+|--------|------|--------|
+| 8 方向 | idle, walk | 2 × 8 = 16 |
+| 4 方向 | attack1, attack2, attack3 | 3 × 4 = 12 |
+| 2 方向 | air_attack, jump, rising, falling, landing, hurt_mid, hurt_high, die, knockout_launch, knockout_rising, knockout_falling, knockout_bounce, knockout_landed, getting_up | 14 × 2 = 28 |
+| **总计** | **19 动作** | **56 个 `.tres`** |
 
-**以 idle 为例**：
+**8 方向文件示例（idle）**：
 ```
-idle_right.tres        # 右方
-idle_up_right.tres     # 右上方
-idle_up.tres           # 上方
-idle_up_left.tres      # 左上方
-idle_left.tres         # 左方
-idle_down_left.tres    # 左下方
-idle_down.tres         # 下方
-idle_down_right.tres   # 右下方
+idle_right.tres        idle_up_right.tres     idle_up.tres
+idle_up_left.tres      idle_left.tres         idle_down_left.tres
+idle_down.tres         idle_down_right.tres
 ```
 
-**完整动作列表**（19 个）：
-idle, walk, attack1, attack2, attack3, air_attack, jump, rising, falling, landing,
-hurt_mid, hurt_high, die, knockout_launch, knockout_rising, knockout_falling,
-knockout_bounce, knockout_landed, getting_up
+**4 方向文件示例（attack1）**：
+```
+attack1_right.tres     attack1_up.tres
+attack1_left.tres      attack1_down.tres
+```
+
+**2 方向文件（不变）**：
+```
+jump_left.tres         jump_right.tres
+```
 
 ### 6.2 每个动画文件内的轨迹
 
-与当前 left/right 文件相同的轨迹结构，但需要适配 8 方向：
+与当前 left/right 文件相同的轨迹结构。各方向动画文件共享相同的轨迹类型：
 
 | 轨迹 | 说明 | 方向差异 |
 |------|------|---------|
 | `AnimatedSprite2D:animation` | SpriteFrames 动画名 | 每个方向对应不同的 SpriteFrames 动画 |
 | `AnimatedSprite2D:frame` | 帧索引 | 每个方向的帧序列可能不同 |
 | `AnimatedSprite2D:position` | 精灵偏移 | 各方向独立 |
-| `AnimatedSprite2D:flip_h` | 水平翻转 | [待细化：8 方向独立精灵后是否还需要？] |
-| `AnimatedSprite2D/HurtBox/HurtShape:position` | 受击框位置 | [待细化：各方向是否独立？] |
+| `AnimatedSprite2D:flip_h` | 水平翻转 | 8/4 方向独立精灵后不再需要（每方向直接绘制正确朝向） |
+| `AnimatedSprite2D/HurtBox/HurtShape:position` | 受击框位置 | 8/4 方向各自独立 |
 | `Attacks/AttackN/AttackNShape:position` | 攻击框位置 | 各方向不同 |
 | `Attacks/AttackN/AttackNShape:disabled` | 攻击框启用 | 不变（与方向无关） |
 | `.:physical_height` | 物理高度 | 不变 |
@@ -410,19 +511,46 @@ knockout_bounce, knockout_landed, getting_up
 
 ### 6.3 SpriteFrames 扩展
 
-当前 SpriteFrames 资源（`spriteframes_*.tres`）包含 18 个动画。8 方向后需要扩展为 18 × 8 = 144 个动画。
+当前 SpriteFrames 资源（`spriteframes_*.tres`）包含 18 个动画。多方向后需要扩展：
 
-[待细化：SpriteFrames 的命名策略 — 是 `idle_right`、`idle_up_right` 等独立动画名，还是其他组织方式？]
+| 动作 | 当前动画数 | 目标动画数 | 新增 |
+|------|----------|----------|------|
+| idle | 1 | 8 | +7 |
+| walk | 1 | 8 | +7 |
+| attack_1, attack_2, attack_3 | 3 | 12 (3×4) | +9 |
+| 其余 | 13 | 13 | 0 |
+| **总计** | **18** | **41** | **+23** |
+
+**SpriteFrames 命名策略**：
+
+| 方向数 | 命名格式 | 示例 |
+|--------|---------|------|
+| 8 方向 | `<base>_<dir>` | `idle_right`, `idle_up_right`, `idle_up`, `idle_up_left`, `idle_left`, `idle_down_left`, `idle_down`, `idle_down_right` |
+| 4 方向 | `<base>_<dir>` | `attack_1_right`, `attack_1_up`, `attack_1_left`, `attack_1_down` |
+| 2 方向 | `<base>` (right), `<base>_left` | `jump`, `jump_left` |
+
+**说明**：
+- 8 方向和 4 方向使用方向后缀明确标识
+- 2 方向保持当前命名约定（right 为默认名，left 加 `_left` 后缀）
+- 方向后缀：`right`, `up_right`, `up`, `up_left`, `left`, `down_left`, `down`, `down_right`
 
 ### 6.4 镜像生成规则
 
-5 个手绘方向 → 3 个镜像方向：
+**8 方向（idle/walk）— 5 手绘 + 3 镜像**：
 
 | 源方向 | 镜像方向 | 镜像操作 |
 |--------|---------|---------|
 | right | left | `flip_h` 反转、`position.x` 取反、`polygon.x` 取反 |
 | up_right | up_left | 同上 |
 | down_right | down_left | 同上 |
+
+**4 方向（attack）— 3 手绘 + 1 镜像**：
+
+| 源方向 | 镜像方向 | 镜像操作 |
+|--------|---------|---------|
+| right | left | 同上 |
+| up | — | 独立绘制（上下不对称） |
+| down | — | 独立绘制（上下不对称） |
 
 **现有工具**：`create_mirrored_animation_button.gd` 已实现完整的镜像逻辑，可直接复用。需要确认命名映射（`_right` → `_left`，`_up_right` → `_up_left`，`_down_right` → `_down_left`）。
 
@@ -451,12 +579,12 @@ knockout_bounce, knockout_landed, getting_up
 
 | 文件 | 改动 |
 |------|------|
-| `_template/__NAME___skin.tscn` | 所有 `blend_position = 1.0` → `Vector2(1, 0)` |
-| `_template/resources/animations/animation_tree_root.tres` | 所有 BlendSpace1D → BlendSpace2D（19 个节点） |
-| `_template/resources/animations/` | 新增 6 方向文件 × 19 动作 = 114 个 `.tres` |
-| `_template/resources/sprites/` | 新增 3 方向精灵目录（up_right, up, down_right 各 N 帧） |
-| `_template/resources/spriteframes___NAME__.tres` | 新增 8 方向 SpriteFrames 动画 |
-| `_template/resources/anim_library___NAME__.tres` | 注册新动画（152 个条目） |
+| `_template/__NAME___skin.tscn` | 5 个 BlendSpace2D 状态的 `blend_position = 1.0` → `Vector2(1, 0)` |
+| `_template/resources/animations/animation_tree_root.tres` | 5 个节点从 BlendSpace1D → BlendSpace2D（idle, walk, attack1, attack2, attack3） |
+| `_template/resources/animations/` | 新增 16 个方向文件（idle/walk 各 +6，attack1/2/3 各 +2） |
+| `_template/resources/sprites/` | 新增精灵目录（idle/walk: up_right, up, down_right；attack: up, down） |
+| `_template/resources/spriteframes___NAME__.tres` | 新增 23 个 SpriteFrames 动画 |
+| `_template/resources/anim_library___NAME__.tres` | 注册新动画（从 40 条目扩展到 56 条目） |
 
 ### 8.2 角色创建工具 `character_creator.gd`
 
@@ -481,12 +609,12 @@ knockout_bounce, knockout_landed, getting_up
 ### 9.1 已有角色迁移步骤
 
 **chen_jingchou**：
-1. `animation_tree_root.tres`：所有 BlendSpace1D → BlendSpace2D
-2. `chen_jingchou_skin.tscn`：所有 `blend_position = 1.0` → `Vector2(1, 0)`
-3. 新增 6 方向动画文件 × 19 动作 = 114 个 `.tres`
-4. 新增精灵资产（5 方向手绘 + 3 方向镜像）
-5. 更新 `anim_library_chen_jingchou.tres`：注册新动画
-6. 更新 `spriteframes_chen_jingchou.tres`：新增 SpriteFrames 动画
+1. `animation_tree_root.tres`：5 个 BlendSpace1D → BlendSpace2D（idle, walk, attack1, attack2, attack3）
+2. `chen_jingchou_skin.tscn`：5 个 `blend_position = 1.0` → `Vector2(1, 0)`
+3. 新增 16 个方向动画文件（idle/walk 各 +6，attack1/2/3 各 +2）
+4. 新增精灵资产（idle/walk: 3 方向手绘 + 3 方向镜像；attack: 2 方向手绘 + 1 方向镜像）
+5. 更新 `anim_library_chen_jingchou.tres`：注册新动画（40 → 56 条目）
+6. 更新 `spriteframes_chen_jingchou.tres`：新增 SpriteFrames 动画（18 → 41）
 
 **chenjianchou_new**：同上步骤。
 
@@ -504,18 +632,18 @@ knockout_bounce, knockout_landed, getting_up
 
 ## 十、待细化清单
 
-| # | 章节 | 问题 | 优先级 |
-|---|------|------|--------|
-| 1 | §4.2 | Mid-air 方向是否包含 Y 分量？还是只取水平分量？ | 高 |
-| 2 | §5.1 | BlendSpace2D 的 blend mode 选择（Blend/Discrete/Custom） | 高 |
-| 3 | §6.2 | 8 方向独立精灵后 `flip_h` 轨迹是否还需要？ | 中 |
-| 4 | §6.3 | SpriteFrames 8 方向的命名和组织策略 | 高 |
-| 5 | §6.2 | HurtShape 各方向位置是否需要不同？ | 中 |
-| 6 | §8.2 | 角色创建工具的具体代码改动 | 中 |
-| 7 | §4 | 攻击时方向锁定策略：锁定在攻击开始时，还是可随输入改变？ | 高 |
-| 8 | §4 | 受击方向由什么决定？面朝攻击者？面朝被击飞方向？ | 中 |
-| 9 | §5.3 | turn 状态是移除还是保留（作为备用或特殊过渡动画）？ | 低 |
-| 10 | §8 | 轮廓转换工具是否需要适配 8 方向（collision shape 各方向不同？） | 低 |
+| # | 章节 | 问题 | 优先级 | 状态 |
+|---|------|------|--------|------|
+| 1 | §4.2 | Mid-air 方向是否包含 Y 分量？ | 高 | ✅ 已解决：jump 保持 2 方向，代码不变 |
+| 2 | §5.1 | BlendSpace2D 的 blend mode 选择 | 高 | ✅ 已解决：使用默认 Blend 模式 |
+| 3 | §6.2 | 多方向独立精灵后 `flip_h` 轨迹是否还需要？ | 中 | ✅ 已解决：8/4 方向不再需要 flip_h；2 方向保持现状 |
+| 4 | §6.3 | SpriteFrames 多方向的命名和组织策略 | 高 | ✅ 已解决：见 §6.3 命名策略 |
+| 5 | §6.2 | HurtShape 各方向位置是否需要不同？ | 中 | ✅ 已解决：hurt 保持 2 方向，暂不需要 |
+| 6 | §8.2 | 角色创建工具的具体代码改动 | 中 | 待细化 |
+| 7 | §4 | 攻击时方向锁定策略 | 高 | ✅ 已解决：攻击开始时量化为最近 4 方向并锁定，见 §4.5 |
+| 8 | §4 | 受击方向由什么决定？ | 中 | ✅ 已解决：hurt 保持 2 方向，暂不需要 |
+| 9 | §5.3 | turn 状态是移除还是保留？ | 低 | 待细化 |
+| 10 | §8 | 轮廓转换工具是否需要适配多方向？ | 低 | 待细化 |
 
 ---
 
@@ -541,14 +669,15 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `quiver_character_skin.gd` | 修改（~10 行） | 所有角色 |
 | `quiver_character_skin_anim_tree.gd` | 无改动 | — |
 | `quiver_action_walk.gd` | 修改（~20 行） | Walk 状态行为 |
-| `quiver_action_mid_air.gd` | 修改（~5 行） | 空中方向 |
+| `quiver_action_attack.gd` | 修改（~5 行） | 攻击方向量化锁定 |
+| `quiver_action_mid_air.gd` | 无改动 | jump 保持 2 方向，向后兼容 |
 | `quiver_action_follow.gd` | 修改（~5 行） | AI 跟随方向 |
 | `quiver_action_idle_ai.gd` | 修改（~3 行） | AI 闲置朝向 |
-| `animation_tree_root.tres` | 重写 | 每个角色各一份 |
-| `*_skin.tscn` | 修改默认值 | 每个角色各一份 |
-| 动画 `.tres` × 152 | 新增/重写 | 每个角色各一套 |
-| `spriteframes_*.tres` | 扩展 | 每个角色各一份 |
-| `anim_library_*.tres` | 扩展 | 每个角色各一份 |
+| `animation_tree_root.tres` | 修改 5 个节点 | 每个角色各一份 |
+| `*_skin.tscn` | 修改 5 个默认值 | 每个角色各一份 |
+| 动画 `.tres` × 16 新增 | 新增 | 每个角色各一套 |
+| `spriteframes_*.tres` | 扩展（+23 动画） | 每个角色各一份 |
+| `anim_library_*.tres` | 扩展（+16 条目） | 每个角色各一份 |
 
 ## 附录 C：当前所有设置 `skin_direction` 的代码位置
 
@@ -557,7 +686,7 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `quiver_action_walk.gd` | 97-99 | Walk 朝向 | `sign(dir.x)` → int | `dir.normalized()` → Vector2 |
 | `quiver_action_follow.gd` | 141-143 | AI 跟随 | `sign(delta.x)` → int | `direction_to()` → Vector2 |
 | `quiver_action_idle_ai.gd` | 47-48 | AI 闲置 | `1 if x>=0 else -1` | `direction_to()` → Vector2 |
-| `quiver_action_mid_air.gd` | 130-133 | 空中朝向 | `sign(vel.x)` → int | `vel.normalized()` → Vector2 |
+| `quiver_action_mid_air.gd` | 130-133 | 空中朝向 | `sign(vel.x)` → int | 不变（setter 自动兼容） |
 | `quiver_action_grab_idle.gd` | 71 | Grab 释放 | 读取（不设置） | 不变 |
 | `enemy_hurt_handler.gd` | 43 | 敌人初始化 | `facing_direction` (int) | setter 兼容转换 |
 | `enemy_periodic_attack.gd` | 37 | 敌人攻击 | `facing_direction` (int) | setter 兼容转换 |
