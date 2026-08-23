@@ -1,6 +1,6 @@
 # 多方向动画系统设计
 
-> **版本**: 0.3.0
+> **版本**: 0.3.1
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
 > **状态**: 设计完成，待 Godot 前置验证（附录 D）
@@ -9,6 +9,7 @@
 > - v0.1.0 — 初稿（统一 8 方向方案）
 > - v0.2.0 — 简化方向分配：idle/walk 8 方向、attack 4 方向、其余保持 2 方向
 > - v0.3.0 — 实现级细化：新增 §2.5 外部代码断点修复、§4.1 Walk 完整目标代码、§4.5 Attack 完整 enter() 代码、附录 C 扩展、附录 D 前置验证清单
+> - v0.3.1 — §4.5 攻击量化改为水平优先（`>=`），斜角方向量化为左右
 
 ---
 
@@ -389,9 +390,9 @@ func enter(msg: = {}) -> void:
         _should_combo = false
         _state_machine.set_process_unhandled_input(_can_combo)
     
-    # ===== 新增：将当前 8 方向量化为最近的 4 方向 =====
+    # ===== 新增：将当前 8 方向量化为最近的 4 方向（水平优先） =====
     var dir := _skin.skin_direction
-    if abs(dir.x) > abs(dir.y):
+    if abs(dir.x) >= abs(dir.y):
         _skin.skin_direction = Vector2(sign(dir.x), 0)
     else:
         _skin.skin_direction = Vector2(0, sign(dir.y))
@@ -400,15 +401,16 @@ func enter(msg: = {}) -> void:
     _skin.transition_to(_skin_state)
 ```
 
-**量化规则**：
+**量化规则**（水平优先：`>=` 使斜角偏向水平）：
 - 输入 `(1, 0)` → `(1, 0)` right
-- 输入 `(0.707, -0.707)` up-right → `(1, 0)` right（|x| > |y| 时取 x）
+- 输入 `(0.707, -0.707)` up-right → `(1, 0)` right（|x| >= |y| 时取水平分量）
 - 输入 `(0, -1)` → `(0, -1)` up
 - 输入 `(-0.707, 0.707)` down-left → `(-1, 0)` left
 - 输入 `(0, 0)` → `(0, 0)`（极端情况：idle 时攻击，BlendSpace2D 选最近动画点）
 
-**说明**：
-- 攻击状态不响应输入方向变化，`physics_process()` 中不更新 `skin_direction`
+**设计决策**：
+- **水平优先**：斜角方向（|x| == |y|）量化为左右方向，符合大多数 ARPG 的习惯
+- **方向锁定**：攻击过程中不响应输入变化，`physics_process()` 中不更新 `skin_direction`
 - `quiver_action_attack.gd` 原本不操作 `skin_direction`（方向继承 walk），现在需要在 enter() 中主动量化
 - 此文件还有其他代码（combo、attack movement），但方向相关的改动仅限 enter()
 
