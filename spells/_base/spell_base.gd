@@ -139,8 +139,8 @@ func _on_hit(hurtbox: QuiverHurtBox) -> void:
 func get_spawn_offset(direction: Vector2) -> Vector2:
     var char_height: float = 160.0
     var char_width: float = 40.0
-    if caster and caster.get("_skin"):
-        var skin = caster._skin
+    if caster and caster.get_node_or_null("Skin"):
+        var skin = caster.get_node_or_null("Skin")
         if skin.get("physical_height") != null:
             char_height = skin.physical_height
         if skin.get("physical_width") != null:

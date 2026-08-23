@@ -124,11 +124,12 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
 
 ### 2.5 阵营系统
 
-**决策：继承施放者 faction group**
+**决策：继承施放者所有 group**
 
-- 法术被施放时继承施放者的 `area2d:` group
+- 法术被施放时继承施放者的所有 group（包括 `area2d:` faction group）
 - 法术的 HitBox 与施放者同阵营，不会伤害施放者及其队友
-- 通过 `QuiverHurtBox.are_factions_equal()` 自动过滤
+- 通过 `QuiverHurtBox.are_factions_equal()` 自动过滤（只检查 `area2d:` 前缀）
+- 复制所有 group 比只复制 `area2d:` 前缀更简单，且无副作用（`are_factions_equal()` 只关心 faction group）
 
 ### 2.6 轮廓转换工具
 
@@ -623,9 +624,6 @@ func _update_hitbox_layers() -> void:
         return
     
     var ah: Array = _skin.attack_heights
-    if ah.is_empty():
-        return
-    
     var base_h: float = _skin.base_height
     var height_defs := QuiverCharacter.get_height_definitions()
     var all_mask := QuiverCharacter.get_all_height_layers_mask()
@@ -642,7 +640,7 @@ func _update_hitbox_layers() -> void:
         for hitbox in _skin.hitboxes:
             # 保留非高度层 bit，只修改高度层 bit
             hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | target_bits
-            hitbox.collision_mask = all_mask
+            hitbox.collision_mask = (hitbox.collision_mask & ~all_mask) | all_mask
 
 ## --- 子类钩子（虚函数）---
 
@@ -1208,8 +1206,8 @@ HitBox 碰撞时序（Attack1Shape:disabled track）：
 
 ### 7.2 阵营过滤
 
-- 法术继承施放者的 `area2d:` group
-- `QuiverHurtBox.are_factions_equal()` 自动过滤同阵营
+- 法术继承施放者的所有 group（包括 `area2d:` faction group）
+- `QuiverHurtBox.are_factions_equal()` 自动过滤同阵营（只检查 `area2d:` 前缀）
 
 ### 7.3 命中通知（hit notification）
 
