@@ -1,13 +1,14 @@
 # 多方向动画系统设计
 
-> **版本**: 0.2.0
+> **版本**: 0.3.0
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
-> **状态**: 设计中，待逐章细化
+> **状态**: 设计完成，待 Godot 前置验证（附录 D）
 > **关联文档**: HEIGHT_LAYER_DESIGN.md, SPELL_SYSTEM_DESIGN.md, PLUGIN_ARCHITECTURE.md
 > **变更记录**:
 > - v0.1.0 — 初稿（统一 8 方向方案）
 > - v0.2.0 — 简化方向分配：idle/walk 8 方向、attack 4 方向、其余保持 2 方向
+> - v0.3.0 — 实现级细化：新增 §2.5 外部代码断点修复、§4.1 Walk 完整目标代码、§4.5 Attack 完整 enter() 代码、附录 C 扩展、附录 D 前置验证清单
 
 ---
 
@@ -120,6 +121,27 @@
 
 **现有工具**：`create_mirrored_animation_button.gd` 已支持 `flip_h`、`position.x`、`polygon` 等轨迹的自动镜像。需要确认是否能正确处理新的命名约定。
 
+### 2.5 外部代码断点修复（关键）
+
+**问题**：setter 的 int/float 兼容转换只处理**赋值**（写入），不处理**比较**（读取）。以下代码会将 `skin_direction`（现在是 Vector2）与 `int` 比较，导致逻辑错误。
+
+**断点清单**：
+
+| 文件 | 行 | 当前代码 | 问题 | 修复代码 |
+|------|-----|---------|------|---------|
+| `quiver_action_grab_idle.gd` | 71 | `_skin.skin_direction == 1` | `Vector2 == 1` 永远 false | `_skin.skin_direction.x > 0` |
+| `spell_manager.gd` | 59 | `skin.skin_direction == -1` | `Vector2 == -1` 永远 false | `skin.skin_direction.x < 0` |
+| `quiver_action_walk.gd` | 98 | `facing_direction != _skin.skin_direction` | `int != Vector2` 永远 true | 整段移除（见 §4.1） |
+
+**敌人代码赋值**（setter 兼容可处理，无需改动）：
+
+| 文件 | 行 | 代码 | 处理 |
+|------|-----|------|------|
+| `enemy_hurt_handler.gd` | 11, 43 | `@export var facing_direction: int = -1` → `_skin.skin_direction = facing_direction` | setter 自动转换 int → Vector2.LEFT/RIGHT |
+| `enemy_periodic_attack.gd` | 14, 37 | `@export var facing_direction: int = 1` → `_skin.skin_direction = facing_direction` | 同上 |
+
+**决策**：敌人的 `facing_direction` 保留 `@export int` 类型，只需左右方向。setter 的兼容转换自动处理 int → Vector2 转换，无需修改这些文件。
+
 ---
 
 ## 三、插件代码改动
@@ -199,35 +221,29 @@ const SkinDirection_RIGHT: int = 1
 
 **位置**：`addons/quiver.beat_em_up/characters/action_states/ground_actions/move_actions/quiver_action_walk.gd`
 
-**当前代码**（关键片段）：
+**完整目标代码**（展示所有需要改动的方法）：
+
 ```gdscript
-func physics_process(delta: float) -> void:
+# --- 变量声明区 ---
+# 移除以下变量：
+#   var _is_turning := false
+#   var _turning_speed_modifier := 0.6
+# 保留以下变量（不变）：
+var _walk_skin_state := &"walk"
+var _path_idle_state := "Ground/Move/Idle"
+var _path_grabbing_state := "Ground/Grab/Grabbing"
+
+@onready var _move_state := get_parent() as QuiverActionGroundMove
+
+# --- enter() ---
+func enter(msg: = {}) -> void:
     _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
-    _handle_facing_direction()
-    if _is_turning:
-        _move_state._direction *= _turning_speed_modifier
-    _move_state.physics_process(delta)
-    if _move_state._direction.is_equal_approx(Vector2.ZERO):
-        _state_machine.transition_to(_path_idle_state)
-
-func _handle_facing_direction() -> void:
-    var facing_direction: int = sign(_move_state._direction.x)
-    if facing_direction != 0 and facing_direction != _skin.skin_direction:
-        _skin.skin_direction = facing_direction
-        _skin.transition_to(_turn_skin_state)
-        QuiverEditorHelper.connect_between(
-            _skin.skin_animation_finished, _on_skin_animation_finished
-        )
-        _is_turning = true
-
-func _on_skin_animation_finished() -> void:
+    super(msg)
+    _move_state.enter(msg)
     _skin.transition_to(_walk_skin_state)
-    _skin.skin_animation_finished.disconnect(_on_skin_animation_finished)
-    _is_turning = false
-```
+    # 移除：_handle_facing_direction()
 
-**目标代码**：
-```gdscript
+# --- physics_process() ---
 func physics_process(delta: float) -> void:
     _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
     if not _move_state._direction.is_equal_approx(Vector2.ZERO):
@@ -235,16 +251,51 @@ func physics_process(delta: float) -> void:
     _move_state.physics_process(delta)
     if _move_state._direction.is_equal_approx(Vector2.ZERO):
         _state_machine.transition_to(_path_idle_state)
+
+# --- exit() ---
+func exit() -> void:
+    super()
+    _move_state.exit()
+    # 移除：_is_turning = false
+
+# --- _connect_signals() ---
+func _connect_signals() -> void:
+    super()
+    QuiverEditorHelper.connect_between(_attributes.grab_requested, _on_grab_requested)
+    # 移除：QuiverEditorHelper.connect_between(_skin.skin_animation_finished, _on_skin_animation_finished)
+
+# --- _disconnect_signals() ---
+func _disconnect_signals() -> void:
+    super()
+    if _attributes != null and _state_machine.has_node(_path_grabbing_state):
+        QuiverEditorHelper.disconnect_between(_attributes.grab_requested, _on_grab_requested)
+    # 移除：_skin 的 skin_animation_finished 断开
+    # if _skin != null:
+    #     QuiverEditorHelper.disconnect_between(
+    #         _skin.skin_animation_finished, _on_skin_animation_finished
+    #     )
+
+# --- _get_custom_properties() ---
+func _get_custom_properties() -> Dictionary:
+    return {
+        "_walk_skin_state": {
+            default_value = &"walk",
+            type = TYPE_STRING,
+            usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
+            hint = PROPERTY_HINT_ENUM,
+            hint_string = 'ExternalEnum{"property": "_skin", "property_name": "_animation_list"}'
+        },
+        # 移除：_turn_skin_state 配置项
+        # 移除：_turning_speed_modifier 配置项
+        "_path_idle_state": { ... },   # 不变
+        "_path_grabbing_state": { ... },  # 不变
+    }
 ```
 
-**移除的内容**：
-- `_handle_facing_direction()` 方法
-- `_is_turning` 变量
-- `_turning_speed_modifier` 变量（及对应 Inspector 配置）
-- `_on_skin_animation_finished()` 方法
-- `_connect_signals()` / `_disconnect_signals()` 中的 `skin_animation_finished` 连接
-- `_turn_skin_state` 变量（及对应 Inspector 配置）
-- `enter()` 中的 `_handle_facing_direction()` 调用
+**完全移除的方法**：
+- `_handle_facing_direction()` — 整个方法
+- `_on_skin_animation_finished()` — 整个方法
+- `_on_grab_requested()` — 不变，保留
 
 ### 4.2 `quiver_action_mid_air.gd` — 空中方向（不变）
 
@@ -305,22 +356,48 @@ _skin.skin_direction = dir
 
 **决策**：攻击开始时锁定方向，取最近的四方向（上/下/左/右），攻击期间方向不变。
 
-**实现**：`quiver_action_attack.gd` 的 `enter()` 方法中，将当前 `skin_direction`（8 方向 Vector2）量化为最近的 4 方向（上/下/左/右）：
+**位置**：`addons/quiver.beat_em_up/characters/action_states/quiver_action_attack.gd`，第 77-89 行
 
+**当前 `enter()` 方法**：
 ```gdscript
 func enter(msg: = {}) -> void:
     super(msg)
-    get_parent().enter(msg)
+    if _should_enter_parent:
+        get_parent().enter(msg)
     
-    # 将当前 8 方向量化为最近的 4 方向
+    if msg.has("auto_combo") and msg.auto_combo > 0 and _can_combo:
+        _should_combo = true
+        _auto_combo_amount = msg.auto_combo
+    else:
+        _should_combo = false
+        _state_machine.set_process_unhandled_input(_can_combo)
+    
+    _skin.transition_to(_skin_state)
+```
+
+**目标 `enter()` 方法**（量化代码插入位置精确标注）：
+```gdscript
+func enter(msg: = {}) -> void:
+    super(msg)
+    if _should_enter_parent:
+        get_parent().enter(msg)
+    
+    if msg.has("auto_combo") and msg.auto_combo > 0 and _can_combo:
+        _should_combo = true
+        _auto_combo_amount = msg.auto_combo
+    else:
+        _should_combo = false
+        _state_machine.set_process_unhandled_input(_can_combo)
+    
+    # ===== 新增：将当前 8 方向量化为最近的 4 方向 =====
     var dir := _skin.skin_direction
     if abs(dir.x) > abs(dir.y):
-        _skin.skin_direction = Vector2(sign(dir.x), 0)  # left or right
+        _skin.skin_direction = Vector2(sign(dir.x), 0)
     else:
-        _skin.skin_direction = Vector2(0, sign(dir.y))  # up or down
+        _skin.skin_direction = Vector2(0, sign(dir.y))
+    # ===== 新增结束 =====
     
-    _skin.transition_to(_attack_skin_state)
-    ...
+    _skin.transition_to(_skin_state)
 ```
 
 **量化规则**：
@@ -328,8 +405,12 @@ func enter(msg: = {}) -> void:
 - 输入 `(0.707, -0.707)` up-right → `(1, 0)` right（|x| > |y| 时取 x）
 - 输入 `(0, -1)` → `(0, -1)` up
 - 输入 `(-0.707, 0.707)` down-left → `(-1, 0)` left
+- 输入 `(0, 0)` → `(0, 0)`（极端情况：idle 时攻击，BlendSpace2D 选最近动画点）
 
-**说明**：攻击状态不响应输入方向变化，`physics_process()` 中不更新 `skin_direction`。
+**说明**：
+- 攻击状态不响应输入方向变化，`physics_process()` 中不更新 `skin_direction`
+- `quiver_action_attack.gd` 原本不操作 `skin_direction`（方向继承 walk），现在需要在 enter() 中主动量化
+- 此文件还有其他代码（combo、attack movement），但方向相关的改动仅限 enter()
 
 ### 4.6 不需要改动的文件
 
@@ -681,15 +762,100 @@ parameters/state_machine/idle/blend_position_y     (float)    ← 不匹配（�
 | `spriteframes_*.tres` | 扩展（+23 动画） | 每个角色各一份 |
 | `anim_library_*.tres` | 扩展（+16 条目） | 每个角色各一份 |
 
-## 附录 C：当前所有设置 `skin_direction` 的代码位置
+## 附录 C：当前所有设置/读取 `skin_direction` 的代码位置
 
-| 文件 | 行 | 上下文 | 当前值 | 目标值 |
-|------|------|--------|--------|--------|
-| `quiver_action_walk.gd` | 97-99 | Walk 朝向 | `sign(dir.x)` → int | `dir.normalized()` → Vector2 |
-| `quiver_action_follow.gd` | 141-143 | AI 跟随 | `sign(delta.x)` → int | `direction_to()` → Vector2 |
-| `quiver_action_idle_ai.gd` | 47-48 | AI 闲置 | `1 if x>=0 else -1` | `direction_to()` → Vector2 |
-| `quiver_action_mid_air.gd` | 130-133 | 空中朝向 | `sign(vel.x)` → int | 不变（setter 自动兼容） |
-| `quiver_action_grab_idle.gd` | 71 | Grab 释放 | 读取（不设置） | 不变 |
-| `enemy_hurt_handler.gd` | 43 | 敌人初始化 | `facing_direction` (int) | setter 兼容转换 |
-| `enemy_periodic_attack.gd` | 37 | 敌人攻击 | `facing_direction` (int) | setter 兼容转换 |
-| `spell_base.gd` | 61 | 法术施放 | SpellSkin（独立） | 不改 |
+| 文件 | 行 | 上下文 | 当前值 | 目标值 | 需要改动 |
+|------|------|--------|--------|--------|---------|
+| `quiver_character_skin.gd` | 36, 54-62 | 声明 + setter | `enum SkinDirection` | `Vector2` + 兼容转换 | **是** |
+| `quiver_character_skin_anim_tree.gd` | 127-129 | 赋值 blend_position | `skin_direction`（int） | `skin_direction`（Vector2） | **否**（类型透明） |
+| `quiver_action_walk.gd` | 73-83 | Walk physics_process | `sign(dir.x)` → int | `dir.normalized()` → Vector2 | **是**（完整重写） |
+| `quiver_action_walk.gd` | 98 | Walk 方向比较 | `int != skin_direction` | 整段移除 | **是**（移除） |
+| `quiver_action_follow.gd` | 141-143 | AI 跟随 | `sign(delta.x)` → int | `direction_to()` → Vector2 | **是** |
+| `quiver_action_idle_ai.gd` | 44-48 | AI 闲置 | `1 if x>=0 else -1` | `direction_to()` → Vector2 | **是** |
+| `quiver_action_mid_air.gd` | 130-133 | 空中朝向 | `sign(vel.x)` → int | 不变（setter 自动兼容） | **否** |
+| `quiver_action_grab_idle.gd` | 71 | Grab 释放方向比较 | `skin_direction == 1` | `skin_direction.x > 0` | **是**（比较修复） |
+| `quiver_action_attack.gd` | 77-89 | 攻击 enter() | 不操作方向 | 新增 4 方向量化 | **是**（新增代码） |
+| `enemy_hurt_handler.gd` | 11, 43 | 敌人 facing | `@export int` → 赋值 | setter 兼容转换 | **否** |
+| `enemy_periodic_attack.gd` | 14, 37 | 敌人 facing | `@export int` → 赋值 | setter 兼容转换 | **否** |
+| `spell_base.gd` | 61 | 法术施放 | SpellSkin（独立） | 不改 | **否** |
+| `spell_manager.gd` | 59 | 法术方向比较 | `skin_direction == -1` | `skin_direction.x < 0` | **是**（比较修复） |
+
+**需要改动的文件总计**：6 个
+- `quiver_character_skin.gd`
+- `quiver_action_walk.gd`
+- `quiver_action_follow.gd`
+- `quiver_action_idle_ai.gd`
+- `quiver_action_grab_idle.gd`
+- `quiver_action_attack.gd`
+- `spell_manager.gd`
+
+---
+
+## 附录 D：实现前置验证清单
+
+以下步骤需要用户在 Windows Godot 编辑器中完成。
+
+### Step 0：BlendSpace2D `.tres` 格式验证
+
+**目标**：确认手编 `.tres` 文件的精确格式。
+
+**操作步骤**：
+
+1. 在 Godot 编辑器中打开 chen_jingchou 的 `_skin.tscn`
+2. 选中 `AnimationTree` 节点
+3. 在 Inspector 中打开 `tree_root`（`animation_tree_root.tres`）
+4. 将 `idle` 状态的 `AnimationNodeBlendSpace1D` 替换为 `AnimationNodeBlendSpace2D`
+5. 添加 8 个混合点（可先用占位动画），设置对应的 `pos` 值
+6. **保存场景**（Ctrl+S）
+7. 打开 `animation_tree_root.tres` 文件，复制 idle 节点的完整 `.tres` 文本
+
+**需要确认的项目**：
+
+| 项目 | 问题 | 影响 |
+|------|------|------|
+| `triangles` 属性 | 是否需要手写？`auto_triangles=true` 时 Godot 是否自动生成？ | 决定 .tres 是否需要 PackedInt32Array |
+| `pos` 精度 | 是否需要 `0.707107` 还是 `0.707` 够用？ | 决定坐标值格式 |
+| `blend_point_<N>/name` | 字符串值是什么？`"0"` 到 `"7"` 还是方向名？ | 决定 name 字段 |
+| 其他属性 | 除 `blend_point_*` 和 `triangles` 外，是否有其他非默认属性被写入？ | 确保格式完整 |
+| `auto_triangles` | 是否需要显式写入 `auto_triangles = true`？ | 决定是否需要此行 |
+
+### Step 0b：BlendSpace1D 赋值 Vector2 验证
+
+**目标**：确认 BlendSpace1D 的 `blend_position` 接受 Vector2 赋值。
+
+**操作步骤**：
+
+1. 创建一个最小测试场景：CharacterBody2D + AnimationTree（包含一个 BlendSpace1D）
+2. 在 GDScript 中运行：
+   ```gdscript
+   $AnimationTree["parameters/blend_position"] = Vector2(1, 0)
+   print($AnimationTree["parameters/blend_position"])
+   ```
+3. 观察输出：是 `1.0`（自动提取 x）还是报错？
+
+**如果报错**：需要在 `_update_blend_directions()` 中分离 1D 和 2D 路径：
+```gdscript
+func _update_blend_directions() -> void:
+    for path in _blend_positions_1d:
+        _animation_tree[path] = skin_direction.x  # float
+    for path in _blend_positions_2d:
+        _animation_tree[path] = skin_direction    # Vector2
+```
+
+### Step 0c：.tscn 中 Vector2 值格式验证
+
+**目标**：确认 `.tscn` 文件中 Vector2 属性的写法。
+
+**操作步骤**：
+
+1. 在 Godot 中修改 `__NAME___skin.tscn` 的某个 BlendSpace2D `blend_position` 为 `Vector2(1, 0)`
+2. 保存后读取 `.tscn` 文件，确认格式
+3. 预期格式：`parameters/state_machine/idle/blend_position = Vector2(1, 0)`
+
+### 验证完成后更新文档
+
+完成 Step 0/0b/0c 后，将结果更新到以下章节：
+- §5.1：BlendSpace2D 精确 `.tres` 格式
+- §3.2：BlendSpace1D + Vector2 兼容性结论
+- §5.4：`.tscn` 中 Vector2 的精确写法
+- §6.1：新动画文件的占位符 `.tres` 模板
