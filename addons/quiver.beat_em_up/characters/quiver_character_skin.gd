@@ -50,10 +50,9 @@ signal grab_frame_reached(ref_position: Marker2D)
 
 
 @export var skin_direction: Vector2 = Vector2.RIGHT:
-	set(value):
-		var val_type = typeof(value)
+	set(value: Variant):
 		var converted_value: Vector2
-		if val_type == TYPE_INT or val_type == TYPE_FLOAT:
+		if value is int or value is float:
 			converted_value = Vector2.LEFT if value < 0 else Vector2.RIGHT
 		else:
 			converted_value = value
