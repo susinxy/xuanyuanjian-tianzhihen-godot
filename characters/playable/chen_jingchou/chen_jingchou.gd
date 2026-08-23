@@ -74,7 +74,7 @@ func get_spell_manager() -> SpellManager:
 ### Private Methods -------------------------------------------------------------------------------
 
 func _on_player_died() -> void:
-	if _state_machine and _state_machine.state_name == &"Die":
+	if _state_machine and _state_machine.state_name == ^"Die":
 		_spell_manager.dismiss_all_summons()
 
 ### -----------------------------------------------------------------------------------------------
