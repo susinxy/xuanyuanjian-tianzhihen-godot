@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdtmrf7rpugg5"
-path="res://.godot/imported/walk_06_physical_180.png-5c57bfc7cfdf18e16cbf1ab5503c3281.ctex"
+uid="uid://b7txscluypmr0"
+path="res://.godot/imported/Qwen_Edit_2511_00017_.png-1ff5b28c4e94fb09290704f8615426c4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://characters/playable/chen_jingchou/resources/sprites/walk/walk_06_physical_180.png"
-dest_files=["res://.godot/imported/walk_06_physical_180.png-5c57bfc7cfdf18e16cbf1ab5503c3281.ctex"]
+source_file="res://characters/playable/sprites/陈靖仇/Qwen_Edit_2511_00017_.png"
+dest_files=["res://.godot/imported/Qwen_Edit_2511_00017_.png-1ff5b28c4e94fb09290704f8615426c4.ctex"]
 
 [params]
 

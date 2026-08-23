@@ -2,13 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
+uid="uid://coaiqav2hsy8c"
+path="res://.godot/imported/__NAME___profile.png-1c6064fc03ed9d228234ce72e07d8f25.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://characters/playable/__NAME__/resources/sprites/__NAME___profile.png"
+source_file="res://characters/playable/_template/resources/sprites/__NAME___profile.png"
+dest_files=["res://.godot/imported/__NAME___profile.png-1c6064fc03ed9d228234ce72e07d8f25.ctex"]
 
 [params]
 
