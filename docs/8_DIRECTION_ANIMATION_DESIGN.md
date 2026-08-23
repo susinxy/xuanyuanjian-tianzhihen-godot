@@ -175,14 +175,18 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
             _skin_direction_updated()
 ```
 
-**目标代码**：
+**目标代码**（实际实现）：
 ```gdscript
 @export var skin_direction: Vector2 = Vector2.RIGHT:
     set(value):
-        if value is int or value is float:
-            value = Vector2.LEFT if value < 0 else Vector2.RIGHT
-        var has_changed := not value.is_equal_approx(skin_direction)
-        skin_direction = value
+        var raw = value  # 无类型变量，绕过类型检查
+        var converted_value: Vector2
+        if typeof(raw) == TYPE_INT or typeof(raw) == TYPE_FLOAT:
+            converted_value = Vector2.LEFT if raw < 0 else Vector2.RIGHT
+        else:
+            converted_value = raw
+        var has_changed := not converted_value.is_equal_approx(skin_direction)
+        skin_direction = converted_value
         if has_changed:
             if not is_inside_tree():
                 await ready
@@ -194,6 +198,16 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 2. 默认值从 `SkinDirection.RIGHT`（int 1）→ `Vector2.RIGHT`（Vector2(1, 0)）
 3. setter 增加 int/float 兼容转换
 4. 变更检测用 `is_equal_approx()` 替代 `!=`（Vector2 浮点比较）
+
+**技术说明：GDScript setter 参数类型推断**
+
+GDScript 的 setter 参数会自动推断为属性声明的类型（这里是 Vector2），直接使用 `value is int` 会触发编译错误："Cannot use 'is' operator on a parameter of type 'Vector2'"。
+
+**解决方案**：使用 `var raw = value` 创建无类型变量，绕过编译时类型检查，在运行时使用 `typeof(raw)` 检测实际类型。这种方式在运行时正确检测传入类型，同时满足编译器的类型检查要求。
+
+**相关提交**：
+- `8326c8a` fix: setter使用无类型中间变量绕过GDScript静态类型检查
+- `7125764` fix: setter参数声明为Variant解决编译时类型推断问题
 
 ### 3.2 `quiver_character_skin_anim_tree.gd` — 需修改 `_update_blend_directions()`
 
@@ -218,7 +232,7 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
        _categorize_blend_positions(_animation_tree.tree_root, "parameters")
    ```
 
-3. **新增 `_categorize_blend_positions()`**：遍历 AnimationNode 树，根据节点类型分类：
+3. **新增 `_categorize_blend_positions()`**：遍历 AnimationNode 树，根据节点类型分类（实际实现）：
    ```gdscript
    func _categorize_blend_positions(node: AnimationNode, path: String) -> void:
        if node == null:
@@ -226,18 +240,32 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
        for prop in node.get_property_list():
            if prop.hint_string == "AnimationNode":
                var child = node.get(prop.name)
-               var child_path = path.path_join(prop.name)
+               if child == null:
+                   continue
+               var parameter_name = _get_actual_parameter_name(prop.name)
+               var child_path = path.path_join(parameter_name)
                if child is AnimationNodeBlendSpace1D:
-                   if child_path.ends_with("blend_position"):
-                       _blend_positions_1d.append(child_path + "/blend_position")
+                   _blend_positions_1d.append(child_path.path_join("blend_position"))
                    _categorize_blend_positions(child, child_path)
                elif child is AnimationNodeBlendSpace2D:
-                   if child_path.ends_with("blend_position"):
-                       _blend_positions_2d.append(child_path + "/blend_position")
+                   _blend_positions_2d.append(child_path.path_join("blend_position"))
                    _categorize_blend_positions(child, child_path)
                else:
                    _categorize_blend_positions(child, child_path)
    ```
+
+   **技术说明：为什么检查条件是多余的**
+   
+   实际实现省略了设计中的 `if child_path.ends_with("blend_position")` 检查，原因：
+   1. `_categorize_blend_positions()` 只在遇到 BlendSpace 节点时调用
+   2. BlendSpace 节点的 path 必然以 "blend_position" 结尾
+   3. 检查条件是防御性编程，但不是必需的
+   
+   **验证步骤**：
+   1. 在 Godot 编辑器中打开测试角色
+   2. 检查 AnimationTree 的 blend_position 参数
+   3. 确认 BlendSpace1D 和 BlendSpace2D 节点都能正确分类
+   4. 测试 8 方向移动和 4 方向攻击
 
 4. **`_update_blend_directions()`** — 分离赋值：
    ```gdscript
