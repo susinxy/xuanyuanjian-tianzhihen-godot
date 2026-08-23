@@ -1,6 +1,6 @@
 # 多方向动画系统设计
 
-> **版本**: 0.4.1
+> **版本**: 0.4.2
 > **创建日期**: 2026-08-23
 > **最后更新**: 2026-08-23
 > **状态**: 设计完成，待 Godot 前置验证（附录 D）
@@ -12,6 +12,7 @@
 > - v0.3.1 — §4.5 攻击量化改为水平优先（`>=`），斜角方向量化为左右
 > - v0.4.0 — 按"脚本变动"和"动画资源变动"重组文档结构，分为 Part A 和 Part B
 > - v0.4.1 — 修复 6 处数据矛盾：动画文件数 96→56、精灵方向 2+2→3+1、新增文件 16→18、library 条目 56→58、改动文件数 6→7、load_steps 补充
+> - v0.4.2 — 4 项设计决策确认：删除死代码常量、明确 resource_name/flip_h/SpriteFrames 命名规则
 
 ---
 
@@ -171,10 +172,6 @@ enum SkinDirection { LEFT = -1, RIGHT = 1 }
 
 **目标代码**：
 ```gdscript
-# 保留枚举值为常量（向后兼容）
-const SkinDirection_LEFT: int = -1
-const SkinDirection_RIGHT: int = 1
-
 @export var skin_direction: Vector2 = Vector2.RIGHT:
     set(value):
         if value is int or value is float:
@@ -591,12 +588,14 @@ jump_left.tres         jump_right.tres
 | `AnimatedSprite2D:animation` | SpriteFrames 动画名 | 每个方向对应不同的 SpriteFrames 动画 |
 | `AnimatedSprite2D:frame` | 帧索引 | 每个方向的帧序列可能不同 |
 | `AnimatedSprite2D:position` | 精灵偏移 | 各方向独立 |
-| `AnimatedSprite2D:flip_h` | 水平翻转 | 8/4 方向独立精灵后不再需要（每方向直接绘制正确朝向） |
+| `AnimatedSprite2D:flip_h` | 水平翻转 | **保留轨迹，值固定为 `false`**。镜像工具生成的文件自动设为 `true` |
 | `AnimatedSprite2D/HurtBox/HurtShape:position` | 受击框位置 | 8/4 方向各自独立 |
 | `Attacks/AttackN/AttackNShape:position` | 攻击框位置 | 各方向不同 |
 | `Attacks/AttackN/AttackNShape:disabled` | 攻击框启用 | 不变（与方向无关） |
 | `.:physical_height` | 物理高度 | 不变 |
 | `.:attack_heights` | 攻击高度 | 不变 |
+
+**设计决策**：`flip_h` 轨迹保留而非移除，确保所有动画文件结构一致。手绘方向设为 `false`，镜像工具自动将镜像方向设为 `true`。
 
 ### 6.3 SpriteFrames 扩展
 
@@ -622,6 +621,16 @@ jump_left.tres         jump_right.tres
 - 8 方向和 4 方向使用方向后缀明确标识
 - 2 方向保持当前命名约定（right 为默认名，left 加 `_left` 后缀）
 - 方向后缀：`right`, `up_right`, `up`, `up_left`, `left`, `down_left`, `down`, `down_right`
+
+**设计决策：两套命名约定共存**
+- 2 方向保持现有命名（如 `&"idle"` 共用、`&"jump"` / `&"jump_left"` 不对称），减少改动量
+- 8/4 方向使用统一的方向后缀命名（如 `&"idle_right"`, `&"idle_up_right"`）
+- 这是有意的权衡：虽然 2 方向命名不一致，但修改它们需要改动大量现有文件，收益不大
+
+**Animation .tres 文件的 `resource_name` 规则**：
+- 现有 `_right` 文件：保持无后缀（如 `resource_name = "idle"`），不修改
+- 新增 8/4 方向文件：带完整方向后缀（如 `resource_name = "idle_up"`, `resource_name = "idle_up_right"`）
+- `resource_name` 仅影响编辑器显示和日志，不影响功能（AnimationTree 通过 AnimationLibrary key 引用）
 
 ### 6.4 镜像生成规则
 
