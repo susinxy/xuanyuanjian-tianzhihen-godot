@@ -165,5 +165,3 @@ tracks/12/keys = {
 "update": 0,
 "values": [Vector2(165, 323)]
 }
-metadata/mirrored_name = "attack1_left.tres"
-metadata/should_overwrite = true
