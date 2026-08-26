@@ -124,7 +124,6 @@
 
 [resource]
 animations = [{
-{
 "frames": [{"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("22_o0cvf")}],
 "loop": false,
 "name": &"air_attack",
