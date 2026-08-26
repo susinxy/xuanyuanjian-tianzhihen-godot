@@ -129,177 +129,177 @@ animations = [{
 "loop": false,
 "name": &"air_attack",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("3_48agj")}, {"duration": 1.0, "texture": ExtResource("3_48agj")}, {"duration": 1.0, "texture": ExtResource("3_48agj")}, {"duration": 1.0, "texture": ExtResource("3_48agj")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": false,
 "name": &"attack_1",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("gk11b")}, {"duration": 1.0, "texture": ExtResource("gk11b")}, {"duration": 1.0, "texture": ExtResource("gk11b")}, {"duration": 1.0, "texture": ExtResource("gk11b")}, {"duration": 1.0, "texture": ExtResource("u3g8r")}, {"duration": 1.0, "texture": ExtResource("u3g8r")}],
 "loop": false,
 "name": &"attack_1_down",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("f6pt2")}, {"duration": 1.0, "texture": ExtResource("f6pt2")}, {"duration": 1.0, "texture": ExtResource("f6pt2")}, {"duration": 1.0, "texture": ExtResource("f6pt2")}, {"duration": 1.0, "texture": ExtResource("vd66m")}, {"duration": 1.0, "texture": ExtResource("vd66m")}],
 "loop": false,
 "name": &"attack_1_up",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("19_y1ame")}, {"duration": 1.0, "texture": ExtResource("19_y1ame")}, {"duration": 1.0, "texture": ExtResource("19_y1ame")}, {"duration": 1.0, "texture": ExtResource("20_7jacw")}, {"duration": 1.0, "texture": ExtResource("20_7jacw")}, {"duration": 1.0, "texture": ExtResource("20_7jacw")}, {"duration": 1.0, "texture": ExtResource("20_7jacw")}, {"duration": 1.0, "texture": ExtResource("20_7jacw")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_2",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("s4ulz")}, {"duration": 1.0, "texture": ExtResource("s4ulz")}, {"duration": 1.0, "texture": ExtResource("s4ulz")}, {"duration": 1.0, "texture": ExtResource("a8v3m")}, {"duration": 1.0, "texture": ExtResource("a8v3m")}, {"duration": 1.0, "texture": ExtResource("a8v3m")}, {"duration": 1.0, "texture": ExtResource("a8v3m")}, {"duration": 1.0, "texture": ExtResource("a8v3m")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_2_down",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("2den9")}, {"duration": 1.0, "texture": ExtResource("2den9")}, {"duration": 1.0, "texture": ExtResource("2den9")}, {"duration": 1.0, "texture": ExtResource("f0d1n")}, {"duration": 1.0, "texture": ExtResource("f0d1n")}, {"duration": 1.0, "texture": ExtResource("f0d1n")}, {"duration": 1.0, "texture": ExtResource("f0d1n")}, {"duration": 1.0, "texture": ExtResource("f0d1n")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_2_up",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("7_ya88k")}, {"duration": 1.0, "texture": ExtResource("7_ya88k")}, {"duration": 1.0, "texture": ExtResource("7_ya88k")}, {"duration": 1.0, "texture": ExtResource("7_ya88k")}, {"duration": 1.0, "texture": ExtResource("7_ya88k")}, {"duration": 1.0, "texture": ExtResource("8_svxg8")}, {"duration": 1.0, "texture": ExtResource("8_svxg8")}, {"duration": 1.0, "texture": ExtResource("8_svxg8")}, {"duration": 1.0, "texture": ExtResource("9_x5mcd")}, {"duration": 1.0, "texture": ExtResource("9_x5mcd")}, {"duration": 1.0, "texture": ExtResource("10_mesqx")}, {"duration": 1.0, "texture": ExtResource("10_mesqx")}, {"duration": 1.0, "texture": ExtResource("10_mesqx")}, {"duration": 1.0, "texture": ExtResource("10_mesqx")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_3",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("8kzxr")}, {"duration": 1.0, "texture": ExtResource("8kzxr")}, {"duration": 1.0, "texture": ExtResource("8kzxr")}, {"duration": 1.0, "texture": ExtResource("8kzxr")}, {"duration": 1.0, "texture": ExtResource("8kzxr")}, {"duration": 1.0, "texture": ExtResource("frjdn")}, {"duration": 1.0, "texture": ExtResource("frjdn")}, {"duration": 1.0, "texture": ExtResource("frjdn")}, {"duration": 1.0, "texture": ExtResource("0vxds")}, {"duration": 1.0, "texture": ExtResource("0vxds")}, {"duration": 1.0, "texture": ExtResource("mrj68")}, {"duration": 1.0, "texture": ExtResource("mrj68")}, {"duration": 1.0, "texture": ExtResource("mrj68")}, {"duration": 1.0, "texture": ExtResource("mrj68")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_3_down",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("vl8q2")}, {"duration": 1.0, "texture": ExtResource("vl8q2")}, {"duration": 1.0, "texture": ExtResource("vl8q2")}, {"duration": 1.0, "texture": ExtResource("vl8q2")}, {"duration": 1.0, "texture": ExtResource("vl8q2")}, {"duration": 1.0, "texture": ExtResource("l2ejt")}, {"duration": 1.0, "texture": ExtResource("l2ejt")}, {"duration": 1.0, "texture": ExtResource("l2ejt")}, {"duration": 1.0, "texture": ExtResource("x7fcj")}, {"duration": 1.0, "texture": ExtResource("x7fcj")}, {"duration": 1.0, "texture": ExtResource("p80ny")}, {"duration": 1.0, "texture": ExtResource("p80ny")}, {"duration": 1.0, "texture": ExtResource("p80ny")}, {"duration": 1.0, "texture": ExtResource("p80ny")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}, {"duration": 1.0, "texture": ExtResource("4_oi4qv")}],
 "loop": true,
 "name": &"attack_3_up",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("25_bqngl")}],
 "loop": false,
 "name": &"falling",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("27_fdxwh")}],
 "loop": true,
 "name": &"hurt_high",
 "speed": 5.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("28_niptm")}],
 "loop": true,
 "name": &"hurt_middle",
 "speed": 5.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("1_wrqq6")}, {"duration": 1.0, "texture": ExtResource("2_1xc7n")}, {"duration": 1.0, "texture": ExtResource("3_5djqb")}, {"duration": 1.0, "texture": ExtResource("14_psawv")}],
 "loop": true,
 "name": &"idle",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("b9dvb")}, {"duration": 1.0, "texture": ExtResource("fqdam")}, {"duration": 1.0, "texture": ExtResource("2w2z4")}, {"duration": 1.0, "texture": ExtResource("s1vkb")}],
 "loop": true,
 "name": &"idle_down",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("mjyq7")}, {"duration": 1.0, "texture": ExtResource("ap2ki")}, {"duration": 1.0, "texture": ExtResource("ae1ib")}, {"duration": 1.0, "texture": ExtResource("q2uj2")}],
 "loop": true,
 "name": &"idle_down_left",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("mjyq7")}, {"duration": 1.0, "texture": ExtResource("ap2ki")}, {"duration": 1.0, "texture": ExtResource("ae1ib")}, {"duration": 1.0, "texture": ExtResource("q2uj2")}],
 "loop": true,
 "name": &"idle_down_right",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("tqvde")}, {"duration": 1.0, "texture": ExtResource("t7kzq")}, {"duration": 1.0, "texture": ExtResource("pxksi")}, {"duration": 1.0, "texture": ExtResource("pjv5q")}],
 "loop": true,
 "name": &"idle_up",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("1w628")}, {"duration": 1.0, "texture": ExtResource("monx3")}, {"duration": 1.0, "texture": ExtResource("kn9ix")}, {"duration": 1.0, "texture": ExtResource("yi4qg")}],
 "loop": true,
 "name": &"idle_up_left",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("1w628")}, {"duration": 1.0, "texture": ExtResource("monx3")}, {"duration": 1.0, "texture": ExtResource("kn9ix")}, {"duration": 1.0, "texture": ExtResource("yi4qg")}],
 "loop": true,
 "name": &"idle_up_right",
 "speed": 8.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("23_trcrx")}, {"duration": 1.0, "texture": ExtResource("23_trcrx")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}],
 "loop": false,
 "name": &"jump",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("32_2hkrc")}, {"duration": 1.0, "texture": ExtResource("33_j15rn")}],
 "loop": false,
 "name": &"knockout_bounce",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("31_jaglq")}],
 "loop": false,
 "name": &"knockout_falling",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("30_hd20p")}],
 "loop": true,
 "name": &"knockout_landed",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("29_i7rbs")}],
 "loop": false,
 "name": &"knockout_launch",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("30_h1a1i")}],
 "loop": false,
 "name": &"knockout_rising",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("24_5taik")}, {"duration": 1.0, "texture": ExtResource("23_trcrx")}, {"duration": 1.0, "texture": ExtResource("23_trcrx")}],
 "loop": true,
 "name": &"landing",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("22_c167v")}],
 "loop": false,
 "name": &"rising",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("50_dcevi")}, {"duration": 1.0, "texture": ExtResource("51_5s74y")}, {"duration": 1.0, "texture": ExtResource("52_xtm6s")}],
 "loop": false,
 "name": &"turn_around",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("6_ra0bq")}, {"duration": 1.0, "texture": ExtResource("6_ra0bq")}, {"duration": 1.0, "texture": ExtResource("7_n4s3j")}, {"duration": 1.0, "texture": ExtResource("7_n4s3j")}, {"duration": 1.0, "texture": ExtResource("7_n4s3j")}, {"duration": 1.0, "texture": ExtResource("8_ytmlj")}, {"duration": 1.0, "texture": ExtResource("8_ytmlj")}, {"duration": 1.0, "texture": ExtResource("9_ur7d7")}, {"duration": 1.0, "texture": ExtResource("9_ur7d7")}, {"duration": 1.0, "texture": ExtResource("9_ur7d7")}, {"duration": 1.0, "texture": ExtResource("10_vyrsa")}, {"duration": 1.0, "texture": ExtResource("10_vyrsa")}, {"duration": 1.0, "texture": ExtResource("11_5p56x")}, {"duration": 1.0, "texture": ExtResource("11_5p56x")}, {"duration": 1.0, "texture": ExtResource("12_sw7jw")}, {"duration": 1.0, "texture": ExtResource("12_sw7jw")}, {"duration": 1.0, "texture": ExtResource("12_sw7jw")}, {"duration": 1.0, "texture": ExtResource("13_wlfmd")}, {"duration": 1.0, "texture": ExtResource("13_wlfmd")}, {"duration": 1.0, "texture": ExtResource("14_ujcpq")}, {"duration": 1.0, "texture": ExtResource("14_ujcpq")}, {"duration": 1.0, "texture": ExtResource("14_ujcpq")}, {"duration": 1.0, "texture": ExtResource("15_bany5")}, {"duration": 1.0, "texture": ExtResource("15_bany5")}, {"duration": 1.0, "texture": ExtResource("16_wr7m3")}, {"duration": 1.0, "texture": ExtResource("16_wr7m3")}, {"duration": 1.0, "texture": ExtResource("17_j3734")}, {"duration": 1.0, "texture": ExtResource("17_j3734")}, {"duration": 1.0, "texture": ExtResource("17_j3734")}],
 "loop": true,
 "name": &"walk",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("tfuuv")}, {"duration": 1.0, "texture": ExtResource("tfuuv")}, {"duration": 1.0, "texture": ExtResource("df5rw")}, {"duration": 1.0, "texture": ExtResource("df5rw")}, {"duration": 1.0, "texture": ExtResource("df5rw")}, {"duration": 1.0, "texture": ExtResource("gf8d0")}, {"duration": 1.0, "texture": ExtResource("gf8d0")}, {"duration": 1.0, "texture": ExtResource("8k7zp")}, {"duration": 1.0, "texture": ExtResource("8k7zp")}, {"duration": 1.0, "texture": ExtResource("8k7zp")}, {"duration": 1.0, "texture": ExtResource("gbe9v")}, {"duration": 1.0, "texture": ExtResource("gbe9v")}, {"duration": 1.0, "texture": ExtResource("4nbqg")}, {"duration": 1.0, "texture": ExtResource("4nbqg")}, {"duration": 1.0, "texture": ExtResource("fac59")}, {"duration": 1.0, "texture": ExtResource("fac59")}, {"duration": 1.0, "texture": ExtResource("fac59")}, {"duration": 1.0, "texture": ExtResource("w7qxy")}, {"duration": 1.0, "texture": ExtResource("w7qxy")}, {"duration": 1.0, "texture": ExtResource("ulxyt")}, {"duration": 1.0, "texture": ExtResource("ulxyt")}, {"duration": 1.0, "texture": ExtResource("ulxyt")}, {"duration": 1.0, "texture": ExtResource("mb45k")}, {"duration": 1.0, "texture": ExtResource("mb45k")}, {"duration": 1.0, "texture": ExtResource("amqqk")}, {"duration": 1.0, "texture": ExtResource("amqqk")}, {"duration": 1.0, "texture": ExtResource("zyodi")}, {"duration": 1.0, "texture": ExtResource("zyodi")}, {"duration": 1.0, "texture": ExtResource("zyodi")}],
 "loop": true,
 "name": &"walk_down",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("yoctp")}, {"duration": 1.0, "texture": ExtResource("yoctp")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("q92me")}, {"duration": 1.0, "texture": ExtResource("q92me")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("jbgfk")}, {"duration": 1.0, "texture": ExtResource("jbgfk")}, {"duration": 1.0, "texture": ExtResource("bk0m1")}, {"duration": 1.0, "texture": ExtResource("bk0m1")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("wyahj")}, {"duration": 1.0, "texture": ExtResource("wyahj")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("2krjc")}, {"duration": 1.0, "texture": ExtResource("2krjc")}, {"duration": 1.0, "texture": ExtResource("zqauq")}, {"duration": 1.0, "texture": ExtResource("zqauq")}, {"duration": 1.0, "texture": ExtResource("6xymp")}, {"duration": 1.0, "texture": ExtResource("6xymp")}, {"duration": 1.0, "texture": ExtResource("6xymp")}],
 "loop": true,
 "name": &"walk_down_left",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("yoctp")}, {"duration": 1.0, "texture": ExtResource("yoctp")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("ku29n")}, {"duration": 1.0, "texture": ExtResource("q92me")}, {"duration": 1.0, "texture": ExtResource("q92me")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("xn3nr")}, {"duration": 1.0, "texture": ExtResource("jbgfk")}, {"duration": 1.0, "texture": ExtResource("jbgfk")}, {"duration": 1.0, "texture": ExtResource("bk0m1")}, {"duration": 1.0, "texture": ExtResource("bk0m1")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("5nivj")}, {"duration": 1.0, "texture": ExtResource("wyahj")}, {"duration": 1.0, "texture": ExtResource("wyahj")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("s2757")}, {"duration": 1.0, "texture": ExtResource("2krjc")}, {"duration": 1.0, "texture": ExtResource("2krjc")}, {"duration": 1.0, "texture": ExtResource("zqauq")}, {"duration": 1.0, "texture": ExtResource("zqauq")}, {"duration": 1.0, "texture": ExtResource("6xymp")}, {"duration": 1.0, "texture": ExtResource("6xymp")}, {"duration": 1.0, "texture": ExtResource("6xymp")}],
 "loop": true,
 "name": &"walk_down_right",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("lg3q1")}, {"duration": 1.0, "texture": ExtResource("lg3q1")}, {"duration": 1.0, "texture": ExtResource("jbro3")}, {"duration": 1.0, "texture": ExtResource("jbro3")}, {"duration": 1.0, "texture": ExtResource("jbro3")}, {"duration": 1.0, "texture": ExtResource("l5qji")}, {"duration": 1.0, "texture": ExtResource("l5qji")}, {"duration": 1.0, "texture": ExtResource("0e3ce")}, {"duration": 1.0, "texture": ExtResource("0e3ce")}, {"duration": 1.0, "texture": ExtResource("0e3ce")}, {"duration": 1.0, "texture": ExtResource("bqbe6")}, {"duration": 1.0, "texture": ExtResource("bqbe6")}, {"duration": 1.0, "texture": ExtResource("jd3co")}, {"duration": 1.0, "texture": ExtResource("jd3co")}, {"duration": 1.0, "texture": ExtResource("xcwz3")}, {"duration": 1.0, "texture": ExtResource("xcwz3")}, {"duration": 1.0, "texture": ExtResource("xcwz3")}, {"duration": 1.0, "texture": ExtResource("0uv9k")}, {"duration": 1.0, "texture": ExtResource("0uv9k")}, {"duration": 1.0, "texture": ExtResource("dw8rm")}, {"duration": 1.0, "texture": ExtResource("dw8rm")}, {"duration": 1.0, "texture": ExtResource("dw8rm")}, {"duration": 1.0, "texture": ExtResource("8kyql")}, {"duration": 1.0, "texture": ExtResource("8kyql")}, {"duration": 1.0, "texture": ExtResource("2qmeq")}, {"duration": 1.0, "texture": ExtResource("2qmeq")}, {"duration": 1.0, "texture": ExtResource("llkwb")}, {"duration": 1.0, "texture": ExtResource("llkwb")}, {"duration": 1.0, "texture": ExtResource("llkwb")}],
 "loop": true,
 "name": &"walk_up",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("0yvze")}, {"duration": 1.0, "texture": ExtResource("0yvze")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("1z9xk")}, {"duration": 1.0, "texture": ExtResource("1z9xk")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("xbwpw")}, {"duration": 1.0, "texture": ExtResource("xbwpw")}, {"duration": 1.0, "texture": ExtResource("qr5bq")}, {"duration": 1.0, "texture": ExtResource("qr5bq")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("mwq6x")}, {"duration": 1.0, "texture": ExtResource("mwq6x")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("oc23f")}, {"duration": 1.0, "texture": ExtResource("oc23f")}, {"duration": 1.0, "texture": ExtResource("fwmns")}, {"duration": 1.0, "texture": ExtResource("fwmns")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}],
 "loop": true,
 "name": &"walk_up_left",
 "speed": 24.0
-}, {{
+}, {
 "frames": [{"duration": 1.0, "texture": ExtResource("0yvze")}, {"duration": 1.0, "texture": ExtResource("0yvze")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("r51rc")}, {"duration": 1.0, "texture": ExtResource("1z9xk")}, {"duration": 1.0, "texture": ExtResource("1z9xk")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("rcbcl")}, {"duration": 1.0, "texture": ExtResource("xbwpw")}, {"duration": 1.0, "texture": ExtResource("xbwpw")}, {"duration": 1.0, "texture": ExtResource("qr5bq")}, {"duration": 1.0, "texture": ExtResource("qr5bq")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("yvfst")}, {"duration": 1.0, "texture": ExtResource("mwq6x")}, {"duration": 1.0, "texture": ExtResource("mwq6x")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("iorjt")}, {"duration": 1.0, "texture": ExtResource("oc23f")}, {"duration": 1.0, "texture": ExtResource("oc23f")}, {"duration": 1.0, "texture": ExtResource("fwmns")}, {"duration": 1.0, "texture": ExtResource("fwmns")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}, {"duration": 1.0, "texture": ExtResource("ru5ug")}],
 "loop": true,
 "name": &"walk_up_right",
