@@ -303,5 +303,4 @@ animations = [{
 "loop": true,
 "name": &"walk_up_right",
 "speed": 24.0
-}
 }]
