@@ -62,13 +62,22 @@ script = ExtResource("6_jtgbp")
 _move_skin_state = &"walk"
 _is_walk_mode = true
 _path_idle_state = "Ground/Move/Idle"
-_path_other_state = ""
+_path_other_state = "Ground/Move/Run"
 _path_grabbing_state = "Ground/Grab/Grabbing"
 
-[node name="Idle" type="Node" parent="StateMachine/Ground/Move" index="1"]
+[node name="Run" type="Node" parent="StateMachine/Ground/Move" index="1"]
+script = ExtResource("6_jtgbp")
+_move_skin_state = &"run"
+_is_walk_mode = false
+_path_idle_state = "Ground/Move/Idle"
+_path_other_state = "Ground/Move/Walk"
+_path_grabbing_state = "Ground/Grab/Grabbing"
+
+[node name="Idle" type="Node" parent="StateMachine/Ground/Move" index="2"]
 script = ExtResource("7_kqgdb")
 _skin_state = &"idle"
 _path_walk_state = "Ground/Move/Walk"
+_path_run_state = "Ground/Move/Run"
 
 [node name="Hurt" type="Node" parent="StateMachine/Ground" index="1"]
 script = ExtResource("9_pb6nh")
@@ -136,6 +145,7 @@ script = ExtResource("13_d8net")
 _skin_state = &"landing"
 _path_idle = "Ground/Move/Idle"
 _path_walk = "Ground/Move/Walk"
+_path_run = "Ground/Move/Run"
 
 [node name="Attack" type="Node" parent="StateMachine/Air/Jump" index="3"]
 script = ExtResource("13_cw2hu")
