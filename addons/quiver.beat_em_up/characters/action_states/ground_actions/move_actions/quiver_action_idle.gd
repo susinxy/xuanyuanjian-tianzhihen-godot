@@ -15,6 +15,7 @@ extends QuiverCharacterAction
 
 var _skin_state: StringName
 var _path_walk_state := "Ground/Move/Walk"
+var _path_run_state := "Ground/Move/Run"
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
@@ -64,7 +65,12 @@ func unhandled_input(event: InputEvent) -> void:
 func physics_process(delta: float) -> void:
 	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if _move_state._direction != Vector2.ZERO:
-		_state_machine.transition_to(_path_walk_state)
+		if Input.is_action_pressed("walk"):
+			_state_machine.transition_to(_path_walk_state)
+		elif _state_machine.has_node(_path_run_state):
+			_state_machine.transition_to(_path_run_state)
+		else:
+			_state_machine.transition_to(_path_walk_state)
 		return
 	
 	get_parent().physics_process(delta)
@@ -97,6 +103,13 @@ func _get_custom_properties() -> Dictionary:
 		},
 		"_path_walk_state": {
 			default_value = "Ground/Move/Walk",
+			type = TYPE_NODE_PATH,
+			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
+			hint = PROPERTY_HINT_NONE,
+			hint_string = QuiverState.HINT_STATE_LIST,
+		},
+		"_path_run_state": {
+			default_value = "Ground/Move/Run",
 			type = TYPE_NODE_PATH,
 			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
 			hint = PROPERTY_HINT_NONE,

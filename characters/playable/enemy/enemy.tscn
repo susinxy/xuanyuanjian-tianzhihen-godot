@@ -6,7 +6,7 @@
 [ext_resource type="Resource" path="res://characters/playable/enemy/resources/enemy_attributes.tres" id="3_ylsip"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_ground.gd" id="4_vubfk"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/quiver_action_move.gd" id="5_5sh7r"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/move_actions/quiver_action_walk.gd" id="6_jtgbp"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/move_actions/quiver_action_locomotion.gd" id="6_jtgbp"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/move_actions/quiver_action_idle.gd" id="7_kqgdb"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_attack.gd" id="9_cce84"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_air.gd" id="9_o5gfu"]
@@ -59,10 +59,10 @@ _path_attack_state = "Ground/Combo1"
 
 [node name="Walk" type="Node" parent="StateMachine/Ground/Move" index="0"]
 script = ExtResource("6_jtgbp")
-_walk_skin_state = &"walk"
-_turn_skin_state = &"turn"
-_turning_speed_modifier = 0.6
+_move_skin_state = &"walk"
+_is_walk_mode = true
 _path_idle_state = "Ground/Move/Idle"
+_path_other_state = ""
 _path_grabbing_state = "Ground/Grab/Grabbing"
 
 [node name="Idle" type="Node" parent="StateMachine/Ground/Move" index="1"]

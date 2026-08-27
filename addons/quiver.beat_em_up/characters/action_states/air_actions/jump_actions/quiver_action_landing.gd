@@ -18,6 +18,7 @@ extends QuiverCharacterAction
 var _skin_state: StringName
 var _path_idle := "Ground/Move/Idle"
 var _path_walk := "Ground/Move/Walk"
+var _path_run := "Ground/Move/Run"
 
 @onready var _jump_state := get_parent() as QuiverActionAirJump
 
@@ -85,6 +86,10 @@ func _on_skin_animation_finished() -> void:
 	var direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if direction.is_equal_approx(Vector2.ZERO):
 		_state_machine.transition_to(_path_idle)
+	elif Input.is_action_pressed("walk"):
+		_state_machine.transition_to(_path_walk)
+	elif _state_machine.has_node(_path_run):
+		_state_machine.transition_to(_path_run)
 	else:
 		_state_machine.transition_to(_path_walk)
 
@@ -113,6 +118,13 @@ func _get_custom_properties() -> Dictionary:
 		},
 		"_path_walk": {
 			default_value = "Ground/Move/Walk",
+			type = TYPE_STRING,
+			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
+			hint = PROPERTY_HINT_NONE,
+			hint_string = QuiverState.HINT_STATE_LIST,
+		},
+		"_path_run": {
+			default_value = "Ground/Move/Run",
 			type = TYPE_STRING,
 			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
 			hint = PROPERTY_HINT_NONE,
