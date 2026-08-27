@@ -115,18 +115,6 @@ spell_4={
 
 [layer_names]
 
-2d_physics/layer_1="players"
-2d_physics/layer_2="obstacles"
-2d_physics/layer_3="screen_limits"
-2d_physics/layer_4="ceiling_limits"
-2d_physics/layer_5="enemies"
-2d_physics/layer_8="world_hit_boxes"
-2d_physics/layer_9="player_hit_boxes"
-2d_physics/layer_10="enemy_hit_boxes"
-2d_physics/layer_11="player_grab_boxes"
-2d_physics/layer_12="enemy_grab_boxes"
-2d_physics/layer_13="player_hurt_boxes"
-2d_physics/layer_14="enemy_hurt_boxes"
 2d_physics/layer_15="height_ground_low"
 2d_physics/layer_16="height_ground_high"
 2d_physics/layer_17="height_low_air_low"

@@ -466,6 +466,10 @@ func _on_display_name_changed(new_text: String) -> void:
 
 
 func _on_create_pressed() -> void:
+	_create_btn.disabled = true
+	_status_label.text = "Status: ⏳ Creating character..."
+	_status_label.add_theme_color_override("font_color", Color.YELLOW)
+	
 	var char_name := _char_name_edit.text
 	var pascal_name := _class_name_edit.text
 	var display_name := _display_name_edit.text
@@ -503,6 +507,7 @@ func _on_create_pressed() -> void:
 	else:
 		_status_label.text = "Status: ❌ Failed to create character. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
+		_create_btn.disabled = not _validate_all_inputs()
 
 
 func _on_delete_dropdown_selected(index: int) -> void:
@@ -533,6 +538,10 @@ func _on_delete_pressed() -> void:
 
 
 func _on_delete_confirmed(char_name: String) -> void:
+	_delete_btn.disabled = true
+	_status_label.text = "Status: ⏳ Deleting character..."
+	_status_label.add_theme_color_override("font_color", Color.YELLOW)
+	
 	var deleter := CharacterDeleter.new()
 	var success := deleter.delete_character(char_name)
 	
@@ -552,6 +561,7 @@ func _on_delete_confirmed(char_name: String) -> void:
 	else:
 		_status_label.text = "Status: ❌ Failed to delete character. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
+		_delete_btn.disabled = _delete_dropdown.selected < 0
 
 
 func _on_test_dropdown_selected(index: int) -> void:

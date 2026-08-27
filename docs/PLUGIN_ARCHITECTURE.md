@@ -152,9 +152,9 @@ QuiverBaseCharacter (CharacterBody2D)
   └─ StateMachine (Node, quiver_state_machine.gd)
 ```
 
-**重要**: 基类场景**不预设** `collision_layer` 和 `collision_mask`（使用 Godot 默认值 1）。所有碰撞层由运行时 `_update_collision_layers()` 动态管理：
+**重要**: 基类场景**显式设置** `collision_layer = 0` 和 `collision_mask = 0`，不使用 Godot 默认值 1。所有碰撞层由运行时 `_update_collision_layers()` 动态管理：
 - 高度层 bits (15-24) 根据角色的 `base_height` + `physical_height` 动态设置
-- 非高度层 bits (1-14) 保留原有值，不做修改
+- 非高度层 bits (1-14) 保持为 0，不做修改
 - 继承场景也不需要手动设置 collision_mask，高度层系统会自动处理
 
 **碰撞检测原则**：所有物理碰撞和 Area2D 检测都通过高度层交集触发，faction group (`area2d:` 前缀) 负责逻辑过滤。不再使用固定的 combat layer (9-14) 区分 player/enemy。
