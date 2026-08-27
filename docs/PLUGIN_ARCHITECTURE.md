@@ -1,8 +1,8 @@
 # Quiver Beat-em-up 插件架构源码分析
 
 > **分析日期**: 2026-08-11
-> **最后更新**: 2026-08-20
-> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构 + 轮廓转换工具
+> **最后更新**: 2026-08-27
+> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构 + 轮廓转换工具 + Walk/Run 移动系统
 > **用途**: 记录插件所有系统的设计、实现细节和使用方式
 
 ---
@@ -26,7 +26,12 @@ quiver.beat_em_up/
 │   │   ├── quiver_action_attack.gd     # 攻击状态基类（连击、输入窗口、冲刺）
 │   │   ├── quiver_action_die.gd        # 死亡状态基类（玩家发 Events.player_died，敌人 queue_free）
 │   │   ├── quiver_action_die_ai.gd     # AI 敌人死亡状态
-│   │   └── (子目录: ground_actions/, air_actions/)
+│   │   ├── ground_actions/
+│   │   │   ├── quiver_action_move.gd       # 地面移动基类（apply velocity + move_and_slide）
+│   │   │   └── move_actions/
+│   │   │       ├── quiver_action_idle.gd       # Idle 状态（读输入，转到 Walk/Run）
+│   │   │       └── quiver_action_locomotion.gd # Walk/Run 通用移动状态（单类，实例配置区分）
+│   │   └── (子目录: air_actions/)
 │   └── ai/                       # AI 行为状态机
 │       ├── quiver_ai_state_machine.gd  # AI 状态机核心
 │       └── states/               # 所有 AI 行为状态
@@ -251,7 +256,8 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export_group("Base Stats")
 @export var health_max := 100           # 最大 HP（range 0-1, or_greater）
 @export var mana_max := 100              # 最大法力值（range 0-1, or_greater）
-@export var move_speed := 600            # 移动速度
+@export var move_speed := 600            # 跑步速度（Run 状态）
+@export var walk_speed := 300            # 步行速度（Walk 状态，按住 Shift）
 @export var air_control := 0.6          # 空中操控系数 (0.0-1.0)
 @export var jump_force := -1200         # 起跳力（负数=向上，由 jump 动画 speed_X 设置）
 @export var knockback_weight := 1.0     # 击飞权重（由 knockout 动画 speed_X 设置）
@@ -421,12 +427,99 @@ Ground/Move/Idle/ (QuiverActionMoveIdle)
 | 状态 | enter() 链 | physics_process() 链 |
 |---|---|---|
 | Idle | Idle→Move→Ground | Idle(读输入) → Move(apply velocity + move_and_slide) → Ground(track ground_level) |
-| Walk | Walk→Move→Ground | Walk(读输入+转身) → Move → Ground |
+| Walk (Locomotion, _is_walk_mode=true) | Walk→Move→Ground（enter 加 modifier 降速） | Walk(读输入+转身) → Move → Ground |
+| Run (Locomotion, _is_walk_mode=false) | Run→Move→Ground（enter 无 modifier） | Run(读输入+转身) → Move → Ground |
 | Attack (Combo1/2/3) | Attack→Ground | Attack(maybe apply damage during animation) → Ground |
 | Hurt | Hurt → explicitly call _ground_state.enter() | — |
 | Jump/Impulse | ...→Ground.exit() | Air(gravity + move_and_slide) |
 
 **Exit 调用顺序**：与 enter **完全相反**，`super()` 在**最末**调用。
+
+### 5.5.1 Locomotion 状态 (`quiver_action_locomotion.gd`)
+
+**类名**: `QuiverActionLocomotion`（`@tool`）
+
+**文件**: `characters/action_states/ground_actions/move_actions/quiver_action_locomotion.gd`
+
+**设计哲学**: Walk 和 Run 是同一概念的两种表现（地面位移），仅速度和动画不同。使用**单类 + 实例配置**而非继承，避免代码重复。
+
+**状态机结构**:
+
+```
+StateMachine
+└── Ground
+    └── Move (QuiverActionGroundMove)
+        ├── Idle (QuiverActionMoveIdle)
+        ├── Walk (QuiverActionLocomotion, _is_walk_mode=true, _move_skin_state=&"walk")
+        └── Run  (QuiverActionLocomotion, _is_walk_mode=false, _move_skin_state=&"run")
+```
+
+**速度控制机制**: 通过 `QuiverAttributes.add_modifier()` 在 enter/exit 时切换速度：
+
+```gdscript
+func enter(msg: = {}) -> void:
+    _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+    super(msg)
+    _move_state.enter(msg)
+    if _is_walk_mode and _attributes.move_speed > 0:
+        var multiplier: float = float(_attributes.walk_speed) / float(_attributes.move_speed)
+        _attributes.add_modifier(&"locomotion_speed", &"move_speed", "multiply", multiplier)
+    _character.velocity = _attributes.move_speed * _move_state._direction
+    _skin.transition_to(_move_skin_state)
+
+func exit() -> void:
+    if _is_walk_mode:
+        _attributes.remove_modifier(&"locomotion_speed")
+    super()
+    _move_state.exit()
+```
+
+**Inspector 属性**:
+
+| 属性 | 类型 | Walk 值 | Run 值 | 说明 |
+|---|---|---|---|---|
+| `_move_skin_state` | StringName | `&"walk"` | `&"run"` | 皮肤动画状态名 |
+| `_is_walk_mode` | bool | `true` | `false` | 是否启用 walk 减速 modifier |
+| `_path_idle_state` | String | `"Ground/Move/Idle"` | `"Ground/Move/Idle"` | 无输入时回到的状态 |
+| `_path_other_state` | String | `"Ground/Move/Run"` | `"Ground/Move/Walk"` | 切换到的另一个移动状态 |
+| `_path_grabbing_state` | String | `"Ground/Grab/Grabbing"` | `"Ground/Grab/Grabbing"` | 抓取状态路径 |
+
+**状态转换逻辑**:
+
+```gdscript
+func physics_process(delta: float) -> void:
+    _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+    if not _move_state._direction.is_equal_approx(Vector2.ZERO):
+        _skin.skin_direction = _move_state._direction.normalized()
+    _move_state.physics_process(delta)  # Move 层 apply velocity + move_and_slide
+    if _move_state._direction.is_equal_approx(Vector2.ZERO):
+        _state_machine.transition_to(_path_idle_state)
+        return
+    if _path_other_state != "" and Input.is_action_pressed("walk") != _is_walk_mode:
+        _state_machine.transition_to(_path_other_state)
+```
+
+**条件解读**: `Input.is_action_pressed("walk") != _is_walk_mode`
+
+| 当前状态 | walk 按下 | 条件结果 | 动作 |
+|---|---|---|---|
+| Walk (true) | 是 | true != true = false | 继续 Walk |
+| Walk (true) | 否 | false != true = true | → Run |
+| Run (false) | 否 | false != false = false | 继续 Run |
+| Run (false) | 是 | true != false = true | → Walk |
+
+**Idle 和 Landing 的适配**:
+
+`quiver_action_idle.gd` 和 `quiver_action_landing.gd` 都新增了 `_path_run_state` / `_path_run` 属性。当有方向输入时：
+- walk 按下 → 转到 Walk
+- walk 未按下 → 转到 Run（如果 Run 节点存在，通过 `has_node()` 检查）
+- 无 Run 节点 → 回退到 Walk（兼容旧角色）
+
+**输入映射**: `project.godot` 的 `[input]` 部分需添加 `walk` 动作（推荐绑定 Left Shift）。
+
+**现有角色兼容性**: 旧角色的 Walk 节点 `_path_other_state` 默认为 `""`（空字符串），此时 Locomotion 不会尝试切换状态，行为与原版 Walk 完全一致。
+
+**动画 xfade_time 注意事项**: 所有动画状态过渡（idle↔walk, idle↔run, walk↔run）的 `xfade_time` 必须为 `0`（瞬间切换）。非零 xfade_time 会导致 `AnimatedSprite2D:animation`（StringName 类型）被线性插值，产生闪烁和调试器乱码。详见 `docs/RUN_WALK_DESIGN.md`。
 
 ### 5.6 Ground 状态 (`quiver_action_ground.gd`)
 
