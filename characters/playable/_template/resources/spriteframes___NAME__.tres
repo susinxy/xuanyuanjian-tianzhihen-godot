@@ -496,5 +496,4 @@ animations = [{
 "loop": true,
 "name": &"run_down_left",
 "speed": 24.0
-}
 }]
