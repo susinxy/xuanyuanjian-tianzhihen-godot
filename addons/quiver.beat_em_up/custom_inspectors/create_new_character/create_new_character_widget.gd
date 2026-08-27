@@ -137,7 +137,7 @@ func _build_ui() -> void:
 	hbox_faction.add_child(_faction_option)
 	add_child(hbox_faction)
 	var faction_hint := Label.new()
-	faction_hint.text = "角色阵营，决定根节点 group（players/enemies）"
+	faction_hint.text = "players: 死亡触发慢动作+游戏结束, 进入区域触发战斗锁屏刷怪, 被AI追踪\nenemies: 死亡直接消失, 不触发战斗, 不被AI追踪"
 	faction_hint.add_theme_color_override("font_color", Color.GRAY)
 	faction_hint.add_theme_font_size_override("font_size", 12)
 	add_child(faction_hint)
