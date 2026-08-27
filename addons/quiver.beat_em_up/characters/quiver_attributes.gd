@@ -57,8 +57,13 @@ const KNOCKBACK_VALUES = {
 ## Max mana for the character (spell casting resource).
 @export_range(0, 1, 1, "or_greater") var mana_max := 100
 
-## Max movement speed for the character.
+## Max movement speed for the character (also used as Run speed).
 @export_range(0, 1000, 1, "or_greater") var move_speed := 600
+
+## Walk speed for the character. When the "walk" input is held, the character
+## moves at this speed instead of move_speed. Independent from move_speed, each
+## character can configure its own walk/run speeds.
+@export_range(0, 1000, 1, "or_greater") var walk_speed := 300
 
 ## Max influence for player controlled movement on air.
 ## If 1.0 player's will be able to freely control character's direction on air, just as on the
