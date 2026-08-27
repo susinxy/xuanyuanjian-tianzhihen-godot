@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=119 format=3]
+[gd_resource type="SpriteFrames" load_steps=179 format=3]
 
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/idle/idle_00.png" id="1_wrqq6"]
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/idle/idle_01.png" id="2_1xc7n"]
@@ -119,6 +119,66 @@
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/punches/punch3_down_02.png" id="0vxds"]
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/punches/punch3_down_04.png" id="mrj68"]
 
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_00.png" id="r000"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_01.png" id="r001"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_02.png" id="r002"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_03.png" id="r003"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_04.png" id="r004"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_05.png" id="r005"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_06.png" id="r006"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_07.png" id="r007"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_08.png" id="r008"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_09.png" id="r009"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_10.png" id="r010"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_11.png" id="r011"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_00.png" id="r012"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_01.png" id="r013"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_02.png" id="r014"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_03.png" id="r015"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_04.png" id="r016"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_05.png" id="r017"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_06.png" id="r018"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_07.png" id="r019"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_08.png" id="r020"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_09.png" id="r021"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_10.png" id="r022"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_11.png" id="r023"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_00.png" id="r024"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_01.png" id="r025"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_02.png" id="r026"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_03.png" id="r027"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_04.png" id="r028"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_05.png" id="r029"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_06.png" id="r030"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_07.png" id="r031"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_08.png" id="r032"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_09.png" id="r033"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_10.png" id="r034"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_11.png" id="r035"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_00.png" id="r036"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_01.png" id="r037"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_02.png" id="r038"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_03.png" id="r039"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_04.png" id="r040"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_05.png" id="r041"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_06.png" id="r042"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_07.png" id="r043"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_08.png" id="r044"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_09.png" id="r045"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_10.png" id="r046"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_up_right_11.png" id="r047"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_00.png" id="r048"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_01.png" id="r049"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_02.png" id="r050"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_03.png" id="r051"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_04.png" id="r052"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_05.png" id="r053"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_06.png" id="r054"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_07.png" id="r055"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_08.png" id="r056"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_09.png" id="r057"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_10.png" id="r058"]
+[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/run/run_down_right_11.png" id="r059"]
 [resource]
 animations = [{
 "frames": [{"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("21_mbplx")}, {"duration": 1.0, "texture": ExtResource("22_o0cvf")}],
@@ -395,4 +455,45 @@ animations = [{
 "loop": true,
 "name": &"walk_up_right",
 "speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r000")}, {"duration": 1.0, "texture": ExtResource("r000")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r003")}, {"duration": 1.0, "texture": ExtResource("r003")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r005")}, {"duration": 1.0, "texture": ExtResource("r005")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r007")}, {"duration": 1.0, "texture": ExtResource("r007")}, {"duration": 1.0, "texture": ExtResource("r008")}, {"duration": 1.0, "texture": ExtResource("r008")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r010")}, {"duration": 1.0, "texture": ExtResource("r010")}, {"duration": 1.0, "texture": ExtResource("r011")}, {"duration": 1.0, "texture": ExtResource("r011")}],
+"loop": true,
+"name": &"run_right",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r000")}, {"duration": 1.0, "texture": ExtResource("r000")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r001")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r002")}, {"duration": 1.0, "texture": ExtResource("r003")}, {"duration": 1.0, "texture": ExtResource("r003")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r004")}, {"duration": 1.0, "texture": ExtResource("r005")}, {"duration": 1.0, "texture": ExtResource("r005")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r006")}, {"duration": 1.0, "texture": ExtResource("r007")}, {"duration": 1.0, "texture": ExtResource("r007")}, {"duration": 1.0, "texture": ExtResource("r008")}, {"duration": 1.0, "texture": ExtResource("r008")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r009")}, {"duration": 1.0, "texture": ExtResource("r010")}, {"duration": 1.0, "texture": ExtResource("r010")}, {"duration": 1.0, "texture": ExtResource("r011")}, {"duration": 1.0, "texture": ExtResource("r011")}],
+"loop": true,
+"name": &"run_left",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r012")}, {"duration": 1.0, "texture": ExtResource("r012")}, {"duration": 1.0, "texture": ExtResource("r013")}, {"duration": 1.0, "texture": ExtResource("r013")}, {"duration": 1.0, "texture": ExtResource("r013")}, {"duration": 1.0, "texture": ExtResource("r014")}, {"duration": 1.0, "texture": ExtResource("r014")}, {"duration": 1.0, "texture": ExtResource("r014")}, {"duration": 1.0, "texture": ExtResource("r015")}, {"duration": 1.0, "texture": ExtResource("r015")}, {"duration": 1.0, "texture": ExtResource("r016")}, {"duration": 1.0, "texture": ExtResource("r016")}, {"duration": 1.0, "texture": ExtResource("r016")}, {"duration": 1.0, "texture": ExtResource("r017")}, {"duration": 1.0, "texture": ExtResource("r017")}, {"duration": 1.0, "texture": ExtResource("r018")}, {"duration": 1.0, "texture": ExtResource("r018")}, {"duration": 1.0, "texture": ExtResource("r018")}, {"duration": 1.0, "texture": ExtResource("r019")}, {"duration": 1.0, "texture": ExtResource("r019")}, {"duration": 1.0, "texture": ExtResource("r020")}, {"duration": 1.0, "texture": ExtResource("r020")}, {"duration": 1.0, "texture": ExtResource("r021")}, {"duration": 1.0, "texture": ExtResource("r021")}, {"duration": 1.0, "texture": ExtResource("r021")}, {"duration": 1.0, "texture": ExtResource("r022")}, {"duration": 1.0, "texture": ExtResource("r022")}, {"duration": 1.0, "texture": ExtResource("r023")}, {"duration": 1.0, "texture": ExtResource("r023")}],
+"loop": true,
+"name": &"run_up",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r024")}, {"duration": 1.0, "texture": ExtResource("r024")}, {"duration": 1.0, "texture": ExtResource("r025")}, {"duration": 1.0, "texture": ExtResource("r025")}, {"duration": 1.0, "texture": ExtResource("r025")}, {"duration": 1.0, "texture": ExtResource("r026")}, {"duration": 1.0, "texture": ExtResource("r026")}, {"duration": 1.0, "texture": ExtResource("r026")}, {"duration": 1.0, "texture": ExtResource("r027")}, {"duration": 1.0, "texture": ExtResource("r027")}, {"duration": 1.0, "texture": ExtResource("r028")}, {"duration": 1.0, "texture": ExtResource("r028")}, {"duration": 1.0, "texture": ExtResource("r028")}, {"duration": 1.0, "texture": ExtResource("r029")}, {"duration": 1.0, "texture": ExtResource("r029")}, {"duration": 1.0, "texture": ExtResource("r030")}, {"duration": 1.0, "texture": ExtResource("r030")}, {"duration": 1.0, "texture": ExtResource("r030")}, {"duration": 1.0, "texture": ExtResource("r031")}, {"duration": 1.0, "texture": ExtResource("r031")}, {"duration": 1.0, "texture": ExtResource("r032")}, {"duration": 1.0, "texture": ExtResource("r032")}, {"duration": 1.0, "texture": ExtResource("r033")}, {"duration": 1.0, "texture": ExtResource("r033")}, {"duration": 1.0, "texture": ExtResource("r033")}, {"duration": 1.0, "texture": ExtResource("r034")}, {"duration": 1.0, "texture": ExtResource("r034")}, {"duration": 1.0, "texture": ExtResource("r035")}, {"duration": 1.0, "texture": ExtResource("r035")}],
+"loop": true,
+"name": &"run_down",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r036")}, {"duration": 1.0, "texture": ExtResource("r036")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r039")}, {"duration": 1.0, "texture": ExtResource("r039")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r041")}, {"duration": 1.0, "texture": ExtResource("r041")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r043")}, {"duration": 1.0, "texture": ExtResource("r043")}, {"duration": 1.0, "texture": ExtResource("r044")}, {"duration": 1.0, "texture": ExtResource("r044")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r046")}, {"duration": 1.0, "texture": ExtResource("r046")}, {"duration": 1.0, "texture": ExtResource("r047")}, {"duration": 1.0, "texture": ExtResource("r047")}],
+"loop": true,
+"name": &"run_up_right",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r036")}, {"duration": 1.0, "texture": ExtResource("r036")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r037")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r038")}, {"duration": 1.0, "texture": ExtResource("r039")}, {"duration": 1.0, "texture": ExtResource("r039")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r040")}, {"duration": 1.0, "texture": ExtResource("r041")}, {"duration": 1.0, "texture": ExtResource("r041")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r042")}, {"duration": 1.0, "texture": ExtResource("r043")}, {"duration": 1.0, "texture": ExtResource("r043")}, {"duration": 1.0, "texture": ExtResource("r044")}, {"duration": 1.0, "texture": ExtResource("r044")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r045")}, {"duration": 1.0, "texture": ExtResource("r046")}, {"duration": 1.0, "texture": ExtResource("r046")}, {"duration": 1.0, "texture": ExtResource("r047")}, {"duration": 1.0, "texture": ExtResource("r047")}],
+"loop": true,
+"name": &"run_up_left",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r048")}, {"duration": 1.0, "texture": ExtResource("r048")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r051")}, {"duration": 1.0, "texture": ExtResource("r051")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r053")}, {"duration": 1.0, "texture": ExtResource("r053")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r055")}, {"duration": 1.0, "texture": ExtResource("r055")}, {"duration": 1.0, "texture": ExtResource("r056")}, {"duration": 1.0, "texture": ExtResource("r056")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r058")}, {"duration": 1.0, "texture": ExtResource("r058")}, {"duration": 1.0, "texture": ExtResource("r059")}, {"duration": 1.0, "texture": ExtResource("r059")}],
+"loop": true,
+"name": &"run_down_right",
+"speed": 24.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("r048")}, {"duration": 1.0, "texture": ExtResource("r048")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r049")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r050")}, {"duration": 1.0, "texture": ExtResource("r051")}, {"duration": 1.0, "texture": ExtResource("r051")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r052")}, {"duration": 1.0, "texture": ExtResource("r053")}, {"duration": 1.0, "texture": ExtResource("r053")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r054")}, {"duration": 1.0, "texture": ExtResource("r055")}, {"duration": 1.0, "texture": ExtResource("r055")}, {"duration": 1.0, "texture": ExtResource("r056")}, {"duration": 1.0, "texture": ExtResource("r056")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r057")}, {"duration": 1.0, "texture": ExtResource("r058")}, {"duration": 1.0, "texture": ExtResource("r058")}, {"duration": 1.0, "texture": ExtResource("r059")}, {"duration": 1.0, "texture": ExtResource("r059")}],
+"loop": true,
+"name": &"run_down_left",
+"speed": 24.0
+}
 }]
