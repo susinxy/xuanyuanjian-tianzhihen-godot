@@ -478,6 +478,9 @@ func _on_create_pressed() -> void:
 	_status_label.text = "Status: ⏳ Creating character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
+	# 让出一帧，让 UI 重绘按钮变灰和状态文本
+	await get_tree().process_frame
+	
 	var char_name := _char_name_edit.text
 	var pascal_name := _class_name_edit.text
 	var display_name := _display_name_edit.text
@@ -552,6 +555,9 @@ func _on_delete_confirmed(char_name: String) -> void:
 	_delete_btn.disabled = true
 	_status_label.text = "Status: ⏳ Deleting character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
+	
+	# 让出一帧，让 UI 重绘按钮变灰和状态文本
+	await get_tree().process_frame
 	
 	var deleter := CharacterDeleter.new()
 	var success := deleter.delete_character(char_name)
