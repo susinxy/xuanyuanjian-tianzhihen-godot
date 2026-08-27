@@ -54,15 +54,15 @@ func _parse_begin(object: Object) -> void:
 
 
 func _on_character_created(char_name: String) -> void:
-	# 延迟刷新文件系统，给用户时间看到成功反馈
-	await get_tree().create_timer(1.5).timeout
+	# 刷新文件系统，让新角色在编辑器中可见
+	# 注：用户已在 widget 中看到 1-2 秒的创建过程和成功反馈
 	EditorInterface.get_resource_filesystem().scan()
 	print("[CharacterCreator] Character '%s' created successfully!" % char_name)
 
 
 func _on_character_deleted(char_name: String) -> void:
-	# 延迟刷新文件系统，给用户时间看到成功反馈
-	await get_tree().create_timer(1.5).timeout
+	# 刷新文件系统，移除已删除的角色
+	# 注：用户已在 widget 中看到删除过程和成功反馈
 	EditorInterface.get_resource_filesystem().scan()
 	print("[CharacterCreator] Character '%s' deleted successfully!" % char_name)
 
