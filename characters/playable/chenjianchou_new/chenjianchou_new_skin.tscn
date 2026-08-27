@@ -83,7 +83,7 @@ parameters/time_scale/scale = 1.0
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2" unique_id=1424120061]
 position = Vector2(0, -167)
 sprite_frames = ExtResource("4_l5bf7")
-animation = &"idle"
+animation = &"idle_right"
 
 [node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:chenjianchou_new", "area2d:wall"]]
 monitorable = false
