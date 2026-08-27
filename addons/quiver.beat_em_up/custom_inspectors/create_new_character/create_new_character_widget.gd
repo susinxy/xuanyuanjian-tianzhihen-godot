@@ -26,6 +26,7 @@ var _class_name_edit: LineEdit
 var _display_name_edit: LineEdit
 var _faction_option: OptionButton
 var _move_speed_spin: SpinBox
+var _walk_speed_spin: SpinBox
 var _health_max_spin: SpinBox
 var _air_control_spin: SpinBox
 var _hit_lane_offset_spin: SpinBox
@@ -161,6 +162,26 @@ func _build_ui() -> void:
 	move_speed_hint.add_theme_color_override("font_color", Color.GRAY)
 	move_speed_hint.add_theme_font_size_override("font_size", 12)
 	add_child(move_speed_hint)
+	
+	# Walk Speed input
+	var hbox_walk_speed := HBoxContainer.new()
+	var label_walk_speed := Label.new()
+	label_walk_speed.text = "步行速度:"
+	label_walk_speed.custom_minimum_size.x = 120
+	hbox_walk_speed.add_child(label_walk_speed)
+	_walk_speed_spin = SpinBox.new()
+	_walk_speed_spin.min_value = 0
+	_walk_speed_spin.max_value = 2000
+	_walk_speed_spin.step = 10
+	_walk_speed_spin.value = 300
+	_walk_speed_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_walk_speed.add_child(_walk_speed_spin)
+	add_child(hbox_walk_speed)
+	var walk_speed_hint := Label.new()
+	walk_speed_hint.text = "按住Shift时的步行速度（像素/秒）"
+	walk_speed_hint.add_theme_color_override("font_color", Color.GRAY)
+	walk_speed_hint.add_theme_font_size_override("font_size", 12)
+	add_child(walk_speed_hint)
 	
 	# Health Max input
 	var hbox_health_max := HBoxContainer.new()
@@ -493,6 +514,7 @@ func _on_create_pressed() -> void:
 		"display_name": _display_name_edit.text,
 		"faction": _faction_option.get_item_text(_faction_option.selected),
 		"move_speed": _move_speed_spin.value,
+		"walk_speed": _walk_speed_spin.value,
 		"health_max": int(_health_max_spin.value),
 		"air_control": _air_control_spin.value,
 		"hit_lane_offset": int(_hit_lane_offset_spin.value)
@@ -510,6 +532,7 @@ func _create_character_async(params: Dictionary) -> void:
 		params.display_name,
 		params.faction,
 		params.move_speed,
+		params.walk_speed,
 		params.health_max,
 		params.air_control,
 		params.hit_lane_offset
@@ -529,6 +552,7 @@ func _on_create_completed(success: bool, char_name: String, display_name: String
 		_display_name_edit.text = ""
 		_faction_option.select(0)
 		_move_speed_spin.value = 600
+		_walk_speed_spin.value = 300
 		_health_max_spin.value = 100
 		_air_control_spin.value = 0.6
 		_hit_lane_offset_spin.value = 0

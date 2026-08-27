@@ -20,6 +20,7 @@ const TOKEN_CLASS = "__CLASS__"
 const TOKEN_DISPLAY = "__DISPLAY_NAME__"
 const TOKEN_FACTION = "__FACTION__"
 const TOKEN_MOVE_SPEED = "__MOVE_SPEED__"
+const TOKEN_WALK_SPEED = "__WALK_SPEED__"
 const TOKEN_HEALTH_MAX = "__HEALTH_MAX__"
 const TOKEN_AIR_CONTROL = "__AIR_CONTROL__"
 const TOKEN_HIT_LANE_OFFSET = "__HIT_LANE_OFFSET__"
@@ -49,6 +50,7 @@ func create_character(
 	display_name: String,
 	faction: String = "players",
 	move_speed: float = 600.0,
+	walk_speed: float = 300.0,
 	health_max: int = 100,
 	air_control: float = 0.6,
 	hit_lane_offset: int = 0
@@ -78,7 +80,7 @@ func create_character(
 	# Step 4: Replace placeholders in all files
 	if not _replace_placeholders_recursive(
 		target_dir, char_name, pascal_name, display_name,
-		faction, move_speed, health_max, air_control, hit_lane_offset
+		faction, move_speed, walk_speed, health_max, air_control, hit_lane_offset
 	):
 		push_error("Failed to replace placeholders")
 		return false
@@ -229,6 +231,7 @@ func _replace_placeholders_recursive(
 	display_name: String,
 	faction: String,
 	move_speed: float,
+	walk_speed: float,
 	health_max: int,
 	air_control: float,
 	hit_lane_offset: int
@@ -249,7 +252,7 @@ func _replace_placeholders_recursive(
 				# Recursively process subdirectory
 				if not _replace_placeholders_recursive(
 					file_path, char_name, pascal_name, display_name,
-					faction, move_speed, health_max, air_control, hit_lane_offset
+					faction, move_speed, walk_speed, health_max, air_control, hit_lane_offset
 				):
 					return false
 			else:
@@ -258,7 +261,7 @@ func _replace_placeholders_recursive(
 				if ext in ["gd", "tscn", "tres"]:
 					if not _replace_placeholders_in_file(
 						file_path, char_name, pascal_name, display_name,
-						faction, move_speed, health_max, air_control, hit_lane_offset
+						faction, move_speed, walk_speed, health_max, air_control, hit_lane_offset
 					):
 						return false
 		
@@ -274,6 +277,7 @@ func _replace_placeholders_in_file(
 	display_name: String,
 	faction: String,
 	move_speed: float,
+	walk_speed: float,
 	health_max: int,
 	air_control: float,
 	hit_lane_offset: int
@@ -292,6 +296,7 @@ func _replace_placeholders_in_file(
 	content = content.replace(TOKEN_DISPLAY, display_name)
 	content = content.replace(TOKEN_FACTION, faction)
 	content = content.replace(TOKEN_MOVE_SPEED, str(move_speed))
+	content = content.replace(TOKEN_WALK_SPEED, str(walk_speed))
 	content = content.replace(TOKEN_HEALTH_MAX, str(health_max))
 	content = content.replace(TOKEN_AIR_CONTROL, str(air_control))
 	content = content.replace(TOKEN_HIT_LANE_OFFSET, str(hit_lane_offset))
