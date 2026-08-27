@@ -1,4 +1,4 @@
-[gd_resource type="AnimationLibrary" load_steps=57 format=3]
+[gd_resource type="AnimationLibrary" load_steps=65 format=3]
 
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/air_attack_right.tres" id="1_jgcla"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/attack1_right.tres" id="2_qtktm"]
@@ -56,6 +56,14 @@
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/attack2_down.tres" id="74_att74"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/attack3_up.tres" id="75_att75"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/attack3_down.tres" id="76_att76"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_right.tres" id="80_run80"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_left.tres" id="81_run81"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_up_right.tres" id="82_run82"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_up.tres" id="83_run83"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_up_left.tres" id="84_run84"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_down_left.tres" id="85_run85"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_down.tres" id="86_run86"]
+[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/run_down_right.tres" id="87_run87"]
 
 [resource]
 _data = {
@@ -107,6 +115,14 @@ _data = {
 "landing_right": ExtResource("20_eate4"),
 "rising_left": ExtResource("56_q1d5v"),
 "rising_right": ExtResource("21_t5hwm"),
+"run_down": ExtResource("86_run86"),
+"run_down_left": ExtResource("85_run85"),
+"run_down_right": ExtResource("87_run87"),
+"run_left": ExtResource("81_run81"),
+"run_right": ExtResource("80_run80"),
+"run_up": ExtResource("83_run83"),
+"run_up_left": ExtResource("84_run84"),
+"run_up_right": ExtResource("82_run82"),
 "walk_down": ExtResource("69_wal69"),
 "walk_down_left": ExtResource("68_wal68"),
 "walk_down_right": ExtResource("70_wal70"),
