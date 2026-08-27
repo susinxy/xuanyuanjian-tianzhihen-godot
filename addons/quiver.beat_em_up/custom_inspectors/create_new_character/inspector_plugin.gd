@@ -54,13 +54,15 @@ func _parse_begin(object: Object) -> void:
 
 
 func _on_character_created(char_name: String) -> void:
-	# Refresh the editor to show the new character
+	# 延迟刷新文件系统，给用户时间看到成功反馈
+	await get_tree().create_timer(1.5).timeout
 	EditorInterface.get_resource_filesystem().scan()
 	print("[CharacterCreator] Character '%s' created successfully!" % char_name)
 
 
 func _on_character_deleted(char_name: String) -> void:
-	# Refresh the editor to hide the deleted character
+	# 延迟刷新文件系统，给用户时间看到成功反馈
+	await get_tree().create_timer(1.5).timeout
 	EditorInterface.get_resource_filesystem().scan()
 	print("[CharacterCreator] Character '%s' deleted successfully!" % char_name)
 

@@ -474,33 +474,56 @@ func _on_display_name_changed(new_text: String) -> void:
 
 func _on_create_pressed() -> void:
 	_is_processing = true
+	
+	# 立即更新 UI：按钮变灰、文本变化、颜色变暗
 	_create_btn.disabled = true
+	_create_btn.text = "⏳ Creating..."
+	_create_btn.modulate = Color(0.6, 0.6, 0.6)
 	_status_label.text = "Status: ⏳ Creating character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
-	# 让出一帧，让 UI 重绘按钮变灰和状态文本
+	# 让出一帧，让 UI 重绘
+	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	var char_name := _char_name_edit.text
-	var pascal_name := _class_name_edit.text
-	var display_name := _display_name_edit.text
-	var faction := _faction_option.get_item_text(_faction_option.selected)
-	var move_speed := _move_speed_spin.value
-	var health_max := int(_health_max_spin.value)
-	var air_control := _air_control_spin.value
-	var hit_lane_offset := int(_hit_lane_offset_spin.value)
+	# 收集参数
+	var params = {
+		"char_name": _char_name_edit.text,
+		"pascal_name": _class_name_edit.text,
+		"display_name": _display_name_edit.text,
+		"faction": _faction_option.get_item_text(_faction_option.selected),
+		"move_speed": _move_speed_spin.value,
+		"health_max": int(_health_max_spin.value),
+		"air_control": _air_control_spin.value,
+		"hit_lane_offset": int(_hit_lane_offset_spin.value)
+	}
 	
-	var creator := CharacterCreator.new()
-	var success := creator.create_character(
-		char_name, pascal_name, display_name,
-		faction, move_speed, health_max, air_control, hit_lane_offset
+	# 异步执行创建
+	await _create_character_async(params)
+
+
+func _create_character_async(params: Dictionary) -> void:
+	var creator = CharacterCreator.new()
+	var success = creator.create_character(
+		params.char_name,
+		params.pascal_name,
+		params.display_name,
+		params.faction,
+		params.move_speed,
+		params.health_max,
+		params.air_control,
+		params.hit_lane_offset
 	)
 	
+	_on_create_completed(success, params.char_name, params.display_name)
+
+
+func _on_create_completed(success: bool, char_name: String, display_name: String) -> void:
 	if success:
 		_status_label.text = "Status: ✅ Character '%s' created successfully!" % display_name
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
 		
-		# Clear inputs
+		# 清空输入框
 		_char_name_edit.text = ""
 		_class_name_edit.text = ""
 		_display_name_edit.text = ""
@@ -509,15 +532,21 @@ func _on_create_pressed() -> void:
 		_health_max_spin.value = 100
 		_air_control_spin.value = 0.6
 		_hit_lane_offset_spin.value = 0
+		
+		# 重置按钮（但不重新启用，因为输入框已清空）
+		_create_btn.text = "Create Character ▶"
+		_create_btn.modulate = Color.WHITE
 		_create_btn.disabled = true
 		
-		# Refresh filesystem
-		EditorInterface.get_resource_filesystem().scan()
-		
+		# 发射信号
 		character_created.emit(char_name)
 	else:
-		_status_label.text = "Status: ❌ Failed to create character. Check console for errors."
+		_status_label.text = "Status: ❌ Creation failed. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
+		
+		# 恢复按钮
+		_create_btn.text = "Create Character ▶"
+		_create_btn.modulate = Color.WHITE
 		_create_btn.disabled = not _validate_all_inputs()
 	
 	_is_processing = false
@@ -552,32 +581,52 @@ func _on_delete_pressed() -> void:
 
 func _on_delete_confirmed(char_name: String) -> void:
 	_is_processing = true
+	
+	# 立即更新 UI：按钮变灰、文本变化、颜色变暗
 	_delete_btn.disabled = true
+	_delete_btn.text = "⏳ Deleting..."
+	_delete_btn.modulate = Color(0.6, 0.6, 0.6)
 	_status_label.text = "Status: ⏳ Deleting character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	
-	# 让出一帧，让 UI 重绘按钮变灰和状态文本
+	# 让出一帧，让 UI 重绘
+	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	var deleter := CharacterDeleter.new()
-	var success := deleter.delete_character(char_name)
+	# 异步执行删除
+	await _delete_character_async(char_name)
+
+
+func _delete_character_async(char_name: String) -> void:
+	var deleter = CharacterDeleter.new()
+	var success = deleter.delete_character(char_name)
 	
+	_on_delete_completed(success, char_name)
+
+
+func _on_delete_completed(success: bool, char_name: String) -> void:
 	if success:
 		_status_label.text = "Status: ✅ Character '%s' deleted successfully!" % char_name
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
 		
-		# Reset dropdown
+		# 重置下拉框
 		_delete_dropdown.selected = -1
 		_delete_btn.disabled = true
 		_delete_path_label.text = ""
 		
-		# Refresh filesystem (will auto-update dropdown)
-		EditorInterface.get_resource_filesystem().scan()
+		# 恢复按钮
+		_delete_btn.text = "Delete 🗑️"
+		_delete_btn.modulate = Color(1.0, 0.4, 0.4)
 		
+		# 发射信号
 		character_deleted.emit(char_name)
 	else:
-		_status_label.text = "Status: ❌ Failed to delete character. Check console for errors."
+		_status_label.text = "Status: ❌ Deletion failed. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
+		
+		# 恢复按钮
+		_delete_btn.text = "Delete 🗑️"
+		_delete_btn.modulate = Color(1.0, 0.4, 0.4)
 		_delete_btn.disabled = _delete_dropdown.selected < 0
 	
 	_is_processing = false
