@@ -40,6 +40,7 @@ var _test_dropdown: OptionButton
 var _test_btn: Button
 
 var _is_updating_class_name := false
+var _is_processing := false  # 防止创建/删除过程中清空字段触发验证
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -445,6 +446,8 @@ func _validate_all_inputs() -> bool:
 
 
 func _on_char_name_changed(new_text: String) -> void:
+	if _is_processing:
+		return
 	# Auto-generate class name
 	if not _is_updating_class_name:
 		_is_updating_class_name = true
@@ -456,16 +459,21 @@ func _on_char_name_changed(new_text: String) -> void:
 
 
 func _on_class_name_changed(new_text: String) -> void:
+	if _is_processing:
+		return
 	_validate_all_inputs()
 	_create_btn.disabled = not _validate_all_inputs()
 
 
 func _on_display_name_changed(new_text: String) -> void:
+	if _is_processing:
+		return
 	_validate_all_inputs()
 	_create_btn.disabled = not _validate_all_inputs()
 
 
 func _on_create_pressed() -> void:
+	_is_processing = true
 	_create_btn.disabled = true
 	_status_label.text = "Status: ⏳ Creating character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
@@ -508,6 +516,8 @@ func _on_create_pressed() -> void:
 		_status_label.text = "Status: ❌ Failed to create character. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
 		_create_btn.disabled = not _validate_all_inputs()
+	
+	_is_processing = false
 
 
 func _on_delete_dropdown_selected(index: int) -> void:
@@ -538,6 +548,7 @@ func _on_delete_pressed() -> void:
 
 
 func _on_delete_confirmed(char_name: String) -> void:
+	_is_processing = true
 	_delete_btn.disabled = true
 	_status_label.text = "Status: ⏳ Deleting character..."
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
@@ -562,6 +573,8 @@ func _on_delete_confirmed(char_name: String) -> void:
 		_status_label.text = "Status: ❌ Failed to delete character. Check console for errors."
 		_status_label.add_theme_color_override("font_color", Color.RED)
 		_delete_btn.disabled = _delete_dropdown.selected < 0
+	
+	_is_processing = false
 
 
 func _on_test_dropdown_selected(index: int) -> void:
