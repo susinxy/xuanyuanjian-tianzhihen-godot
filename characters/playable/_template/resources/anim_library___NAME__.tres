@@ -1,4 +1,4 @@
-[gd_resource type="AnimationLibrary" load_steps=59 format=3]
+[gd_resource type="AnimationLibrary" load_steps=57 format=3]
 
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/air_attack_right.tres" id="1_jgcla"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/attack1_right.tres" id="2_qtktm"]
@@ -37,9 +37,7 @@
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/knockout_rising_left.tres" id="47_do033"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/landing_left.tres" id="48_01ica"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/walk_left.tres" id="55_ihi0c"]
-[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/turn_to_left.tres" id="55_r13dv"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/rising_left.tres" id="56_q1d5v"]
-[ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/turn_to_right.tres" id="58_adxe7"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/idle_up_right.tres" id="59_idl59"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/idle_up.tres" id="60_idl60"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/idle_up_left.tres" id="61_idl61"]
@@ -109,8 +107,6 @@ _data = {
 "landing_right": ExtResource("20_eate4"),
 "rising_left": ExtResource("56_q1d5v"),
 "rising_right": ExtResource("21_t5hwm"),
-"turn_to_left": ExtResource("55_r13dv"),
-"turn_to_right": ExtResource("58_adxe7"),
 "walk_down": ExtResource("69_wal69"),
 "walk_down_left": ExtResource("68_wal68"),
 "walk_down_right": ExtResource("70_wal70"),
