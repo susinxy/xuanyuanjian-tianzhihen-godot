@@ -1,6 +1,6 @@
 [gd_scene load_steps=13 format=3]
 
-[ext_resource type="PackedScene" path="res://characters/playable/test_8_dircetion/test_8_dircetion.tscn" id="1_character"]
+[ext_resource type="PackedScene" path="res://characters/playable/runt_test/runt_test.tscn" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
 [ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]

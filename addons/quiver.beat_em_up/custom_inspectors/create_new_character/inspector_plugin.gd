@@ -85,7 +85,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=12 format=3]
+	var test_scene_template = """[gd_scene load_steps=13 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -94,6 +94,7 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
+[ext_resource type="Shader" path="res://scenes/grid_background.gdshader" id="9_grid_shader"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("8_attack_data")
@@ -117,6 +118,19 @@ height = 300.0
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(8000, 200)
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
+shader = ExtResource("9_grid_shader")
+shader_parameter/grid_size = 100.0
+shader_parameter/sub_grid_size = 25.0
+shader_parameter/line_width = 1.0
+shader_parameter/sub_line_width = 0.5
+shader_parameter/grid_color = Color(0.2, 0.2, 0.2, 1)
+shader_parameter/sub_grid_color = Color(0.12, 0.12, 0.12, 1)
+shader_parameter/bg_color = Color(0.06, 0.06, 0.06, 1)
+shader_parameter/ground_line_y = 500.0
+shader_parameter/ground_line_width = 3.0
+shader_parameter/ground_line_color = Color(0.4, 0.3, 0.2, 1)
+
 [node name="TestStage" type="Node2D"]
 
 [node name="Background" type="ColorRect" parent="."]
@@ -124,7 +138,8 @@ offset_left = -2000.0
 offset_top = -500.0
 offset_right = 6000.0
 offset_bottom = 2000.0
-color = Color(0.05, 0.05, 0.05, 1)
+material = SubResource("ShaderMaterial_grid")
+color = Color(0.06, 0.06, 0.06, 1)
 
 [node name="GroundLine" type="ColorRect" parent="."]
 offset_left = -2000.0
