@@ -1116,60 +1116,24 @@ custom_inspectors/height_layers/
 ├── height_layers_widget.gd          # Inspector UI 组件（VBoxContainer, @tool）
 ├── height_layers_widget.tscn        # Widget 场景
 ├── animation_track_injector.gd      # 轨道注入核心 + 轮廓转换管道（extends RefCounted, @tool）
-├── character_height_data.gd         # 帧高度数据解析（extends Resource）
 ├── contour_tracer.gd                # 轮廓提取 + 几何计算（extends RefCounted, 全静态方法, @tool）
 └── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool）
 ```
 
-**工作流程**：
+**工作流程（轮廓转换）**：
 ```
-用户点击 Scan / Scan (Dry Run)
+用户点击 Body 轮廓转换 / Attack 轮廓转换
   ↓
-AnimationTrackInjector.run(skin_node, dry_run)
+AnimationTrackInjector.convert_body_contours() / convert_attack_contours()
   ↓
-1. 从 AnimatedSprite2D 获取 SpriteFrames
-2. 从 AnimationPlayer 获取 AnimationLibrary
-3. 验证场景树结构（AnimationPlayer 父节点必须是 QuiverCharacterSkin）
-4. 解析 SpriteFrames 每帧文件名（physical_Y, attack_Z, speed_X）
-5. 对每个 Animation：
-   a. 找到引用的 SpriteFrames 子动画名
-   b. 移除旧的 height tracks（保留原始 Quiver 方法）
-   c. 添加新 tracks（.:physical_height, .:physical_width, .:attack_heights, . method）
-   d. 逐帧插入 keyframes（value tracks 只在值变化时添加）
-   e. 保存 Animation 资源
-6. 提取跳跃和击飞动画首帧的 speed_X：
-   - jump 动画 → QuiverAttributes.jump_force = -speed
-   - knockout 动画 → QuiverAttributes.knockback_weight = speed
+1. 扫描 PNG 图像，提取轮廓（_scan_frames_contours + ContourTracer）
+2. 后处理：计算 MABR、胶囊体参数、物理高度、攻击高度
+3. 修改场景树节点类型（_modify_scene_tree_node）
+4. 注入碰撞形状 tracks 到每个 Animation（_inject_all_tracks）
+5. 保存修改后的 Animation 资源（ResourceSaver.save）
   ↓
-显示结果（成功/失败/错误列表/跳跃力度映射/击飞权重映射）
+显示结果（处理帧数/错误列表）
 ```
-
-**轨道路径（方案 C）**：
-- `.:physical_height` — value track，写入 Skin.physical_height
-- `.:physical_width` — value track，写入 Skin.physical_width（QuiverCharacter 读取后设置 CapsuleShape2D.height）
-- `.:attack_heights` — value track，写入 Skin.attack_heights
-- `base_height` 是计算属性（`get: return -position.y`），无需动画 track
-
-**关键特性**：
-- 保留原始 Quiver 方法（end_of_input_frames, end_of_skin_animation 等）
-- value tracks 只在值变化时添加 keyframe（优化冗余数据）
-- 注入器自动清理旧版 `_sync_base_height` method tracks
-- method track 每帧调用（与动画 FPS 同步）
-- 支持增量扫描（异步，不阻塞编辑器）
-
-**CharacterHeightData 文件名解析**：
-
-`CharacterHeightData.parse_height_from_filename(filename)` 从 PNG 文件名中提取高度标注，返回字典：
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `physical` | float | 物理高度（`_physical_<N>` 标注），-1.0 表示未标注 |
-| `width` | float | 物理宽度（`_width_<N>` 标注），-1.0 表示未标注 |
-| `attack_heights` | Array | 攻击高度列表（`_attack_<N>_<N>...` 标注） |
-| `speed` | float | 速度值（`_speed_<N>` 标注），-1.0 表示未标注 |
-| `errors` | Array | 解析错误列表 |
-
-文件名示例：`walk_01_physical_120_width_40.png` → `{physical: 120.0, width: 40.0, attack_heights: [], speed: -1.0, errors: []}`
 
 ---
 
@@ -1189,7 +1153,6 @@ Inspector 面板中的轮廓转换工具，从角色 sprite PNG 图像自动提�
 inspector_plugin.gd (EditorInspectorPlugin)
     └── height_layers_widget.gd (VBoxContainer, Inspector UI)
             ├── animation_track_injector.gd (RefCounted, 转换管道编排)
-            │       ├── character_height_data.gd (Resource, 文件名解析)
             │       └── contour_tracer.gd (RefCounted, 静态几何计算)
             └── mask_editor_dialog.gd (AcceptDialog, 蒙版绘制)
                     └── contour_tracer.gd (预览用)
@@ -1207,9 +1170,7 @@ AnimationTrackInjector._convert_contours_common()
     └── ContourTracer.calc_attack_heights() → 攻击高度
     ↓
 _modify_scene_tree_node() → 场景树节点替换（CollisionPolygon2D / CollisionShape2D）
-_inject_all_tracks() → Animation 资源轨道注入
-    ↓
-用户 Ctrl+S → .tscn + .tres 保存到磁盘
+_inject_all_tracks() → Animation 资源轨道注入 + emit_changed() + ResourceSaver.save()
 ```
 
 ### 15.2 ShapeType 枚举与 SHAPE_CONFIGS
