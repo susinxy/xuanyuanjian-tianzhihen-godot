@@ -756,6 +756,9 @@ func _scan_frames_contours(
 	
 	var total_frames := frames_to_process.size()
 	
+	# PNG 缓存：避免重复加载和轮廓提取（key: png_path）
+	var png_cache := {}
+	
 	# 第二遍：增量处理每帧
 	var current := 0
 	for item in frames_to_process:
@@ -771,6 +774,16 @@ func _scan_frames_contours(
 		# 进度回调（传入正确的 total）
 		if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
 			callback_obj._on_contour_progress(current, total_frames, png_path.get_file())
+		
+		# 缓存命中：同一 PNG 不重复加载和轮廓提取
+		if png_cache.has(png_path):
+			var cached: Dictionary = png_cache[png_path]
+			frames_data[sprite_anim_name][frame_idx] = {
+				"raw_contours": cached["raw_contours"],
+				"image_size": cached["image_size"],
+				"png_path": png_path,
+			}
+			continue
 		
 		# 加载 PNG
 		var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
@@ -802,6 +815,12 @@ func _scan_frames_contours(
 			"raw_contours": contours,
 			"image_size": Vector2(image.get_width(), image.get_height()),
 			"png_path": png_path,
+		}
+		
+		# 写入缓存
+		png_cache[png_path] = {
+			"raw_contours": contours,
+			"image_size": Vector2(image.get_width(), image.get_height()),
 		}
 		
 		# 让出控制权，让编辑器更新界面
