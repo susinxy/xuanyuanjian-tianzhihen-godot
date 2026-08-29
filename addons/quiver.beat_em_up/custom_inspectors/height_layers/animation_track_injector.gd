@@ -1835,9 +1835,14 @@ func _inject_all_tracks(
 				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps)
 				anim_modified = true
 			
-			# 每个动画标记为已修改（不直接保存，用户 Ctrl+S 时保存）
+			# 每个动画标记为已修改并立即保存到磁盘
 			if anim_modified:
 				anim.emit_changed()
+				var resource_path := anim.resource_path
+				if not resource_path.is_empty():
+					var err := ResourceSaver.save(anim, resource_path)
+					if err != OK:
+						errors.append("动画 '%s' 保存失败 (error=%d)" % [anim_name, err])
 
 
 ## 获取 track 属性值（含 flip_h 镜像）
