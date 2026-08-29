@@ -11,8 +11,13 @@ uniform float ground_line_y = 0.0;
 uniform float ground_line_width : hint_range(1.0, 10.0) = 3.0;
 uniform vec4 ground_line_color : source_color = vec4(0.4, 0.3, 0.2, 1.0);
 
+varying vec2 world_pos;
+
+void vertex() {
+    world_pos = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+}
+
 void fragment() {
-    vec2 world_pos = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
 
     // Main grid
     vec2 main_grid = abs(fract(world_pos / grid_size - 0.5) - 0.5) * grid_size;
