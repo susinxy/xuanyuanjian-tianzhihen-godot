@@ -101,12 +101,14 @@ func _skin_direction_updated() -> void:
 
 func _in_editor_ready() -> void:
 	QuiverEditorHelper.disable_all_processing(self)
-	_animation_tree.set_deferred("active", false)
+	if _animation_tree and _animation_tree.tree_root:
+		_animation_tree.set_deferred("active", false)
 
 
 func _runtime_ready() -> void:
 	super()
-	_animation_tree.active = true
+	if _animation_tree and _animation_tree.tree_root:
+		_animation_tree.active = true
 
 
 ## Helper to create getters for public condition properties.

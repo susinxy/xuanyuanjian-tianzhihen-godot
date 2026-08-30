@@ -1,7 +1,7 @@
-[gd_resource type="Animation" format=3]
+[gd_resource type="Animation" format=3 uid="uid://cnkpq1frb8m2k"]
 
 [resource]
-resource_name = "run"
+resource_name = "run_right"
 loop_mode = 1
 step = 0.0416667
 tracks/0/type = "value"
@@ -14,7 +14,7 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, -190)]
+"values": [Vector2(0, -81)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -38,53 +38,89 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [&"walk_right"]
+"values": [&"run_right"]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/3/path = NodePath(".:attributes:can_be_grabbed")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 7.75)]
+"values": [true]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/4/path = NodePath("AnimatedSprite2D:flip_h")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(149, 337.5)]
+"update": 0,
+"values": [false]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath(".:attributes:can_be_grabbed")
-tracks/5/interp = 1
+tracks/5/path = NodePath(".:physical_width")
+tracks/5/interp = 0
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.083333336, 0.20833333, 0.33333334, 0.41666666, 0.5416667, 0.625, 0.75, 0.8333333, 0.9166667, 1.0416666, 1.125),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [true]
+"values": [77.0, 98.0, 90.0, 113.0, 77.0, 98.0, 90.0, 113.0, 77.0, 98.0, 90.0, 113.0]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
 tracks/6/enabled = true
-tracks/6/path = NodePath("AnimatedSprite2D:flip_h")
-tracks/6/interp = 1
+tracks/6/path = NodePath(".:physical_height")
+tracks/6/interp = 0
 tracks/6/loop_wrap = true
 tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.20833333, 0.41666666, 0.625, 0.8333333, 1.0416666),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [156.0, 159.0, 156.0, 159.0, 156.0, 159.0]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
+tracks/7/interp = 0
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.083333336, 0.20833333, 0.33333334, 0.41666666, 0.5416667, 0.625, 0.75, 0.8333333, 0.9166667, 1.0416666, 1.125),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [PackedVector2Array(-16, -75, -29, 66, -29, 67, 46, -38, 48, -38, -16, -76), PackedVector2Array(-18, -75, -42, 55, -42, 68, 55, 38, 56, 38, -18, -76), PackedVector2Array(-17, -77, -36, 74, -36, 75, 53, -39, 54, -39, -17, -79), PackedVector2Array(-15, -77, -50, 62, -50, 79, 62, 38, 63, 38, -15, -79), PackedVector2Array(-16, -75, -29, 66, -29, 67, 46, -38, 48, -38, -16, -76), PackedVector2Array(-18, -75, -42, 55, -42, 68, 55, 38, 56, 38, -18, -76), PackedVector2Array(-17, -77, -36, 74, -36, 75, 53, -39, 54, -39, -17, -79), PackedVector2Array(-15, -77, -50, 62, -50, 79, 62, 38, 63, 38, -15, -79), PackedVector2Array(-16, -75, -29, 66, -29, 67, 46, -38, 48, -38, -16, -76), PackedVector2Array(-18, -75, -42, 55, -42, 68, 55, 38, 56, 38, -18, -76), PackedVector2Array(-17, -77, -36, 74, -36, 75, 53, -39, 54, -39, -17, -79), PackedVector2Array(-15, -77, -50, 62, -50, 79, 62, 38, 63, 38, -15, -79)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/8/interp = 0
+tracks/8/loop_wrap = true
+tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [false]
+"update": 1,
+"values": [Vector2(0, 0)]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/9/interp = 0
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0.0]
 }

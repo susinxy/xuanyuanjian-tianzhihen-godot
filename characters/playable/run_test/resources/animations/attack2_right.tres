@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3]
+[gd_resource type="Animation" format=3 uid="uid://beqopuk6lxts6"]
 
 [resource]
 resource_name = "attack2"
@@ -120,48 +120,84 @@ tracks/8/keys = {
 tracks/9/type = "value"
 tracks/9/imported = false
 tracks/9/enabled = true
-tracks/9/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/9/path = NodePath("Attacks/Attack1:visible")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(149, 363)]
+"values": [false]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
 tracks/10/enabled = true
-tracks/10/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/10/path = NodePath("Attacks/AttackAir:visible")
 tracks/10/interp = 1
 tracks/10/loop_wrap = true
 tracks/10/keys = {
-"times": PackedFloat32Array(0, 0.125, 0.333334),
-"transitions": PackedFloat32Array(1, 1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-81, 2.5), Vector2(-37, 10.25), Vector2(-48, -5)]
+"values": [false]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
 tracks/11/enabled = true
-tracks/11/path = NodePath("Attacks/Attack1:visible")
-tracks/11/interp = 1
+tracks/11/path = NodePath(".:physical_width")
+tracks/11/interp = 0
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.125, 0.33333334),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [false]
+"values": [342.0703, 491.9297, 281.0]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
 tracks/12/enabled = true
-tracks/12/path = NodePath("Attacks/AttackAir:visible")
-tracks/12/interp = 1
+tracks/12/path = NodePath(".:physical_height")
+tracks/12/interp = 0
 tracks/12/loop_wrap = true
 tracks/12/keys = {
+"times": PackedFloat32Array(0, 0.33333334),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [374.14063, 371.0]
+}
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:polygon")
+tracks/13/interp = 0
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0, 0.125, 0.33333334),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [PackedVector2Array(-83.61719, -180.55469, -264.96875, -87.16406, -266.0547, -87.16406, -140.08594, -31.78125, -139, -31.78125, -222.61719, 185.40625, -222.61719, 186.49219, -67.328125, 71.38281, -67.328125, 70.296875, 68.41406, 177.80469, 76.015625, 177.80469, -83.61719, -181.64063), PackedVector2Array(9.7734375, -180.55469, -120.53906, -154.49219, -121.625, -154.49219, -33.664063, -152.32031, -33.664063, -151.23438, -150.94531, -74.13281, -152.03125, -74.13281, -84.703125, -11.1484375, -84.703125, -10.0625, -226.96094, 114.82031, -228.04688, 114.82031, -191.125, 183.23438, -191.125, 184.32031, -43.4375, 56.179688, -43.4375, 55.09375, -16.289063, 169.11719, -16.289063, 170.20313, 80.359375, 175.63281, 83.61719, 175.63281, 24.976563, -33.953125, 24.976563, -39.382813, 262.79688, -69.78906, 263.8828, -69.78906, 9.7734375, -181.64063), PackedVector2Array(-40.5, -180.5, -192.5, 166.5, -193.5, 166.5, -46.5, 40.5, -44.5, 40.5, 86.5, 167.5, 87.5, 167.5, -40.5, -181.5)]
+}
+tracks/14/type = "value"
+tracks/14/imported = false
+tracks/14/enabled = true
+tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/14/interp = 0
+tracks/14/loop_wrap = true
+tracks/14/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [false]
+"values": [Vector2(0, 0)]
+}
+tracks/15/type = "value"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/15/interp = 0
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0.0]
 }

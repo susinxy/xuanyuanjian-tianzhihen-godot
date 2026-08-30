@@ -1,13 +1,13 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://b7jowixceyphm"]
 
-[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/characters/quiver_character_skin_base.tscn" id="1_neyaj"]
+[ext_resource type="PackedScene" uid="uid://bkfvltx0n6b8y" path="res://addons/quiver.beat_em_up/characters/quiver_character_skin_base.tscn" id="1_neyaj"]
 [ext_resource type="AnimationLibrary" path="res://characters/playable/run_test/resources/anim_library_run_test.tres" id="3_uxodg"]
-[ext_resource type="AnimationNodeBlendTree" path="res://characters/playable/run_test/resources/animations/animation_tree_root.tres" id="4_6ugt2"]
-[ext_resource type="SpriteFrames" path="res://characters/playable/run_test/resources/spriteframes_run_test.tres" id="4_l5bf7"]
-[ext_resource type="Animation" path="res://characters/playable/run_test/resources/animations/RESET.tres" id="4_vrxwg"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_f1o2m"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hurt_box.gd" id="5_k0gpy"]
-[ext_resource type="Resource" path="res://characters/playable/run_test/resources/run_test_attributes.tres" id="6_iqdvs"]
+[ext_resource type="AnimationNodeBlendTree" uid="uid://1g3snncna6yd" path="res://characters/playable/run_test/resources/animations/animation_tree_root.tres" id="4_6ugt2"]
+[ext_resource type="SpriteFrames" uid="uid://b2u70majvgsf7" path="res://characters/playable/run_test/resources/spriteframes_run_test.tres" id="4_l5bf7"]
+[ext_resource type="Animation" uid="uid://cxj77gvm68f0k" path="res://characters/playable/run_test/resources/animations/RESET.tres" id="4_vrxwg"]
+[ext_resource type="Script" uid="uid://b87n2n1uw4f1g" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_f1o2m"]
+[ext_resource type="Script" uid="uid://bmhq23yn3bx60" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hurt_box.gd" id="5_k0gpy"]
+[ext_resource type="Resource" uid="uid://cie8wsc0iux7g" path="res://characters/playable/run_test/resources/run_test_attributes.tres" id="6_iqdvs"]
 [ext_resource type="Resource" path="res://characters/playable/run_test/resources/attacks/punch1_attack_data.tres" id="8_uylrb"]
 [ext_resource type="Resource" path="res://characters/playable/run_test/resources/attacks/punch2_attack_data.tres" id="9_cutyj"]
 [ext_resource type="Resource" path="res://characters/playable/run_test/resources/attacks/air_kick_attack_data.tres" id="10_556uq"]
@@ -17,9 +17,6 @@
 _data = {
 &"RESET": ExtResource("4_vrxwg")
 }
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_75u0j"]
-size = Vector2(149, 329)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_once2"]
 size = Vector2(144, 52)
@@ -36,6 +33,8 @@ size = Vector2(261.336, 79.2264)
 [node name="RunTestSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
 attributes = ExtResource("6_iqdvs")
+physical_height = 181.0
+physical_width = 66.0
 _has_grab = false
 _has_grabbed = false
 metadata/_edit_vertical_guides_ = [-141.0, 140.0]
@@ -73,18 +72,18 @@ parameters/state_machine/walk/blend_position = Vector2(1, 0)
 parameters/time_scale/scale = 1.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2" unique_id=1424120061]
-position = Vector2(0, -167)
+position = Vector2(0, -96)
 sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle_right"
 
 [node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:run_test", "area2d:wall"]]
+visible = false
 monitorable = false
 script = ExtResource("5_k0gpy")
 
-[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
+[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=849643227]
 modulate = Color(0, 0.0666667, 0.701961, 1)
-position = Vector2(5, 0.5)
-shape = SubResource("RectangleShape2D_75u0j")
+polygon = PackedVector2Array(-32, -84, -8, 93, -8, 94, 32, -45, 34, -45, -32, -85)
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 

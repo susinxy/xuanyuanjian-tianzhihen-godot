@@ -27,11 +27,13 @@ func _skin_direction_updated() -> void:
 
 func _runtime_ready() -> void:
 	super()
-	_animation_tree.active = true
+	if _animation_tree and _animation_tree.tree_root:
+		_animation_tree.active = true
 
 func _in_editor_ready() -> void:
 	super()
-	_animation_tree.set_deferred("active", false)
+	if _animation_tree and _animation_tree.tree_root:
+		_animation_tree.set_deferred("active", false)
 
 func _update_blend_directions() -> void:
 	for path in _blend_positions:

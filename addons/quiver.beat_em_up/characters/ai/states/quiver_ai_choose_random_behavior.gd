@@ -214,8 +214,8 @@ func _on_chosen_state_state_finished() -> void:
 
 ### Custom Inspector built in functions -----------------------------------------------------------
 
-func _get_property_list() -> Array:
-	var properties: = []
+func _get_property_list() -> Array[Dictionary]:
+	var properties: Array[Dictionary] = []
 	
 	properties.append({
 		name = "_weights_by_child",

@@ -85,6 +85,11 @@ func create_character(
 		push_error("Failed to replace placeholders")
 		return false
 	
+	# Step 5: Delete .import files to avoid UID duplication
+	# Godot will regenerate them with unique UIDs on next filesystem scan
+	if not _delete_import_files_recursive(target_dir):
+		push_warning("Failed to delete some .import files (non-critical)")
+	
 	print_rich("[color=green]✓ Character created: %s (%s) at %s[/color]" % [display_name, char_name, target_dir])
 	return true
 
@@ -311,5 +316,36 @@ func _replace_placeholders_in_file(
 	file.close()
 	
 	return true
+
+
+## Recursively delete all .import files in a directory.
+## Godot will regenerate them with new unique UIDs on next filesystem scan.
+## This prevents UID duplication between the new character and the template.
+func _delete_import_files_recursive(directory: String) -> bool:
+	var dir := DirAccess.open(directory)
+	if dir == null:
+		push_error("Failed to open directory for .import cleanup: %s" % directory)
+		return false
+	
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	
+	while not file_name.is_empty():
+		if file_name != "." and file_name != "..":
+			var file_path = directory.path_join(file_name)
+			
+			if dir.current_is_dir():
+				# Recursively clean subdirectory
+				_delete_import_files_recursive(file_path)
+			elif file_name.ends_with(".import"):
+				# Delete .import file
+				var err := dir.remove(file_name)
+				if err != OK:
+					push_warning("Failed to delete .import file: %s" % file_path)
+		
+		file_name = dir.get_next()
+	
+	return true
+
 
 ### -----------------------------------------------------------------------------------------------

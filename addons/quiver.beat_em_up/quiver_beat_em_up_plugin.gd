@@ -94,7 +94,6 @@ func _init() -> void:
 func _enter_tree() -> void:
 	_add_custom_inspectors()
 	_add_custom_overlays()
-	_add_settings_property_info()
 
 
 func _exit_tree() -> void:

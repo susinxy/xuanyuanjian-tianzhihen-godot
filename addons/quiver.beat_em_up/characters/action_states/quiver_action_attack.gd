@@ -280,8 +280,8 @@ func _get_custom_properties() -> Dictionary:
 
 ### Custom Inspector built in functions -----------------------------------------------------------
 
-func _get_property_list() -> Array:
-	var properties: = []
+func _get_property_list() -> Array[Dictionary]:
+	var properties: Array[Dictionary] = []
 	
 	var custom_properties := _get_custom_properties()
 	for key in custom_properties:
