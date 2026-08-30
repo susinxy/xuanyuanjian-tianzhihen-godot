@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3 uid="uid://dmm5dvo0vw2ei"]
+[gd_resource type="Animation" format=3]
 
 [resource]
 resource_name = "jump_left"

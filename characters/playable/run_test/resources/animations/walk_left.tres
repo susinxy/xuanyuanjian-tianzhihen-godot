@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3 uid="uid://cny8whyxd7l2h"]
+[gd_resource type="Animation" format=3]
 
 [resource]
 resource_name = "walk_left"
