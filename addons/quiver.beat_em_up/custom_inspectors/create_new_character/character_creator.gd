@@ -122,8 +122,8 @@ func _copy_directory_recursive(source: String, destination: String) -> bool:
 				if not _copy_directory_recursive(source_path, dest_path):
 					return false
 			else:
-				# Skip excluded files
-				if file_name not in EXCLUDED_FILES:
+				# Skip excluded files and .uid sidecar files (Godot will regenerate UIDs)
+				if file_name not in EXCLUDED_FILES and not file_name.ends_with(".uid"):
 					# Copy file (preserve __NAME__ in filename)
 					if not _copy_file(source_path, dest_path):
 						return false
@@ -219,6 +219,10 @@ func _copy_file_text(source: String, destination: String) -> bool:
 	var content := src_file.get_as_text()
 	src_file.close()
 	
+	# Strip embedded UIDs to prevent UID duplication
+	# This handles both [gd_scene/gd_resource] headers and [ext_resource] lines
+	content = _strip_embedded_uid(content)
+	
 	var dest_file := FileAccess.open(destination, FileAccess.WRITE)
 	if dest_file == null:
 		push_error("Failed to open destination file (text): %s" % destination)
@@ -227,6 +231,16 @@ func _copy_file_text(source: String, destination: String) -> bool:
 	dest_file.store_string(content)
 	dest_file.close()
 	return true
+
+
+## Strip embedded uid="..." attributes from .tscn/.tres files.
+## This prevents UID duplication when copying template files to new characters.
+## Handles both [gd_scene/gd_resource] headers and [ext_resource] lines.
+func _strip_embedded_uid(content: String) -> String:
+	var regex := RegEx.new()
+	# Match uid="..." in [gd_scene ...], [gd_resource ...], and [ext_resource ...] lines
+	regex.compile("(\\[(?:gd_(?:scene|resource)|ext_resource)[^\\]]*?)\\s+uid=\"[^\"]+\"")
+	return regex.sub(content, "$1", true)
 
 
 func _replace_placeholders_recursive(
