@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3]
+[gd_resource type="Animation" format=3 uid="uid://chxd8plcjqcp2"]
 
 [resource]
 resource_name = "falling"
@@ -14,7 +14,7 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-19, -264)]
+"values": [Vector2(-19, -90)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -98,7 +98,7 @@ tracks/7/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [334.0]
+"values": [90.0]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
@@ -110,7 +110,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [499.0]
+"values": [181.0]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -122,7 +122,7 @@ tracks/9/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [PackedVector2Array(-22.5, -246, -164.5, -127, -165.5, -127, -22.5, 167, -22.5, 168, 167.5, -113, 168.5, -113, -22.5, -247)]
+"values": [PackedVector2Array(-38, -83, -16, 89, -16, 90, 51, -11, 52, -11, -38, -85)]
 }
 tracks/10/type = "value"
 tracks/10/imported = false

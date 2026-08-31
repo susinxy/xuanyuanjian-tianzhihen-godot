@@ -1,175 +1,163 @@
-[gd_resource type="SpriteFrames" format=3]
+[gd_resource type="SpriteFrames" format=3 uid="uid://b2u70majvgsf7"]
 
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_03.png" id="0e3ce"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_07.png" id="0uv9k"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_02.png" id="0vxds"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_00.png" id="0yvze"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_00.png" id="1w628"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_02.png" id="1z9xk"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_00.png" id="1_wrqq6"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch2_up_00.png" id="2den9"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_10.png" id="2qmeq"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_02.png" id="2w2z4"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_01.png" id="2_1xc7n"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_02.png" id="3_5djqb"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch1_00.png" id="3_48agj"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_05.png" id="4nbqg"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch1_01.png" id="4_oi4qv"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_06.png" id="5nivj"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_00.png" id="6_ra0bq"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_01.png" id="7_n4s3j"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_00.png" id="7_ya88k"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_03.png" id="8k7zp"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_09.png" id="8kyql"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_00.png" id="8kzxr"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_01.png" id="8_svxg8"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_02.png" id="8_ytmlj"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_03.png" id="9_ur7d7"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_02.png" id="9_x5mcd"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_04.png" id="10_mesqx"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_04.png" id="10_vyrsa"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_05.png" id="11_5p56x"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_06.png" id="12_sw7jw"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_07.png" id="13_wlfmd"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_03.png" id="14_psawv"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch2_00.png" id="19_y1ame"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/right/punch2_01.png" id="20_7jacw"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/air_attack/air_attack_00.png" id="21_mbplx"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/jump/jump_03.png" id="22_c167v"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/air_attack/air_attack_01.png" id="22_o0cvf"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/jump/jump_01.png" id="23_trcrx"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/jump/jump_02.png" id="24_5taik"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/jump/jump_04.png" id="25_bqngl"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/hurt/hurt_high.png" id="27_fdxwh"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/hurt/hurt_mid.png" id="28_niptm"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_00.png" id="29_i7rbs"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_01.png" id="30_h1a1i"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_05.png" id="30_hd20p"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_02.png" id="31_jaglq"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_03.png" id="32_2hkrc"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_04.png" id="33_j15rn"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch2_down_01.png" id="a8v3m"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_02.png" id="ae1ib"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_10.png" id="amqqk"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_01.png" id="ap2ki"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_00.png" id="b9dvb"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_05.png" id="bk0m1"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_04.png" id="bqbe6"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_01.png" id="df5rw"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_08.png" id="dw8rm"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch2_up_01.png" id="f0d1n"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch1_up_00.png" id="f6pt2"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_06.png" id="fac59"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_01.png" id="fqdam"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_01.png" id="frjdn"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_10.png" id="fwmns"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_04.png" id="gbe9v"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_02.png" id="gf8d0"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch1_down_00.png" id="gk11b"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_08.png" id="iorjt"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_04.png" id="jbgfk"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_01.png" id="jbro3"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_05.png" id="jd3co"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_02.png" id="kn9ix"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_01.png" id="ku29n"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_01.png" id="l2ejt"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_02.png" id="l5qji"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_00.png" id="lg3q1"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_11.png" id="llkwb"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_09.png" id="mb45k"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_00.png" id="mjyq7"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_01.png" id="monx3"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_04.png" id="mrj68"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_07.png" id="mwq6x"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_09.png" id="oc23f"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_04.png" id="p80ny"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_03.png" id="pjv5q"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_02.png" id="pxksi"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_03.png" id="q2uj2"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_02.png" id="q92me"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_05.png" id="qr5bq"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_00.png" id="r000"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_01.png" id="r001"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_02.png" id="r002"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_03.png" id="r003"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_04.png" id="r004"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_05.png" id="r005"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_06.png" id="r006"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_07.png" id="r007"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_08.png" id="r008"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_09.png" id="r009"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_10.png" id="r010"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/right/run_11.png" id="r011"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_00.png" id="r012"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_01.png" id="r013"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_02.png" id="r014"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_03.png" id="r015"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_04.png" id="r016"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_05.png" id="r017"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_06.png" id="r018"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_07.png" id="r019"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_08.png" id="r020"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_09.png" id="r021"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_10.png" id="r022"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_11.png" id="r023"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_00.png" id="r024"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_01.png" id="r025"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_02.png" id="r026"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_03.png" id="r027"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_04.png" id="r028"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_05.png" id="r029"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_06.png" id="r030"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_07.png" id="r031"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_08.png" id="r032"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_09.png" id="r033"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_10.png" id="r034"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_11.png" id="r035"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_00.png" id="r036"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_01.png" id="r037"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_02.png" id="r038"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_03.png" id="r039"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_04.png" id="r040"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_05.png" id="r041"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_06.png" id="r042"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_07.png" id="r043"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_08.png" id="r044"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_09.png" id="r045"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_10.png" id="r046"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_11.png" id="r047"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_00.png" id="r048"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_01.png" id="r049"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_02.png" id="r050"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_03.png" id="r051"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_01.png" id="r51rc"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_04.png" id="r052"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_05.png" id="r053"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_06.png" id="r054"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_07.png" id="r055"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_08.png" id="r056"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_09.png" id="r057"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_10.png" id="r058"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_11.png" id="r059"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_03.png" id="rcbcl"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_11.png" id="ru5ug"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_03.png" id="s1vkb"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch2_down_00.png" id="s4ulz"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_01.png" id="t7kzq"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_00.png" id="tfuuv"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_00.png" id="tqvde"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/down/punch1_down_01.png" id="u3g8r"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_08.png" id="ulxyt"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch1_up_01.png" id="vd66m"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_00.png" id="vl8q2"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_07.png" id="w7qxy"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_07.png" id="wyahj"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_02.png" id="x7fcj"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_04.png" id="xbwpw"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_06.png" id="xcwz3"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_03.png" id="xn3nr"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_03.png" id="yi4qg"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_00.png" id="yoctp"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_06.png" id="yvfst"]
-[ext_resource type="Texture2D" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_11.png" id="zyodi"]
+[ext_resource type="Texture2D" uid="uid://dy4o8c4i8fwsg" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_03.png" id="0e3ce"]
+[ext_resource type="Texture2D" uid="uid://yor54ix8eetd" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_07.png" id="0uv9k"]
+[ext_resource type="Texture2D" uid="uid://h1yup5dooyj0" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_02.png" id="0vxds"]
+[ext_resource type="Texture2D" uid="uid://0movm38g7iwe" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_00.png" id="0yvze"]
+[ext_resource type="Texture2D" uid="uid://blrlrj8rgw4ka" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_00.png" id="1w628"]
+[ext_resource type="Texture2D" uid="uid://dpa0qx1msqg5d" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_02.png" id="1z9xk"]
+[ext_resource type="Texture2D" uid="uid://bh1tuev2tcoki" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_00.png" id="1_wrqq6"]
+[ext_resource type="Texture2D" uid="uid://dsgf6wsoexkfp" path="res://characters/playable/run_test/resources/sprites/punches/up/punch2_up_00.png" id="2den9"]
+[ext_resource type="Texture2D" uid="uid://cqgkfsdfbfeff" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_02.png" id="2w2z4"]
+[ext_resource type="Texture2D" uid="uid://bukbwhx8ibjej" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_01.png" id="2_1xc7n"]
+[ext_resource type="Texture2D" uid="uid://cqrnvk0p1mln" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_02.png" id="3_5djqb"]
+[ext_resource type="Texture2D" uid="uid://b00ibgsn504p4" path="res://characters/playable/run_test/resources/sprites/punches/right/punch1_00.png" id="3_48agj"]
+[ext_resource type="Texture2D" uid="uid://bs85e8upi821x" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_05.png" id="4nbqg"]
+[ext_resource type="Texture2D" uid="uid://cb50lb77lsonb" path="res://characters/playable/run_test/resources/sprites/punches/right/punch1_01.png" id="4_oi4qv"]
+[ext_resource type="Texture2D" uid="uid://cnvvm603faqs6" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_06.png" id="5nivj"]
+[ext_resource type="Texture2D" uid="uid://nidbodwb24n6" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_00.png" id="6_ra0bq"]
+[ext_resource type="Texture2D" uid="uid://8m7viw30lg8c" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_01.png" id="7_n4s3j"]
+[ext_resource type="Texture2D" uid="uid://dfgc3jrsgtmvv" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_00.png" id="7_ya88k"]
+[ext_resource type="Texture2D" uid="uid://ccoh2nb0ga1yh" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_03.png" id="8k7zp"]
+[ext_resource type="Texture2D" uid="uid://dd3omhval408" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_00.png" id="8kzxr"]
+[ext_resource type="Texture2D" uid="uid://b84tumm2my0mm" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_01.png" id="8_svxg8"]
+[ext_resource type="Texture2D" uid="uid://cdy38o13p824p" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_02.png" id="8_ytmlj"]
+[ext_resource type="Texture2D" uid="uid://dyx374gh0rtom" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_03.png" id="9_ur7d7"]
+[ext_resource type="Texture2D" uid="uid://bsbk3ruqv32tr" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_02.png" id="9_x5mcd"]
+[ext_resource type="Texture2D" uid="uid://ovd1j154b8vd" path="res://characters/playable/run_test/resources/sprites/punches/right/punch3_04.png" id="10_mesqx"]
+[ext_resource type="Texture2D" uid="uid://busulb1nqc6le" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_04.png" id="10_vyrsa"]
+[ext_resource type="Texture2D" uid="uid://bb471pifryh3d" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_05.png" id="11_5p56x"]
+[ext_resource type="Texture2D" uid="uid://u5lgtuputb5r" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_06.png" id="12_sw7jw"]
+[ext_resource type="Texture2D" uid="uid://b64iy7kin00ii" path="res://characters/playable/run_test/resources/sprites/walk/right/walk_07.png" id="13_wlfmd"]
+[ext_resource type="Texture2D" uid="uid://bmy776jsntolt" path="res://characters/playable/run_test/resources/sprites/idle/right/idle_03.png" id="14_psawv"]
+[ext_resource type="Texture2D" uid="uid://dhoprxrovjxrh" path="res://characters/playable/run_test/resources/sprites/punches/right/punch2_00.png" id="19_y1ame"]
+[ext_resource type="Texture2D" uid="uid://xlaihmqu4s6w" path="res://characters/playable/run_test/resources/sprites/punches/right/punch2_01.png" id="20_7jacw"]
+[ext_resource type="Texture2D" uid="uid://clpwpp183uwd0" path="res://characters/playable/run_test/resources/sprites/air_attack/air_attack_00.png" id="21_mbplx"]
+[ext_resource type="Texture2D" uid="uid://bksj2texgmtme" path="res://characters/playable/run_test/resources/sprites/jump/jump_03.png" id="22_c167v"]
+[ext_resource type="Texture2D" uid="uid://bdg2d7imy6gsx" path="res://characters/playable/run_test/resources/sprites/air_attack/air_attack_01.png" id="22_o0cvf"]
+[ext_resource type="Texture2D" uid="uid://cefp5jehlwjm" path="res://characters/playable/run_test/resources/sprites/jump/jump_01.png" id="23_trcrx"]
+[ext_resource type="Texture2D" uid="uid://bwi8720hpvj8v" path="res://characters/playable/run_test/resources/sprites/jump/jump_02.png" id="24_5taik"]
+[ext_resource type="Texture2D" uid="uid://q0qf7vpb766k" path="res://characters/playable/run_test/resources/sprites/jump/jump_04.png" id="25_bqngl"]
+[ext_resource type="Texture2D" uid="uid://c01b2d0bt65da" path="res://characters/playable/run_test/resources/sprites/hurt/hurt_high.png" id="27_fdxwh"]
+[ext_resource type="Texture2D" uid="uid://cpqii5vvrcmnw" path="res://characters/playable/run_test/resources/sprites/hurt/hurt_mid.png" id="28_niptm"]
+[ext_resource type="Texture2D" uid="uid://pbw2gctg8thf" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_00.png" id="29_i7rbs"]
+[ext_resource type="Texture2D" uid="uid://drweuioa3y1tv" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_01.png" id="30_h1a1i"]
+[ext_resource type="Texture2D" uid="uid://d34vqvhthq4ew" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_05.png" id="30_hd20p"]
+[ext_resource type="Texture2D" uid="uid://63laie67no4n" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_02.png" id="31_jaglq"]
+[ext_resource type="Texture2D" uid="uid://dy8eovu5pyxwf" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_03.png" id="32_2hkrc"]
+[ext_resource type="Texture2D" uid="uid://dje8c6vq74go4" path="res://characters/playable/run_test/resources/sprites/knock_out/knockout_04.png" id="33_j15rn"]
+[ext_resource type="Texture2D" uid="uid://b0qii4wk4nofd" path="res://characters/playable/run_test/resources/sprites/punches/down/punch2_down_01.png" id="a8v3m"]
+[ext_resource type="Texture2D" uid="uid://cnvexbg27uiui" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_02.png" id="ae1ib"]
+[ext_resource type="Texture2D" uid="uid://bbx7cmiykjfwl" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_01.png" id="ap2ki"]
+[ext_resource type="Texture2D" uid="uid://bvxm60kw13yh3" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_00.png" id="b9dvb"]
+[ext_resource type="Texture2D" uid="uid://dm2s66xmfxcmp" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_05.png" id="bk0m1"]
+[ext_resource type="Texture2D" uid="uid://dad2138i0aq82" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_04.png" id="bqbe6"]
+[ext_resource type="Texture2D" uid="uid://7ofwx8wsn0hu" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_01.png" id="df5rw"]
+[ext_resource type="Texture2D" uid="uid://bnnfcsqlwgtdi" path="res://characters/playable/run_test/resources/sprites/punches/up/punch2_up_01.png" id="f0d1n"]
+[ext_resource type="Texture2D" uid="uid://dmvplamik24mt" path="res://characters/playable/run_test/resources/sprites/punches/up/punch1_up_00.png" id="f6pt2"]
+[ext_resource type="Texture2D" uid="uid://danawfkffx2ip" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_06.png" id="fac59"]
+[ext_resource type="Texture2D" uid="uid://cj3wnw6dhusk" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_01.png" id="fqdam"]
+[ext_resource type="Texture2D" uid="uid://hxy83bqarjea" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_01.png" id="frjdn"]
+[ext_resource type="Texture2D" uid="uid://t5ldmke4g2c7" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_04.png" id="gbe9v"]
+[ext_resource type="Texture2D" uid="uid://b5fy71ap2avct" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_02.png" id="gf8d0"]
+[ext_resource type="Texture2D" uid="uid://dsc6y6p571frr" path="res://characters/playable/run_test/resources/sprites/punches/down/punch1_down_00.png" id="gk11b"]
+[ext_resource type="Texture2D" uid="uid://stayogvua0em" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_04.png" id="jbgfk"]
+[ext_resource type="Texture2D" uid="uid://dwbb1m5cedq1j" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_01.png" id="jbro3"]
+[ext_resource type="Texture2D" uid="uid://dpmgs4icjxmt5" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_05.png" id="jd3co"]
+[ext_resource type="Texture2D" uid="uid://dcthd67nqp8kh" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_02.png" id="kn9ix"]
+[ext_resource type="Texture2D" uid="uid://bhiy5omrubast" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_01.png" id="ku29n"]
+[ext_resource type="Texture2D" uid="uid://dapybmu4yenl1" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_01.png" id="l2ejt"]
+[ext_resource type="Texture2D" uid="uid://cxfkp8lkpixk0" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_02.png" id="l5qji"]
+[ext_resource type="Texture2D" uid="uid://cvfvmyxaj3yrv" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_00.png" id="lg3q1"]
+[ext_resource type="Texture2D" uid="uid://cf4spuvibp11k" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_00.png" id="mjyq7"]
+[ext_resource type="Texture2D" uid="uid://boxonrdqotfru" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_01.png" id="monx3"]
+[ext_resource type="Texture2D" uid="uid://8ft0bwlvs1b1" path="res://characters/playable/run_test/resources/sprites/punches/down/punch3_down_04.png" id="mrj68"]
+[ext_resource type="Texture2D" uid="uid://e1gnsg5441q5" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_07.png" id="mwq6x"]
+[ext_resource type="Texture2D" uid="uid://23v4q488bwdt" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_04.png" id="p80ny"]
+[ext_resource type="Texture2D" uid="uid://bq6xbmyy0dmiw" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_03.png" id="pjv5q"]
+[ext_resource type="Texture2D" uid="uid://2a277xn3icax" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_02.png" id="pxksi"]
+[ext_resource type="Texture2D" uid="uid://ba7uu5u5b5nfk" path="res://characters/playable/run_test/resources/sprites/idle/down_right/idle_down_right_03.png" id="q2uj2"]
+[ext_resource type="Texture2D" uid="uid://dufoaajmy8jub" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_02.png" id="q92me"]
+[ext_resource type="Texture2D" uid="uid://cffeh6g8xthu2" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_05.png" id="qr5bq"]
+[ext_resource type="Texture2D" uid="uid://dbgkatdbr1xb" path="res://characters/playable/run_test/resources/sprites/run/right/run_00.png" id="r000"]
+[ext_resource type="Texture2D" uid="uid://7fhgxvecmo5x" path="res://characters/playable/run_test/resources/sprites/run/right/run_01.png" id="r001"]
+[ext_resource type="Texture2D" uid="uid://bjo7isplu2fdv" path="res://characters/playable/run_test/resources/sprites/run/right/run_02.png" id="r002"]
+[ext_resource type="Texture2D" uid="uid://deowrfej5tvmh" path="res://characters/playable/run_test/resources/sprites/run/right/run_03.png" id="r003"]
+[ext_resource type="Texture2D" uid="uid://stnd3pjascjf" path="res://characters/playable/run_test/resources/sprites/run/right/run_04.png" id="r004"]
+[ext_resource type="Texture2D" uid="uid://bvkyierls3nuf" path="res://characters/playable/run_test/resources/sprites/run/right/run_05.png" id="r005"]
+[ext_resource type="Texture2D" uid="uid://cf0vqid1xcdx6" path="res://characters/playable/run_test/resources/sprites/run/right/run_06.png" id="r006"]
+[ext_resource type="Texture2D" uid="uid://bs23b37205pse" path="res://characters/playable/run_test/resources/sprites/run/right/run_07.png" id="r007"]
+[ext_resource type="Texture2D" uid="uid://pnjyhgnborxk" path="res://characters/playable/run_test/resources/sprites/run/right/run_08.png" id="r008"]
+[ext_resource type="Texture2D" uid="uid://c064x33ttt376" path="res://characters/playable/run_test/resources/sprites/run/right/run_09.png" id="r009"]
+[ext_resource type="Texture2D" uid="uid://cx5ll8nremt1p" path="res://characters/playable/run_test/resources/sprites/run/right/run_10.png" id="r010"]
+[ext_resource type="Texture2D" uid="uid://dcaol3tyrghed" path="res://characters/playable/run_test/resources/sprites/run/right/run_11.png" id="r011"]
+[ext_resource type="Texture2D" uid="uid://dugcrhc4fxrq0" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_00.png" id="r012"]
+[ext_resource type="Texture2D" uid="uid://dunl3digxid17" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_01.png" id="r013"]
+[ext_resource type="Texture2D" uid="uid://b7e8t1hkjoixo" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_02.png" id="r014"]
+[ext_resource type="Texture2D" uid="uid://rsvdrijfygqd" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_03.png" id="r015"]
+[ext_resource type="Texture2D" uid="uid://bh0pbjn1s0g6q" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_04.png" id="r016"]
+[ext_resource type="Texture2D" uid="uid://dbmrwfsjckae5" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_05.png" id="r017"]
+[ext_resource type="Texture2D" uid="uid://dl6mswo73vg7c" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_06.png" id="r018"]
+[ext_resource type="Texture2D" uid="uid://de8p8nk2vxrsh" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_07.png" id="r019"]
+[ext_resource type="Texture2D" uid="uid://cuqa2lcs2t4jx" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_08.png" id="r020"]
+[ext_resource type="Texture2D" uid="uid://bsrguqw4ojp2l" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_09.png" id="r021"]
+[ext_resource type="Texture2D" uid="uid://dyi10guyd2ux4" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_10.png" id="r022"]
+[ext_resource type="Texture2D" uid="uid://cel1j0q1r63ls" path="res://characters/playable/run_test/resources/sprites/run/up/run_up_11.png" id="r023"]
+[ext_resource type="Texture2D" uid="uid://dk6fb1tlhrf51" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_00.png" id="r024"]
+[ext_resource type="Texture2D" uid="uid://bwresvfvqc4la" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_01.png" id="r025"]
+[ext_resource type="Texture2D" uid="uid://ds8whgj1i4v1" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_02.png" id="r026"]
+[ext_resource type="Texture2D" uid="uid://cewbroh2v5hq" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_03.png" id="r027"]
+[ext_resource type="Texture2D" uid="uid://722fvi72cq5" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_04.png" id="r028"]
+[ext_resource type="Texture2D" uid="uid://bnj8e1cq20kvq" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_05.png" id="r029"]
+[ext_resource type="Texture2D" uid="uid://bjkwpfuqp7p20" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_06.png" id="r030"]
+[ext_resource type="Texture2D" uid="uid://d14nukhgkstqv" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_07.png" id="r031"]
+[ext_resource type="Texture2D" uid="uid://lgvivodn2ped" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_08.png" id="r032"]
+[ext_resource type="Texture2D" uid="uid://7x3fhl5k2rob" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_09.png" id="r033"]
+[ext_resource type="Texture2D" uid="uid://co8gxlkge5da" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_10.png" id="r034"]
+[ext_resource type="Texture2D" uid="uid://e04rinsxy548" path="res://characters/playable/run_test/resources/sprites/run/down/run_down_11.png" id="r035"]
+[ext_resource type="Texture2D" uid="uid://cgaskovv1gld5" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_00.png" id="r036"]
+[ext_resource type="Texture2D" uid="uid://cheqbfxv0co4k" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_01.png" id="r037"]
+[ext_resource type="Texture2D" uid="uid://deue6dbfjlmn4" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_02.png" id="r038"]
+[ext_resource type="Texture2D" uid="uid://di3gxrh34kcs4" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_03.png" id="r039"]
+[ext_resource type="Texture2D" uid="uid://bmolbmfutklej" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_04.png" id="r040"]
+[ext_resource type="Texture2D" uid="uid://bci5r66y3idw7" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_05.png" id="r041"]
+[ext_resource type="Texture2D" uid="uid://b3udk4rm4ajkl" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_06.png" id="r042"]
+[ext_resource type="Texture2D" uid="uid://ctegidbgoqkau" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_07.png" id="r043"]
+[ext_resource type="Texture2D" uid="uid://b5xjvhykcenrp" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_08.png" id="r044"]
+[ext_resource type="Texture2D" uid="uid://f3i2femlkxob" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_09.png" id="r045"]
+[ext_resource type="Texture2D" uid="uid://cy0x0aot7wlum" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_10.png" id="r046"]
+[ext_resource type="Texture2D" uid="uid://csodjho10evq" path="res://characters/playable/run_test/resources/sprites/run/up_right/run_up_right_11.png" id="r047"]
+[ext_resource type="Texture2D" uid="uid://dlby7funnrp33" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_00.png" id="r048"]
+[ext_resource type="Texture2D" uid="uid://50uowmfad10v" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_01.png" id="r049"]
+[ext_resource type="Texture2D" uid="uid://h6skeg5ofj85" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_02.png" id="r050"]
+[ext_resource type="Texture2D" uid="uid://d0rp5akp51gq0" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_03.png" id="r051"]
+[ext_resource type="Texture2D" uid="uid://buj2q8rwo1p80" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_01.png" id="r51rc"]
+[ext_resource type="Texture2D" uid="uid://cf0b7f44uqlq" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_04.png" id="r052"]
+[ext_resource type="Texture2D" uid="uid://cjn01xexjqdok" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_05.png" id="r053"]
+[ext_resource type="Texture2D" uid="uid://bax1fg0w7voco" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_06.png" id="r054"]
+[ext_resource type="Texture2D" uid="uid://fq3oyy18higx" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_07.png" id="r055"]
+[ext_resource type="Texture2D" uid="uid://barlue27toftp" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_08.png" id="r056"]
+[ext_resource type="Texture2D" uid="uid://dk52qeysdw6eq" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_09.png" id="r057"]
+[ext_resource type="Texture2D" uid="uid://b58gh728fw70c" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_10.png" id="r058"]
+[ext_resource type="Texture2D" uid="uid://c6bn38vwt1bny" path="res://characters/playable/run_test/resources/sprites/run/down_right/run_down_right_11.png" id="r059"]
+[ext_resource type="Texture2D" uid="uid://cxd5wgd4gkxhi" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_03.png" id="rcbcl"]
+[ext_resource type="Texture2D" uid="uid://bo0ii6f8kehyo" path="res://characters/playable/run_test/resources/sprites/idle/down/idle_down_03.png" id="s1vkb"]
+[ext_resource type="Texture2D" uid="uid://b4vmf3rphgm51" path="res://characters/playable/run_test/resources/sprites/punches/down/punch2_down_00.png" id="s4ulz"]
+[ext_resource type="Texture2D" uid="uid://dqsn83ffrx4ru" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_01.png" id="t7kzq"]
+[ext_resource type="Texture2D" uid="uid://d0mkaq0vxhlb4" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_00.png" id="tfuuv"]
+[ext_resource type="Texture2D" uid="uid://ceahcfjw8xltv" path="res://characters/playable/run_test/resources/sprites/idle/up/idle_up_00.png" id="tqvde"]
+[ext_resource type="Texture2D" uid="uid://bklqt861ky2h4" path="res://characters/playable/run_test/resources/sprites/punches/down/punch1_down_01.png" id="u3g8r"]
+[ext_resource type="Texture2D" uid="uid://on75fghipq6f" path="res://characters/playable/run_test/resources/sprites/punches/up/punch1_up_01.png" id="vd66m"]
+[ext_resource type="Texture2D" uid="uid://dxj4nr1uoi48m" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_00.png" id="vl8q2"]
+[ext_resource type="Texture2D" uid="uid://mhk7sq6h5iyp" path="res://characters/playable/run_test/resources/sprites/walk/down/walk_down_07.png" id="w7qxy"]
+[ext_resource type="Texture2D" uid="uid://d0skjsrmypejd" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_07.png" id="wyahj"]
+[ext_resource type="Texture2D" uid="uid://cfsxvnjxf06xx" path="res://characters/playable/run_test/resources/sprites/punches/up/punch3_up_02.png" id="x7fcj"]
+[ext_resource type="Texture2D" uid="uid://5kglfxyss12e" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_04.png" id="xbwpw"]
+[ext_resource type="Texture2D" uid="uid://cwkgb0kj5uv26" path="res://characters/playable/run_test/resources/sprites/walk/up/walk_up_06.png" id="xcwz3"]
+[ext_resource type="Texture2D" uid="uid://bjvvov2ecimle" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_03.png" id="xn3nr"]
+[ext_resource type="Texture2D" uid="uid://cqy64ewighieh" path="res://characters/playable/run_test/resources/sprites/idle/up_right/idle_up_right_03.png" id="yi4qg"]
+[ext_resource type="Texture2D" uid="uid://dqy047vcefp2h" path="res://characters/playable/run_test/resources/sprites/walk/down_right/walk_down_right_00.png" id="yoctp"]
+[ext_resource type="Texture2D" uid="uid://dev4kt2ohph0j" path="res://characters/playable/run_test/resources/sprites/walk/up_right/walk_up_right_06.png" id="yvfst"]
 
 [resource]
 animations = [{
@@ -1885,36 +1873,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": ExtResource("w7qxy")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ulxyt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ulxyt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ulxyt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("mb45k")
-}, {
-"duration": 1.0,
-"texture": ExtResource("mb45k")
-}, {
-"duration": 1.0,
-"texture": ExtResource("amqqk")
-}, {
-"duration": 1.0,
-"texture": ExtResource("amqqk")
-}, {
-"duration": 1.0,
-"texture": ExtResource("zyodi")
-}, {
-"duration": 1.0,
-"texture": ExtResource("zyodi")
-}, {
-"duration": 1.0,
-"texture": ExtResource("zyodi")
 }],
 "loop": 1,
 "name": &"walk_down",
@@ -2225,36 +2183,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": ExtResource("0uv9k")
-}, {
-"duration": 1.0,
-"texture": ExtResource("dw8rm")
-}, {
-"duration": 1.0,
-"texture": ExtResource("dw8rm")
-}, {
-"duration": 1.0,
-"texture": ExtResource("dw8rm")
-}, {
-"duration": 1.0,
-"texture": ExtResource("8kyql")
-}, {
-"duration": 1.0,
-"texture": ExtResource("8kyql")
-}, {
-"duration": 1.0,
-"texture": ExtResource("2qmeq")
-}, {
-"duration": 1.0,
-"texture": ExtResource("2qmeq")
-}, {
-"duration": 1.0,
-"texture": ExtResource("llkwb")
-}, {
-"duration": 1.0,
-"texture": ExtResource("llkwb")
-}, {
-"duration": 1.0,
-"texture": ExtResource("llkwb")
 }],
 "loop": 1,
 "name": &"walk_up",
@@ -2317,36 +2245,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": ExtResource("mwq6x")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("oc23f")
-}, {
-"duration": 1.0,
-"texture": ExtResource("oc23f")
-}, {
-"duration": 1.0,
-"texture": ExtResource("fwmns")
-}, {
-"duration": 1.0,
-"texture": ExtResource("fwmns")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
 }],
 "loop": 1,
 "name": &"walk_up_left",
@@ -2409,36 +2307,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": ExtResource("mwq6x")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("iorjt")
-}, {
-"duration": 1.0,
-"texture": ExtResource("oc23f")
-}, {
-"duration": 1.0,
-"texture": ExtResource("oc23f")
-}, {
-"duration": 1.0,
-"texture": ExtResource("fwmns")
-}, {
-"duration": 1.0,
-"texture": ExtResource("fwmns")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
-}, {
-"duration": 1.0,
-"texture": ExtResource("ru5ug")
 }],
 "loop": 1,
 "name": &"walk_up_right",

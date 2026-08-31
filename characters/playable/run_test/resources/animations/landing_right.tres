@@ -1,4 +1,4 @@
-[gd_resource type="Animation" format=3]
+[gd_resource type="Animation" format=3 uid="uid://cyek1rc5565g1"]
 
 [resource]
 resource_name = "landing"
@@ -14,7 +14,7 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, -219)]
+"values": [Vector2(0, -75)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -112,7 +112,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0, 0.125),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [291.0, 294.0]
+"values": [86.0, 101.0]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -124,7 +124,7 @@ tracks/9/keys = {
 "times": PackedFloat32Array(0, 0.125),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [304.0, 326.0]
+"values": [176.0, 173.0]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
@@ -136,7 +136,7 @@ tracks/10/keys = {
 "times": PackedFloat32Array(0, 0.125),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [PackedVector2Array(-15.5, -51, -120.5, 230, -120.5, 232, 169.5, 111, 170.5, 111, -15.5, -52), PackedVector2Array(-52.5, -73, -140.5, 240, -140.5, 241, 96.5, 233, 99.5, 233, 152.5, -6, 153.5, -6, -52.5, -74)]
+"values": [PackedVector2Array(-2, -79, -34, 70, -34, 75, 50, -17, 52, -17, -2, -80), PackedVector2Array(5, -76, -45, 18, -46, 18, -21, 78, -21, 79, 20, 64, 21, 64, 6, 11, 6, 7, 55, -21, 55, -25, 5, -77)]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
