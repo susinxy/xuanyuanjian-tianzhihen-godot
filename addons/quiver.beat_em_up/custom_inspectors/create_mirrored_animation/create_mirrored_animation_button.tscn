@@ -8,6 +8,13 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_rc8ik")
 
+[node name="Description" type="Label" parent="."]
+layout_mode = 2
+text = "镜像动画工具：复制当前动画并水平翻转，生成对应的左/右方向动画。
+翻转的属性：position.x、flip_h、rotation、polygon。
+不翻转的属性：length、frame、step 等。"
+autowrap_mode = 2
+
 [node name="Button" type="Button" parent="."]
 layout_mode = 2
 text = "Create Mirrored Animation"
