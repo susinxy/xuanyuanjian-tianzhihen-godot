@@ -110,6 +110,8 @@ func _runtime_ready() -> void:
 	super()
 	if _animation_tree and _animation_tree.tree_root:
 		_animation_tree.active = true
+		for path in _blend_positions_1d:
+			_animation_tree[path] = facing_x
 
 
 ## Helper to create getters for public condition properties.
