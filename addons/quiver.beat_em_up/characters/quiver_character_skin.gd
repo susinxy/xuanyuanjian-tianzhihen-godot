@@ -65,6 +65,7 @@ signal grab_frame_reached(ref_position: Marker2D)
 				await ready
 			_skin_direction_updated()
 
+var facing_x: float = 1.0
 
 ## 高度层系统：角色跳跃的概念高度（计算属性，从 position.y 实时派生）
 ## base_height = -position.y（角色跳跃时 Skin.position.y 整体上移，负值 = 向上）

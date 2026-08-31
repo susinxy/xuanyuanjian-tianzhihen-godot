@@ -31,6 +31,7 @@ extends QuiverCharacterSkin
 
 var _blend_positions_1d := []
 var _blend_positions_2d := []
+var _last_facing_x: float = 1.0
 
 @onready var _animation_tree := get_node(_path_animation_tree) as AnimationTree
 @onready var _playback := _animation_tree.get(_path_playback) as AnimationNodeStateMachinePlayback
@@ -130,8 +131,10 @@ func _set_animation_tree_condition(path: StringName, value: bool) -> void:
 
 
 func _update_blend_directions() -> void:
-	for path in _blend_positions_1d:
-		_animation_tree[path] = skin_direction.x
+	if facing_x != _last_facing_x:
+		for path in _blend_positions_1d:
+			_animation_tree[path] = facing_x
+		_last_facing_x = facing_x
 	for path in _blend_positions_2d:
 		_animation_tree[path] = skin_direction
 

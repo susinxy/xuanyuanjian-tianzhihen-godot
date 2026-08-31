@@ -83,6 +83,9 @@ func physics_process(delta: float) -> void:
 	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if not _move_state._direction.is_equal_approx(Vector2.ZERO):
 		_skin.skin_direction = _move_state._direction.normalized()
+		var facing := sign(_move_state._direction.x)
+		if facing != 0 and facing != _skin.facing_x:
+			_skin.facing_x = facing
 	_move_state.physics_process(delta)
 	if _move_state._direction.is_equal_approx(Vector2.ZERO):
 		_state_machine.transition_to(_path_idle_state)
