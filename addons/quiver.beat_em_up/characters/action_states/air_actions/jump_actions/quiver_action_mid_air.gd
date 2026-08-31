@@ -130,6 +130,10 @@ func _handle_mid_air_animation() -> void:
 func _handle_facing_direction() -> void:
 	var facing_direction :int = sign(_character.velocity.x)
 	if facing_direction != 0 and facing_direction != _skin.skin_direction.x:
+		# 先更新 facing_x，再更新 skin_direction
+		# 因为 skin_direction 的 setter 会触发 _update_blend_directions()
+		# 此时需要读取已更新的 facing_x 值
+		_skin.facing_x = float(facing_direction)
 		_skin.skin_direction = Vector2.RIGHT if facing_direction > 0 else Vector2.LEFT
 
 

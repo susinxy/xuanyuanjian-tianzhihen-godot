@@ -82,10 +82,13 @@ func unhandled_input(event: InputEvent) -> void:
 func physics_process(delta: float) -> void:
 	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if not _move_state._direction.is_equal_approx(Vector2.ZERO):
-		_skin.skin_direction = _move_state._direction.normalized()
+		# 先更新 facing_x，再更新 skin_direction
+		# 因为 skin_direction 的 setter 会触发 _update_blend_directions()
+		# 此时需要读取已更新的 facing_x 值
 		var facing := sign(_move_state._direction.x)
 		if facing != 0 and facing != _skin.facing_x:
 			_skin.facing_x = facing
+		_skin.skin_direction = _move_state._direction.normalized()
 	_move_state.physics_process(delta)
 	if _move_state._direction.is_equal_approx(Vector2.ZERO):
 		_state_machine.transition_to(_path_idle_state)
