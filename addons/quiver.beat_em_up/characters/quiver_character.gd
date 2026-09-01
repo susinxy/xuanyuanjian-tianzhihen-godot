@@ -28,6 +28,10 @@ const HEIGHT_LAYER_LAST := 24  # HEIGHT_LAYER_FIRST + HEIGHT_LAYER_COUNT - 1
 const SETTINGS_STANDARD_HEIGHT := "quiver/beat_em_up/gameplay/standard_height"
 const LAYER_THICKNESS_RATIO := 0.75
 
+## 阴影渲染器脚本（由 _create_shadow_renderer() 动态挂载到 Polygon2D）
+const SHADOW_CONTROLLER_SCRIPT := preload(
+	"res://scripts/character_shadow_controller.gd")
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 var attributes: QuiverAttributes = null:
@@ -133,6 +137,9 @@ func _ready() -> void:
 	if _skin:
 		_hurtbox = _skin.hurtbox
 		_hitboxes = _skin.hitboxes
+	
+	# 阴影系统：动态创建 ShadowRenderer
+	_create_shadow_renderer()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -173,6 +180,21 @@ func can_deny_grabs() -> bool:
 
 
 ### Private Methods -------------------------------------------------------------------------------
+
+## 动态创建阴影渲染器
+## 创建一个 Polygon2D 节点，挂载 character_shadow_controller.gd 脚本
+## 由 _ready() 在初始化阶段调用
+func _create_shadow_renderer() -> void:
+	if not _skin:
+		return
+	
+	var sr := Polygon2D.new()
+	sr.name = "ShadowRenderer"
+	sr.z_index = -1
+	sr.set_script(SHADOW_CONTROLLER_SCRIPT)
+	add_child(sr)
+	sr.setup(_skin)
+
 
 func _disable_collisions() -> void:
 	_collision.set_deferred("disabled", true)

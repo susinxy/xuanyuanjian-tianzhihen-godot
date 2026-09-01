@@ -30,6 +30,10 @@ size = Vector2(161, 329.5)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_e0e1l"]
 size = Vector2(261.336, 79.2264)
 
+[sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
+closed = true
+polygon = PackedVector2Array()
+
 [node name="RunTestSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
 attributes = ExtResource("6_iqdvs")
@@ -85,6 +89,10 @@ script = ExtResource("5_k0gpy")
 visible = false
 modulate = Color(0, 0.0666667, 0.701961, 1)
 polygon = PackedVector2Array(-32, -84, -8, 93, -8, 94, 32, -45, 34, -45, -32, -85)
+
+[node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1"]
+sdf_collision = true
+occluder = SubResource("OccluderPolygon2D_shadow")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
