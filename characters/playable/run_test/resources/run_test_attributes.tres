@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="QuiverAttributes" format=3 uid="uid://cie8wsc0iux7g"]
 
-[ext_resource type="Script" uid="uid://c30cbdhmtp1po" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
+[ext_resource type="Script" uid="uid://ck1mf2limgpfj" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
 [ext_resource type="Texture2D" uid="uid://cpew2rcvvr755" path="res://characters/playable/run_test/resources/run_test_gradient.tres" id="1_4dxsn"]
 [ext_resource type="Texture2D" uid="uid://bmd73tywlkyq7" path="res://characters/playable/run_test/resources/sprites/run_test_profile.png" id="2_g3jjg"]
 

@@ -22,7 +22,7 @@ Events="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/quiver_events
 HitFreeze="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/hit_freeze/hit_freeze.tscn"
 QuiverDebugLogger="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/debug_logger/quiver_debug_logger.tscn"
 ScreenTransitions="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/transitions/screen_transitions.tscn"
-Dialogic="*uid://ds2q0uclmolvu"
+Dialogic="*res://addons/dialogic/Core/DialogicGameHandler.gd"
 
 [dialogic]
 

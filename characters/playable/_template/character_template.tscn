@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dj3fg56qev4a2"]
 
-[ext_resource type="Script" uid="uid://biw0ul8oql8i" path="res://characters/playable/_template/character_template.gd" id="1_template"]
+[ext_resource type="Script" uid="uid://dtiyifn25k5ie" path="res://characters/playable/_template/character_template.gd" id="1_template"]
 
 [node name="CharacterTemplate" type="Node" unique_id=1640934940]
 script = ExtResource("1_template")
