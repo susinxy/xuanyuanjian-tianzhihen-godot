@@ -182,13 +182,14 @@ func can_deny_grabs() -> bool:
 ### Private Methods -------------------------------------------------------------------------------
 
 ## 动态创建阴影渲染器
-## 创建一个 Polygon2D 节点，挂载 character_shadow_controller.gd 脚本
+## 创建一个 Sprite2D 节点，挂载 character_shadow_controller.gd 脚本
+## vertex() 将 1×1 矩形变形为平行四边形
 ## 由 _ready() 在初始化阶段调用
 func _create_shadow_renderer() -> void:
 	if not _skin:
 		return
 	
-	var sr := Polygon2D.new()
+	var sr := Sprite2D.new()
 	sr.name = "ShadowRenderer"
 	sr.z_index = -1
 	sr.set_script(SHADOW_CONTROLLER_SCRIPT)

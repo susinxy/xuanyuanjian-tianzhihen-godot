@@ -22,7 +22,8 @@ Events="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/quiver_events
 HitFreeze="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/hit_freeze/hit_freeze.tscn"
 QuiverDebugLogger="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/debug_logger/quiver_debug_logger.tscn"
 ScreenTransitions="*res://addons/quiver.beat_em_up/utilities/helpers/autoload/transitions/screen_transitions.tscn"
-Dialogic="*res://addons/dialogic/Core/DialogicGameHandler.gd"
+Dialogic="*uid://bxavuh4l8nyru"
+DayNightManager="*res://scripts/day_night/day_night_manager.gd"
 
 [dialogic]
 
@@ -147,5 +148,5 @@ beat_em_up/paths/custom_ai_folder="res://_beat_em_up/ai_states/"
 
 [rendering]
 
-2d/sdf/oversize=2
-2d/sdf/scale=0.5
+2d/sdf/oversize=0
+2d/sdf/scale=2

@@ -18,6 +18,9 @@ _data = {
 &"RESET": ExtResource("4_vrxwg")
 }
 
+[sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
+polygon = PackedVector2Array(-20, -80, 20, -80, 20, 80, -20, 80)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_75u0j"]
 size = Vector2(149, 329)
 
@@ -85,6 +88,9 @@ script = ExtResource("5_k0gpy")
 modulate = Color(0, 0.0666667, 0.701961, 1)
 position = Vector2(5, 0.5)
 shape = SubResource("RectangleShape2D_75u0j")
+
+[node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1" unique_id=1172678836]
+occluder = SubResource("OccluderPolygon2D_shadow")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 

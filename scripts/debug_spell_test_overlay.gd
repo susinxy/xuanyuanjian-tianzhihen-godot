@@ -58,9 +58,6 @@ func _find_nodes() -> void:
 	if _player:
 		_player_skin = _player.get_node_or_null("Skin")
 		_player_hurtbox = _player.get_node_or_null("Skin/AnimatedSprite2D/HurtBox")
-		print("[Debug] Player found: ", _player.name)
-	else:
-		print("[Debug] Player NOT found")
 	
 	# 查找 Enemy
 	if not enemy_path.is_empty():
@@ -75,9 +72,6 @@ func _find_nodes() -> void:
 		_enemy_hurtbox = _enemy.get_node_or_null("EnemySkin/AnimatedSprite2D/HurtBox")
 		if not _enemy_hurtbox:
 			_enemy_hurtbox = _enemy.get_node_or_null("Skin/AnimatedSprite2D/HurtBox")
-		print("[Debug] Enemy found: ", _enemy.name)
-	else:
-		print("[Debug] Enemy NOT found")
 
 
 func _find_all_spells() -> Array:

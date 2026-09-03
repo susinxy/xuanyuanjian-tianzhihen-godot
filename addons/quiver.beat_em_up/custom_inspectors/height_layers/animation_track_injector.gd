@@ -32,6 +32,11 @@ const TRACK_PATH_PHYSICAL_WIDTH := ".:physical_width"  # Skin 的 physical_width
 const TRACK_PATH_BASE_HEIGHT_METHOD := "."  # method 调用 Skin 节点自身
 const METHOD_NAME_SYNC_BASE_HEIGHT := "_sync_base_height"
 
+# ShadowBox 阴影遮挡物路径（AnimatedSprite2D 下的 LightOccluder2D，参与 SDF 纹理生成）
+# 阴影始终使用独立扫描的原始 polygon 顶点，与 body 的 shape_type（Polygon/Capsule/Rectangle）无关
+const SHADOW_OCCLUDER_PATH := "AnimatedSprite2D/ShadowBox"
+const TRACK_PATH_SHADOW_OCCLUDER_POLYGON := SHADOW_OCCLUDER_PATH + ":occluder:polygon"
+
 # 碰撞形状类型
 enum ShapeType {
 	POLYGON = 0,    # CollisionPolygon2D + :polygon track（精确轮廓）
@@ -153,7 +158,7 @@ func _clear_track_keys(anim: Animation, track_idx: int) -> void:
 ## - alpha_threshold: alpha 阈值（0.0-1.0）
 ## - simplify_tolerance: Douglas-Peucker 简化容差（像素）
 ## - dry_run: 如果为 true，只预览不实际修改
-## - callback_obj: 拥有 _on_contour_progress(current, total, filename) 方法的对象
+## - callback_obj: 拥有 _on_contour_progress(current, total, filename, phase="") 方法的对象
 ##
 ## 返回: { frame_count: int, errors: Array[String], frames_info: Dictionary, png_renames: Dictionary }
 
@@ -183,7 +188,9 @@ func _scan_frames_contours(
 	mask_suffix: String,
 	callback_obj: Object,
 	errors: Array[String],
-	erosion_radius: int = 0
+	erosion_radius: int = 0,
+	shared_image_cache: Dictionary = {},
+	scan_phase: String = ""
 ) -> Dictionary:
 	var frames_data := {}
 	
@@ -225,8 +232,8 @@ func _scan_frames_contours(
 	
 	var total_frames := frames_to_process.size()
 	
-	# PNG 缓存：避免重复加载和轮廓提取（key: png_path）
-	var png_cache := {}
+	# 轮廓结果缓存（key: png_path）— 避免同 scan 内相同 PNG 重复提取轮廓
+	var contour_cache := {}
 	
 	# 第二遍：增量处理每帧
 	var current := 0
@@ -240,13 +247,13 @@ func _scan_frames_contours(
 		if not frames_data.has(sprite_anim_name):
 			frames_data[sprite_anim_name] = {}
 		
-		# 进度回调（传入正确的 total）
+		# 进度回调（传入正确的 total 和扫描阶段）
 		if callback_obj != null and callback_obj.has_method("_on_contour_progress"):
-			callback_obj._on_contour_progress(current, total_frames, png_path.get_file())
+			callback_obj._on_contour_progress(current, total_frames, png_path.get_file(), scan_phase)
 		
-		# 缓存命中：同一 PNG 不重复加载和轮廓提取
-		if png_cache.has(png_path):
-			var cached: Dictionary = png_cache[png_path]
+		# 轮廓缓存命中：同 scan 内相同 PNG 不重复提取轮廓
+		if contour_cache.has(png_path):
+			var cached: Dictionary = contour_cache[png_path]
 			frames_data[sprite_anim_name][frame_idx] = {
 				"raw_contours": cached["raw_contours"],
 				"image_size": cached["image_size"],
@@ -254,27 +261,36 @@ func _scan_frames_contours(
 			}
 			continue
 		
-		# 加载 PNG
-		var image := Image.load_from_file(ProjectSettings.globalize_path(png_path))
-		if image == null:
-			errors.append("无法加载图片: %s" % png_path)
-			continue
+		# 图像缓存：跨 scan 共享已加载的 PNG 和 mask，避免重复磁盘 I/O
+		var image: Image
+		var mask: Image
+		if shared_image_cache.has(png_path):
+			var cached_img: Dictionary = shared_image_cache[png_path]
+			image = cached_img["image"]
+			mask = cached_img["mask"]
+		else:
+			image = Image.load_from_file(ProjectSettings.globalize_path(png_path))
+			if image == null:
+				errors.append("无法加载图片: %s" % png_path)
+				continue
+			
+			# 检查 mask（优先级：专用 > 通用 > 无）
+			# 1. {name}.{suffix}.mask.png  （专用 mask）
+			# 2. {name}.mask.png           （通用 mask，向后兼容）
+			# 3. 无 mask → 全图扫描
+			var base_path := png_path.replace(".png", "")
+			var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
+			var generic_mask_path := base_path + ".mask.png"
+			
+			mask = null
+			if FileAccess.file_exists(specific_mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
+			elif FileAccess.file_exists(generic_mask_path):
+				mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
+			
+			shared_image_cache[png_path] = {"image": image, "mask": mask}
 		
-		# 检查 mask（优先级：专用 > 通用 > 无）
-		# 1. {name}.{suffix}.mask.png  （专用 mask）
-		# 2. {name}.mask.png           （通用 mask，向后兼容）
-		# 3. 无 mask → 全图扫描
-		var base_path := png_path.replace(".png", "")
-		var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
-		var generic_mask_path := base_path + ".mask.png"
-		
-		var mask: Image = null
-		if FileAccess.file_exists(specific_mask_path):
-			mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
-		elif FileAccess.file_exists(generic_mask_path):
-			mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
-		
-		# 提取轮廓（原始像素坐标）
+		# 提取轮廓（原始像素坐标）— 不同 scan 可能用不同参数，不缓存轮廓结果
 		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius)
 		if contours.is_empty():
 			errors.append("未提取到轮廓: %s" % png_path.get_file())
@@ -286,8 +302,8 @@ func _scan_frames_contours(
 			"png_path": png_path,
 		}
 		
-		# 写入缓存
-		png_cache[png_path] = {
+		# 写入轮廓缓存
+		contour_cache[png_path] = {
 			"raw_contours": contours,
 			"image_size": Vector2(image.get_width(), image.get_height()),
 		}
@@ -309,7 +325,9 @@ func convert_body_contours(
 	erosion_radius: int,
 	shape_type: int,
 	dry_run: bool,
-	callback_obj: Object
+	callback_obj: Object,
+	shadow_simplify_tolerance: float = -1.0,
+	shadow_min_area_ratio: float = -1.0
 ) -> Dictionary:
 	return await _convert_contours_common(
 		skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
@@ -318,7 +336,8 @@ func convert_body_contours(
 		Callable(self, "_pre_postprocess_body"),
 		Callable(self, "_postprocess_body_frame"),
 		Callable(self, "_needs_body_tscn_wrapper"),
-		"未发现 body 形状节点"
+		"未发现 body 形状节点",
+		shadow_simplify_tolerance, shadow_min_area_ratio
 	)
 
 
@@ -345,6 +364,10 @@ func convert_attack_contours(
 
 
 ## 通用轮廓转换核心流程
+##
+## shadow_simplify_tolerance / shadow_min_area_ratio：ShadowBox 专用扫描参数（仅 body category）。
+## 两者均 >= 0 时启用第二次独立扫描，生成 shadow_contours 并注入 :occluder:polygon track。
+## -1 表示禁用（attack category 或旧调用方式）。
 func _convert_contours_common(
 	skin_node: Node,
 	alpha_threshold: float,
@@ -358,7 +381,9 @@ func _convert_contours_common(
 	pre_postprocess_callback: Callable,
 	postprocess_frame_callback: Callable,
 	needs_tscn_conversion: Callable,
-	empty_error_message: String = ""
+	empty_error_message: String = "",
+	shadow_simplify_tolerance: float = -1.0,
+	shadow_min_area_ratio: float = -1.0
 ) -> Dictionary:
 	var result := {
 		"frame_count": 0,
@@ -393,12 +418,34 @@ func _convert_contours_common(
 		unified_filter = _build_unified_frame_filter(shape_nodes, anim_player, skin_node)
 		relevant_anims = _find_all_relevant_anims(shape_nodes, anim_player)
 	
-	# 5. 扫描一次
+	# 5. 扫描一次（body 轮廓）+ 共享图像缓存避免重复磁盘 I/O
+	var image_cache := {}
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
-		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion
+		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion,
+		image_cache, "Body"
 	)
+	
+	# 5b. ShadowBox 第二次独立扫描（仅 body category，参数独立）
+	# 阴影不需要形态学腐蚀（erosion_radius = 0），不执行 MABR/Capsule/Rectangle 转换，
+	# 不计算 physical_height/width，只保留原始 polygon 顶点
+	# 共享 image_cache，同一张 PNG 的磁盘 I/O 只执行一次
+	var shadow_scan_enabled := category == "body" \
+		and shadow_simplify_tolerance >= 0.0 and shadow_min_area_ratio >= 0.0
+	if shadow_scan_enabled:
+		var shadow_frames_data := await _scan_frames_contours(
+			sprite_frames, alpha_threshold, shadow_simplify_tolerance, shadow_min_area_ratio,
+			relevant_anims, unified_filter, category, callback_obj, result.errors, 0,
+			image_cache, "Shadow"
+		)
+		for shadow_anim_name in shadow_frames_data:
+			if not frames_data.has(shadow_anim_name):
+				continue
+			for shadow_frame_idx in shadow_frames_data[shadow_anim_name]:
+				if frames_data[shadow_anim_name].has(shadow_frame_idx):
+					frames_data[shadow_anim_name][shadow_frame_idx]["shadow_raw_contours"] = \
+						shadow_frames_data[shadow_anim_name][shadow_frame_idx]["raw_contours"]
 	
 	# 6. 预处理（如构建 attack 映射表）
 	var preprocess_data: Dictionary = pre_postprocess_callback.call(shape_nodes, anim_player, skin_node)
@@ -430,6 +477,15 @@ func _convert_contours_common(
 					"angle": mabr.angle,
 				}
 			
+			# 7d. ShadowBox 轮廓坐标变换（仅 body，独立扫描数据）
+			# 只取原始轮廓做坐标变换，不计算 MABR/capsule/rectangle
+			if frame.has("shadow_raw_contours"):
+				var shadow_local: Array[PackedVector2Array] = []
+				for shadow_contour in frame["shadow_raw_contours"]:
+					shadow_local.append(ContourTracer.pixels_to_shape_local(shadow_contour, img_w, img_h))
+				frame["shadow_contours"] = shadow_local
+				frame.erase("shadow_raw_contours")
+			
 			frame.erase("raw_contours")
 			result.frame_count += 1
 	
@@ -450,6 +506,11 @@ func _convert_contours_common(
 		for node_info in shape_nodes:
 			var first_frame_data := _get_first_frame_data(frames_data)
 			_modify_scene_tree_node(skin_node, node_info, shape_type, first_frame_data, result.errors)
+	
+	# 11b. 确保 ShadowBox 节点存在（仅 body 且启用了 shadow 扫描时）
+	# 旧模板创建的角色可能没有 ShadowBox，此处自动补建
+	if shadow_scan_enabled:
+		_ensure_shadow_occluder_exists(skin_node)
 	
 	# 12. 构建 per-shape 过滤映射
 	var per_shape_filters := {}
@@ -1197,6 +1258,8 @@ func _inject_all_tracks(
 			if category == "body":
 				_inject_width_track(anim, frame_dict, sprite_fps)
 				_inject_physical_height_track(anim, frame_dict, sprite_fps)
+				if _frame_dict_has_shadow_contours(frame_dict):
+					_inject_occluder_polygon_tracks(anim, frame_dict, sprite_fps, flip_track_data)
 				anim_modified = true
 			elif category == "attack":
 				var heights_frame_dict := {}
@@ -1323,6 +1386,53 @@ func _inject_physical_height_track(
 			var time: float = float(frame_idx) * (1.0 / sprite_fps)
 			anim.track_insert_key(height_track_idx, time, current_height)
 			prev_height = current_height
+
+
+## 检查 frame_dict 中是否有任何帧包含 shadow_contours 数据
+## 用于决定是否注入 ShadowBox track（无 shadow 扫描数据时跳过，避免创建空 track）
+func _frame_dict_has_shadow_contours(frame_dict: Dictionary) -> bool:
+	for frame_idx in frame_dict:
+		var frame_info: Dictionary = frame_dict[frame_idx]
+		if not frame_info.get("shadow_contours", []).is_empty():
+			return true
+	return false
+
+
+## 注入 ShadowBox 的 occluder:polygon track（封装复用）
+##
+## 每帧写入 shadow_contours[0]（OccluderPolygon2D.polygon 只支持单一 PackedVector2Array，
+## 与 CollisionPolygon2D.polygon 同限制；多分离部分时只取第一个轮廓 = 最大面积）。
+## 复用调用方已提取的 flip_track_data，flip_h 时对 polygon 做 X 镜像，不重复提取。
+## 相邻帧 polygon 相同时去重，减少关键帧数量。
+func _inject_occluder_polygon_tracks(
+	anim: Animation,
+	frame_dict: Dictionary,
+	sprite_fps: float,
+	flip_track_data: Array
+) -> void:
+	var polygon_track_idx := _find_or_add_value_track(anim, TRACK_PATH_SHADOW_OCCLUDER_POLYGON)
+	_clear_track_keys(anim, polygon_track_idx)
+	
+	var prev_polygon: PackedVector2Array = PackedVector2Array()
+	var has_prev := false
+	
+	for frame_idx in frame_dict.keys():
+		var frame_info: Dictionary = frame_dict[frame_idx]
+		var shadow_contours: Array = frame_info.get("shadow_contours", [])
+		if shadow_contours.is_empty():
+			continue
+		
+		var polygon: PackedVector2Array = shadow_contours[0]
+		var time: float = float(frame_idx) * (1.0 / sprite_fps)
+		
+		# 复用调用方已提取的 flip_track_data
+		if _is_flipped_at_time(flip_track_data, time):
+			polygon = _mirror_polygon_x(polygon)
+		
+		if not has_prev or polygon != prev_polygon:
+			anim.track_insert_key(polygon_track_idx, time, polygon)
+			prev_polygon = polygon
+			has_prev = true
 
 
 ## 注入 Attack 的 attack_heights track
@@ -1454,6 +1564,30 @@ func _modify_scene_tree_node(
 	# 确保节点被场景拥有，Ctrl+S 时会保存
 	# 当 skin_node 是场景根节点时，owner 为 null，使用 skin_node 自身作为 owner
 	new_node.owner = skin_node.owner if skin_node.owner else skin_node
+
+
+## 确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D) 节点
+## 不存在则创建：LightOccluder2D（name="ShadowBox", sdf_collision=true）
+## + OccluderPolygon2D（closed=true，空 polygon，由动画 track 逐帧驱动）
+## 已存在则不做任何操作（保留现有 occluder，track 注入会覆盖 polygon）
+func _ensure_shadow_occluder_exists(skin_node: Node) -> void:
+	var sprite_node := skin_node.get_node_or_null("AnimatedSprite2D")
+	if sprite_node == null:
+		return
+	if sprite_node.has_node("ShadowBox"):
+		return
+	
+	var occluder_polygon := OccluderPolygon2D.new()
+	occluder_polygon.closed = true
+	
+	var shadow_box := LightOccluder2D.new()
+	shadow_box.name = "ShadowBox"
+	shadow_box.sdf_collision = true
+	shadow_box.occluder = occluder_polygon
+	
+	sprite_node.add_child(shadow_box)
+	# 确保节点被场景拥有，Ctrl+S 时会保存（与 _modify_scene_tree_node 相同处理）
+	shadow_box.owner = skin_node.owner if skin_node.owner else skin_node
 
 
 ### -----------------------------------------------------------------------------------------------

@@ -9,54 +9,39 @@ var _draw_control: Control
 var _error_message: String = ""
 
 func _ready() -> void:
-	print("=== DebugHeightOverlay._ready() 开始 ===")
-	
 	_create_panel()
 	
 	if not character:
-		print("DebugHeightOverlay: character 为 null，尝试自动查找")
 		_auto_find_character()
 	
-	print("DebugHeightOverlay: character = ", character)
 	if not character:
 		_error_message = "❌ character: null (NodePath 未正确设置，且自动查找失败)"
-		print("DebugHeightOverlay: ", _error_message)
 		return
 	
 	_find_skin()
 	
-	print("DebugHeightOverlay: _skin = ", _skin)
 	if not _skin:
 		_error_message = "❌ skin: 未找到 QuiverCharacterSkin"
-		print("DebugHeightOverlay: ", _error_message)
 		return
 	
 	_error_message = ""
-	print("DebugHeightOverlay: 初始化成功")
-	print("=== DebugHeightOverlay._ready() 完成 ===")
 
 
 func _auto_find_character() -> void:
 	var parent := get_parent()
 	if not parent:
-		print("DebugHeightOverlay: 无父节点，无法自动查找")
 		return
 	
-	print("DebugHeightOverlay: 在父节点 ", parent.name, " 的子节点中查找 CharacterBody2D")
 	for child in parent.get_children():
-		print("  - ", child.name, " (", child.get_class(), ")")
 		if child is CharacterBody2D:
 			character = child
-			print("DebugHeightOverlay: 自动找到 character: ", child.name)
 			return
-	
-	print("DebugHeightOverlay: 未找到 CharacterBody2D")
 
 
 func _create_panel() -> void:
 	_panel = Panel.new()
 	_panel.position = Vector2(10, 10)
-	_panel.size = Vector2(350, 200)
+	_panel.size = Vector2(350, 480)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.7)
 	style.border_color = Color(0.5, 0.8, 1.0, 0.8)
@@ -67,8 +52,8 @@ func _create_panel() -> void:
 	
 	_label = Label.new()
 	_label.position = Vector2(10, 10)
-	_label.size = Vector2(330, 180)
-	_label.add_theme_font_size_override("font_size", 14)
+	_label.size = Vector2(330, 460)
+	_label.add_theme_font_size_override("font_size", 12)
 	_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	_panel.add_child(_label)
 	
@@ -76,25 +61,13 @@ func _create_panel() -> void:
 	_draw_control.size = get_viewport().get_visible_rect().size
 	_draw_control.draw.connect(_on_draw)
 	add_child(_draw_control)
-	
-	print("DebugHeightOverlay: 面板创建成功")
 
 
 func _find_skin() -> void:
-	_skin = character.get_node_or_null("ChenJingchouSkin")
-	if _skin:
-		print("DebugHeightOverlay: 通过 get_node_or_null 找到 skin")
-		return
-	
-	print("DebugHeightOverlay: get_node_or_null 失败，尝试遍历 children")
 	for child in character.get_children():
-		print("  - ", child.name, " (", child.get_class(), ")")
 		if child is QuiverCharacterSkin:
 			_skin = child
-			print("DebugHeightOverlay: 通过遍历找到 skin: ", child.name)
 			return
-	
-	print("DebugHeightOverlay: 未找到 QuiverCharacterSkin")
 
 
 func _process(_delta: float) -> void:
@@ -127,16 +100,94 @@ func _process(_delta: float) -> void:
 	
 	var occupied_str := "[%.0f, %.0f]" % [bh, bh + ph]
 	
-	_label.text = "=== 高度层调试信息 ===\n"
+	var fps := Engine.get_frames_per_second()
+	_label.text = "FPS: %d\n\n" % fps
+	_label.text += "=== 高度层调试信息 ===\n"
 	_label.text += "base_height: %.1f px\n" % bh
 	_label.text += "physical_height: %.1f px\n" % ph
 	_label.text += "occupied: %s\n" % occupied_str
 	_label.text += "attack_heights: %s\n" % str(ah)
 	_label.text += "高度层: %s\n" % layers_str
 	_label.text += "位置: (%.0f, %.0f)\n" % [pos.x, pos.y]
-	_label.text += "skin.position.y: %.1f" % _skin.position.y
+	_label.text += "skin.position.y: %.1f\n" % _skin.position.y
+	
+	var anim_sprite := _skin.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	var sr := character.get_node("ShadowRenderer") as Sprite2D
+	if anim_sprite and sr:
+		var tex := anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
+		var sprite_w: float = tex.get_size().x if tex else 0.0
+		var sprite_h: float = tex.get_size().y if tex else 0.0
+		var sprite_pos := anim_sprite.position
+		var shadow_size_val = sr.get_instance_shader_parameter("shadow_size")
+		var shadow_max_dist_val = sr.get_instance_shader_parameter("shadow_max_dist")
+		var top_off_val = sr.get_instance_shader_parameter("shadow_top_offset")
+		var bot_off_val = sr.get_instance_shader_parameter("shadow_bottom_offset")
+		
+		if shadow_size_val and shadow_max_dist_val and top_off_val and bot_off_val:
+			var shadow_size: Vector2 = shadow_size_val
+			var shadow_max_dist: float = shadow_max_dist_val
+			var top_off: Vector2 = top_off_val
+			var bot_off: Vector2 = bot_off_val
+			var ratio: float = shadow_size.y / sprite_h if sprite_h > 0 else 0.0
+			
+			var elevation: float = 45.0
+			var azimuth: float = -45.0
+			if sr.has_method("get_current_elevation"):
+				elevation = sr.get_current_elevation()
+			if sr.has_method("get_current_azimuth"):
+				azimuth = sr.get_current_azimuth()
+			
+			var shader_angle := fmod(azimuth + 180.0, 360.0)
+			var ang_rad := shader_angle * PI / 180.0
+			var shadow_dir := -Vector2(sin(ang_rad), cos(ang_rad))
+			
+			var effective_height := sprite_h + bh
+			var tan_elev := tan(deg_to_rad(max(elevation, 5.0)))
+			var shadow_len := effective_height / tan_elev
+			shadow_len = clamp(shadow_len, 30.0, 600.0)
+			var full_h: float = shadow_size.y
+			
+			var v0 := Vector2(-0.5, -0.5) * shadow_size + top_off
+			var v1 := Vector2(-0.5, 0.5) * shadow_size + bot_off
+			var v2 := Vector2(0.5, 0.5) * shadow_size + bot_off
+			var v3 := Vector2(0.5, -0.5) * shadow_size + top_off
+			_label.text += "\n=== 阴影调试 ===\n"
+			_label.text += "精灵图: %.0f×%.0f px\n" % [sprite_w, sprite_h]
+			_label.text += "AnimSprite.pos: (%.0f, %.0f)\n" % [sprite_pos.x, sprite_pos.y]
+			_label.text += "elevation: %.1f°\n" % elevation
+			_label.text += "azimuth: %.1f°\n" % azimuth
+			_label.text += "shadow_dir: (%.3f, %.3f)\n" % [shadow_dir.x, shadow_dir.y]
+			_label.text += "jump_height: %.1f\n" % bh
+			_label.text += "effective_height: %.1f\n" % effective_height
+			_label.text += "shadow_len: %.1f\n" % shadow_len
+			_label.text += "shadow_size: (%.0f, %.0f)\n" % [shadow_size.x, shadow_size.y]
+			_label.text += "full_h: %.1f\n" % full_h
+			_label.text += "top_off: (%.1f, %.1f)\n" % [top_off.x, top_off.y]
+			_label.text += "bot_off: (%.1f, %.1f)\n" % [bot_off.x, bot_off.y]
+			_label.text += "shadow_max_dist: %.1f\n" % shadow_max_dist
+			_label.text += "阴影/身高比: %.2f\n" % ratio
+			_label.text += "v0(top-left):  (%.1f, %.1f)\n" % [v0.x, v0.y]
+			_label.text += "v1(bot-left):  (%.1f, %.1f)\n" % [v1.x, v1.y]
+			_label.text += "v2(bot-right): (%.1f, %.1f)\n" % [v2.x, v2.y]
+			_label.text += "v3(top-right): (%.1f, %.1f)" % [v3.x, v3.y]
+		else:
+			_label.text += "\n=== 阴影调试 ===\n"
+			_label.text += "等待 shader 初始化...\n"
 	
 	_draw_control.queue_redraw()
+	_auto_resize_panel()
+
+func _auto_resize_panel() -> void:
+	if not _panel or not _label:
+		return
+	var line_count: int = _label.text.count("\n") + 1
+	var font_size: int = 12
+	var line_height: float = font_size * 1.6
+	var padding: float = 20.0
+	var required_height: float = line_count * line_height + padding * 2.0
+	var panel_width := 350.0
+	_panel.size = Vector2(panel_width, required_height)
+	_label.size = Vector2(panel_width - padding * 2.0, required_height - padding * 2.0)
 
 
 func _on_draw() -> void:

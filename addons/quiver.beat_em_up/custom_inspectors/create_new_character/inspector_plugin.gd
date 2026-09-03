@@ -85,7 +85,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=13 format=3]
+	var test_scene_template = """[gd_scene load_steps=20 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -95,6 +95,9 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
 [ext_resource type="Shader" path="res://scenes/grid_background.gdshader" id="9_grid_shader"]
+[ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
+[ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
+[ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("8_attack_data")
@@ -124,22 +127,37 @@ shader_parameter/grid_size = 100.0
 shader_parameter/sub_grid_size = 25.0
 shader_parameter/line_width = 1.0
 shader_parameter/sub_line_width = 0.5
-shader_parameter/grid_color = Color(0.2, 0.2, 0.2, 1)
-shader_parameter/sub_grid_color = Color(0.12, 0.12, 0.12, 1)
-shader_parameter/bg_color = Color(0.06, 0.06, 0.06, 1)
+shader_parameter/grid_color = Color(0.55, 0.45, 0.35, 1)
+shader_parameter/sub_grid_color = Color(0.52, 0.42, 0.32, 1)
+shader_parameter/bg_color = Color(0.6, 0.5, 0.4, 1)
 shader_parameter/ground_line_y = 500.0
 shader_parameter/ground_line_width = 3.0
 shader_parameter/ground_line_color = Color(0.4, 0.3, 0.2, 1)
 
+[sub_resource type="Resource" id="SceneTimeData_test"]
+script = ExtResource("12_scene_time_data")
+
+[sub_resource type="Gradient" id="Gradient_lantern"]
+colors = PackedColorArray(1, 0.8, 0.4, 1, 1, 0.5, 0.2, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_lantern"]
+gradient = SubResource("Gradient_lantern")
+width = 256
+height = 256
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0)
+
 [node name="TestStage" type="Node2D"]
 
 [node name="Background" type="ColorRect" parent="."]
+z_index = -10
 offset_left = -2000.0
 offset_top = -500.0
 offset_right = 6000.0
 offset_bottom = 2000.0
 material = SubResource("ShaderMaterial_grid")
-color = Color(0.06, 0.06, 0.06, 1)
+color = Color(0.6, 0.5, 0.4, 1)
 
 [node name="GroundLine" type="ColorRect" parent="."]
 offset_left = -2000.0
@@ -251,18 +269,53 @@ offset_left = 10.0
 offset_top = 270.0
 offset_right = 500.0
 offset_bottom = 510.0
-text = "=== 2.5D 高度层碰撞测试 ===
+text = "=== 2.5D 高度层 + 昼夜测试 ===
 
 操作: WASD 移动, Space 跳跃, J 攻击
 
-测试项目:
-1. 跳跃穿过矮墙 (160px) - 跳跃时 base_height > 160 可通过
-2. 钻过悬空平台 - 从平台下方通过
-3. 撞击高墙 (400px) - 应该被阻挡
-4. 攻击敌人 - 验证 player→enemy 伤害
-5. 被敌人攻击 - 验证 enemy→player 伤害和击飞
+高度层测试:
+1. 跳跃穿过矮墙 (160px)
+2. 钻过悬空平台
+3. 撞击高墙 (400px)
+4. 攻击敌人 / 被敌人攻击
 
-观察右上角调试面板查看实时高度层信息"
+昼夜测试:
+1/2/3/4 → 切换 DAWN/DAY/DUSK/NIGHT
+O → 应用 3 秒光照覆盖（Boss 战变暗）
+
+观察: 角色阴影方向平滑过渡, 灯笼 DUSK/NIGHT 点亮"
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+
+[node name="DirectionalLight2D" type="DirectionalLight2D" parent="."]
+shadow/enabled = false
+rotation = -0.7853982
+
+[node name="DayNightController" type="Node" parent="."]
+script = ExtResource("10_day_night_ctrl")
+scene_time_data = SubResource("SceneTimeData_test")
+canvas_modulate_path = NodePath("../CanvasModulate")
+directional_light_path = NodePath("../DirectionalLight2D")
+point_lights_paths = Array[NodePath]([NodePath("../Lantern1"), NodePath("../Lantern2")])
+
+[node name="Lantern1" type="PointLight2D" parent="."]
+position = Vector2(400, 280)
+scale = Vector2(2, 2)
+enabled = false
+color = Color(1, 0.8, 0.5, 1)
+energy = 0.8
+texture = SubResource("GradientTexture2D_lantern")
+
+[node name="Lantern2" type="PointLight2D" parent="."]
+position = Vector2(1600, 280)
+scale = Vector2(2, 2)
+enabled = false
+color = Color(1, 0.8, 0.5, 1)
+energy = 0.8
+texture = SubResource("GradientTexture2D_lantern")
+
+[node name="DebugDayNightInput" type="Node" parent="."]
+script = ExtResource("11_debug_dn_input")
 
 [node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("3_debug_overlay")

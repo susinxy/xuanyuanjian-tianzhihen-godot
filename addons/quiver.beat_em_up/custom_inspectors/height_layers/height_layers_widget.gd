@@ -35,6 +35,11 @@ static var _persisted_simplify_tolerance: float = 100.0
 static var _persisted_min_area_ratio: float = 0.3
 static var _persisted_erosion_radius: int = 0
 static var _persisted_shape_type: int = 0
+# ShadowBox 专用参数（持久化）
+# 简化容差比 body 更小 = 更多顶点 = 阴影轮廓更精细
+# 最小面积比比 body 更小 = 保留更多小碎片
+static var _persisted_shadow_simplify_tolerance: float = 20.0
+static var _persisted_shadow_min_area_ratio: float = 0.2
 
 var _skin_node: Node = null
 var _show_body_button: bool = true
@@ -50,6 +55,9 @@ var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
 var _min_area_ratio_spinbox: SpinBox
 var _erosion_radius_spinbox: SpinBox
+# ShadowBox 专用参数 UI（仅 Body 轮廓转换使用）
+var _shadow_simplify_tolerance_spinbox: SpinBox
+var _shadow_min_area_ratio_spinbox: SpinBox
 
 # 预览区域 UI
 var _preview_file_path: LineEdit
@@ -88,6 +96,8 @@ func _ready() -> void:
 	_min_area_ratio_spinbox.value = _persisted_min_area_ratio
 	_erosion_radius_spinbox.value = _persisted_erosion_radius
 	_shape_type_option.selected = _persisted_shape_type
+	_shadow_simplify_tolerance_spinbox.value = _persisted_shadow_simplify_tolerance
+	_shadow_min_area_ratio_spinbox.value = _persisted_shadow_min_area_ratio
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -213,6 +223,43 @@ func _build_ui() -> void:
 	erosion_hint.add_theme_color_override("font_color", Color.GRAY)
 	erosion_row.add_child(erosion_hint)
 	
+	# ShadowBox 参数标题（仅 Body 转换使用）
+	var shadow_param_label := Label.new()
+	shadow_param_label.text = "ShadowBox 参数（仅 Body）"
+	shadow_param_label.add_theme_color_override("font_color", Color.GRAY)
+	param_container.add_child(shadow_param_label)
+	
+	# ShadowBox 简化容差
+	var shadow_tolerance_row := HBoxContainer.new()
+	param_container.add_child(shadow_tolerance_row)
+	var shadow_tolerance_label := Label.new()
+	shadow_tolerance_label.text = "阴影简化容差:"
+	shadow_tolerance_label.custom_minimum_size.x = 80
+	shadow_tolerance_row.add_child(shadow_tolerance_label)
+	_shadow_simplify_tolerance_spinbox = SpinBox.new()
+	_shadow_simplify_tolerance_spinbox.min_value = 0.0
+	_shadow_simplify_tolerance_spinbox.max_value = 256.0
+	_shadow_simplify_tolerance_spinbox.step = 0.5
+	_shadow_simplify_tolerance_spinbox.value = 20.0
+	_shadow_simplify_tolerance_spinbox.suffix = " px"
+	_shadow_simplify_tolerance_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shadow_tolerance_row.add_child(_shadow_simplify_tolerance_spinbox)
+	
+	# ShadowBox 最小面积比例
+	var shadow_area_ratio_row := HBoxContainer.new()
+	param_container.add_child(shadow_area_ratio_row)
+	var shadow_area_ratio_label := Label.new()
+	shadow_area_ratio_label.text = "阴影最小面积:"
+	shadow_area_ratio_label.custom_minimum_size.x = 80
+	shadow_area_ratio_row.add_child(shadow_area_ratio_label)
+	_shadow_min_area_ratio_spinbox = SpinBox.new()
+	_shadow_min_area_ratio_spinbox.min_value = 0.1
+	_shadow_min_area_ratio_spinbox.max_value = 0.8
+	_shadow_min_area_ratio_spinbox.step = 0.05
+	_shadow_min_area_ratio_spinbox.value = 0.2
+	_shadow_min_area_ratio_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shadow_area_ratio_row.add_child(_shadow_min_area_ratio_spinbox)
+	
 	# 按钮容器
 	var contour_btn_container := HBoxContainer.new()
 	add_child(contour_btn_container)
@@ -249,8 +296,11 @@ func _build_ui() -> void:
 
 
 ## 轮廓转换进度回调
-func _on_contour_progress(current: int, total: int, filename: String) -> void:
-	_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [_current_contour_mode, current, filename]
+func _on_contour_progress(current: int, total: int, filename: String, phase: String = "") -> void:
+	if phase != "":
+		_contour_status_label.text = "⏳ [%s] 轮廓扫描: %d/%d 帧 (%s)" % [phase, current, total, filename]
+	else:
+		_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [_current_contour_mode, current, filename]
 
 
 ## 碰撞形状类型切换时设置默认参数
@@ -303,6 +353,8 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	_persisted_min_area_ratio = _min_area_ratio_spinbox.value
 	_persisted_erosion_radius = int(_erosion_radius_spinbox.value)
 	_persisted_shape_type = _shape_type_option.selected
+	_persisted_shadow_simplify_tolerance = _shadow_simplify_tolerance_spinbox.value
+	_persisted_shadow_min_area_ratio = _shadow_min_area_ratio_spinbox.value
 	
 	var injector := AnimationTrackInjector.new()
 	var alpha_threshold: float = _alpha_threshold_spinbox.value
@@ -310,10 +362,16 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	var min_area_ratio: float = _min_area_ratio_spinbox.value
 	var erosion_radius: int = int(_erosion_radius_spinbox.value)
 	var shape_type: int = _shape_type_option.selected
+	var shadow_simplify_tolerance: float = _shadow_simplify_tolerance_spinbox.value
+	var shadow_min_area_ratio: float = _shadow_min_area_ratio_spinbox.value
 	
 	var result: Dictionary
 	if mode == "body":
-		result = await injector.convert_body_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self)
+		result = await injector.convert_body_contours(
+			_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
+			erosion_radius, shape_type, false, self,
+			shadow_simplify_tolerance, shadow_min_area_ratio
+		)
 	else:
 		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self)
 	

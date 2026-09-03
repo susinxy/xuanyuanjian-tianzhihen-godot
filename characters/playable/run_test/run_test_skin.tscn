@@ -18,6 +18,9 @@ _data = {
 &"RESET": ExtResource("4_vrxwg")
 }
 
+[sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
+polygon = PackedVector2Array(-32, -84, -44, -26, -44, -16, -8, 93, -8, 94, 24, 78, 26, 78, 32, -45, 34, -45, -32, -85)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_once2"]
 size = Vector2(144, 52)
 
@@ -29,10 +32,6 @@ size = Vector2(161, 329.5)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_e0e1l"]
 size = Vector2(261.336, 79.2264)
-
-[sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
-closed = true
-polygon = PackedVector2Array()
 
 [node name="RunTestSkin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
@@ -85,13 +84,11 @@ visible = false
 monitorable = false
 script = ExtResource("5_k0gpy")
 
-[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=849643227]
-visible = false
+[node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1472583729]
 modulate = Color(0, 0.0666667, 0.701961, 1)
 polygon = PackedVector2Array(-32, -84, -8, 93, -8, 94, 32, -45, 34, -45, -32, -85)
 
-[node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1"]
-sdf_collision = true
+[node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1" unique_id=1172678836]
 occluder = SubResource("OccluderPolygon2D_shadow")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]

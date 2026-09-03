@@ -10,3 +10,4 @@ display_name = "RT"
 profile_texture = ExtResource("2_g3jjg")
 life_bar_gradient = ExtResource("1_4dxsn")
 health_max = 101
+can_be_grabbed = false

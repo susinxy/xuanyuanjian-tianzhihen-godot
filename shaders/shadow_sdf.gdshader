@@ -1,8 +1,8 @@
 shader_type canvas_item;
 render_mode unshaded;
 
-// ── 阴影外观 ──
-uniform vec4 color : source_color = vec4(0.0, 0.0, 0.1, 0.4);
+// ── 共享参数（所有角色相同，通过共享 ShaderMaterial 设置）──
+uniform vec4 color : source_color = vec4(0.0, 0.0, 0.05, 0.55);
 // color.rgb = 阴影颜色
 // color.a   = 阴影最大深度（0=完全透明，1=完全不透明）
 
@@ -18,23 +18,6 @@ uniform vec4 color : source_color = vec4(0.0, 0.0, 0.1, 0.4);
 //   shader_angle = fmod(light_rotation + 180.0, 360.0)
 uniform float angle : hint_range(0.0, 360.0) = 135.0;
 
-// ── 阴影长度上限 ──
-// max_dist = 阴影最大长度（SDF 空间单位），超过此距离的阴影被截断
-// 由 GDScript 根据"参考角色身高"和光源仰角动态计算后传入
-// 
-// 物理含义：max_dist 基于当前角色的 physical_height 计算
-// （多 ShadowRenderer 方案：每个角色独立计算自己的 max_dist）
-// 计算公式（在 GDScript 中）：
-//   physical_height = 当前角色的身高（屏幕像素，由 AnimationPlayer track 每帧更新）
-//   tan_elev = tan(太阳仰角)
-//   shadow_pixels = physical_height / tan_elev
-//   sdf_scale = ProjectSettings.rendering/2d/sdf/scale
-//   max_dist = shadow_pixels * sdf_scale
-//
-// 注意：max_dist 只控制阴影长度上限，不影响实际阴影长度
-// 实际阴影长度由 occluder 几何位置决定（ray march 碰到 occluder 时 break）
-uniform float max_dist : hint_range(0.0, 1000.0) = 100.0;
-
 // ── 阴影柔和度（gradientTexture 未配置时的 fallback）──
 // 0.0 = 最柔和（线性过渡，淡出区间最长）
 // 1.0 = 硬边缘（阶跃过渡，无淡出）
@@ -44,46 +27,80 @@ uniform float softness : hint_range(0.0, 1.0) = 0.4;
 // ── 渐变纹理（可选，配置后覆盖 softness）──
 uniform sampler2D gradientTexture;
 
+// ── per-instance 参数（每个角色不同，通过 set_instance_shader_parameter 设置）──
+// shadow_size: Sprite2D 的缩放因子，将 1×1 矩形放大到 (full_w, full_h)
+instance uniform vec2 shadow_size = vec2(141.6, 241.6);
+
+// shadow_top_offset: 顶部两个顶点的偏移量
+//   shadow_dir.y >= 0 时: (0, +half_len) — 顶边贴紧脚底
+//   shadow_dir.y <  0 时: (dx, -half_len) — 顶边偏移（阴影向上延伸）
+instance uniform vec2 shadow_top_offset = vec2(0.0, 90.0);
+
+// shadow_bottom_offset: 底部两个顶点的偏移量
+//   shadow_dir.y >= 0 时: (dx, +half_len) — 底边偏移（阴影向下延伸）
+//   shadow_dir.y <  0 时: (0, -half_len) — 底边贴紧脚底
+instance uniform vec2 shadow_bottom_offset = vec2(-126.0, 90.0);
+
+// shadow_max_dist: 该角色的阴影长度上限（画布像素）
+// 由 GDScript 根据精灵图尺寸和仰角计算后传入
+// 计算公式：
+//   sprite_h = 精灵图当前帧纹理高度（像素）
+//   shadow_pixels = sprite_h / tan(太阳仰角)
+//   shadow_pixels = clamp(shadow_pixels, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
+//   shadow_max_dist = shadow_pixels（画布像素，不乘 sdf_scale）
+//
+// 注意：shadow_max_dist 不包含跳跃高度，控制阴影浓淡（物理合理行为）
+// 跳跃时阴影会自然淡出，这是符合物理规律的行为
+instance uniform float shadow_max_dist = 90.0;
+
+// ── Vertex Shader ──
+// 将 Sprite2D 的 1×1 矩形变形为阴影平行四边形
+// Sprite2D 初始顶点（centered=true, 1×1 纹理）:
+//   VERTEX_ID 0 = 左上 (-0.5, -0.5)
+//   VERTEX_ID 1 = 左下 (-0.5, +0.5)
+//   VERTEX_ID 2 = 右下 (+0.5, +0.5)
+//   VERTEX_ID 3 = 右上 (+0.5, -0.5)
+void vertex() {
+	// 1. 缩放：从 1×1 放大到 full_w × full_h（锚点 = 原点）
+	VERTEX *= shadow_size;
+	// 2. 条件偏移：底部顶点(1,2)用 bottom_offset，顶部顶点(0,3)用 top_offset
+	if (VERTEX_ID == 1 || VERTEX_ID == 2) {
+		VERTEX += shadow_bottom_offset;
+	} else {
+		VERTEX += shadow_top_offset;
+	}
+}
+
+#define SDF_STEP \
+	d = texture_sdf(at); \
+	at += d * dir * running; \
+	accum += d * running; \
+	running *= step(0.01, d); \
+	running *= step(accum, shadow_max_dist)
+
 void fragment() {
-	// 角度转方向向量
 	float ang_rad = angle * 3.1416 / 180.0;
 	vec2 dir = vec2(sin(ang_rad), cos(ang_rad));
 
-	// 当前像素的 SDF 坐标
 	vec2 at = screen_uv_to_sdf(SCREEN_UV);
 
-	// Ray Marching
-	// d = texture_sdf(at) 返回从当前位置到最近 occluder 边缘的距离
-	// 远离 occluder 时 d 很大（一步跳远），接近时 d 很小（一步逼近）
-	// 正常情况步数约 8-15 步，由 max_dist 保证循环必然终止
+	float d = 0.0;
 	float accum = 0.0;
-	while (true) {
-		float d = texture_sdf(at);
-		accum += d;
-		if (d < 0.01) {
-			break;  // 碰到 occluder 边缘
-		}
-		if (accum >= max_dist) {
-			break;  // 超过阴影长度上限
-		}
-		at += d * dir;
-	}
+	float running = 1.0;
 
-	// 计算基础透明度
-	float ratio = clamp(accum / max_dist, 0.0, 1.0);
+	// 固定 8 步 ray march，无分支，宏展开
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+	SDF_STEP;
+
+	float ratio = clamp(accum / shadow_max_dist, 0.0, 1.0);
 	float alpha = 1.0 - ratio;
+	alpha = smoothstep(0.0, max(0.001, 1.0 - softness), alpha);
 
-	// 柔和度处理
-	// 先尝试 gradientTexture，未配置时 fallback 到 softness
-	vec4 grad_sample = texture(gradientTexture, vec2(alpha, 0.5));
-	if (grad_sample.r > 0.99) {
-		// 未配置纹理（默认 1x1 白色纹理，采样值=1.0）→ 用 softness
-		alpha = smoothstep(0.0, max(0.001, 1.0 - softness), alpha);
-	} else {
-		// 配置了有效渐变纹理 → 用纹理
-		alpha = grad_sample.r;
-	}
-
-	// 最终输出
 	COLOR = vec4(color.rgb, alpha * color.a);
 }

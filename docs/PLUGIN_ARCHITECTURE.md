@@ -1277,8 +1277,8 @@ AcceptDialog (title: "Mask Editor")
 
 | 方法 | 说明 |
 |------|------|
-| `convert_body_contours(skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, dry_run, callback_obj)` | Body 轮廓转换（异步），返回 `{frame_count, errors, frames_info, png_renames}` |
-| `convert_attack_contours(...)` | Attack 轮廓转换（异步），参数同 Body |
+| `convert_body_contours(skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, dry_run, callback_obj, shadow_simplify_tolerance=-1, shadow_min_area_ratio=-1)` | Body 轮廓转换（异步），返回 `{frame_count, errors, frames_info, png_renames}`。shadow 参数均 >= 0 时启用 ShadowBox 双扫描 |
+| `convert_attack_contours(...)` | Attack 轮廓转换（异步），参数同 Body（不含 shadow 参数） |
 | `preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)` | 单文件轮廓预览（不修改任何文件），返回轮廓、MABR、Capsule、Rectangle、physical_height、attack_heights、image |
 
 #### 15.5.2 `_convert_contours_common()` — 统一转换管道（13 步）
@@ -1290,11 +1290,14 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
 3. 从场景树发现 shape 节点（`_discover_shape_nodes()`）— Body: HurtBox 子节点；Attack: Attacks 下 Area2D 的子节点
 4. 构建统一帧过滤（`_build_unified_frame_filter()`）+ 找出所有相关动画
 5. **单次扫描**：`_scan_frames_contours()` — 遍历帧，加载 PNG，检查蒙版（specific > generic > none），调用 `ContourTracer.trace_contours()`
+   - **5b. ShadowBox 第二次独立扫描**（仅 Body 且 shadow 参数启用时）：使用 `shadow_simplify_tolerance` / `shadow_min_area_ratio`，`erosion_radius = 0`，结果合并到 `frame["shadow_raw_contours"]`。不执行 MABR/Capsule/Rectangle 转换，不计算 physical_height/width
 6. 前处理回调（Body: 无操作；Attack: 构建 sprite_anim → attack_node 映射）
 7. 后处理每帧：类别特定字段 + 坐标变换 + MABR + Capsule + Rectangle 计算
+   - **7d. ShadowBox 轮廓坐标变换**：`shadow_raw_contours` → `pixels_to_shape_local()` → `frame["shadow_contours"]`
 8. 如果 `dry_run`：返回 frames_data 不做修改
 9. 预计算 shape 类型变更状态（检测当前 vs 目标类型）
 10. 修改场景树节点（仅当类型不匹配时，`_modify_scene_tree_node()`）
+    - **10b. `_ensure_shadow_occluder_exists()`**（仅 shadow 扫描启用时）：确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D)，不存在则自动创建
 11. 构建 per-shape 过滤映射
 12. 统一轨道注入（`_inject_all_tracks()`）
 13. 返回结果
@@ -1349,7 +1352,10 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
 |------|-----------|------|
 | Body | `.:physical_height` | Skin 物理高度 |
 | Body | `.:physical_width` | Skin 物理宽度（CapsuleShape2D.height 代理） |
+| Body | `AnimatedSprite2D/ShadowBox:occluder:polygon` | ShadowBox 阴影轮廓 polygon（仅 shadow 扫描启用时注入，`_inject_occluder_polygon_tracks()`） |
 | Attack | `.:attack_heights` | Skin 攻击高度数组 |
+
+**ShadowBox track 说明**：无论 Body 选择 Polygon / Capsule / Rectangle，ShadowBox 始终使用独立扫描的原始 polygon 顶点（`shadow_contours[0]`）。`OccluderPolygon2D.polygon` 只支持单一 `PackedVector2Array`（与 `CollisionPolygon2D.polygon` 同限制），多分离部分时只取第一个轮廓（最大面积）。flip_h 时复用已提取的 `flip_track_data` 做 X 镜像。
 
 **Auxiliary tracks**（辅助轨道）：
 
@@ -1406,7 +1412,9 @@ VBoxContainer (this widget)
 │   │   ├── Simplify tolerance
 │   │   ├── Min area ratio
 │   │   ├── Shape type（Polygon / Capsule / Rectangle）
-│   │   └── Erosion radius（仅 MABR 形状生效）
+│   │   ├── Erosion radius（仅 MABR 形状生效）
+│   │   ├── 阴影简化容差（默认 20，比 body 更小 = 更精细阴影轮廓）
+│   │   └── 阴影最小面积（默认 0.2，比 body 更小 = 保留更多小碎片）
 │   ├── 转换按钮（Body Contour Conversion / Attack Contour Conversion）
 │   ├── 状态标签
 │   └── RichTextLabel（转换结果）

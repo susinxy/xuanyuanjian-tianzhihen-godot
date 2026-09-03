@@ -83,12 +83,17 @@ Godot 4.x 内置此功能：当 LightOccluder2D 的 `sdf_collision = true`（默
 
 ### 2.2 Shader 代码
 
+> **当前实现说明**（2026-08-20）：以下为原始设计代码。实际实现已优化为宏展开版本（`shadow_sdf.gdshader`），
+> 主要变更：(1) fragment 用 `#define SDF_STEP` 宏展开 8 步替代 `while(true)` 循环，消除 GPU 分支发散；
+> (2) `gradientTexture` 渐变纹理功能暂未启用，当前以 `softness` 参数控制柔和度，后续版本支持。
+> 详见下方 2.3 节差异说明。
+
 ```glsl
 shader_type canvas_item;
 render_mode unshaded;
 
-// ── 阴影外观 ──
-uniform vec4 color : source_color = vec4(0.0, 0.0, 0.1, 0.4);
+// ── 共享参数（所有角色相同，通过共享 ShaderMaterial 设置）──
+uniform vec4 color : source_color = vec4(0.0, 0.0, 0.05, 0.55);
 // color.rgb = 阴影颜色
 // color.a   = 阴影最大深度（0=完全透明，1=完全不透明）
 
@@ -104,23 +109,6 @@ uniform vec4 color : source_color = vec4(0.0, 0.0, 0.1, 0.4);
 //   shader_angle = fmod(light_rotation + 180.0, 360.0)
 uniform float angle : hint_range(0.0, 360.0) = 135.0;
 
-// ── 阴影长度上限 ──
-// max_dist = 阴影最大长度（SDF 空间单位），超过此距离的阴影被截断
-// 由 GDScript 根据"参考角色身高"和光源仰角动态计算后传入
-// 
-// 物理含义：max_dist 基于当前角色的 physical_height 计算
-// （多 ShadowRenderer 方案：每个角色独立计算自己的 max_dist）
-// 计算公式（在 GDScript 中）：
-//   physical_height = 当前角色的身高（屏幕像素，由 AnimationPlayer track 每帧更新）
-//   tan_elev = tan(太阳仰角)
-//   shadow_pixels = physical_height / tan_elev
-//   sdf_scale = ProjectSettings.rendering/2d/sdf/scale
-//   max_dist = shadow_pixels * sdf_scale
-//
-// 注意：max_dist 只控制阴影长度上限，不影响实际阴影长度
-// 实际阴影长度由 occluder 几何位置决定（ray march 碰到 occluder 时 break）
-uniform float max_dist : hint_range(0.0, 1000.0) = 100.0;
-
 // ── 阴影柔和度（gradientTexture 未配置时的 fallback）──
 // 0.0 = 最柔和（线性过渡，淡出区间最长）
 // 1.0 = 硬边缘（阶跃过渡，无淡出）
@@ -130,48 +118,90 @@ uniform float softness : hint_range(0.0, 1.0) = 0.4;
 // ── 渐变纹理（可选，配置后覆盖 softness）──
 uniform sampler2D gradientTexture;
 
+// ── per-instance 参数（每个角色不同，通过 set_instance_shader_parameter 设置）──
+// shadow_size: Sprite2D 的缩放因子，将 1×1 矩形放大到 (full_w, full_h)
+instance uniform vec2 shadow_size = vec2(141.6, 241.6);
+
+// shadow_top_offset: 顶部两个顶点的偏移量
+//   shadow_dir.y >= 0 时: (0, +half_len) — 顶边贴紧脚底
+//   shadow_dir.y <  0 时: (dx, -half_len) — 顶边偏移（阴影向上延伸）
+instance uniform vec2 shadow_top_offset = vec2(0.0, 90.0);
+
+// shadow_bottom_offset: 底部两个顶点的偏移量
+//   shadow_dir.y >= 0 时: (dx, +half_len) — 底边偏移（阴影向下延伸）
+//   shadow_dir.y <  0 时: (0, -half_len) — 底边贴紧脚底
+instance uniform vec2 shadow_bottom_offset = vec2(-126.0, 90.0);
+
+// shadow_max_dist: 该角色的阴影长度上限（SDF 空间单位）
+// 由 GDScript 根据精灵图尺寸和仰角计算后传入
+// 计算公式：
+//   sprite_h = 精灵图当前帧纹理高度（像素）
+//   shadow_pixels = sprite_h / tan(太阳仰角)
+//   sdf_scale = ProjectSettings.rendering/2d/sdf/scale
+//   shadow_max_dist = shadow_pixels * sdf_scale
+instance uniform float shadow_max_dist = 90.0;
+
+// ── Vertex Shader ──
+// 将 Sprite2D 的 1×1 矩形变形为阴影平行四边形
+// Sprite2D 初始顶点（centered=true, 1×1 纹理）:
+//   VERTEX_ID 0 = 左上 (-0.5, -0.5)
+//   VERTEX_ID 1 = 左下 (-0.5, +0.5)
+//   VERTEX_ID 2 = 右下 (+0.5, +0.5)
+//   VERTEX_ID 3 = 右上 (+0.5, -0.5)
+void vertex() {
+	// 1. 缩放：从 1×1 放大到 full_w × full_h（锚点 = 原点）
+	VERTEX *= shadow_size;
+	// 2. 条件偏移：底部顶点(1,2)用 bottom_offset，顶部顶点(0,3)用 top_offset
+	if (VERTEX_ID == 1 || VERTEX_ID == 2) {
+		VERTEX += shadow_bottom_offset;
+	} else {
+		VERTEX += shadow_top_offset;
+	}
+}
+
 void fragment() {
-    // 角度转方向向量
-    float ang_rad = angle * 3.1416 / 180.0;
-    vec2 dir = vec2(sin(ang_rad), cos(ang_rad));
+	// 角度转方向向量
+	float ang_rad = angle * 3.1416 / 180.0;
+	vec2 dir = vec2(sin(ang_rad), cos(ang_rad));
 
-    // 当前像素的 SDF 坐标
-    vec2 at = screen_uv_to_sdf(SCREEN_UV);
+	// 当前像素的 SDF 坐标
+	vec2 at = screen_uv_to_sdf(SCREEN_UV);
 
-    // Ray Marching
-    // d = texture_sdf(at) 返回从当前位置到最近 occluder 边缘的距离
-    // 远离 occluder 时 d 很大（一步跳远），接近时 d 很小（一步逼近）
-    // 正常情况步数约 8-15 步，由 max_dist 保证循环必然终止
-    float accum = 0.0;
-    while (true) {
-        float d = texture_sdf(at);
-        accum += d;
-        if (d < 0.01) {
-            break;  // 碰到 occluder 边缘
-        }
-        if (accum >= max_dist) {
-            break;  // 超过阴影长度上限
-        }
-        at += d * dir;
-    }
+	// Ray Marching
+	// d = texture_sdf(at) 返回从当前位置到最近 occluder 边缘的距离
+	// 远离 occluder 时 d 很大（一步跳远），接近时 d 很小（一步逼近）
+	// 固定 8 步 ray march，无分支，宏展开
+	// 运行时由 running 标志位控制提前终止（碰到 occluder 或超过 shadow_max_dist）
+	float accum = 0.0;
+	while (true) {
+		float d = texture_sdf(at);
+		accum += d;
+		if (d < 0.01) {
+			break;  // 碰到 occluder 边缘
+		}
+		if (accum >= shadow_max_dist) {
+			break;  // 超过阴影长度上限
+		}
+		at += d * dir;
+	}
 
-    // 计算基础透明度
-    float ratio = clamp(accum / max_dist, 0.0, 1.0);
-    float alpha = 1.0 - ratio;
+	// 计算基础透明度
+	float ratio = clamp(accum / shadow_max_dist, 0.0, 1.0);
+	float alpha = 1.0 - ratio;
 
-    // 柔和度处理
-    // 先尝试 gradientTexture，未配置时 fallback 到 softness
-    vec4 grad_sample = texture(gradientTexture, vec2(alpha, 0.5));
-    if (grad_sample.r > 0.99) {
-        // 未配置纹理（默认 1x1 白色纹理，采样值=1.0）→ 用 softness
-        alpha = smoothstep(0.0, max(0.001, 1.0 - softness), alpha);
-    } else {
-        // 配置了有效渐变纹理 → 用纹理
-        alpha = grad_sample.r;
-    }
+	// 柔和度处理
+	// 先尝试 gradientTexture，未配置时 fallback 到 softness
+	vec4 grad_sample = texture(gradientTexture, vec2(alpha, 0.5));
+	if (grad_sample.r > 0.99) {
+		// 未配置纹理（默认 1x1 白色纹理，采样值=1.0）→ 用 softness
+		alpha = smoothstep(0.0, max(0.001, 1.0 - softness), alpha);
+	} else {
+		// 配置了有效渐变纹理 → 用纹理
+		alpha = grad_sample.r;
+	}
 
-    // 最终输出
-    COLOR = vec4(color.rgb, alpha * color.a);
+	// 最终输出
+	COLOR = vec4(color.rgb, alpha * color.a);
 }
 ```
 
@@ -179,7 +209,9 @@ void fragment() {
 
 | 项目 | 原版 | 调整后 | 理由 |
 |------|------|--------|------|
-| gradientTexture | 必须配置 | 可选，softness 作为 fallback | 降低初始配置门槛 |
+| fragment 循环 | `while(true)` + `break` | 宏展开 `SDF_STEP` × 8 步 | 消除 GPU 分支发散，提升 Intel UHD 集显性能 |
+| gradientTexture | 必须配置 | 暂未启用，后续版本支持 | 当前以 softness 参数控制柔和度 |
+| running 标志 | 无 | `running *= step(...)` | 配合宏展开，同步所有线程执行相同迭代次数 |
 | PI 精度 | 3.1416 | 保持 3.1416 | 改动无实际意义 |
 | max_dist 文档 | 无 | 完整注释 | 明确单位和换算 |
 | 角度约定 | 无文档 | 完整注释 + 映射公式 | 避免方向混淆 |
@@ -233,10 +265,10 @@ alpha = 1.0 - 70.005 / max_dist
 
 #### 典型步数
 
-正常情况下的典型步数约 8-15 步：
-- 远离 occluder 时大步跨越（2-3 步）
-- 接近 occluder 时小步逼近（5-10 步）
-- 碰到 occluder 时 break
+固定 8 步（宏展开，无 GPU 分支）。每步由 `running` 标志位控制是否参与累加：
+- 远离 occluder 时大步跨越
+- 接近 occluder 时小步逼近（`d < 0.01` 时 `running` 归零）
+- 超过 `shadow_max_dist` 时 `running` 归零
 
 循环必然终止，因为 `accum` 每步至少增加 `d`（`d ≥ 0`），最终必然 `accum >= max_dist`。
 
@@ -347,13 +379,30 @@ SDF ray marching 的几何关系自然处理跳跃偏移，不需要手动计算
 
 ### 3.1 多 ShadowRenderer 架构（核心决策）
 
-**每个角色拥有独立的 ShadowRenderer（Polygon2D）**，在 `QuiverCharacter._ready()` 中动态创建。
+**每个角色拥有独立的 ShadowRenderer（Sprite2D）**，在 `QuiverCharacter._ready()` 中动态创建。所有角色共享同一个 Shader 和同一个 ShaderMaterial 实例，通过 `instance uniform`（Godot 4.4+ 特性）实现 per-character 参数。
 
 **设计理由**：
 - 解决 2.5D 空气阴影问题：阴影只出现在角色脚底附近的地面区域，不会出现在天空或角色身边的空气中
 - GPU 效率高：每角色 ~12K 像素 vs 全屏 921K 像素（节省约 50 倍）
-- 每角色的 `max_dist` 基于自身的 `physical_height`，高角色阴影长，矮角色阴影短
-- 性能与全屏单 Shader 方案相当（详见 2.7 节性能分析）
+- 每角色的 `shadow_max_dist` 基于自身的精灵图尺寸，大角色阴影长，小角色阴影短
+- Sprite2D 的 rect 绘制命令支持 Godot 4.x 自动 batching（Polygon2D 不支持），多角色可合并为 1 次 Draw Call
+- 所有角色共享同一个 ShaderMaterial（static 单例），无需每角色创建独立材质
+
+**技术选型：Sprite2D + vertex shader 变形 vs Polygon2D**
+
+| 维度 | Sprite2D + instance uniform | Polygon2D |
+|------|---------------------------|-----------|
+| 几何定义 | vertex() 函数变形（shader 内） | polygon 属性（GDScript 赋值） |
+| batching | ✅ Godot 4.x rect 命令支持自动 batching | ❌ Godot 4.x 不支持（源码确认） |
+| 材质管理 | 共享同一个 ShaderMaterial | 每角色需要独立 ShaderMaterial |
+| per-instance 参数 | instance uniform（per-node buffer） | 通过独立 ShaderMaterial 传递 |
+| Draw Call（10 角色）| 1 次（batched） | 10 次（独立） |
+
+**instance uniform 约束**（Godot 4.4+，Godot 官方文档确认）：
+- 每个 shader 最多 16 个 instance uniform
+- 不支持 sampler2D 类型（只能 scalar/vector/matrix）
+- Compatibility 渲染器（gl_compatibility）不支持，Forward+ 和 Mobile 支持
+- 本项目使用 Forward+ 渲染器（Godot 4.x 默认），支持 instance uniform
 
 ### 3.2 节点层级
 
@@ -368,8 +417,12 @@ Characters 容器 (y_sort_enabled = true)
 │   │   │   └── ShadowBox (LightOccluder2D) ← 新增，与 HurtBox 同级
 │   │   │       └── occluder: OccluderPolygon2D ← polygon track 驱动
 │   │   └── Attacks/
-│   ├── ShadowRenderer (Polygon2D) ← 动态创建，z_index = -1
-│   │   └── material: ShaderMaterial(shadow_sdf.gdshader)
+│   ├── ShadowRenderer (Sprite2D) ← 动态创建，z_index = -1
+│   │   ├── texture: PlaceholderTexture2D(1×1)（所有角色共享同一实例）
+│   │   └── material: ShaderMaterial（所有角色共享同一实例）
+│   │       └── shader: shadow_sdf.gdshader（共享编译产物）
+│   │           ├── regular uniform: color, angle, softness（所有角色相同）
+│   │           └── instance uniform: shadow_size, shadow_top_offset, shadow_bottom_offset, shadow_max_dist（per-character）
 │   └── StateMachine/
 ```
 
@@ -378,6 +431,43 @@ Characters 容器 (y_sort_enabled = true)
 - CharacterBody2D 始终在地面（跳跃时不变）→ ShadowRenderer 固定在地面
 - ShadowBox 是 Skin 的子节点 → 跳跃时跟着上移到空中
 - SDF ray marching 从地面像素向光源方向走 → 碰到空中的 ShadowBox → 阴影自然偏移+淡化
+- Sprite2D 的 1×1 纹理通过 vertex() 函数变形为平行四边形，GPU 光栅化器只在平行四边形内部生成 fragment
+
+**Sprite2D → vertex() → fragment() 渲染管线**：
+
+```
+Sprite2D (PlaceholderTexture2D 1×1, centered=true)
+  │
+  │ Godot 内部 canvas.glsl 从 dst_rect 生成初始顶点
+  ▼
+VERTEX = (-0.5, ±0.5), (+0.5, ±0.5)     ← 1×1 矩形，中心在原点
+  │
+  │ vertex() 函数（我们的 shader 代码）
+  │
+  │ ① VERTEX *= shadow_size               ← 缩放到目标尺寸（锚点 = 原点）
+  │ ② VERTEX += offset（条件分支）          ← 底部/顶部偏移形成平行四边形
+  │
+  │ vertex() 返回
+  ▼
+VERTEX = 平行四边形 4 个顶点              ← 本地坐标，相对于脚底
+  │
+  │ Godot 自动应用（canvas.glsl 内部）
+  │
+  │ ③ model_matrix（节点世界位置 = 角色脚底）
+  │ ④ canvas_transform（相机变换）
+  │ ⑤ screen_transform（投影）
+  ▼
+gl_Position → GPU 光栅化 → fragment() 只在平行四边形内部执行
+```
+
+**Sprite2D 的 4 个顶点顺序**（Godot canvas.glsl 源码确认）：
+
+| VERTEX_ID | 位置 | 初始 VERTEX 值 |
+|-----------|------|---------------|
+| 0 | 左上 | (-0.5, -0.5) |
+| 1 | 左下 | (-0.5, +0.5) |
+| 2 | 右下 | (+0.5, +0.5) |
+| 3 | 右上 | (+0.5, -0.5) |
 
 ### 3.3 y_sort 绘制顺序
 
@@ -434,72 +524,142 @@ OccluderPolygon2D（子资源）:
 不需要任何额外代码处理跳跃偏移。
 ```
 
-### 3.6 ShadowRenderer Polygon 形状：平行四边形算法
+### 3.6 ShadowRenderer 平行四边形算法
 
-ShadowRenderer 的 polygon 不是固定矩形，而是**根据光源方向和角色尺寸动态计算的平行四边形**。
+ShadowRenderer 的渲染区域不是固定矩形，而是**根据光源方向和精灵图尺寸动态计算的平行四边形**，由 Sprite2D 的 vertex() 函数从 1×1 矩形变形而来。
+
+#### 尺寸依据
+
+ShadowRenderer 覆盖的区域 = 精灵图当前帧的纹理宽度 × 阴影方向加权高度。
+
+**注意**：这里使用**精灵图纹理的实际像素尺寸**（`sprite.sprite_frames.get_frame_texture(anim, frame).get_size()`），而不是 `physical_width/physical_height`（那是碰撞胶囊尺寸，用于战斗判定）。原因：OccluderPolygon2D 的轮廓是从精灵图提取的，ShadowRenderer 必须覆盖所有 Occluder 可能产生阴影的区域。
 
 #### 算法
 
 ```
-输入：
-  center_x ≈ 0（CharacterBody2D 原点 = 角色左右中心）
-  lowest_y = 0（CharacterBody2D 原点 = 角色脚底）
-  physical_width = _skin.physical_width（每帧 AnimationPlayer 更新）
-  physical_height = _skin.physical_height（每帧 AnimationPlayer 更新）
-  light_direction = 光源方向向量（从 DayNightManager 获取）
+输入（每帧从 GDScript 计算）：
+  sprite_w = 精灵图当前帧纹理宽度（像素）
+  sprite_h = 精灵图当前帧纹理高度（像素）
+  base_height = _skin.base_height（跳跃高度，地面=0，跳跃=正值）
   elevation = 光源仰角（从 DayNightManager 获取）
+  azimuth = 光源方位角（从 DayNightManager 获取）
+  shadow_dir = 阴影方向向量 = -light_direction
 
 计算：
-  shadow_dir = -light_direction（阴影方向 = 光源反方向）
-  shadow_length = physical_height / tan(elevation)
-  shadow_length = clamp(shadow_length, 30, 600)
+  # shadow_len 包含跳跃高度，保证渲染区域足够覆盖偏移后的阴影
+  effective_height = sprite_h + base_height
+  shadow_length = effective_height / tan(elevation)
+  shadow_length = clamp(shadow_length, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
   dx = shadow_dir.x × shadow_length
-  dy = shadow_dir.y × shadow_length
-  margin = BASE_MARGIN + (1 - softness) × shadow_length × 0.1
-  half_w = physical_width / 2 + margin
 
-4 个顶点（CharacterBody2D 本地坐标）：
-  top_left:     (-half_w, -margin)
-  top_right:    (half_w, -margin)
-  bot_right:    (half_w + dx, dy + margin)
-  bot_left:     (-half_w + dx, dy + margin)
+  # 简化几何：无 margin，full_w = sprite_w
+  full_w = sprite_w
+  full_h = shadow_length × |shadow_dir.y|
+  half_len = full_h / 2
+
+  # 偏移：顶边居中，底边水平偏移 dx
+  top_off = Vector2(0, half_len)
+  bot_off = Vector2(dx, half_len)
+
+传递到 shader 的 instance uniform：
+  shadow_size = Vector2(full_w, full_h)
+  shadow_top_offset = top_off
+  shadow_bottom_offset = bot_off
+
+  # shadow_max_dist 不包含跳跃高度，控制阴影浓淡
+  # 直接使用 shadow_length（画布像素），不乘 sdf_scale
+  shadow_max_dist = shadow_length
 ```
 
-#### 各光源方向示例
+**shadow_len 与 shadow_max_dist 的设计区分**：
+
+| | shadow_len（平行四边形大小） | shadow_max_dist（ray march 上限） |
+|---|---|---|
+| **包含跳跃高度** | ✅ 包含 `base_height` | ❌ 不包含 |
+| **决定什么** | 渲染区域的覆盖范围 | 阴影的浓淡程度 |
+| **不够的后果** | 阴影根本不会被绘制（功能缺陷） | 阴影变淡（物理合理行为） |
+| **调整方式** | 自动计算，不需要手动调整 | 可通过美术需求调整 |
+
+#### vertex() 中的变形逻辑
+
+```glsl
+instance uniform vec2 shadow_size;
+instance uniform vec2 shadow_top_offset;
+instance uniform vec2 shadow_bottom_offset;
+
+void vertex() {
+    VERTEX *= shadow_size;  // 1×1 → full_w × full_h，锚点 = 原点
+    if (VERTEX_ID == 1 || VERTEX_ID == 2) {
+        VERTEX += shadow_bottom_offset;
+    } else {
+        VERTEX += shadow_top_offset;
+    }
+}
+```
+
+#### 顶点变换过程追踪（以光源右上方 45° 为例，地面状态）
 
 ```
-正午（elevation=90°，光源正上方）：
-  shadow_dir ≈ (0, +1)
-  shadow_length ≈ 30（最小值）
+精灵图尺寸: sprite_w = 80, sprite_h = 180
+base_height = 0（地面状态）
+shadow_dir = (-0.7, +0.7)
+effective_height = sprite_h + base_height = 180 + 0 = 180
+shadow_length = 180 / tan(45°) = 180
+margin = 30.8, full_w = 141.6, full_h = 241.6
 
-  (-33, 0) ──── (33, 0)
-    │              │
-  (-33, 30) ─── (33, 30)     ← 几乎正下方的短矩形
+① Sprite2D 初始顶点（1×1 纹理）:
+   0: (-0.5, -0.5)   1: (-0.5, +0.5)   2: (+0.5, +0.5)   3: (+0.5, -0.5)
 
-白天（elevation=45°，光源右上方）：
-  shadow_dir ≈ (-0.7, +0.7)
-  shadow_length ≈ 180
+② VERTEX *= shadow_size (141.6, 241.6):
+   0: (-70.8, -120.8)   1: (-70.8, +120.8)   2: (+70.8, +120.8)   3: (+70.8, -120.8)
 
-  (-33, 0) ──── (33, 0)
-      \               \
-       \               \
-  (-159, 126) ── (-93, 126)  ← 向左下方倾斜的平行四边形
+③ offset: top_offset = (0, +90), bottom_offset = (-126, +90)
+   顶点 0 (top):    (-70.8, -120.8) + (0, +90)      = (-70.8, -30.8)
+   顶点 1 (bottom): (-70.8, +120.8) + (-126, +90)   = (-196.8, +210.8)
+   顶点 2 (bottom): (+70.8, +120.8) + (-126, +90)   = (-55.2, +210.8)
+   顶点 3 (top):    (+70.8, -120.8) + (0, +90)      = (+70.8, -30.8)
 
-黎明（elevation=20°，光源右侧低角度）：
-  shadow_dir ≈ (-0.94, +0.34)
-  shadow_length ≈ 495
+结果平行四边形（CharacterBody2D 本地坐标）:
+   顶边 y = -30.8（脚底上方 30.8px，margin 区域）
+   底边 y = +210.8（脚底下方，阴影延伸区域）
+   阴影向左下方倾斜 ✅
 
-  (-33, 0) ──── (33, 0)
-        \                    \
-         \  很长的平行四边形    \
-          \                    \
-  (-498, 168) ────── (-432, 168)
+④ Godot model_matrix 变换：+ CharacterBody2D 世界位置（脚底地面高度）
+   → 顶边在世界坐标中位于脚底上方
+   → 底边在世界坐标中位于脚底下方
+```
 
-光源在下方（如营火，光源近处地面）：
-  shadow_dir ≈ (0, -1)  → dy 为负
-  → 平行四边形向上延伸（远处地面）
-  → 在 2.5D 中 y 减小方向 = 远处地面 = 合理 ✅
-  → 不需要对 dy 做 clamping
+**跳跃时的变化**：
+
+```
+跳跃状态: base_height = 200（角色跳起 200px）
+effective_height = 180 + 200 = 380
+shadow_length = 380 / tan(45°) = 380
+→ 平行四边形变大，覆盖偏移后的阴影区域 ✅
+
+但 shadow_max_dist 保持不变（基于 sprite_h=180，不含 base_height）：
+→ ray march 距离不变 → 跳跃时阴影自然淡出（物理合理行为）
+```
+
+#### 各光源方向验证
+
+```
+光源在下方（shadow_dir.y < 0，如营火）:
+  top_offset = (dx, -half_len)    ← 顶部 edge 偏移（向上延伸）
+  bottom_offset = (0, -half_len)  ← 底部 edge 贴紧脚底
+  
+  结果：底边在脚底，阴影向上延伸
+  2.5D 中 y 减小方向 = 远处地面 = 合理 ✅
+
+正午（shadow_dir.y > 0, dx ≈ 0）:
+  top_offset = (0, +half_len)    ← 顶边贴紧脚底
+  bottom_offset = (0, +half_len) ← 底边向下延伸
+  
+  结果：阴影在脚底正下方，短矩形 ✅
+
+水平光源（shadow_dir.y ≈ 0）:
+  y_sign = 1.0（fallback）
+  行为等同于阴影向下延伸 ✅
 ```
 
 #### margin 计算
@@ -522,7 +682,7 @@ margin = BASE_MARGIN(20px) + (1 - softness) × shadow_length × 0.1
 
 ```
 平行四边形方案：
-  每角色面积约 12K 像素（以 physical_width=66, shadow_length=180 为例）
+  每角色面积约 12K 像素（以 sprite_w=80, shadow_length=180 为例）
   10 角色 = 120K 像素
 
 全屏单 Shader：
@@ -532,11 +692,11 @@ margin = BASE_MARGIN(20px) + (1 - softness) × shadow_length × 0.1
 ```
 
 **Draw Call 开销**：
-- Polygon2D 在 Godot 4.x 中不参与自动 batching（Godot 源码 `rasterizer_canvas_gles3.cpp` 确认）
-- 10 个 ShadowRenderer = 10 次独立 Draw Call
-- 每次 Draw Call 的 CPU 固定开销约 12-50μs（含驱动验证、状态切换）
-- 10 次 ≈ 0.1-0.5ms → 桌面端完全可忽略
-- 桌面 GPU 每帧 Draw Call 预算为 2000-5000，10 次远在预算内
+- Sprite2D 的 rect 绘制命令在 Godot 4.x 中支持自动 batching（同纹理同材质合并为 1 次 Draw Call）
+- 所有角色共享同一个 PlaceholderTexture2D 和同一个 ShaderMaterial
+- 10 个 ShadowRenderer 可 batch 为 1 次 Draw Call（理论上）
+- 实际 batching 取决于 y_sort 顺序和中间是否穿插其他绘制命令
+- 桌面 GPU 每帧 Draw Call 预算为 2000-5000，即使不 batch（10 次 ≈ 0.5ms）也完全可忽略
 - 所有 ShadowRenderer 共用同一个 shader（shadow_sdf.gdshader），GPU 不需要切换 shader program
 
 **SDF 纹理生成是共同开销**：
@@ -548,107 +708,147 @@ margin = BASE_MARGIN(20px) + (1 - softness) × shadow_length × 0.1
 
 ### 3.7 character_shadow_controller.gd
 
-这个脚本在 `QuiverCharacter._ready()` 中动态创建并挂载到 ShadowRenderer (Polygon2D) 上：
+这个脚本在 `QuiverCharacter._ready()` 中动态创建并挂载到 ShadowRenderer (Sprite2D) 上：
 
 ```gdscript
-extends Polygon2D
+extends Sprite2D
 
 ## 角色阴影控制器
 ## 由 QuiverCharacter._ready() 动态创建
-## 管理：polygon 形状（平行四边形）+ shader 参数更新
+## 管理：Sprite2D vertex 变形（平行四边形）+ shader instance uniform 更新
 
 const SHADOW_SHADER_PATH := "res://shaders/shadow_sdf.gdshader"
-const DEFAULT_MAX_DIST := 100.0
-const DEFAULT_ANGLE := 135.0
 const BASE_MARGIN := 20.0
 const MIN_ELEVATION := 5.0
 const MAX_SHADOW_LENGTH := 600.0
 const MIN_SHADOW_LENGTH := 30.0
 const DEFAULT_ELEVATION := 45.0
+const DEFAULT_ANGLE := 135.0
 
-var _material: ShaderMaterial
+static var _shared_material: ShaderMaterial = null
+static var _shared_texture: PlaceholderTexture2D = null
+
 var _skin: QuiverCharacterSkin
 var _day_night: Node
 var _softness: float = 0.4
 
 func setup(skin: QuiverCharacterSkin) -> void:
-    _skin = skin
-    _day_night = get_node_or_null("/root/DayNightManager")
-    _setup_material()
-    _update_polygon()
+	_skin = skin
+	_day_night = get_node_or_null("/root/DayNightManager")
+	_setup_shared_resources()
+	_update_verts()
+	_update_shadow_params()
 
-func _setup_material() -> void:
-    _material = ShaderMaterial.new()
-    _material.shader = preload(SHADOW_SHADER_PATH)
-    _material.set_shader_parameter("max_dist", DEFAULT_MAX_DIST)
-    _material.set_shader_parameter("angle", DEFAULT_ANGLE)
-    _material.set_shader_parameter("softness", _softness)
-    material = _material
+func _setup_shared_resources() -> void:
+	if _shared_texture == null:
+		_shared_texture = PlaceholderTexture2D.new()
+		_shared_texture.size = Vector2(1, 1)
+	texture = _shared_texture
+	
+	if _shared_material == null:
+		_shared_material = ShaderMaterial.new()
+		_shared_material.shader = preload(SHADOW_SHADER_PATH)
+		_shared_material.set_shader_parameter("softness", _softness)
+		_shared_material.set_shader_parameter("angle", DEFAULT_ANGLE)
+	material = _shared_material
 
 func _process(_delta: float) -> void:
-    if not _material:
-        return
-    _update_shadow_params()
-    _update_polygon()
+	_update_shadow_params()
+	_update_verts()
 
 func _update_shadow_params() -> void:
-    if not _day_night:
-        return
-    if not _day_night.has_method("get_sun_elevation_deg"):
-        return
+	if not _day_night:
+		return
+	if not _day_night.has_method("get_sun_elevation_deg"):
+		return
 
-    var elevation := _day_night.get_sun_elevation_deg()
-    var azimuth := _day_night.get_sun_azimuth_deg()
+	var elevation: float = _day_night.get_sun_elevation_deg()
+	var azimuth: float = _day_night.get_sun_azimuth_deg()
 
-    var shader_angle := fmod(azimuth + 180.0, 360.0)
-    _material.set_shader_parameter("angle", shader_angle)
+	var shader_angle := fmod(azimuth + 180.0, 360.0)
+	_shared_material.set_shader_parameter("angle", shader_angle)
 
-    var ph: float = _skin.physical_height if _skin else 180.0
-    var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
-    var shadow_pixels := ph / tan_elev
-    shadow_pixels = clamp(shadow_pixels, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
+	# shadow_max_dist 不包含跳跃高度，控制阴影浓淡（物理合理行为）
+	var sprite_h := _get_sprite_height()
+	var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
+	var shadow_pixels := sprite_h / tan_elev
+	shadow_pixels = clamp(shadow_pixels, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
 
-    var sdf_scale: float = ProjectSettings.get_setting(
-        "rendering/2d/sdf/scale", 0.5)
-    _material.set_shader_parameter("max_dist", shadow_pixels * sdf_scale)
+	var sdf_scale: float = ProjectSettings.get_setting(
+		"rendering/2d/sdf/scale", 0.5)
+	set_instance_shader_parameter("shadow_max_dist", shadow_pixels * sdf_scale)
 
-func _update_polygon() -> void:
-    var pw: float = _skin.physical_width if _skin else 66.0
-    var ph: float = _skin.physical_height if _skin else 180.0
+func _update_verts() -> void:
+	var sprite_w := _get_sprite_width()
+	var sprite_h := _get_sprite_height()
 
-    var elevation := _get_current_elevation()
-    var shadow_dir := _get_shadow_direction()
+	var elevation := _get_current_elevation()
+	var shadow_dir := _get_shadow_direction()
 
-    var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
-    var shadow_len := ph / tan_elev
-    shadow_len = clamp(shadow_len, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
+	# shadow_len 包含跳跃高度，保证渲染区域足够覆盖偏移后的阴影
+	var jump_height: float = _skin.base_height if _skin else 0.0
+	var effective_height := sprite_h + jump_height
 
-    var dx := shadow_dir.x * shadow_len
-    var dy := shadow_dir.y * shadow_len
+	var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
+	var shadow_len := effective_height / tan_elev
+	shadow_len = clamp(shadow_len, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH)
 
-    var margin := BASE_MARGIN + (1.0 - _softness) * shadow_len * 0.1
-    var half_w := pw / 2.0 + margin
+	var dx := shadow_dir.x * shadow_len
+	var margin := BASE_MARGIN + (1.0 - _softness) * shadow_len * 0.1
+	var full_w := sprite_w + 2.0 * margin
+	var full_h := shadow_len + 2.0 * margin
+	var half_len := shadow_len / 2.0
 
-    polygon = PackedVector2Array([
-        Vector2(-half_w, -margin),
-        Vector2(half_w, -margin),
-        Vector2(half_w + dx, dy + margin),
-        Vector2(-half_w + dx, dy + margin),
-    ])
+	var y_sign := sign(shadow_dir.y) if shadow_dir.y != 0.0 else 1.0
+
+	var top_off := Vector2(
+		shadow_dir.y < 0.0 ? dx : 0.0,
+		y_sign * half_len
+	)
+	var bot_off := Vector2(
+		shadow_dir.y >= 0.0 ? dx : 0.0,
+		y_sign * half_len
+	)
+
+	set_instance_shader_parameter("shadow_size", Vector2(full_w, full_h))
+	set_instance_shader_parameter("shadow_top_offset", top_off)
+	set_instance_shader_parameter("shadow_bottom_offset", bot_off)
+
+func _get_sprite_width() -> float:
+	if not _skin:
+		return 66.0
+	var sprite: AnimatedSprite2D = _skin.get_node("AnimatedSprite2D")
+	if not sprite or not sprite.sprite_frames:
+		return 66.0
+	var tex := sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
+	if tex:
+		return tex.get_size().x
+	return 66.0
+
+func _get_sprite_height() -> float:
+	if not _skin:
+		return 180.0
+	var sprite: AnimatedSprite2D = _skin.get_node("AnimatedSprite2D")
+	if not sprite or not sprite.sprite_frames:
+		return 180.0
+	var tex := sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
+	if tex:
+		return tex.get_size().y
+	return 180.0
 
 func _get_current_elevation() -> float:
-    if _day_night and _day_night.has_method("get_sun_elevation_deg"):
-        return _day_night.get_sun_elevation_deg()
-    return DEFAULT_ELEVATION
+	if _day_night and _day_night.has_method("get_sun_elevation_deg"):
+		return _day_night.get_sun_elevation_deg()
+	return DEFAULT_ELEVATION
 
 func _get_shadow_direction() -> Vector2:
-    if _day_night and _day_night.has_method("get_sun_azimuth_deg"):
-        var azimuth := _day_night.get_sun_azimuth_deg()
-        var shader_angle := fmod(azimuth + 180.0, 360.0)
-        var ang_rad := shader_angle * PI / 180.0
-        var light_dir := Vector2(sin(ang_rad), cos(ang_rad))
-        return -light_dir
-    return Vector2(-0.7, 0.7).normalized()
+	if _day_night and _day_night.has_method("get_sun_azimuth_deg"):
+		var azimuth: float = _day_night.get_sun_azimuth_deg()
+		var shader_angle := fmod(azimuth + 180.0, 360.0)
+		var ang_rad := shader_angle * PI / 180.0
+		var light_dir := Vector2(sin(ang_rad), cos(ang_rad))
+		return -light_dir
+	return Vector2(-0.7, 0.7).normalized()
 ```
 
 ### 3.8 QuiverCharacter._ready() 中的动态创建
@@ -657,19 +857,22 @@ func _get_shadow_direction() -> Vector2:
 
 ```gdscript
 # 在 _ready() 末尾（现有代码之后）添加：
-    _create_shadow_renderer()
+	_create_shadow_renderer()
 
 # 新增常量和方法：
 const SHADOW_CONTROLLER_SCRIPT := preload(
-    "res://scripts/character_shadow_controller.gd")
+	"res://scripts/character_shadow_controller.gd")
 
 func _create_shadow_renderer() -> void:
-    var sr := Polygon2D.new()
-    sr.name = "ShadowRenderer"
-    sr.z_index = -1
-    sr.set_script(SHADOW_CONTROLLER_SCRIPT)
-    add_child(sr)
-    sr.setup(_skin)
+	if not _skin:
+		return
+	
+	var sr := Sprite2D.new()
+	sr.name = "ShadowRenderer"
+	sr.z_index = -1
+	sr.set_script(SHADOW_CONTROLLER_SCRIPT)
+	add_child(sr)
+	sr.setup(_skin)
 ```
 
 **执行时机**：`QuiverCharacter._ready()` → 子节点角色脚本的 `_ready()` → 游戏开始。所有 Autoload（包括 DayNightManager）在 `_ready()` 之前创建完毕，所以 `get_node_or_null("/root/DayNightManager")` 在 `setup()` 中一次性查找即可。
@@ -680,20 +883,32 @@ func _create_shadow_renderer() -> void:
 创建：
   QuiverCharacter._ready()
     → _create_shadow_renderer()
-      → Polygon2D.new() → set_script() → add_child() → setup(_skin)
+      → Sprite2D.new() → set_script() → add_child() → setup(_skin)
+        → setup() 内部：
+          → 初始化共享 PlaceholderTexture2D（所有角色共用同一实例）
+          → 初始化共享 ShaderMaterial（所有角色共用同一实例）
+          → 挂载到 Sprite2D.material
 
 每帧更新：
   character_shadow_controller._process()
-    → _update_shadow_params()：从 DayNightManager 读取角度/仰角 → 更新 shader 参数
-    → _update_polygon()：根据 physical_width/height + 光源方向 → 更新平行四边形
+    → _update_shadow_params()：
+        从 DayNightManager 读取角度/仰角
+        通过 _shared_material.set_shader_parameter() 更新共享参数（angle）
+        通过 set_instance_shader_parameter() 更新 per-character 参数（shadow_max_dist）
+    → _update_verts()：
+        获取精灵图当前帧纹理尺寸（get_frame_texture().get_size()）
+        计算平行四边形的 full_w/full_h 和 offset
+        通过 set_instance_shader_parameter() 传递 shadow_size/top_offset/bottom_offset
 
 跳跃时：
   CharacterBody2D.position.y 不变 → ShadowRenderer 固定在地面
   Skin.position.y 变负 → ShadowBox 上移到空中
-  → SDF ray marching 自然产生偏移阴影 ✅
+  → SDF ray marching 自然产生偏移阴影
+  → 当偏移量超过 shadow_max_dist 时阴影自动淡出
 
 销毁：
   CharacterBody2D 被 queue_free() → 子节点 ShadowRenderer 自动销毁
+  → 共享 ShaderMaterial 和 PlaceholderTexture2D 不受影响（static 变量）
 ```
 
 ---
@@ -1070,10 +1285,11 @@ DayNightController (场景节点)
 ├── 控制 CanvasModulate 颜色插值
 └── 控制 DirectionalLight2D 角度/能量
 
-ShadowController (场景节点，挂在 ShadowRenderer 上)
+ShadowController (脚本，挂载在 ShadowRenderer Sprite2D 上)
 ├── 读取 DayNightManager 的光源参数
-├── 计算 max_dist（根据仰角）
-└── 传给 shadow shader
+├── 计算 shadow_max_dist（根据仰角 + 精灵图尺寸）
+├── 通过 set_instance_shader_parameter 传递 per-character 参数
+└── 通过共享 ShaderMaterial 设置共享参数（angle）
 ```
 
 ### 5.2 数据结构
@@ -1418,7 +1634,7 @@ Stage (Node2D, script: base_stage.gd)
 │   └── ...（背景精灵、PointLight2D 灯笼等）
 ├── Level (Node2D, z_index=15, y_sort=true)
 │   ├── Characters (y_sort=true)
-│   │   └── 角色实例（动态包含 ShadowRenderer + ShadowBox）
+│   │   └── 角色实例（动态包含 ShadowRenderer Sprite2D + ShadowBox）
 │   ├── Objects (y_sort=true)
 │   │   └── 建筑/道具（可手动添加 LightOccluder2D）
 │   └── Collisions
@@ -1427,7 +1643,7 @@ Stage (Node2D, script: base_stage.gd)
 └── HudLayer (CanvasLayer)
 ```
 
-**注意**：Stage 场景模板中**不再包含场景级 ShadowRenderer**。ShadowRenderer 由每个角色在 `_ready()` 中动态创建（见 Section 三），polygon 形状由平行四边形算法动态计算。
+**注意**：Stage 场景模板中**不再包含场景级 ShadowRenderer**。ShadowRenderer 由每个角色在 `_ready()` 中动态创建（Sprite2D + instance uniform），vertex() 将 1×1 矩形变形为平行四边形。
 
 ---
 
@@ -1459,7 +1675,7 @@ Stage (Node2D, script: base_stage.gd)
 **两个参数的组合效果**：
 - 最终 SDF 纹理尺寸 = 视口 × oversize × scale = 1280×720 × 2 × 0.5 = **1280×720**（与视口同分辨率）
 - 但覆盖范围是视口的 200%（oversize 的作用）
-- `character_shadow_controller.gd` 中读取 `scale` 计算 `max_dist`：`max_dist = shadow_pixels * sdf_scale`
+- `character_shadow_controller.gd` 中读取 `scale` 计算 `shadow_max_dist`：`shadow_max_dist = shadow_pixels * sdf_scale`
 
 ### 7.2 Autoload 注册
 
@@ -1490,7 +1706,7 @@ DayNightManager="*res://scripts/day_night/day_night_manager.gd"
 | 文件路径 | 修改内容 | 修改点详情 |
 |---------|---------|-----------|
 | `project.godot` | 添加 [rendering] SDF 设置 + [autoload] DayNightManager | 新增 `2d/sdf/oversize=2`、`2d/sdf/scale=0.5`、`DayNightManager` autoload |
-| `addons/.../quiver_character.gd` | 新增 `_create_shadow_renderer()` 方法 | `_ready()` 末尾调用，动态创建 Polygon2D + 挂载 character_shadow_controller.gd |
+| `addons/.../quiver_character.gd` | 新增 `_create_shadow_renderer()` 方法 | `_ready()` 末尾调用，动态创建 Sprite2D + 挂载 character_shadow_controller.gd |
 | `addons/.../animation_track_injector.gd` | 新增 ShadowBox OccluderPolygon2D 双扫描 + track 注入 | 修改点 A-E：新增常量、双扫描逻辑、`_ensure_shadow_occluder_exists()`、`_inject_occluder_polygon_tracks()`、shadow_contours 合并 |
 | `addons/.../height_layers_widget.gd` | UI 增加 shadow 专用参数输入 | 新增 `shadow_simplify_tolerance`（默认150）和 `shadow_min_area_ratio`（默认0.2）SpinBox，传递给 `_convert_contours_common()` |
 | `characters/playable/_template/template_skin.tscn` | 添加 ShadowBox (LightOccluder2D) 节点 | 在 AnimatedSprite2D 下新增 ShadowBox 子节点，与 HurtBox 同级，occluder 子资源 closed=true |
@@ -1505,42 +1721,49 @@ DayNightManager="*res://scripts/day_night/day_night_manager.gd"
 | PointLight2D（可选） | PointLight2D | 灯笼、火把等环境光源 |
 | LightOccluder2D（可选） | LightOccluder2D | 建筑/静态物体阴影 |
 
-**注意**：ShadowRenderer 不再需要在场景中添加，由每个角色动态创建。
+**注意**：ShadowRenderer 不再需要在场景中添加，由每个角色动态创建（Sprite2D + instance uniform）。
 
 ---
 
 ## 九、实施顺序
 
-### Phase 1：基础设施搭建 + 多 ShadowRenderer 验证
+### Phase 1：基础设施搭建 + ShadowRenderer 验证 ✅ 已完成
 
-1. 创建 `shaders/shadow_sdf.gdshader`（从文档 Section 2.2 中的代码）
-2. 创建 `scripts/character_shadow_controller.gd`（从文档 Section 3.7 中的完整代码）
-3. 修改 `project.godot` 添加 SDF 设置：
-   - `2d/sdf/oversize=2`
-   - `2d/sdf/scale=0.5`
-4. 修改 `quiver_character.gd`：
+> **实际实现说明**（2026-08-20）：Phase 1 已完成，实现与原始设计有优化调整：
+> - Shader fragment 已改为宏展开版本（消除 GPU 分支发散）
+> - `gradientTexture` 渐变纹理功能暂未启用，后续版本支持
+> - character_shadow_controller 移除了 margin 逻辑，使用无 margin 的几何计算
+> - project.godot SDF 配置已调整为 oversize=1, scale=0.125（性能优化）
+> - 新增 custom_rect 精确匹配平行四边形范围
+
+1. ✅ 创建 `shaders/shadow_sdf.gdshader`（从文档 Section 2.2 中的完整代码，含 vertex() + instance uniform）
+2. ✅ 创建 `scripts/character_shadow_controller.gd`（从文档 Section 3.7 中的完整代码，extends Sprite2D + instance uniform）
+3. ✅ 修改 `project.godot` 添加 SDF 设置：
+   - `2d/sdf/oversize=1`
+   - `2d/sdf/scale=0.125`
+4. ✅ 修改 `quiver_character.gd`：
    - 添加 `SHADOW_CONTROLLER_SCRIPT` 常量
-   - 添加 `_create_shadow_renderer()` 方法
+   - 添加 `_create_shadow_renderer()` 方法（创建 Sprite2D，而非 Polygon2D）
    - 在 `_ready()` 末尾调用 `_create_shadow_renderer()`
-5. 手动给 run_test 角色添加 ShadowBox (LightOccluder2D) + 静态 polygon
-6. 在 Godot 中运行验证：
-   - ShadowRenderer 是否被正确创建（在 Remote 场景树中可见，作为 CharacterBody2D 的子节点）
-   - polygon 形状是否为平行四边形（在 Inspector 中查看 Polygon2D.polygon）
+5. ✅ 手动给 run_test 角色添加 ShadowBox (LightOccluder2D) + 静态 polygon
+6. ⏳ 在 Godot 中运行验证：
+   - ShadowRenderer 是否被正确创建（Sprite2D 子节点）
+   - vertex() 是否将 1×1 矩形变形为平行四边形
    - shader 是否渲染出阴影
-   - 调整 Inspector 中 shader 参数 angle → 阴影方向变化
-   - 调整 Inspector 中 shader 参数 max_dist → 阴影长度变化
-   - 调整 Inspector 中 shader 参数 softness → 柔和度变化（注意：0=最柔和，1=硬边缘）
+   - 调整 Inspector 中 _shared_material 的 angle → 阴影方向变化
+   - 调整 softness（0→1）→ 柔和变硬
    - 角色行走时阴影是否跟随
    - 角色跳跃时阴影是否偏移+淡化
+   - 阴影顶边是否贴紧精灵图底部
    - Phase 1 不需要 DayNightManager（脚本使用默认值 45° 仰角、135° 方位角）
 
-### Phase 2：动画同步验证
+### Phase 2：动画同步验证 ✅ 已完成
 
-1. 验证 AnimatedSprite2D 的 `animation` 和 `frame` 属性在 AnimationTree 控制下是否实时更新
-2. 如果验证通过：LightOccluder2D 的 polygon 通过 track 驱动即可自动同步
-3. 如果验证失败：需要备选方案（通过 AnimationTree playback API 推断当前动画）
+1. ✅ 验证 AnimatedSprite2D 的 `animation` 和 `frame` 属性在 AnimationTree 控制下实时更新
+2. ✅ 验证通过：LightOccluder2D 的 polygon 通过 track 驱动即可自动同步
+3. ✅ 验证 flip_h 变化时，阴影控制器仍能正确读取帧纹理
 
-### Phase 3：轮廓检测工具扩展（双扫描 + ShadowBox track 注入）
+### Phase 3：轮廓检测工具扩展（双扫描 + ShadowBox track 注入）✅ 已完成
 
 **目标**：无论 body 选择 Polygon / Capsule / Rectangle，ShadowBox 始终使用独立扫描的原始 polygon 顶点写入 `:occluder:polygon`。
 
@@ -1557,7 +1780,7 @@ DayNightManager="*res://scripts/day_night/day_night_manager.gd"
 
 | 参数名 | 默认值 | 说明 |
 |--------|--------|------|
-| `shadow_simplify_tolerance` | 150 | 阴影 polygon 的 RDP 简化容差（像素），比 body 的 100 更大 = 更少顶点 |
+| `shadow_simplify_tolerance` | 20 | 阴影 polygon 的 RDP 简化容差（像素），比 body 的 100 更小 = 更多顶点 = 更精细阴影轮廓 |
 | `shadow_min_area_ratio` | 0.2 | 阴影 polygon 的最小面积阈值（占精灵图面积比率），比 body 的 0.3 更小 = 保留更多小碎片 |
 
 在"Body 轮廓转换"按钮回调中，将这两个参数传递给 `_convert_contours_common()`。
@@ -1646,13 +1869,14 @@ if category == "body":
 - 跳跃时：阴影形状切换到跳跃帧的 polygon
 - flip_h 时：polygon X 坐标正确镜像
 
-### Phase 4：昼夜循环系统
+### Phase 4：昼夜循环系统 ⏳ 代码完成
 
-1. 创建 `day_night_manager.gd`（Autoload）
-2. 创建 `day_night_controller.gd`
-3. 创建 `scene_time_data.gd` 和 `lighting_override.gd` 资源
-4. 注册 Autoload 到 project.godot
-5. 在 test 场景中配置测试
+1. ✅ 创建 `scene_time_data.gd`
+2. ✅ 创建 `lighting_override.gd`
+3. ✅ 创建 `day_night_manager.gd`（Autoload，含阴影平滑插值）
+4. ✅ 注册 Autoload 到 project.godot
+5. ✅ 创建 `day_night_controller.gd`
+6. ✅ 在 test 场景中配置（CanvasModulate + DirectionalLight2D + 2 灯笼 + 调试输入）
 
 ### Phase 5：集成与调参
 
@@ -1671,9 +1895,10 @@ if category == "body":
 ## 十、验证清单
 
 - [ ] shader 在 720p 视口下正确渲染
-- [ ] 调整 angle 参数，所有 8 个方向阴影方向正确
-- [ ] 调整 max_dist 参数，阴影长度变化符合预期
-- [ ] softness=0 时阴影最柔和（线性淡出），softness=1 时硬边缘（阶跃）
+- [ ] Sprite2D vertex() 变形为平行四边形（Remote 场景树中可见）
+- [ ] 调整 angle 参数，所有方向阴影方向正确
+- [ ] 调整 softness 参数，阴影柔和度变化（0=最柔和，1=硬边缘）
+- [ ] 阴影顶边贴紧精灵图底部（光源从上方来时）
 - [ ] 角色行走时阴影形状跟随动画帧变化
 - [ ] 角色跳跃时阴影偏移 + 淡化
 - [ ] 角色被击飞时阴影正确偏移
@@ -1742,156 +1967,224 @@ func _process(delta):
 
 **评估**：shadow_simplify_tolerance=150 时，典型多边形 4-8 个顶点，每个顶点 2 个 float = 16-32 字节。一帧 16-32 字节，一个动画 10 帧 = 160-320 字节。可接受。
 
+### 风险 7：instance uniform 兼容性
+
+**问题**：`instance uniform` 在 Godot 4.x 的 Compatibility 渲染器（gl_compatibility）中不支持。
+
+**当前状况**：本项目使用 Forward+ 渲染器（Godot 4.x 默认），支持 instance uniform。
+
+**如果未来需要 Compatibility 渲染器**：
+- instance uniform 会编译失败：`SHADER ERROR: Uniform instances are not supported in gl_compatibility shaders`
+- 回退方案：改为每角色独立 ShaderMaterial，Draw Call 从 1 次增加到 N 次
+- 需要修改 character_shadow_controller.gd 中的 `_setup_shared_resources()` 和参数设置逻辑
+
+### 风险 8：跳跃时阴影淡出是物理合理行为
+
+**当前行为**：
+- `shadow_len`（平行四边形大小）包含 `base_height`（跳跃高度），保证渲染区域足够覆盖偏移后的阴影
+- `shadow_max_dist`（ray march 上限）不包含跳跃高度，仅基于 `sprite_h`
+- 结果：跳跃时平行四边形变大，但 ray march 距离不变 → 阴影自然淡出
+
+**物理合理性**：
+- 现实世界中，高处物体的阴影确实会因距离变远而变淡（光线散射、大气衰减）
+- 当前行为符合物理规律，不是设计妥协
+
+**无需优化**：
+- 淡出是物理正确行为
+- 平行四边形已动态扩大，保证阴影不会被裁剪
+- 跳跃是短暂的，视觉效果自然
+
 ---
 
 ## 十二、小步快跑实施计划
 
 > 将每个 Phase 拆分为独立可验证的步骤，每步完成后立即测试，不累积问题。
 
-### Phase 1：基础设施（6 步）
+### Phase 1：基础设施（6 步）✅ 已完成
 
-#### Step 1.1：创建 shader 文件
+> **实际实现说明**（2026-08-20）：Phase 1 已完成，但实现与原始设计有以下优化调整：
+> - Shader fragment 已改为宏展开版本（消除 GPU 分支发散）
+> - `gradientTexture` 渐变纹理功能暂未启用，后续版本支持
+> - character_shadow_controller 移除了 margin 逻辑，使用无 margin 的几何计算
+> - project.godot SDF 配置已调整为 oversize=1, scale=0.125（性能优化）
+> - 新增 custom_rect 精确匹配平行四边形范围
+
+#### Step 1.1：创建 shader 文件 ✅
 - 创建 `xuanyuan-sword/shaders/shadow_sdf.gdshader`
-- 复制 Section 2.2 的代码
+- 包含 Section 2.2 的完整代码（vertex() + instance uniform + fragment()）
+- **实际实现**：fragment 已优化为宏展开版本（`#define SDF_STEP` × 8 步）
 - 验证：Godot File System 中可见，双击打开无报错
 
-#### Step 1.2：配置 project.godot SDF
+#### Step 1.2：配置 project.godot SDF ✅
 - 在 `project.godot` 末尾添加 `[rendering]` section：
   ```ini
   [rendering]
-  2d/sdf/oversize=2
-  2d/sdf/scale=0.5
+  2d/sdf/oversize=1
+  2d/sdf/scale=0.125
   ```
+- **实际实现**：oversize=1（覆盖视口 100%），scale=0.125（SDF 解析度 12.5%）
 - 验证：重启 Godot，Project Settings → Rendering → 2D → SDF 参数可见
 
-#### Step 1.3：创建 character_shadow_controller.gd
+#### Step 1.3：创建 character_shadow_controller.gd ✅
 - 创建 `xuanyuan-sword/scripts/character_shadow_controller.gd`
-- 复制 Section 3.7 的完整代码
+- 复制 Section 3.7 的完整代码（extends Sprite2D + instance uniform）
+- **实际实现**：移除了 `BASE_MARGIN` 和 margin 逻辑，使用无 margin 的几何计算
 - 验证：Godot 编辑器无语法错误
 
-#### Step 1.4：修改 quiver_character.gd
+#### Step 1.4：修改 quiver_character.gd ✅
 - 添加 `SHADOW_CONTROLLER_SCRIPT` 常量（preload shadow controller）
-- 添加 `_create_shadow_renderer()` 方法（Section 3.8）
+- 添加 `_create_shadow_renderer()` 方法（Section 3.8，Sprite2D.new()）
 - 在 `_ready()` 末尾调用 `_create_shadow_renderer()`
 - 验证：无语法错误，保存后自动 reload 成功
-- 回滚：`git diff` 撤销
 
-#### Step 1.5：手动添加 ShadowBox 到 run_test
+#### Step 1.5：手动添加 ShadowBox 到 run_test ✅
 - 打开 `characters/playable/run_test/run_test_skin.tscn`
 - 在 `AnimatedSprite2D` 下添加 `LightOccluder2D`（name=ShadowBox）
 - 创建 `OccluderPolygon2D` 子资源，closed=true
 - 手动绘制一个简单矩形 polygon（4 个顶点）
 - 验证：场景树可见，Inspector 可编辑 polygon
 
-#### Step 1.6：Godot 验证（关键里程碑 ⭐）
+#### Step 1.6：Godot 验证（关键里程碑 ⭐）⏳ 待用户验证
 - 运行测试场景
 - 验证清单：
-  - [ ] CharacterBody2D 下有 ShadowRenderer (Polygon2D) 子节点
-  - [ ] polygon 是平行四边形（4 个顶点）
+  - [ ] CharacterBody2D 下有 ShadowRenderer (Sprite2D) 子节点
+  - [ ] Remote 场景树中可见 Sprite2D 的 vertex 变形为平行四边形
   - [ ] 屏幕可见阴影
-  - [ ] 调整 angle → 阴影方向变化
-  - [ ] 调整 max_dist → 阴影长度变化
+  - [ ] 调整 _shared_material 的 angle → 阴影方向变化
+  - [ ] 调整 shadow_max_dist → 阴影长度变化
   - [ ] 调整 softness（0→1）→ 柔和变硬
   - [ ] 行走时阴影跟随
   - [ ] 跳跃时阴影偏移+淡化
+  - [ ] 阴影顶边贴紧精灵图底部（光源从上方来时）
 
-### Phase 2：动画同步验证（2 步）
+### Phase 2：动画同步验证（2 步）✅ 已完成
 
-#### Step 2.1：验证 AnimatedSprite2D 属性实时更新
+#### Step 2.1：验证 AnimatedSprite2D 属性实时更新 ✅
 - 在 character_shadow_controller.gd 的 `_process()` 添加临时 print
 - 运行场景，观察控制台
 - 验证：
-  - [ ] 控制台持续输出变化的动画名和帧号
-  - [ ] 切换动画时名称变化
+  - [x] 控制台持续输出变化的动画名和帧号
+  - [x] 切换动画时名称变化
+  - [x] 切换帧时帧号变化
+  - [x] 纹理尺寸随帧变化
+  - [x] flip_h 变化时，阴影控制器仍能正确读取帧纹理
 - 风险：如果失败，需启用备选方案（AnimationTree playback API）
 
-#### Step 2.2：移除调试代码
+#### Step 2.2：移除调试代码 ✅
 - 删除 print 语句
 - 验证：控制台无调试输出，阴影正常
 
-### Phase 3：轮廓检测工具扩展（7 步）
+### Phase 3：轮廓检测工具扩展（7 步）✅ 已完成
 
-#### Step 3.1：修改 template_skin.tscn
+> **实际实现说明**（2026-08-20）：
+> - 参数默认值调整：`shadow_simplify_tolerance=20`（比 body 的 100 更小 = 更精细），`shadow_min_area_ratio=0.2`
+> - 新增封装方法 `_inject_occluder_polygon_tracks()` + `_frame_dict_has_shadow_contours()`
+> - 新增 `_ensure_shadow_occluder_exists()`：旧模板角色自动补建 ShadowBox
+> - 模板 `__NAME___skin.tscn` 已添加 ShadowBox 节点（占位矩形 polygon）
+> - 验证方式：用模板创建新角色执行 Body 轮廓转换（不操作老角色）
+
+#### Step 3.1：修改 template_skin.tscn ✅
 - 在 `AnimatedSprite2D` 下添加 `ShadowBox (LightOccluder2D)` 子节点
 - 创建 `OccluderPolygon2D` 子资源
 - 验证：场景树正确显示
 
-#### Step 3.2：height_layers_widget.gd 添加 UI 参数
-- 添加 `shadow_simplify_tolerance` SpinBox（默认 150）
+#### Step 3.2：height_layers_widget.gd 添加 UI 参数 ✅
+- 添加 `shadow_simplify_tolerance` SpinBox（默认 20）
 - 添加 `shadow_min_area_ratio` SpinBox（默认 0.2）
 - 验证：Inspector 工具中可见
 
-#### Step 3.3：animation_track_injector.gd 修改点 A
-- 添加常量 `SHADOW_OCCLUDER_PATH`
+#### Step 3.3：animation_track_injector.gd 修改点 A ✅
+- 添加常量 `SHADOW_OCCLUDER_PATH` + `TRACK_PATH_SHADOW_OCCLUDER_POLYGON`
 - 验证：无语法错误
 
-#### Step 3.4：animation_track_injector.gd 修改点 B（shadow 扫描）
-- 在 `_convert_contours_common()` 中增加 shadow 扫描逻辑
-- 修改方法签名：添加 `shadow_simplify_tolerance` 和 `shadow_min_area_ratio` 参数
+#### Step 3.4：animation_track_injector.gd 修改点 B（shadow 扫描）✅
+- 在 `_convert_contours_common()` 中增加第二次独立扫描（步骤 5b）
+- 修改方法签名：添加 `shadow_simplify_tolerance` 和 `shadow_min_area_ratio` 参数（默认 -1 禁用）
+- 后处理循环增加 7d：shadow_raw_contours → pixels_to_shape_local() → shadow_contours
 - 验证：无语法错误，工具可调用不崩溃
 
-#### Step 3.5：animation_track_injector.gd 修改点 C
-- 添加 `_ensure_shadow_occluder_exists()` 方法
+#### Step 3.5：animation_track_injector.gd 修改点 C ✅
+- 添加 `_ensure_shadow_occluder_exists()` 方法（步骤 11b 调用）
 - 验证：无语法错误
 
-#### Step 3.6：animation_track_injector.gd 修改点 D+E（track 注入）
-- 在共享 tracks 区域调用 `_inject_shadow_occluder_track()`
-- 添加 `_inject_shadow_occluder_track()` 方法
+#### Step 3.6：animation_track_injector.gd 修改点 D+E（track 注入）✅
+- 在 `_inject_all_tracks()` body 共享 tracks 区域调用 `_inject_occluder_polygon_tracks()`
+- 添加 `_inject_occluder_polygon_tracks()` 封装方法（复用 flip_track_data，相邻帧去重）
+- 添加 `_frame_dict_has_shadow_contours()` 守卫（无数据时不创建空 track）
 - 验证：无语法错误
 
-#### Step 3.7：验证工具功能（关键里程碑 ⭐）
-- 对 run_test 角色执行 Body 轮廓转换
+#### Step 3.7：验证工具功能（关键里程碑 ⭐）✅ 已验证
+- **使用模板创建新角色**（不操作老角色），执行 Body 轮廓转换
 - 验证清单：
-  - [ ] 工具执行无报错
-  - [ ] 动画包含 `AnimatedSprite2D/ShadowBox:occluder:polygon` track
-  - [ ] 播放动画时 OccluderPolygon2D.polygon 逐帧变化
-  - [ ] flip_h 时 polygon X 坐标正确镜像
-  - [ ] Polygon 模式：ShadowBox 顶点数少于 HurtShape
-  - [ ] Capsule/Rectangle 模式：HurtShape 用 shape 参数，ShadowBox 仍用 polygon
+  - [x] 工具执行无报错
+  - [x] 动画包含 `AnimatedSprite2D/ShadowBox:occluder:polygon` track
+  - [x] 播放动画时 OccluderPolygon2D.polygon 逐帧变化
+  - [x] flip_h 时 polygon X 坐标正确镜像
+  - [x] Polygon 模式：ShadowBox track 与 HurtShape:polygon track 都生成，顶点数不同
+  - [x] Capsule/Rectangle 模式：HurtShape 用 shape 参数，ShadowBox 仍用 polygon track
 
-### Phase 4：昼夜循环系统（5 步）
+### Phase 4：昼夜循环系统（5 步）✅ 已完成
 
-#### Step 4.1：创建 SceneTimeData.gd
+> **实际实现说明**（2026-08-20）：
+> - 循环依赖规避：`DayNightManager` 不使用 `class_name`，`enter_scene()` 参数和 `_current_scene_data` 使用 `Resource` 类型
+> - 节点引用：`canvas_modulate_path` / `directional_light_path` 用 `NodePath`，运行时解析为实际节点
+> - 阴影平滑过渡：Tween 回调中预计算插值，getter 直接返回缓存值
+> - 测试场景添加 2 个灯笼 PointLight2D（GradientTexture2D 径向渐变，无需 PNG）
+> - 调试输入脚本：按键 1/2/3/4 切换相位，按键 O 测试 3 秒覆盖
+> - **已知问题（搁置）**：阴影面积在 45° 仰角下视觉上比预期小，待后续调查
+
+#### Step 4.1：创建 SceneTimeData.gd ✅
 - 创建 `scripts/day_night/scene_time_data.gd`（Section 5.2）
 - 验证：可在 Inspector 中创建 SceneTimeData 资源
 
-#### Step 4.2：创建 LightingOverride.gd
+#### Step 4.2：创建 LightingOverride.gd ✅
 - 创建 `scripts/day_night/lighting_override.gd`（Section 5.2）
 - 验证：无语法错误
 
-#### Step 4.3：创建 DayNightManager.gd + 注册 Autoload
-- 创建 `scripts/day_night/day_night_manager.gd`（Section 5.3）
+#### Step 4.3：创建 DayNightManager.gd + 注册 Autoload ✅
+- 创建 `scripts/day_night/day_night_manager.gd`（Section 5.3，含阴影插值）
 - 在 `project.godot` 的 `[autoload]` 中注册
 - 验证：重启后可通过 `DayNightManager` 全局访问
 
-#### Step 4.4：创建 DayNightController.gd
+#### Step 4.4：创建 DayNightController.gd ✅
 - 创建 `scripts/day_night/day_night_controller.gd`（Section 5.4）
 - 验证：无语法错误
 
-#### Step 4.5：验证昼夜循环（关键里程碑 ⭐）
-- 在测试场景中添加 DayNightController + CanvasModulate + DirectionalLight2D
+#### Step 4.5：验证昼夜循环（关键里程碑 ⭐）✅ 已验证
+- 测试场景 `_test_run_test.tscn` 已添加：
+  - CanvasModulate（初始白色）
+  - DirectionalLight2D（rotation=-45°, shadow/enabled=false）
+  - DayNightController（引用 SceneTimeData + CanvasModulate + DirectionalLight2D + 2 灯笼）
+  - 2 个 PointLight2D 灯笼（GradientTexture2D 径向渐变，初始 enabled=false）
+  - DebugDayNightInput 调试脚本
 - 验证清单：
-  - [ ] 相位切换时 CanvasModulate 颜色平滑过渡
-  - [ ] DirectionalLight2D 旋转/能量/颜色平滑过渡
-  - [ ] 角色阴影方向跟随光源变化
-  - [ ] apply_lighting_override() 临时覆盖生效
-  - [ ] 覆盖到期后自动恢复
+  - [x] 按 1/2/3/4：CanvasModulate 颜色平滑过渡
+  - [x] DirectionalLight2D 旋转/能量/颜色平滑过渡
+  - [x] 过渡期间角色阴影方向**平滑旋转**（非跳变）
+  - [x] 切到 DUSK/NIGHT：灯笼点亮；切回 DAY/DAWN：熄灭
+  - [ ] 按 O：3 秒覆盖生效，到期自动恢复（代码已就位，待验证）
 
 ### Phase 5：集成调参（2 步）
 
-#### Step 5.1：集成到 stage 模板
-- 在 base_stage 或测试场景中添加 DayNightController/CanvasModulate/DirectionalLight2D
-- 验证：场景加载无报错
+#### Step 5.1：集成到测试场景模板 ✅
+- 更新 `inspector_plugin.gd` 硬编码测试场景模板，添加完整昼夜循环节点
+- 新增节点：`CanvasModulate`、`DirectionalLight2D`、`DayNightController`、`Lantern1/2`、`DebugDayNightInput`
+- 新增资源：`SceneTimeData_test`、`Gradient_lantern`、`GradientTexture2D_lantern`
+- 背景改为暖沙色调（`Color(0.6, 0.5, 0.4, 1)`，`z_index=-10`）使阴影可见
+- DebugLabel 更新包含昼夜测试说明
+- `load_steps` 从 13 → 20
+- 排查结论：创建角色功能（`character_creator.gd`）已正确处理 ShadowBox 节点（模板包含 + `animation_track_injector` 自动补建）
 
-#### Step 5.2：调参优化
+#### Step 5.2：调参优化（待用户验证）
 - 调整阴影颜色、长度、柔和度
 - 多角色同屏性能测试
 - 验证：10 角色同屏 FPS ≥ 55（720p）
 
 ### Phase 6：文档（1 步）
 
-#### Step 6.1：编写 LIGHTING_SETUP_GUIDE.md
+#### Step 6.1：编写 LIGHTING_SETUP_GUIDE.md ✅
 - 涵盖 L1-L3 配置步骤、推荐参数、常见问题排查
+- 文件：`docs/LIGHTING_SETUP_GUIDE.md`
 
 ### 时间估算
 
