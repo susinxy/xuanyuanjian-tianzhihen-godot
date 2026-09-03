@@ -19,7 +19,7 @@ _data = {
 }
 
 [sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
-polygon = PackedVector2Array(-32, -84, -44, -26, -44, -16, -8, 93, -8, 94, 24, 78, 26, 78, 32, -45, 34, -45, -32, -85)
+polygon = PackedVector2Array(-32, -84, -37, -76, -39, -76, -33, -60, -33, -28, -44, -26, -44, -16, -30, -6, -29, -6, -26, 23, -26, 52, -18, 67, -17, 67, -22, 69, -22, 71, -19, 74, -15, 74, -18, 81, -18, 87, -8, 93, -8, 94, 13, 94, 9, 82, 9, 80, 24, 78, 26, 78, 19, 69, 13, 69, 19, 54, 19, 20, 11, -6, 11, -9, 32, -45, 34, -45, 34, -57, 17, -69, 17, -71, -32, -85)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_once2"]
 size = Vector2(144, 52)
