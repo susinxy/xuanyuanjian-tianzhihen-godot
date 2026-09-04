@@ -90,6 +90,7 @@ position = Vector2(5, 0.5)
 shape = SubResource("RectangleShape2D_75u0j")
 
 [node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1" unique_id=1172678836]
+sdf_collision = false
 occluder = SubResource("OccluderPolygon2D_shadow")
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]

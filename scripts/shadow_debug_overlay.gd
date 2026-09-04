@@ -1,28 +1,26 @@
 extends Node2D
 
 ## 阴影几何调试覆盖层
-## 独立的 Node2D，通过 _draw() 绘制阴影平行四边形的几何体
-## 作为 ShadowRenderer (Sprite2D) 的子节点，z_index=1 确保在 shader 之上显示
+## 绘制投影后的 polygon 轮廓（支持 N 顶点）
 
-var _vertices: PackedVector2Array = PackedVector2Array()
+var _polygon: PackedVector2Array = PackedVector2Array()
 
-func update_vertices(v0: Vector2, v1: Vector2, v2: Vector2, v3: Vector2) -> void:
-	_vertices = PackedVector2Array([v0, v1, v2, v3])
+func update_polygon(polygon: PackedVector2Array) -> void:
+	_polygon = polygon
 	queue_redraw()
 
 func _draw() -> void:
-	if _vertices.size() != 4:
+	if _polygon.size() < 2:
 		return
 
-	draw_line(_vertices[0], _vertices[1], Color.WHITE, 2.0)
-	draw_line(_vertices[1], _vertices[2], Color.WHITE, 2.0)
-	draw_line(_vertices[2], _vertices[3], Color.WHITE, 2.0)
-	draw_line(_vertices[3], _vertices[0], Color.WHITE, 2.0)
+	for i in range(_polygon.size()):
+		var next := (i + 1) % _polygon.size()
+		draw_line(_polygon[i], _polygon[next], Color.WHITE, 2.0)
 
-	draw_circle(_vertices[0], 8.0, Color.RED)
-	draw_circle(_vertices[1], 8.0, Color.GREEN)
-	draw_circle(_vertices[2], 8.0, Color.BLUE)
-	draw_circle(_vertices[3], 8.0, Color.YELLOW)
+	var colors := [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW,
+				   Color.CYAN, Color.MAGENTA, Color.ORANGE, Color.PURPLE]
+	for i in range(_polygon.size()):
+		draw_circle(_polygon[i], 5.0, colors[i % colors.size()])
 
 	draw_line(Vector2(-15, 0), Vector2(15, 0), Color.WHITE, 2.0)
 	draw_line(Vector2(0, -15), Vector2(0, 15), Color.WHITE, 2.0)

@@ -1297,7 +1297,9 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
 8. 如果 `dry_run`：返回 frames_data 不做修改
 9. 预计算 shape 类型变更状态（检测当前 vs 目标类型）
 10. 修改场景树节点（仅当类型不匹配时，`_modify_scene_tree_node()`）
-    - **10b. `_ensure_shadow_occluder_exists()`**（仅 shadow 扫描启用时）：确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D)，不存在则自动创建
+     - **10b. `_ensure_shadow_occluder_exists()`**（仅 shadow 扫描启用时）：确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D，`sdf_collision = false`)，不存在则自动创建
+       - 阴影方案已从旧 SDF ray-march 改为 **polygon 投影**：ShadowBox 不再写入 SDF 纹理（故 `sdf_collision = false`），其 `occluder.polygon` 仅作为逐帧轮廓数据源，由项目侧 `scripts/character_shadow_controller.gd` 读取并做仿射投影到地面
+       - 配套：`quiver_character.gd` 的 `_create_shadow_renderer()` 现创建 **Node2D**（`z_index = -1`）并挂 `character_shadow_controller.gd`，控制器内部再建 Polygon2D 子节点渲染；不再是旧的 `Sprite2D` + 平行四边形 vertex 变形方案
 11. 构建 per-shape 过滤映射
 12. 统一轨道注入（`_inject_all_tracks()`）
 13. 返回结果

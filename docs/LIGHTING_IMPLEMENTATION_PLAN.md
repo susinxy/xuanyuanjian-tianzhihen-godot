@@ -2,7 +2,17 @@
 
 > 版本：v1.0  
 > 创建日期：2026-09-01  
-> 状态：待实施
+> 状态：部分已废弃
+
+---
+
+> **⚠️ 废弃通知（2026-09-04）**  
+> 
+> 本文档中**第二章（SDF 阴影 Shader 详细设计）**和**第三章（角色阴影节点设计）**已废弃。  
+> 角色阴影方案已从 SDF ray march 改为 Polygon2D 投影，详见：  
+> **→ [SHADOW_REDESIGN_PLAN.md](SHADOW_REDESIGN_PLAN.md)**  
+> 
+> 其余章节（昼夜循环、轮廓检测工具扩展等）仍然有效。
 
 ---
 
@@ -23,23 +33,23 @@
 |------|------|---------|
 | L0 | 手绘背景光影 | 美术工作，不涉及代码 |
 | L1 | CanvasModulate 全局色调 | 场景配置 + DayNightManager 控制 |
-| L2 | DirectionalLight2D 主光源 | 关闭内置 shadow，配合 SDF shader |
+| L2 | DirectionalLight2D 主光源 | 关闭内置 shadow |
 | L2 | 建筑阴影 | LightOccluder2D（手动配置 polygon） |
 | L3 | PointLight2D 环境光源 | 场景配置（灯笼、火把等） |
-| L4 | 角色阴影 | LightOccluder2D + SDF Ray Marching Shader |
+| L4 | 角色阴影 | **Polygon2D 投影**（详见 [SHADOW_REDESIGN_PLAN.md](SHADOW_REDESIGN_PLAN.md)） |
 | L5 | 昼夜循环 | DayNightManager + DayNightController |
 
 ### 1.3 核心技术选型
 
-**角色阴影方案：LightOccluder2D + 2D SDF Shader**
+**角色阴影方案：Polygon2D 投影**（2026-09-04 更新，取代原 SDF 方案）
 
 - 复用项目已有的轮廓检测工具（contour_tracer.gd）生成阴影 polygon
 - 通过 animation track 逐帧驱动 OccluderPolygon2D.polygon（与 HurtShape 同机制）
-- 关闭 DirectionalLight2D 的内置 shadow（因为无限长阴影是 Godot 4.x 已知限制）
-- 用自定义 shader 读取 Godot 自动生成的 2D SDF 纹理，做有限长度的 ray marching 阴影
-- 阴影长度、角度、柔和度通过 shader uniform 参数化
+- 读取 ShadowBox polygon，沿光线方向投影到地面，用 Polygon2D 渲染
+- 阴影形状 = polygon 沿光线方向的投影，物理正确
+- 详见 [SHADOW_REDESIGN_PLAN.md](SHADOW_REDESIGN_PLAN.md)
 
-**参考来源**：jess-hammer/2d-shadows-demo-godot（MIT 协议，Godot 4.3+）
+**原方案（已废弃）**：LightOccluder2D + 2D SDF Shader（jess-hammer/2d-shadows-demo-godot）
 
 ### 1.4 光源方向参数设计：方位角 + 仰角（非 3D 向量）
 
@@ -71,6 +81,10 @@
 ---
 
 ## 二、SDF 阴影 Shader 详细设计
+
+> **⚠️ 本章已废弃（2026-09-04）**  
+> 角色阴影方案已改为 Polygon2D 投影，详见 [SHADOW_REDESIGN_PLAN.md](SHADOW_REDESIGN_PLAN.md)  
+> 本章内容仅作历史参考，不再实施。
 
 ### 2.1 SDF 原理
 
@@ -376,6 +390,10 @@ SDF ray marching 的几何关系自然处理跳跃偏移，不需要手动计算
 ---
 
 ## 三、角色阴影节点设计
+
+> **⚠️ 本章已废弃（2026-09-04）**  
+> 角色阴影方案已改为 Polygon2D 投影，详见 [SHADOW_REDESIGN_PLAN.md](SHADOW_REDESIGN_PLAN.md)  
+> 本章内容仅作历史参考，不再实施。
 
 ### 3.1 多 ShadowRenderer 架构（核心决策）
 

@@ -85,13 +85,16 @@ monitorable = false
 script = ExtResource("5_k0gpy")
 
 [node name="HurtShape" type="CollisionPolygon2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1472583729]
+visible = false
 modulate = Color(0, 0.0666667, 0.701961, 1)
 polygon = PackedVector2Array(-32, -84, -8, 93, -8, 94, 32, -45, 34, -45, -32, -85)
 
 [node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1" unique_id=1172678836]
 occluder = SubResource("OccluderPolygon2D_shadow")
+sdf_collision = false
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
+visible = false
 
 [node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:run_test"]]
 visible = false
@@ -127,6 +130,7 @@ script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
 
 [node name="Attack3Shape" type="CollisionShape2D" parent="Attacks/Attack3" index="0" unique_id=1937822495]
+visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(96.5, -389.25)
 shape = SubResource("RectangleShape2D_vo5ct")
@@ -140,6 +144,7 @@ script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
 
 [node name="AttackAirShape" type="CollisionShape2D" parent="Attacks/AttackAir" index="0" unique_id=110280612]
+visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(187, -254)
 rotation = 0.294481

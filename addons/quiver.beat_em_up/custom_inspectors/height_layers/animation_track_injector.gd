@@ -1567,7 +1567,7 @@ func _modify_scene_tree_node(
 
 
 ## 确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D) 节点
-## 不存在则创建：LightOccluder2D（name="ShadowBox", sdf_collision=true）
+## 不存在则创建：LightOccluder2D（name="ShadowBox", sdf_collision=false）
 ## + OccluderPolygon2D（closed=true，空 polygon，由动画 track 逐帧驱动）
 ## 已存在则不做任何操作（保留现有 occluder，track 注入会覆盖 polygon）
 func _ensure_shadow_occluder_exists(skin_node: Node) -> void:
@@ -1582,7 +1582,7 @@ func _ensure_shadow_occluder_exists(skin_node: Node) -> void:
 	
 	var shadow_box := LightOccluder2D.new()
 	shadow_box.name = "ShadowBox"
-	shadow_box.sdf_collision = true
+	shadow_box.sdf_collision = false
 	shadow_box.occluder = occluder_polygon
 	
 	sprite_node.add_child(shadow_box)
