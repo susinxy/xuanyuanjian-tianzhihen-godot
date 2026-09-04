@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="QuiverAttributes" format=3 uid="uid://ft16d6exkf8m"]
+
+[ext_resource type="Script" uid="uid://ck1mf2limgpfj" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
+[ext_resource type="Texture2D" uid="uid://5d52v2k5mv74" path="res://characters/playable/enemy/resources/enemy_gradient.tres" id="1_4dxsn"]
+[ext_resource type="Texture2D" uid="uid://c0qis5dy0ggym" path="res://characters/playable/enemy/resources/sprites/enemy_profile.png" id="2_g3jjg"]
+
+[resource]
+script = ExtResource("1_1ikth")
+display_name = "测试敌人"
+profile_texture = ExtResource("2_g3jjg")
+life_bar_gradient = ExtResource("1_4dxsn")
