@@ -10,6 +10,8 @@ const DEBUG_ENABLED := true
 const MIN_ELEVATION := 5.0
 const DEFAULT_ELEVATION := 45.0
 const MAX_FADE_HEIGHT := 400.0
+## 距离衰减：影子远端顶点的 alpha（近端恒为 1.0，远端 = 此值；随俯视角/高度可调观感）
+const FAR_END_ALPHA := 0.3
 
 static var _shared_material: ShaderMaterial = null
 
@@ -54,10 +56,12 @@ func _process(_delta: float) -> void:
 func _update_shadow() -> void:
 	if not _skin:
 		return
-	# 1. 投影 ShadowBox polygon 到地面（锚定在脚部）
-	var projected := _project_polygon_to_ground()
+	# 1. 投影 ShadowBox polygon 到地面（锚定在脚部）+ 逐顶点距离衰减 alpha
+	var data := _project_polygon_to_ground()
+	var projected: PackedVector2Array = data.get("polygon", PackedVector2Array())
 	if projected.size() > 0:
 		_shadow_polygon.polygon = projected
+		_shadow_polygon.vertex_colors = data.get("colors", PackedColorArray())
 	# 2. 跳跃时整体移动 ShadowRenderer（沿光线方向，正向位移）
 	var jump_height: float = _skin.base_height if _skin else 0.0
 	var elevation := _get_current_elevation()
@@ -76,20 +80,22 @@ func _update_shadow() -> void:
 ## 坐标空间：AnimatedSprite2D 本地 → 角色空间
 ## 投影原理：沿光线方向压扁 polygon，锚定在脚部位置
 ## 使用 Transform2D 矩阵一次性完成所有顶点的仿射变换
-## 返回投影后的顶点数组（PackedVector2Array）
-func _project_polygon_to_ground() -> PackedVector2Array:
+## 距离衰减：按各顶点投影偏移量（≈ 离脚底高度）逐帧归一化 → smoothstep → alpha
+##          近端(脚底) alpha=1.0，远端(最高点)=FAR_END_ALPHA；GPU 在三角形间插值成渐变
+## 返回 { "polygon": PackedVector2Array, "colors": PackedColorArray }（两者顶点顺序/数量一致）
+func _project_polygon_to_ground() -> Dictionary:
 	var sprite := _skin.get_node_or_null("AnimatedSprite2D")
 	if not sprite:
-		return PackedVector2Array()
+		return {}
 	var shadow_box := sprite.get_node_or_null("ShadowBox")
 	if not shadow_box or not shadow_box is LightOccluder2D:
-		return PackedVector2Array()
+		return {}
 	var occ: LightOccluder2D = shadow_box
 	if not occ.occluder:
-		return PackedVector2Array()
+		return {}
 	var polygon: PackedVector2Array = occ.occluder.polygon
 	if polygon.size() < 3:
-		return PackedVector2Array()
+		return {}
 
 	var sprite_pos: Vector2 = sprite.position
 	var elevation := _get_current_elevation()
@@ -105,6 +111,22 @@ func _project_polygon_to_ground() -> PackedVector2Array:
 	for v in char_polygon:
 		foot_y = max(foot_y, v.y)
 
+	# 本帧最大投影偏移（离脚底最高的顶点 → 影子最远端）作为归一化基准
+	var max_offset := 0.0
+	for v in char_polygon:
+		var off := (foot_y - v.y) / tan_elev
+		if off > max_offset:
+			max_offset = off
+
+	# 逐顶点衰减 alpha：offset/max_offset → smoothstep → [1.0 .. FAR_END_ALPHA]
+	var colors := PackedColorArray()
+	for v in char_polygon:
+		var t := 0.0
+		if max_offset > 0.0001:
+			t = clamp(((foot_y - v.y) / tan_elev) / max_offset, 0.0, 1.0)
+		var s := smoothstep(0.0, 1.0, t)
+		colors.append(Color(1.0, 1.0, 1.0, lerpf(1.0, FAR_END_ALPHA, s)))
+
 	# 构建投影变换矩阵
 	# 投影公式：
 	#   projected.x = v.x + (foot_y - v.y) / tan_elev * shadow_dir.x
@@ -114,7 +136,7 @@ func _project_polygon_to_ground() -> PackedVector2Array:
 	var origin := Vector2(foot_y * shadow_dir.x / tan_elev, foot_y + foot_y * shadow_dir.y / tan_elev)
 	var transform := Transform2D(basis_x, basis_y, origin)
 
-	return transform * char_polygon
+	return {"polygon": transform * char_polygon, "colors": colors}
 
 func _get_current_elevation() -> float:
 	if _day_night and _day_night.has_method("get_sun_elevation_deg"):
