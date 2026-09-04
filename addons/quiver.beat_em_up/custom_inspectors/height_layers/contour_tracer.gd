@@ -80,11 +80,16 @@ static func trace_contours(
 		var inv_scale := 1.0 / scale_factor
 		polygons = _scale_polygons(polygons, inv_scale)
 	
-	# 5. 过滤掉顶点数不足 3 的多边形
+	# 5. 规整：把自交/退化轮廓洗成简单多边形（取最大可三角块），并过滤顶点数不足 3
+	#    单一入口覆盖 body 碰撞 / 攻击 / 阴影 三类轮廓（均产自本函数）
+	#    已是简单多边形者 merge 原样返回，无损；烘焙期执行一次，运行时零成本
 	var result: Array[PackedVector2Array] = []
 	for poly in polygons:
-		if poly.size() >= 3:
-			result.append(poly)
+		if poly.size() < 3:
+			continue
+		var simple := _make_simple_largest(poly)
+		if simple.size() >= 3:
+			result.append(simple)
 	
 	return result
 
@@ -555,6 +560,51 @@ static func _has_valid_polygon(polygons: Array, min_area: float) -> bool:
 		if _calc_polygon_area(poly) >= min_area:
 			return true
 	return false
+
+
+## 规整轮廓：把可能自交/退化的多边形洗成一条简单（可三角剖分）多边形
+##
+## 做法：Geometry2D.merge_polygons(poly, 空) = 对空集求并 → Clipper 按填充规则
+##      把自交轮廓拆成若干互不重叠的简单多边形。从中取「面积最大且能被 earcut
+##      三角剖分」的一块（规避 issue #99745：合并结果偶发仍剖不出）。
+## 已是简单多边形者，merge 原样返回同一块 → 无损、幂等。
+## 兜底：全部剖不出时退回面积最大的一块；仍无则原样返回（不比现状差）。
+## 仅在烘焙期（编辑器工具）调用，运行时零成本。
+static func _make_simple_largest(poly: PackedVector2Array) -> PackedVector2Array:
+	if poly.size() < 3:
+		return poly
+	
+	var pieces: Array[PackedVector2Array] = Geometry2D.merge_polygons(poly, PackedVector2Array())
+	if pieces.is_empty():
+		return poly
+	
+	# 首选：面积最大且可三角剖分的一块
+	var best := PackedVector2Array()
+	var best_area := -1.0
+	for piece in pieces:
+		if piece.size() < 3:
+			continue
+		var area := _calc_polygon_area(piece)
+		if area <= best_area:
+			continue
+		if Geometry2D.triangulate_polygon(piece).is_empty():
+			continue
+		best = piece
+		best_area = area
+	
+	if not best.is_empty():
+		return best
+	
+	# 全部剖不出：退回面积最大的一块（至少不比原样差）
+	for piece in pieces:
+		var area := _calc_polygon_area(piece)
+		if area > best_area:
+			best = piece
+			best_area = area
+	
+	if best.is_empty():
+		return poly
+	return best
 
 
 ## 计算 BitMap 中不透明像素的包围盒

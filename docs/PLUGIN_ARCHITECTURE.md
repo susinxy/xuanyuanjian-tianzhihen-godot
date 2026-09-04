@@ -1160,7 +1160,7 @@ inspector_plugin.gd (EditorInspectorPlugin)
 
 **数据流**：
 ```
-PNG 文件 → ContourTracer.trace_contours() → 轮廓多边形
+PNG 文件 → ContourTracer.trace_contours() → 轮廓多边形（末尾对每条轮廓做自交规整 _make_simple_largest）
     ↓
 AnimationTrackInjector._convert_contours_common()
     ├── ContourTracer.calc_mabr() → MABR
@@ -1191,7 +1191,7 @@ enum ShapeType {
 
 | ShapeType | 场景节点类型 | Track 属性 | 数据来源 |
 |-----------|-------------|-----------|---------|
-| POLYGON | `CollisionPolygon2D` | `:polygon`, `:position`(0,0), `:rotation`(0) | `trace_contours()` 原始轮廓 |
+| POLYGON | `CollisionPolygon2D` | `:polygon`, `:position`(0,0), `:rotation`(0) | `trace_contours()` 规整后轮廓（自交已洗为简单多边形） |
 | CAPSULE | `CollisionShape2D` + `CapsuleShape2D` | `:shape:radius`, `:shape:height`, `:position`, `:rotation` | MABR 短边=直径，长边=总高度 |
 | RECTANGLE | `CollisionShape2D` + `RectangleShape2D` | `:shape:size`, `:position`, `:rotation` | MABR 尺寸和角度 |
 
@@ -1199,7 +1199,7 @@ enum ShapeType {
 
 `class_name ContourTracer`，extends `RefCounted`，`@tool`。全静态方法，无实例状态。
 
-**核心算法**：使用 Godot 内置 `BitMap` API（实现 Marching Squares）+ `opaque_to_polygons()`（Ramer-Douglas-Peucker 简化）。
+**核心算法**：使用 Godot 内置 `BitMap` API（实现 Marching Squares）+ `opaque_to_polygons()`（Ramer-Douglas-Peucker 简化）。**返回前对每条轮廓调用 `_make_simple_largest()` 做自交规整**：`opaque_to_polygons` 输出的轮廓可能自交/退化（引擎已知缺陷），这类多边形会让 `Geometry2D.triangulate_polygon` 返回空 → 运行时 Polygon2D（阴影）与 CollisionPolygon2D（碰撞/攻击）三角剖分失败（"该帧没影"/坏碰撞）。`_make_simple_largest()` 用 `Geometry2D.merge_polygons(poly, [])`（Clipper 布尔并）把自交轮廓拆成简单多边形，取「面积最大且可三角剖分」的一块；简单多边形原样返回（幂等无损）；全部剖不出时退回最大块/原样兜底（规避 issue #99745）。**该处理在烘焙期一次性完成，运行时零成本**；同时覆盖 body 碰撞、攻击判定、阴影三类轮廓（均产自本函数）。
 
 #### 15.3.1 公共 API
 
