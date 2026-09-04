@@ -28,3 +28,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.sublime-*
+
+# 具体角色（由 _template 生成）不纳入版本控制：逐角色的烘焙/临时改动不进 git；
+# 需提交时用 `git add -f` 强制添加。要改模板请改 _template/ 下的文件。
+characters/playable/*
+!characters/playable/_template/
