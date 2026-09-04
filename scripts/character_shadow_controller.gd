@@ -6,7 +6,7 @@ extends Node2D
 
 const SHADOW_SHADER_PATH := "res://shaders/shadow_polygon.gdshader"
 const DEBUG_OVERLAY_SCRIPT := preload("res://scripts/shadow_debug_overlay.gd")
-const DEBUG_ENABLED := true
+const DEBUG_ENABLED := false
 const MIN_ELEVATION := 5.0
 const DEFAULT_ELEVATION := 45.0
 const MAX_FADE_HEIGHT := 400.0
@@ -19,12 +19,15 @@ var _skin: QuiverCharacterSkin
 var _day_night: Node
 var _shadow_polygon: Polygon2D
 var _debug_overlay: Node2D = null
+var _soft_edge: Node = null          # 共享柔边合成器（autoload ShadowSoftEdge）
+var _proxy: Polygon2D = null         # 开启软边时，注入合成器 shadow_world 的代理多边形
 var _current_elevation: float = DEFAULT_ELEVATION
 var _current_azimuth: float = -45.0
 
 func setup(skin: QuiverCharacterSkin) -> void:
 	_skin = skin
 	_day_night = get_node_or_null("/root/DayNightManager")
+	_soft_edge = get_node_or_null("/root/ShadowSoftEdge")
 	_setup_shared_material()
 	_create_shadow_polygon()
 	if DEBUG_ENABLED:
@@ -59,9 +62,7 @@ func _update_shadow() -> void:
 	# 1. 投影 ShadowBox polygon 到地面（锚定在脚部）+ 逐顶点距离衰减 alpha
 	var data := _project_polygon_to_ground()
 	var projected: PackedVector2Array = data.get("polygon", PackedVector2Array())
-	if projected.size() > 0:
-		_shadow_polygon.polygon = projected
-		_shadow_polygon.vertex_colors = data.get("colors", PackedColorArray())
+	var colors: PackedColorArray = data.get("colors", PackedColorArray())
 	# 2. 跳跃时整体移动 ShadowRenderer（沿光线方向，正向位移）
 	var jump_height: float = _skin.base_height if _skin else 0.0
 	var elevation := _get_current_elevation()
@@ -71,10 +72,42 @@ func _update_shadow() -> void:
 	position = Vector2(shadow_displacement * shadow_dir.x, shadow_displacement * shadow_dir.y)
 	# 3. 跳跃淡出
 	var fade: float = 1.0 - clamp(jump_height / MAX_FADE_HEIGHT, 0.0, 0.8)
-	_shadow_polygon.modulate.a = fade
+
+	var soft_on: bool = (_soft_edge != null) and _soft_edge.enabled
+	if soft_on:
+		# 开启软边：本节点实心阴影隐藏，改由合成器统一离屏模糊
+		_shadow_polygon.visible = false
+		_ensure_proxy()
+		if _proxy:
+			_proxy.visible = projected.size() > 0
+			_proxy.polygon = projected
+			_proxy.vertex_colors = colors
+			_proxy.modulate.a = fade
+			_proxy.global_transform = get_global_transform()
+	else:
+		# 关闭软边：完全等同既有实心阴影路径
+		_release_proxy()
+		_shadow_polygon.visible = true
+		if projected.size() > 0:
+			_shadow_polygon.polygon = projected
+			_shadow_polygon.vertex_colors = colors
+		_shadow_polygon.modulate.a = fade
 	# 4. 更新调试覆盖层
 	if _debug_overlay:
 		_debug_overlay.update_polygon(projected)
+
+func _ensure_proxy() -> void:
+	if _proxy != null and is_instance_valid(_proxy):
+		return
+	_proxy = Polygon2D.new()
+	_proxy.name = "ShadowProxy"
+	_proxy.material = _shared_material
+	_soft_edge.shadow_world.add_child(_proxy)
+
+func _release_proxy() -> void:
+	if _proxy != null and is_instance_valid(_proxy):
+		_proxy.queue_free()
+	_proxy = null
 
 ## 将 ShadowBox polygon 投影到地面
 ## 坐标空间：AnimatedSprite2D 本地 → 角色空间
