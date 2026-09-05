@@ -34,3 +34,9 @@ Thumbs.db
 characters/playable/*
 !characters/playable/_template/
 !characters/playable/enemy/
+
+# Run Test 生成物（角色/法术测试场景与 helper 脚本）：由插件模板随时可再生，不跟踪
+test_scenes/
+
+# Godot 编辑器原子写残留
+*.tmp

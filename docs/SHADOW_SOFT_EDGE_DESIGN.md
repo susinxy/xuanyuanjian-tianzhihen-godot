@@ -66,7 +66,7 @@ character_shadow_controller (每角色)
 - 节点：`scripts/shadow_region.gd` `@tool class_name ShadowRegion extends ReferenceRect`（编辑器可拖拽，沿用 `QuiverFightRoom` 惯例），运行时加入 group `shadow_region`。
 - 可视化：生产语义 **零绘制**（`editor_only=true`，仅编辑器可见绿框）。`@export debug_preview := false` 才在运行时自绘边框+淡填充；**测试场景模板自动设 true**。坑：ReferenceRect 原生绘制在 `_notification`、**无 `_draw` 虚方法可 super 调用**（子类 `_draw` 里调 `super._draw()` 会每帧 Invalid call）。
 - 交互：**T**（action `shadow_region_toggle`）实时开关 `enabled`（游戏性裁剪切换，控制台有打印）；编辑器分支 `QuiverEditorHelper.disable_all_processing` 防 @tool 误触发。
-- 测试场景 = **生成物**：`_test_<char>.tscn` 每次 Run Test 由 `inspector_plugin.gd` 模板整体重写（模板已内置 `ShadowRegion`(50,400,900×300, debug_preview=true)）；**手改生成的 tscn 会被覆盖，改测试场景=改模板**。
+- 测试场景 = **生成物**：`test_scenes/_test_<char>.tscn`（该目录已 gitignore）每次 Run Test 由 `inspector_plugin.gd` 模板幂等重写（模板已内置 `ShadowRegion`(50,400,900×300, debug_preview=true)）；**手改生成的 tscn 会被覆盖，改测试场景=改模板**。
 - 发现：controller/合成器都通过 `get_tree().get_nodes_in_group("shadow_region")` 取；**0 个启用区域 → 全屏，与无此特性时逐像素一致**（安全默认）。
 - 裁剪：controller 把投影多边形（本地）→ 世界，`Geometry2D.intersect_polygons` 与每个区域求交（各自独立→天然并集），结果转回本地；**顶点色用"投影前顶点 Y"的解析式重算**（切割新生成顶点也成立），故距离衰减不丢。多块用对象池（`_solid_extras[]` / `_proxies[]`）。
 - 性能：裁剪是 CPU 布尔运算(µs 级)；软边缓冲按区域 AABB → R 缩小；矩形情形合成 quad 只盖区域 → V 全屏片元降到区域片元（主要省钱点）。

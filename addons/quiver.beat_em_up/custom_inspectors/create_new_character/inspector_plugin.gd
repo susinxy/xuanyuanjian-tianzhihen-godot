@@ -68,7 +68,7 @@ func _on_character_deleted(char_name: String) -> void:
 
 
 func _on_character_test_requested(char_name: String) -> void:
-	var test_scene_path = "res://scenes/_test_" + char_name + ".tscn"
+	var test_scene_path = "res://test_scenes/_test_" + char_name + ".tscn"
 	var character_scene_path = "res://characters/playable/" + char_name + "/" + char_name + ".tscn"
 	
 	# Check if character scene exists
@@ -85,7 +85,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=21 format=3]
+	var test_scene_template = """[gd_scene load_steps=20 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -94,7 +94,7 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
-[ext_resource type="Shader" path="res://scenes/grid_background.gdshader" id="9_grid_shader"]
+[ext_resource type="Script" path="res://scripts/debug_grid.gd" id="9_debug_grid"]
 [ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
@@ -122,19 +122,6 @@ height = 300.0
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(8000, 200)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
-shader = ExtResource("9_grid_shader")
-shader_parameter/grid_size = 100.0
-shader_parameter/sub_grid_size = 25.0
-shader_parameter/line_width = 1.0
-shader_parameter/sub_line_width = 0.5
-shader_parameter/grid_color = Color(0.55, 0.45, 0.35, 1)
-shader_parameter/sub_grid_color = Color(0.52, 0.42, 0.32, 1)
-shader_parameter/bg_color = Color(0.6, 0.5, 0.4, 1)
-shader_parameter/ground_line_y = 500.0
-shader_parameter/ground_line_width = 3.0
-shader_parameter/ground_line_color = Color(0.4, 0.3, 0.2, 1)
-
 [sub_resource type="Resource" id="SceneTimeData_test"]
 script = ExtResource("12_scene_time_data")
 
@@ -151,21 +138,8 @@ fill_to = Vector2(0.5, 0)
 
 [node name="TestStage" type="Node2D"]
 
-[node name="Background" type="ColorRect" parent="."]
-z_index = -10
-offset_left = -2000.0
-offset_top = -500.0
-offset_right = 6000.0
-offset_bottom = 2000.0
-material = SubResource("ShaderMaterial_grid")
-color = Color(0.6, 0.5, 0.4, 1)
-
-[node name="GroundLine" type="ColorRect" parent="."]
-offset_left = -2000.0
-offset_top = 495.0
-offset_right = 6000.0
-offset_bottom = 505.0
-color = Color(0.3, 0.25, 0.2, 1)
+[node name="Background" type="Node2D" parent="."]
+script = ExtResource("9_debug_grid")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(2000, 600)
@@ -342,9 +316,9 @@ debug_preview = true
 		.replace("{{CHAR_PATH}}", character_scene_path)\
 		.replace("{{CHAR_NAME}}", char_name)
 	
-	# Ensure scenes directory exists
-	if not DirAccess.dir_exists_absolute("res://scenes"):
-		DirAccess.make_dir_recursive_absolute("res://scenes")
+	# Ensure test_scenes directory exists
+	if not DirAccess.dir_exists_absolute("res://test_scenes"):
+		DirAccess.make_dir_recursive_absolute("res://test_scenes")
 	
 	# Write test scene（幂等：内容未变则完全不写盘/不扫描/不等待——
 	# 避免编辑器对打开中的场景弹"硬盘变动请重载"；且 scan 无事发生时

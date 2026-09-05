@@ -61,7 +61,7 @@ func _on_spell_deleted(spell_name: String) -> void:
 
 
 func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
-	var test_scene_path = "res://scenes/_test_spell_" + spell_name + ".tscn"
+	var test_scene_path = "res://test_scenes/_test_spell_" + spell_name + ".tscn"
 	var character_scene_path = "res://characters/playable/" + char_name + "/" + char_name + ".tscn"
 	var spell_definition_path = "res://spells/" + spell_name + "/resources/" + spell_name + "_definition.tres"
 	var spell_scene_path = "res://spells/" + spell_name + "/" + spell_name + ".tscn"
@@ -74,7 +74,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 		push_error("[SpellTest] Spell definition not found: %s" % spell_definition_path)
 		return
 	
-	var test_scene_template = """[gd_scene load_steps=9 format=3]
+	var test_scene_template = """[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -83,7 +83,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 [ext_resource type="Script" path="" id="5_test_helper"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
 [ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
-[ext_resource type="Shader" path="res://scenes/grid_background.gdshader" id="9_grid_shader"]
+[ext_resource type="Script" path="res://scripts/debug_grid.gd" id="9_debug_grid"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("4_attack_data")
@@ -95,35 +95,13 @@ launch_angle = 30
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(8000, 200)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
-shader = ExtResource("9_grid_shader")
-shader_parameter/grid_size = 100.0
-shader_parameter/sub_grid_size = 25.0
-shader_parameter/line_width = 1.0
-shader_parameter/sub_line_width = 0.5
-shader_parameter/grid_color = Color(0.2, 0.2, 0.2, 1)
-shader_parameter/sub_grid_color = Color(0.12, 0.12, 0.12, 1)
-shader_parameter/bg_color = Color(0.06, 0.06, 0.06, 1)
-shader_parameter/ground_line_y = 500.0
-shader_parameter/ground_line_width = 3.0
-shader_parameter/ground_line_color = Color(0.4, 0.3, 0.2, 1)
-
 [node name="TestSpellStage" type="Node2D"]
 
-[node name="Background" type="ColorRect" parent="."]
-offset_left = -2000.0
-offset_top = -500.0
-offset_right = 6000.0
-offset_bottom = 2000.0
-material = SubResource("ShaderMaterial_grid")
-color = Color(0.06, 0.06, 0.06, 1)
-
-[node name="GroundLine" type="ColorRect" parent="."]
-offset_left = -2000.0
-offset_top = 495.0
-offset_right = 6000.0
-offset_bottom = 505.0
-color = Color(0.3, 0.25, 0.2, 1)
+[node name="Background" type="Node2D" parent="."]
+script = ExtResource("9_debug_grid")
+bg_color = Color(0.06, 0.06, 0.06, 1)
+grid_color = Color(0.2, 0.2, 0.2, 1)
+sub_grid_color = Color(0.12, 0.12, 0.12, 1)
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(2000, 600)
@@ -199,21 +177,15 @@ func _unhandled_input(event):
 		_spell_manager.cast_spell_by_index(0)
 """
 	
-	# Write helper script
-	var helper_script_path = "res://scripts/_test_spell_helper_" + spell_name + ".gd"
-	if not DirAccess.dir_exists_absolute("res://scripts"):
-		DirAccess.make_dir_recursive_absolute("res://scripts")
-	
-	var script_file = FileAccess.open(helper_script_path, FileAccess.WRITE)
-	if script_file == null:
-		push_error("[SpellTest] Failed to write helper script: %s" % helper_script_path)
-		return
-	
+	# 组装 helper 脚本内容与测试场景内容（生成物统一落 test_scenes/，幂等写盘：
+	# 内容未变不写盘/不扫描/不 await，避免编辑器"硬盘变动"弹窗与 filesystem_changed 卡死）
 	helper_script_content = helper_script_content\
 		.replace("{{SPELL_DEF_PATH}}", spell_definition_path)\
 		.replace("{{SPELL_SCENE_PATH}}", spell_scene_path)
-	script_file.store_string(helper_script_content)
-	script_file.close()
+	var helper_script_path = "res://test_scenes/_test_spell_helper_" + spell_name + ".gd"
+	if not DirAccess.dir_exists_absolute("res://test_scenes"):
+		DirAccess.make_dir_recursive_absolute("res://test_scenes")
+	var helper_written := _write_if_changed(helper_script_path, helper_script_content)
 	
 	# Replace tokens in test scene
 	var test_scene_content = test_scene_template\
@@ -232,18 +204,11 @@ func _unhandled_input(event):
 		'[node name="TestSpellHelper" type="Node" parent="Character"]',
 		'[node name="TestSpellHelper" type="Node" parent="Character"]\nscript = ExtResource("5_test_helper")'
 	)
-	
-	# Ensure scenes directory exists
-	if not DirAccess.dir_exists_absolute("res://scenes"):
-		DirAccess.make_dir_recursive_absolute("res://scenes")
-	
-	# Write test scene
-	var file = FileAccess.open(test_scene_path, FileAccess.WRITE)
-	if file == null:
-		push_error("[SpellTest] Failed to write test scene: %s" % test_scene_path)
+	var scene_written := _write_if_changed(test_scene_path, test_scene_content)
+	if helper_written == false and scene_written == false:
+		EditorInterface.play_custom_scene(test_scene_path)
+		print("[SpellTest] Testing spell '%s' with character '%s' - test scene unchanged, launched directly." % [spell_name, char_name])
 		return
-	file.store_string(test_scene_content)
-	file.close()
 	
 	# Refresh filesystem and run the scene
 	EditorInterface.get_resource_filesystem().scan()
@@ -251,6 +216,18 @@ func _unhandled_input(event):
 	await EditorInterface.get_resource_filesystem().filesystem_changed
 	EditorInterface.play_custom_scene(test_scene_path)
 	print("[SpellTest] Testing spell '%s' with character '%s' - test scene: %s" % [spell_name, char_name, test_scene_path])
+
+## 内容不同才写盘；返回是否写入（false=内容一致跳过 / 写失败由调用方经 play 报错兜底）
+func _write_if_changed(path: String, content: String) -> bool:
+	if FileAccess.file_exists(path) and FileAccess.get_file_as_string(path) == content:
+		return false
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		push_error("[SpellTest] Failed to write: %s" % path)
+		return false
+	f.store_string(content)
+	f.close()
+	return true
 
 ### -----------------------------------------------------------------------------------------------
 

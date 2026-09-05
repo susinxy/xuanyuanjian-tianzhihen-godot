@@ -1482,14 +1482,16 @@ Widget 监听 filesystem_changed 信号自动刷新角色列表
   ↓
 Widget 发出 character_test_requested(char_name)
   ↓
-InspectorPlugin 生成 scenes/_test_<char_name>.tscn（使用 .replace() 替换 {{CHAR_PATH}} 和 {{CHAR_NAME}}）
+InspectorPlugin 生成 test_scenes/_test_<char_name>.tscn（使用 .replace() 替换 {{CHAR_PATH}} 和 {{CHAR_NAME}}）
   ↓
 调用 EditorInterface.play_custom_scene() 运行测试
   ↓
  用户按 F8 退出测试
 ```
 
-**测试场景是生成物（重要）**：`scenes/_test_<char_name>.tscn` 每次点击 Run Test 都由 `inspector_plugin.gd` 内置模板字符串**整体重写**——对该文件的任何手工修改都会在下次点击时被覆盖；要改测试场景内容 = 改模板字符串。**写入是幂等的**：生成内容与磁盘一致时跳过写盘/扫描直接运行（编辑器打开着该场景也不会弹"硬盘变动"）；只有模板真正变化才落盘一次（此时编辑器会提示重载一次，Reload 后恢复安静）。模板当前包含 `ShadowRegion`（`res://scripts/shadow_region.gd`，游戏侧脚本）节点：`position=(50,400) size=(900,300) debug_preview=true`，用于演示"阴影可生成区域"裁剪与软边缓冲收缩（详见 `docs/SHADOW_SOFT_EDGE_DESIGN.md` §9）；`debug_preview` 仅测试场景开启，正式关卡的区域节点应保持 false（运行时零绘制）。
+**测试场景是生成物（重要）**：`test_scenes/_test_<char_name>.tscn`（**整个 `test_scenes/` 目录已 gitignore，不纳入版本控制**，随时可由模板再生）每次点击 Run Test 都由 `inspector_plugin.gd` 内置模板字符串**整体重写**——对该文件的任何手工修改都会在下次点击时被覆盖；要改测试场景内容 = 改模板字符串。**写入是幂等的**：生成内容与磁盘一致时跳过写盘/扫描直接运行（编辑器打开着该场景也不会弹"硬盘变动"）；只有模板真正变化才落盘一次（此时编辑器会提示重载一次，Reload 后恢复安静）。背景网格由 `res://scripts/debug_grid.gd`（Node2D + `_draw` 即时绘制，替代旧的 `grid_background.gdshader`，颜色经导出属性覆盖）绘制。模板当前包含 `ShadowRegion`（`res://scripts/shadow_region.gd`，游戏侧脚本）节点：`position=(50,400) size=(900,300) debug_preview=true`，用于演示"阴影可生成区域"裁剪与软边缓冲收缩（详见 `docs/SHADOW_SOFT_EDGE_DESIGN.md` §9）；`debug_preview` 仅测试场景开启，正式关卡的区域节点应保持 false（运行时零绘制）。
+
+> **目录约定**：`scenes/` 仅存放正式游戏场景（未来 `scenes/stages/` 等）；所有 Run Test 生成物（角色测试场景、法术测试场景及其 helper 脚本 `_test_spell_helper_*.gd`）统一输出到 `test_scenes/`（gitignore）。`create_new_spell/inspector_plugin.gd` 同样遵循幂等写盘 + `test_scenes/` 路径 + `debug_grid.gd` 背景。
 
 **为什么用 `.replace()` 而不是 `%` 运算符**：生成的测试场景中 `text = "...{{CHAR_NAME}}..."` 需要在 GDScript 里完成替换再写入磁盘。如果写成 `text = "...%s..." % char_name`，在 `.tscn` 文件里会被当成 GDScript 表达式在加载时再求值，但 `char_name` 变量在 `.tscn` 作用域里不存在，导致 `%s` 字面量被保留到 Label 文本中显示。使用 `.replace()` 模式彻底规避这个问题。
 
