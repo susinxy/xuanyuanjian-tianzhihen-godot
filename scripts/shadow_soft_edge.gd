@@ -58,7 +58,7 @@ func _ready() -> void:
 	_final.centered = true
 	add_child(_final)
 
-	_refresh_sizes(true)
+	_apply_params()               # 初始参数（首帧 _process 会按区域/视口重算尺寸）
 	process_priority = 100            # 离屏渲染在本帧所有 _process 之后统一发生，故此处顺序不敏感
 
 func _mk_vp(nm: String) -> SubViewport:
@@ -79,35 +79,49 @@ func _mk_blur(d: Vector2) -> ShaderMaterial:
 	m.set_shader_parameter("dir", d)
 	return m
 
-func _eff_scale() -> float:
-	if _full.x <= 0:
-		return 1.0
-	return float(_buf.x) / float(_full.x)
+## 启用的 ShadowRegion 世界矩形并集；无 → 空 Rect2
+func _region_union() -> Rect2:
+	var u := Rect2()
+	for n in get_tree().get_nodes_in_group(&"shadow_region"):
+		if n.has_method("world_rect"):
+			var r: Rect2 = n.world_rect()
+			if r.has_area():
+				u = r if not u.has_area() else u.merge(r)
+	return u
 
-func _calc_buf() -> Vector2i:
+## 按目标区域 R（ShadowRegion 并集，或当前相机视矩形=旧全屏行为）
+## 同步缓冲尺寸、离屏相机取景、合成 Sprite 的贴回位置/缩放
+func _sync(cam: Camera2D) -> void:
+	var center := cam.global_position
+	var size_world := Vector2(float(_full.x) / cam.zoom.x, float(_full.y) / cam.zoom.y)
+	var reg := _region_union()
+	if reg.has_area():
+		center = reg.get_center()
+		size_world = reg.size
 	var s: float = SCALES[clampi(scale_idx, 0, SCALES.size() - 1)]
-	var w := float(_full.x) * s
-	var h := float(_full.y) * s
-	var m: float = max(w, h)
+	var w := size_world.x * cam.zoom.x * s
+	var h := size_world.y * cam.zoom.y * s
+	var m: float = maxf(w, h)
 	if m > MAX_RT_DIM:
 		var k := float(MAX_RT_DIM) / m
 		w *= k
 		h *= k
-	return Vector2i(maxi(int(w), 1), maxi(int(h), 1))
-
-func _refresh_sizes(force: bool) -> void:
-	var cam := get_viewport().get_camera_2d()
-	if cam == null:
-		return
-	var vs := get_viewport().get_visible_rect().size
-	var nf := Vector2i(int(vs.x), int(vs.y))
-	if force or nf != _full:
-		_full = nf
-		_buf = _calc_buf()
+	var nbuf := Vector2i(maxi(int(w), 1), maxi(int(h), 1))
+	if nbuf != _buf:
+		_buf = nbuf
 		for sv in [_sub_shadow, _sub_h]:
 			(sv as Viewport).size = _buf
 		_h_rect.size = Vector2(_buf)
 		_apply_params()
+	# 离屏相机取景 = 恰好世界区域 R（区域外阴影被裁掉）
+	_shadow_cam.global_position = center
+	_shadow_cam.zoom = Vector2(float(_buf.x) / size_world.x, float(_buf.y) / size_world.y)
+	_shadow_cam.rotation = cam.rotation
+	# 合成 Sprite 贴回 = 覆盖同一块区域（尺寸/位置由 R 决定；观感与缓冲分辨率无关）
+	_final.texture = _sub_h.get_texture()
+	_final.visible = true
+	_final.position = center
+	_final.scale = Vector2(size_world.x / float(_buf.x), size_world.y / float(_buf.y))
 
 func _apply_params() -> void:
 	var texel := Vector2(1.0 / float(_buf.x), 1.0 / float(_buf.y))
@@ -125,8 +139,9 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("soft_edge_toggle"):
 		set_enabled(not enabled)
 		print("[ShadowSoftEdge] enabled=", enabled)
+	var vs := get_viewport().get_visible_rect().size
+	_full = Vector2i(int(vs.x), int(vs.y))
 	var cam := get_viewport().get_camera_2d()
-	_refresh_sizes(false)
 	if not enabled:
 		_final.visible = false
 		shadow_world.visible = false
@@ -136,19 +151,8 @@ func _process(_delta: float) -> void:
 		return
 	_set_buffers_update(SubViewport.UPDATE_ALWAYS)
 	shadow_world.visible = true
-	# 相机镜像（含分辨率放大），保持世界取景与主屏一致
-	_shadow_cam.global_position = cam.global_position
-	_shadow_cam.zoom = cam.zoom * _eff_scale()
-	_shadow_cam.rotation = cam.rotation
-	# 合成 Sprite：贴图给 UV，材质对 _sub_h(横模糊结果) 做末趟纵模糊
 	_final.z_index = composite_z
-	_final.texture = _sub_h.get_texture()
-	_final.visible = true
-	_final.position = cam.global_position
-	var zoom: float = cam.zoom.x
-	var eff: float = _eff_scale()
-	if zoom > 0.0 and eff > 0.0:
-		_final.scale = Vector2(1.0 / (zoom * eff), 1.0 / (zoom * eff))
+	_sync(cam)
 
 ## 供外部/UI 运行时切换
 func set_enabled(v: bool) -> void:

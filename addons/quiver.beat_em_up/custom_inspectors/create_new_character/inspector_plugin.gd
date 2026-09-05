@@ -85,7 +85,7 @@ func _on_character_test_requested(char_name: String) -> void:
 	# - 所有物体底部贴着 ground_level 线 (Y=500)
 	# - 物体 position.y = 480 (因为 radius=20)
 	# - 地面不需要物理碰撞，只有可视化
-	var test_scene_template = """[gd_scene load_steps=20 format=3]
+	var test_scene_template = """[gd_scene load_steps=21 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
@@ -98,6 +98,7 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
+[ext_resource type="Script" path="res://scripts/shadow_region.gd" id="13_shadow_region"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("8_attack_data")
@@ -283,6 +284,11 @@ text = "=== 2.5D 高度层 + 昼夜测试 ===
 1/2/3/4 → 切换 DAWN/DAY/DUSK/NIGHT
 O → 应用 3 秒光照覆盖（Boss 战变暗）
 
+阴影测试:
+L → 开/关软边(P2)
+T → 开/关阴影区域(绿框)
+走出绿框边界: 阴影被裁剪 / 出界无影
+
 观察: 角色阴影方向平滑过渡, 灯笼 DUSK/NIGHT 点亮"
 
 [node name="CanvasModulate" type="CanvasModulate" parent="."]
@@ -324,6 +330,12 @@ character = NodePath("../Character")
 [node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("6_knockout_overlay")
 character = NodePath("../Character")
+
+[node name="ShadowRegion" type="ReferenceRect" parent="."]
+script = ExtResource("13_shadow_region")
+position = Vector2(50, 400)
+size = Vector2(900, 300)
+debug_preview = true
 """
 	
 	var test_scene_content = test_scene_template\
