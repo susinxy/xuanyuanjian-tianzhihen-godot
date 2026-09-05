@@ -346,7 +346,16 @@ debug_preview = true
 	if not DirAccess.dir_exists_absolute("res://scenes"):
 		DirAccess.make_dir_recursive_absolute("res://scenes")
 	
-	# Write test scene
+	# Write test scene（幂等：内容未变则完全不写盘/不扫描/不等待——
+	# 避免编辑器对打开中的场景弹"硬盘变动请重载"；且 scan 无事发生时
+	# filesystem_changed 可能永不触发，await 会卡死）
+	var existing := ""
+	if FileAccess.file_exists(test_scene_path):
+		existing = FileAccess.get_file_as_string(test_scene_path)
+	if existing == test_scene_content:
+		EditorInterface.play_custom_scene(test_scene_path)
+		print("[CharacterCreator] Testing character '%s' - test scene unchanged, launched directly." % char_name)
+		return
 	var file = FileAccess.open(test_scene_path, FileAccess.WRITE)
 	if file == null:
 		push_error("[CharacterCreator] Failed to write test scene: %s" % test_scene_path)
