@@ -94,7 +94,7 @@ func _on_character_test_requested(char_name: String) -> void:
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
-[ext_resource type="Script" path="res://scripts/debug_grid.gd" id="9_debug_grid"]
+[ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
 [ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
@@ -139,7 +139,7 @@ fill_to = Vector2(0.5, 0)
 [node name="TestStage" type="Node2D"]
 
 [node name="Background" type="CanvasLayer" parent="."]
-script = ExtResource("9_debug_grid")
+script = ExtResource("9_debug_bg")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(2000, 600)

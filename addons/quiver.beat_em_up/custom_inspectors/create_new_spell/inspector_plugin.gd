@@ -83,7 +83,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 [ext_resource type="Script" path="" id="5_test_helper"]
 [ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
 [ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
-[ext_resource type="Script" path="res://scripts/debug_grid.gd" id="9_debug_grid"]
+[ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
 
 [sub_resource type="Resource" id="test_attack_data"]
 script = ExtResource("4_attack_data")
@@ -98,10 +98,9 @@ size = Vector2(8000, 200)
 [node name="TestSpellStage" type="Node2D"]
 
 [node name="Background" type="CanvasLayer" parent="."]
-script = ExtResource("9_debug_grid")
-bg_color = Color(0.06, 0.06, 0.06, 1)
-grid_color = Color(0.2, 0.2, 0.2, 1)
-sub_grid_color = Color(0.12, 0.12, 0.12, 1)
+script = ExtResource("9_debug_bg")
+top_color = Color(0.04, 0.04, 0.05, 1)
+bottom_color = Color(0.16, 0.16, 0.18, 1)
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(2000, 600)
