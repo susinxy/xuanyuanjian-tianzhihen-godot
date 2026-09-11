@@ -651,12 +651,10 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 	if sprite_frames == null:
 		return enabled_frames
 	
-	var fps := sprite_frames.get_animation_speed(sprite_anim_name)
-	if fps <= 0:
-		fps = 24.0
-	
-	var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
-	var frame_duration := 1.0 / fps
+	# 采样时刻 = :frame 轨道真实换帧时刻（无轨道时回退均匀节奏，等同旧行为）
+	var transitions := build_frame_transitions(anim, sprite_frames, sprite_anim_name)
+	if transitions.is_empty():
+		transitions = build_uniform_transitions(sprite_frames, sprite_anim_name)
 	
 	# 读取所有 keyframe（按时间排序）
 	var key_count := anim.track_get_key_count(track_idx)
@@ -667,11 +665,16 @@ func _parse_disabled_track(anim: Animation, track_idx: int, sprite_anim_name: St
 			"value": anim.track_get_key_value(track_idx, i),
 		})
 	
-	# 对每帧采样（离散模式：取最后一个 <= 帧时间的 keyframe 值）
+	# 对每个显示窗口（取首个过渡时刻）采样（离散模式：取最后一个 <= 时刻的 keyframe 值）
 	# 使用小容差（0.0001秒）处理浮点数精度问题
 	var epsilon := 0.0001
-	for frame_idx in range(frame_count):
-		var frame_time := float(frame_idx) * frame_duration
+	var seen := {}
+	for tr in transitions:
+		var frame_idx: int = tr["frame"]
+		if seen.has(frame_idx):
+			continue   # 同一帧多次出现：任一窗口 enabled 即算（首次已采，跳过重复）
+		seen[frame_idx] = true
+		var frame_time: float = tr["time"]
 		
 		var disabled_value: bool = true
 		for keyframe in keyframes:
@@ -753,6 +756,50 @@ func _mirror_polygon_x(polygon: PackedVector2Array) -> PackedVector2Array:
 	for vertex in polygon:
 		result.append(Vector2(-vertex.x, vertex.y))
 	return result
+
+
+## 构建"帧号 → 开始显示时刻"的过渡序列（注入/解析共用的唯一时间真源）。
+##
+## 不自行重实现曲线语义，而是用引擎 API Animation.value_track_interpolate() 探测
+## AnimatedSprite2D:frame 值轨道——Nearest/Linear/Cubic、easing(transition)、
+## 越界钳制（镜像 set_frame 的 clamp）、离散更新等全部由引擎本人回答。
+## 返回: [{frame:int, time:float}...] 按时间升序；空数组 = 无 :frame 轨道（调用方回退）。
+static func build_frame_transitions(
+	anim: Animation, sprite_frames: SpriteFrames, sprite_anim_name: String
+) -> Array:
+	var frame_track := anim.find_track("AnimatedSprite2D:frame", Animation.TYPE_VALUE)
+	if frame_track < 0 or anim.track_get_key_count(frame_track) == 0:
+		return []
+	var frame_count := sprite_frames.get_frame_count(sprite_anim_name)
+	if frame_count <= 0 or anim.length <= 0.0:
+		return []
+	# 采样步长：每个帧槽至少 4 个采样点，且不超过动画自身 step
+	var dt: float = minf(anim.step, anim.length / (float(frame_count) * 4.0))
+	dt = maxf(dt, 0.0001)
+	var transitions: Array = []
+	var prev_frame := -1
+	var t := 0.0
+	while t <= anim.length + 0.000001:
+		var raw: int = anim.value_track_interpolate(frame_track, t)
+		var v := clampi(raw, 0, frame_count - 1)   # 引擎对越界帧号做钳制显示
+		if v != prev_frame:
+			transitions.append({ "frame": v, "time": t })
+			prev_frame = v
+		t += dt
+	return transitions
+
+
+## 均匀节奏回退表（无有效 :frame 轨道时）：与旧行为完全一致（帧号 ÷ SpriteFrames 速度）
+static func build_uniform_transitions(
+	sprite_frames: SpriteFrames, sprite_anim_name: String
+) -> Array:
+	var out: Array = []
+	var fps := sprite_frames.get_animation_speed(sprite_anim_name)
+	if fps <= 0.0:
+		fps = 24.0
+	for i in sprite_frames.get_frame_count(sprite_anim_name):
+		out.append({ "frame": i, "time": float(i) / fps })
+	return out
 
 
 ## 测试单个 PNG 文件的轮廓提取效果（不修改任何文件）
@@ -1201,8 +1248,11 @@ func _inject_all_tracks(
 			
 			var anim_modified := false
 			var flip_track_data := _extract_flip_h_track(anim)
-			var sprite_fps := sprite_frames.get_animation_speed(sprite_anim_name)
-			var frame_duration: float = 1.0 / max(1.0, sprite_fps)
+			# 时间真源 = :frame 轨道的实际换帧时刻（引擎插值结果）；无轨道回退旧均匀节奏并警告
+			var transitions := build_frame_transitions(anim, sprite_frames, sprite_anim_name)
+			if transitions.is_empty():
+				transitions = build_uniform_transitions(sprite_frames, sprite_anim_name)
+				errors.append("动画 '%s' 无有效 :frame 轨道，形状轨道按 SpriteFrames 均匀速度注入" % anim_name)
 			
 			# 内层：按 shape 写入 per-shape tracks
 			for node_info in shape_nodes:
@@ -1229,16 +1279,17 @@ func _inject_all_tracks(
 					var path: String = node_info["shape_path"] + ":" + prop
 					track_indices[prop] = _find_or_add_value_track(anim, path)
 				
-				# 逐帧插入关键帧
+				# 逐过渡插入关键帧（时刻=真实换帧点；未扫描/无数据的帧自然跳过）
 				var prev_values := {}
-				for frame_idx in range(sprite_frames.get_frame_count(sprite_anim_name)):
+				for tr in transitions:
+					var frame_idx: int = tr["frame"]
 					if not frame_dict.has(frame_idx):
 						continue
 					if enabled_frames is Array and not enabled_frames.is_empty() and frame_idx not in enabled_frames:
 						continue
 					
 					var frame_info: Dictionary = frame_dict[frame_idx]
-					var time: float = float(frame_idx) * frame_duration
+					var time: float = tr["time"]
 					
 					for prop in shape_tracks:
 						var value := _get_track_value(prop, frame_info, shape_type, flip_track_data, time)
@@ -1256,16 +1307,16 @@ func _inject_all_tracks(
 			
 			# 共享 tracks
 			if category == "body":
-				_inject_width_track(anim, frame_dict, sprite_fps)
-				_inject_physical_height_track(anim, frame_dict, sprite_fps)
+				_inject_width_track(anim, frame_dict, transitions)
+				_inject_physical_height_track(anim, frame_dict, transitions)
 				if _frame_dict_has_shadow_contours(frame_dict):
-					_inject_occluder_polygon_tracks(anim, frame_dict, sprite_fps, flip_track_data)
+					_inject_occluder_polygon_tracks(anim, frame_dict, transitions, flip_track_data)
 				anim_modified = true
 			elif category == "attack":
 				var heights_frame_dict := {}
 				for fi in frame_dict:
 					heights_frame_dict[fi] = { "attack_heights": frame_dict[fi].get("attack_heights", []) }
-				_inject_attack_heights_track(anim, heights_frame_dict, sprite_fps)
+				_inject_attack_heights_track(anim, heights_frame_dict, transitions)
 				anim_modified = true
 			
 			# 每个动画标记为已修改并立即保存到磁盘
@@ -1350,20 +1401,20 @@ func _get_track_value(
 func _inject_width_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float
+	transitions: Array
 ) -> void:
 	var width_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_WIDTH)
 	_clear_track_keys(anim, width_track_idx)
 	
 	var prev_width: float = -1.0
-	
-	for frame_idx in frame_dict.keys():
-		var frame_info: Dictionary = frame_dict[frame_idx]
-		var current_width: float = frame_info.get("width", 0.0)
+	for tr in transitions:
+		var frame_idx: int = tr["frame"]
+		if not frame_dict.has(frame_idx):
+			continue
+		var current_width: float = frame_dict[frame_idx].get("width", 0.0)
 		
 		if current_width != prev_width:
-			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			anim.track_insert_key(width_track_idx, time, current_width)
+			anim.track_insert_key(width_track_idx, tr["time"], current_width)
 			prev_width = current_width
 
 
@@ -1371,20 +1422,20 @@ func _inject_width_track(
 func _inject_physical_height_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float
+	transitions: Array
 ) -> void:
 	var height_track_idx := _find_or_add_value_track(anim, TRACK_PATH_PHYSICAL_HEIGHT)
 	_clear_track_keys(anim, height_track_idx)
 	
 	var prev_height: float = -1.0
-	
-	for frame_idx in frame_dict.keys():
-		var frame_info: Dictionary = frame_dict[frame_idx]
-		var current_height: float = frame_info.get("physical_height", 0.0)
+	for tr in transitions:
+		var frame_idx: int = tr["frame"]
+		if not frame_dict.has(frame_idx):
+			continue
+		var current_height: float = frame_dict[frame_idx].get("physical_height", 0.0)
 		
 		if current_height != prev_height:
-			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			anim.track_insert_key(height_track_idx, time, current_height)
+			anim.track_insert_key(height_track_idx, tr["time"], current_height)
 			prev_height = current_height
 
 
@@ -1407,7 +1458,7 @@ func _frame_dict_has_shadow_contours(frame_dict: Dictionary) -> bool:
 func _inject_occluder_polygon_tracks(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float,
+	transitions: Array,
 	flip_track_data: Array
 ) -> void:
 	var polygon_track_idx := _find_or_add_value_track(anim, TRACK_PATH_SHADOW_OCCLUDER_POLYGON)
@@ -1416,14 +1467,17 @@ func _inject_occluder_polygon_tracks(
 	var prev_polygon: PackedVector2Array = PackedVector2Array()
 	var has_prev := false
 	
-	for frame_idx in frame_dict.keys():
+	for tr in transitions:
+		var frame_idx: int = tr["frame"]
+		if not frame_dict.has(frame_idx):
+			continue
 		var frame_info: Dictionary = frame_dict[frame_idx]
 		var shadow_contours: Array = frame_info.get("shadow_contours", [])
 		if shadow_contours.is_empty():
 			continue
 		
 		var polygon: PackedVector2Array = shadow_contours[0]
-		var time: float = float(frame_idx) * (1.0 / sprite_fps)
+		var time: float = tr["time"]
 		
 		# 复用调用方已提取的 flip_track_data
 		if _is_flipped_at_time(flip_track_data, time):
@@ -1439,20 +1493,22 @@ func _inject_occluder_polygon_tracks(
 func _inject_attack_heights_track(
 	anim: Animation,
 	frame_dict: Dictionary,
-	sprite_fps: float
+	transitions: Array
 ) -> void:
 	var heights_track_idx := _find_or_add_value_track(anim, TRACK_PATH_ATTACK_HEIGHTS)
 	_clear_track_keys(anim, heights_track_idx)
 	
 	var prev_heights: Array = []
 	
-	for frame_idx in frame_dict.keys():
+	for tr in transitions:
+		var frame_idx: int = tr["frame"]
+		if not frame_dict.has(frame_idx):
+			continue
 		var frame_info: Dictionary = frame_dict[frame_idx]
 		var current_heights: Array = frame_info.get("attack_heights", [])
 		
 		if current_heights != prev_heights:
-			var time: float = float(frame_idx) * (1.0 / sprite_fps)
-			anim.track_insert_key(heights_track_idx, time, current_heights)
+			anim.track_insert_key(heights_track_idx, tr["time"], current_heights)
 			prev_heights = current_heights
 
 

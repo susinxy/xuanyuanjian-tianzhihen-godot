@@ -1302,6 +1302,7 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
        - 配套：`quiver_character.gd` 的 `_create_shadow_renderer()` 现创建 **Node2D**（`z_index = -1`）并挂 `character_shadow_controller.gd`，控制器内部再建 Polygon2D 子节点渲染；不再是旧的 `Sprite2D` + 平行四边形 vertex 变形方案
 11. 构建 per-shape 过滤映射
 12. 统一轨道注入（`_inject_all_tracks()`）
+    - **关键帧时间真源**：所有注入/解析时刻来自 `AnimationTrackInjector.build_frame_transitions()`——用引擎 `Animation.value_track_interpolate()` 探测 `AnimatedSprite2D:frame` 轨道的"帧号→开始显示时刻"过渡表（Nearest/Linear/Cubic、easing、越界钳制由引擎本人回答，注入器不重实现曲线语义）。**不再假设"帧均匀分布在 帧号÷SpriteFrames速度"**（该假设在动画拉长/压缩时长或非均匀键位时导致注入轨道与画面错位）。无有效 :frame 轨道时回退均匀节奏（=旧行为）并向结果 errors 追加警告；`_parse_disabled_track` 的 enabled 帧采样亦用同一时间表，flip 镜像判定随之自然对齐
 13. 返回结果
 
 #### 15.5.3 场景树操作
