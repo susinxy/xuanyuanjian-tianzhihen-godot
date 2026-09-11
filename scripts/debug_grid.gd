@@ -47,8 +47,11 @@ func _draw_grid() -> void:
 	var zoom: float = cam.zoom.x
 	if zoom <= 0.0001:
 		return
-	var xform := cam.get_screen_transform()          # 世界坐标 → 屏幕像素
-	var inv := xform.affine_inverse()
+	# 注意必须用视口的 canvas transform（世界→屏幕观察变换，由 Camera2D._update_scroll 每帧写入）。
+	# cam.get_screen_transform() 是 Node2D 的"本节点在屏幕中的摆放"变换——相机恒居屏幕中心，
+	# 那是与相机位置无关的常量，误用会把网格钉死在屏幕上（线"跟着角色走"的根因）。
+	var xform := _view.get_viewport().get_canvas_transform()   # 世界坐标 → 屏幕像素
+	var inv := xform.affine_inverse()                          # 屏幕 → 世界（求可见范围）
 	var w_tl := inv * Vector2.ZERO
 	var w_br := inv * size
 	
