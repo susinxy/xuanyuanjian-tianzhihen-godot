@@ -510,7 +510,7 @@ func _convert_contours_common(
 	# 11b. 确保 ShadowBox 节点存在（仅 body 且启用了 shadow 扫描时）
 	# 旧模板创建的角色可能没有 ShadowBox，此处自动补建
 	if shadow_scan_enabled:
-		_ensure_shadow_occluder_exists(skin_node)
+		_ensure_shadow_occluder_exists(skin_node, result.errors)
 	
 	# 12. 构建 per-shape 过滤映射
 	var per_shape_filters := {}
@@ -520,7 +520,7 @@ func _convert_contours_common(
 	
 	# 13. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
 	if anim_player != null:
-		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, result.errors, skin_scene_path, shape_type_changed)
+		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, result.errors, skin_scene_path, shape_type_changed, skin_node)
 	
 	result.frames_info = frames_data
 	return result
@@ -1222,11 +1222,15 @@ func _inject_all_tracks(
 	per_shape_filters: Dictionary,
 	errors: Array[String],
 	tscn_path: String,
-	shape_type_changed: Dictionary
+	shape_type_changed: Dictionary,
+	skin_node: Node
 ) -> void:
 	var config: Dictionary = SHAPE_CONFIGS[shape_type]
 	var shape_tracks: Array = config["tracks"]
 	var category: String = shape_nodes[0]["category"] if shape_nodes.size() > 0 else ""
+	# 静态默认值回写收集：{ track_path: t=0 键值 }（首个未翻转动画优先）
+	var static_defaults := {}
+	var static_from_unflipped := {}
 	
 	for lib_name in anim_player.get_animation_library_list():
 		var library: AnimationLibrary = anim_player.get_animation_library(lib_name)
@@ -1321,12 +1325,67 @@ func _inject_all_tracks(
 			
 			# 每个动画标记为已修改并立即保存到磁盘
 			if anim_modified:
+				_collect_static_defaults(anim, flip_track_data, static_defaults, static_from_unflipped)
 				anim.emit_changed()
 				var resource_path := anim.resource_path
 				if not resource_path.is_empty():
 					var err := ResourceSaver.save(anim, resource_path)
 					if err != OK:
 						errors.append("动画 '%s' 保存失败 (error=%d)" % [anim_name, err])
+	
+	# 把 t=0 键值回写到场景节点/资源的静态默认值
+	# （编辑器视口在不播放动画时显示的就是这些静态值，消除陈旧值假象）
+	_apply_static_defaults(skin_node, static_defaults)
+
+
+## 从动画收集 t=0 键值作为节点静态默认值候选
+## 只收纯场景节点几何属性：CollisionPolygon2D 的 polygon/position/rotation、
+## ShadowBox 的 occluder:polygon
+## 不收：".:" 根节点属性（physical_* 为运行时状态）、"shape:*" 资源属性（资源可能跨节点复用）
+## 优先级：首个未 flip 的动画 > 首个 flip 的动画（静态值默认朝右）
+func _collect_static_defaults(
+	anim: Animation,
+	flip_track_data: Array,
+	static_defaults: Dictionary,
+	static_from_unflipped: Dictionary
+) -> void:
+	var flipped_at_zero := _is_flipped_at_time(flip_track_data, 0.0)
+	for track_idx in range(anim.get_track_count()):
+		if anim.track_get_type(track_idx) != Animation.TYPE_VALUE:
+			continue
+		if anim.track_get_key_count(track_idx) == 0:
+			continue
+		if anim.track_get_key_time(track_idx, 0) > 0.0001:
+			continue
+		var track_path := str(anim.track_get_path(track_idx))
+		var parts := track_path.split(":")
+		var accept := false
+		if parts.size() == 2 and parts[0] != "." and parts[1] in ["polygon", "position", "rotation"]:
+			accept = true
+		elif parts.size() == 3 and parts[1] == "occluder" and parts[2] == "polygon":
+			accept = true
+		if not accept:
+			continue
+		if static_defaults.has(track_path) and static_from_unflipped[track_path]:
+			continue
+		static_defaults[track_path] = anim.track_get_key_value(track_idx, 0)
+		static_from_unflipped[track_path] = not flipped_at_zero
+
+
+## 把收集到的 t=0 值写回 skin_node 场景树的节点/内嵌资源静态属性
+## 注意：只改内存场景树，落盘仍由用户在编辑器 Ctrl+S 完成（与 _modify_scene_tree_node 同生命周期）
+func _apply_static_defaults(skin_node: Node, static_defaults: Dictionary) -> void:
+	for track_path in static_defaults:
+		var parts: PackedStringArray = str(track_path).split(":")
+		var target := skin_node.get_node_or_null(NodePath(parts[0]))
+		if target == null:
+			continue
+		if parts.size() == 3:
+			var res_obj = target.get(parts[1])
+			if res_obj is Resource:
+				res_obj.set(parts[2], static_defaults[track_path])
+		else:
+			target.set(parts[1], static_defaults[track_path])
 
 
 ## 获取 track 属性值（含 flip_h 镜像）
@@ -1625,12 +1684,18 @@ func _modify_scene_tree_node(
 ## 确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D) 节点
 ## 不存在则创建：LightOccluder2D（name="ShadowBox", sdf_collision=false）
 ## + OccluderPolygon2D（closed=true，空 polygon，由动画 track 逐帧驱动）
-## 已存在则不做任何操作（保留现有 occluder，track 注入会覆盖 polygon）
-func _ensure_shadow_occluder_exists(skin_node: Node) -> void:
+## 已存在则强制 position 归零：注入的 occluder:polygon 以 sprite 中心为原点，
+## 节点任何偏移都会让影子整体错位（编辑器误触移动是常见事故源）
+func _ensure_shadow_occluder_exists(skin_node: Node, errors: Array[String]) -> void:
 	var sprite_node := skin_node.get_node_or_null("AnimatedSprite2D")
 	if sprite_node == null:
 		return
 	if sprite_node.has_node("ShadowBox"):
+		var existing := sprite_node.get_node("ShadowBox") as LightOccluder2D
+		if existing != null and existing.position != Vector2.ZERO:
+			var old_offset: Vector2 = existing.position
+			existing.position = Vector2.ZERO
+			errors.append("ShadowBox 节点偏移 %s 已强制重置为 (0,0)——occluder 坐标系必须与 sprite 中心对齐" % str(old_offset))
 		return
 	
 	var occluder_polygon := OccluderPolygon2D.new()

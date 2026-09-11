@@ -1297,12 +1297,13 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
 8. 如果 `dry_run`：返回 frames_data 不做修改
 9. 预计算 shape 类型变更状态（检测当前 vs 目标类型）
 10. 修改场景树节点（仅当类型不匹配时，`_modify_scene_tree_node()`）
-     - **10b. `_ensure_shadow_occluder_exists()`**（仅 shadow 扫描启用时）：确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D，`sdf_collision = false`)，不存在则自动创建
+     - **10b. `_ensure_shadow_occluder_exists(skin_node, errors)`**（仅 shadow 扫描启用时）：确保 AnimatedSprite2D 下存在 ShadowBox (LightOccluder2D，`sdf_collision = false`)，不存在则自动创建；**已存在但 `position != (0,0)` 时强制归零并向 errors 追加警告**（注入的 occluder:polygon 以 sprite 中心为原点，节点偏移=影子整体错位，编辑器误触移动是常见事故源）
        - 阴影方案已从旧 SDF ray-march 改为 **polygon 投影**：ShadowBox 不再写入 SDF 纹理（故 `sdf_collision = false`），其 `occluder.polygon` 仅作为逐帧轮廓数据源，由项目侧 `scripts/character_shadow_controller.gd` 读取并做仿射投影到地面
        - 配套：`quiver_character.gd` 的 `_create_shadow_renderer()` 现创建 **Node2D**（`z_index = -1`）并挂 `character_shadow_controller.gd`，控制器内部再建 Polygon2D 子节点渲染；不再是旧的 `Sprite2D` + 平行四边形 vertex 变形方案
 11. 构建 per-shape 过滤映射
 12. 统一轨道注入（`_inject_all_tracks()`）
     - **关键帧时间真源**：所有注入/解析时刻来自 `AnimationTrackInjector.build_frame_transitions()`——用引擎 `Animation.value_track_interpolate()` 探测 `AnimatedSprite2D:frame` 轨道的"帧号→开始显示时刻"过渡表（Nearest/Linear/Cubic、easing、越界钳制由引擎本人回答，注入器不重实现曲线语义）。**不再假设"帧均匀分布在 帧号÷SpriteFrames速度"**（该假设在动画拉长/压缩时长或非均匀键位时导致注入轨道与画面错位）。无有效 :frame 轨道时回退均匀节奏（=旧行为）并向结果 errors 追加警告；`_parse_disabled_track` 的 enabled 帧采样亦用同一时间表，flip 镜像判定随之自然对齐
+    - **静态默认值回写**（`_collect_static_defaults()` + `_apply_static_defaults()`）：注入完成后把各动画 **t=0 键值**写回场景树节点/内嵌资源的静态属性（`CollisionPolygon2D.polygon/position/rotation`、`ShadowBox.occluder.polygon`），使编辑器视口**不播放动画时**显示真实数据而非陈旧残留值。优先级：首个未 flip 动画 > 首个 flip 动画；不回写 `.:` 根属性（physical_* 为运行时状态）与 `shape:*` 资源属性（可能跨节点复用）。落盘随用户 Ctrl+S（与 `_modify_scene_tree_node` 同生命周期）
 13. 返回结果
 
 #### 15.5.3 场景树操作
