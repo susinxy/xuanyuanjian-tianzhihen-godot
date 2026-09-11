@@ -1113,18 +1113,32 @@ func _parse_begin(object: Object) -> void:
 ```
 custom_inspectors/height_layers/
 ├── inspector_plugin.gd              # EditorInspectorPlugin 入口
-├── height_layers_widget.gd          # Inspector UI 组件（VBoxContainer, @tool）
+├── height_layers_widget.gd          # Inspector UI 组件（VBoxContainer, @tool，纯视图、可弃）
 ├── height_layers_widget.tscn        # Widget 场景
+├── contour_conversion_runner.gd     # 轮廓转换运行器（extends Node, @tool, class_name ContourConversionRunner，常驻编辑器树）
 ├── animation_track_injector.gd      # 轨道注入核心 + 轮廓转换管道（extends RefCounted, @tool）
 ├── contour_tracer.gd                # 轮廓提取 + 几何计算（extends RefCounted, 全静态方法, @tool）
 └── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool）
 ```
 
+**Widget 生命周期契约（重要，4.7 源码实证）**：
+
+`EditorInspector::_clear()` 在每次重解析（切换选中节点、场景保存刷新等）时用 **memdelete 立即销毁** Inspector 内的自定义控件——widget 是"每次重生"的易碎视图，任何存在 widget 实例上的状态（文字、正在跑的协程）都会丢。因此：
+
+- **长任务协程必须挂在 `ContourConversionRunner`**（`get_or_create()` 单例，add_child 到 `EditorInterface.get_base_control()`，编辑器会话内常驻），widget 只负责 `start()` 与订阅 `progress_updated` / `run_finished` 后 `_refresh_from_runner()` 回放状态快照 → 切页不再丢失进度文字，帧让出宿主恒有效（不再假死）
+- widget 死亡时其对 runner 信号的连接由 Godot 自动断开，无需手动清理
+- runner 转换完成后**自行**调用 `EditorInterface.get_resource_filesystem().scan()`（旧 widget `scan_completed` 信号 → plugin 中转链已废除，widget 半路死亡会断链）
+- 转换期间关闭目标场景页签：runner 在下一次进度回调检测 `is_instance_valid(_active_skin)` 失败 → `_session+1` 作废旧协程收尾权 → 立即 `_finalize` 报错并复位 `is_running`（不会永久卡运行态）
+- 防 class_name 缓存时序问题：widget 经 `const preload` 引用 runner 与 injector（新文件同步到另一台机器后首启即编译，不依赖全局类注册时机）
+
 **工作流程（轮廓转换）**：
 ```
 用户点击 Body 轮廓转换 / Attack 轮廓转换
   ↓
-AnimationTrackInjector.convert_body_contours() / convert_attack_contours()
+HeightLayersWidget._start_conversion() → 参数持久化 + ContourConversionRunner.start()
+  ↓
+Runner._execute() → AnimationTrackInjector.convert_body_contours() / convert_attack_contours()
+                    （callback_obj = runner：进度回调 + get_tree() 帧让出）
   ↓
 1. 扫描 PNG 图像，提取轮廓（_scan_frames_contours + ContourTracer）
 2. 后处理：计算 MABR、胶囊体参数、物理高度、攻击高度
@@ -1151,9 +1165,10 @@ Inspector 面板中的轮廓转换工具，从角色 sprite PNG 图像自动提�
 **组件依赖图**：
 ```
 inspector_plugin.gd (EditorInspectorPlugin)
-    └── height_layers_widget.gd (VBoxContainer, Inspector UI)
-            ├── animation_track_injector.gd (RefCounted, 转换管道编排)
-            │       └── contour_tracer.gd (RefCounted, 静态几何计算)
+    └── height_layers_widget.gd (VBoxContainer, Inspector UI，纯视图)
+            └── contour_conversion_runner.gd (Node 单例，常驻 base_control，长任务宿主)
+                    └── animation_track_injector.gd (RefCounted, 转换管道编排)
+                            └── contour_tracer.gd (RefCounted, 静态几何计算)
             └── mask_editor_dialog.gd (AcceptDialog, 蒙版绘制)
                     └── contour_tracer.gd (预览用)
 ```

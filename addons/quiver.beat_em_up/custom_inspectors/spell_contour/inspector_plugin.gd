@@ -33,10 +33,6 @@ func _parse_begin(object: Object) -> void:
 	if widget == null:
 		return
 	widget.hide_body_button()
-	QuiverEditorHelper.connect_between(widget.scan_completed, _on_scan_completed)
 	add_custom_control(widget)
 	widget.set_skin_node(object)
 
-
-func _on_scan_completed(anim_count: int, frame_count: int, error_count: int) -> void:
-	EditorInterface.get_resource_filesystem().scan()

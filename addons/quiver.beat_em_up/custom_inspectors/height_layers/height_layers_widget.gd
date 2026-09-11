@@ -16,14 +16,22 @@ extends VBoxContainer
 ##    c. 注入 value tracks / method tracks 到 Animation 资源
 ##    d. 保存 .tres 文件
 ## 4. 显示扫描结果
-
-signal scan_completed(anim_count: int, frame_count: int, error_count: int)
+##
+## 注：轮廓转换为长任务，实际协程跑在常驻的 ContourConversionRunner 上
+## （widget 会被 EditorInspector 每次重解析 memdelete，见 runner 脚本头注释）
 
 ### Member Variables and Dependencies -------------------------------------------------------------
 
 const AnimationTrackInjector = preload(
 	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
 	+ "animation_track_injector.gd"
+)
+
+## 用 const preload 而非全局类名引用：不依赖 class_name 缓存重建时机，
+## 新文件经 Syncthing 同步到 Windows 后首次启动编辑器也不会报"找不到类"
+const ContourConversionRunner = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "contour_conversion_runner.gd"
 )
 
 # 持久化文件路径（跨 widget 重建）
@@ -49,7 +57,6 @@ var _body_contour_btn: Button
 var _attack_contour_btn: Button
 var _contour_status_label: Label
 var _contour_result_label: RichTextLabel
-var _current_contour_mode: String = "Body"
 var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
@@ -98,6 +105,14 @@ func _ready() -> void:
 	_shape_type_option.selected = _persisted_shape_type
 	_shadow_simplify_tolerance_spinbox.value = _persisted_shadow_simplify_tolerance
 	_shadow_min_area_ratio_spinbox.value = _persisted_shadow_min_area_ratio
+	
+	# 订阅常驻 runner 状态：widget 每次被 Inspector 销毁重建后，
+	# 从 runner 恢复"运行中进度 / 上次结果"文字（不再被刷新冲掉）
+	var runner := ContourConversionRunner.get_or_create()
+	if runner != null:
+		QuiverEditorHelper.connect_between(runner.progress_updated, _refresh_from_runner)
+		QuiverEditorHelper.connect_between(runner.run_finished, _refresh_from_runner)
+		_refresh_from_runner()
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -295,12 +310,28 @@ func _build_ui() -> void:
 		_body_contour_btn.tooltip_text = "法术不需要 Body 轮廓转换"
 
 
-## 轮廓转换进度回调
-func _on_contour_progress(current: int, total: int, filename: String, phase: String = "") -> void:
-	if phase != "":
-		_contour_status_label.text = "⏳ [%s] 轮廓扫描: %d/%d 帧 (%s)" % [phase, current, total, filename]
+## 从常驻 runner 刷新状态/结果/按钮（widget 重建后恢复 + 运行中实时跟随）
+func _refresh_from_runner() -> void:
+	var runner := ContourConversionRunner.peek()
+	if runner == null or _contour_status_label == null:
+		return
+	if runner.is_running:
+		var text := runner.progress_text if not runner.progress_text.is_empty() else runner.status_text
+		_contour_status_label.text = text
+		_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
+		if not runner.result_text.is_empty():
+			_contour_result_label.text = runner.result_text
+		_body_contour_btn.disabled = true
+		_attack_contour_btn.disabled = true
 	else:
-		_contour_status_label.text = "⏳ %s 转换中: %d 帧 (%s)" % [_current_contour_mode, current, filename]
+		if not runner.status_text.is_empty():
+			_contour_status_label.text = runner.status_text
+			_contour_status_label.add_theme_color_override("font_color", runner.status_color)
+		if not runner.result_text.is_empty():
+			_contour_result_label.text = runner.result_text
+		# 恢复按钮状态（法术模式下 Body 保持禁用）
+		_body_contour_btn.disabled = not _show_body_button
+		_attack_contour_btn.disabled = false
 
 
 ## 碰撞形状类型切换时设置默认参数
@@ -315,39 +346,22 @@ func _on_shape_type_changed(index: int) -> void:
 
 
 func _on_body_contour_pressed() -> void:
-	if _skin_node == null:
-		return
-	_current_contour_mode = "Body"
-	_body_contour_btn.disabled = true
-	_attack_contour_btn.disabled = true
-	
-	_contour_status_label.text = "⏳ Body 轮廓转换中..."
-	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
-	
-	await get_tree().process_frame
-	await get_tree().process_frame
-	
-	_execute_contour_conversion_async("body")
+	_start_conversion("body")
 
 
 func _on_attack_contour_pressed() -> void:
+	_start_conversion("attack")
+
+
+## 收集当前 UI 参数并持久化，交给常驻 runner 执行
+## （协程不在 widget 内跑：切页销毁 widget 不影响转换与进度显示）
+func _start_conversion(mode: String) -> void:
 	if _skin_node == null:
 		return
-	_current_contour_mode = "Attack"
-	_body_contour_btn.disabled = true
-	_attack_contour_btn.disabled = true
+	var runner := ContourConversionRunner.get_or_create()
+	if runner == null or runner.is_running:
+		return
 	
-	_contour_status_label.text = "⏳ Attack 轮廓转换中..."
-	_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
-	
-	await get_tree().process_frame
-	await get_tree().process_frame
-	
-	_execute_contour_conversion_async("attack")
-
-
-func _execute_contour_conversion_async(mode: String) -> void:
-	# 保存当前参数到 static 变量（持久化）
 	_persisted_alpha_threshold = _alpha_threshold_spinbox.value
 	_persisted_simplify_tolerance = _simplify_tolerance_spinbox.value
 	_persisted_min_area_ratio = _min_area_ratio_spinbox.value
@@ -356,56 +370,15 @@ func _execute_contour_conversion_async(mode: String) -> void:
 	_persisted_shadow_simplify_tolerance = _shadow_simplify_tolerance_spinbox.value
 	_persisted_shadow_min_area_ratio = _shadow_min_area_ratio_spinbox.value
 	
-	var injector := AnimationTrackInjector.new()
-	var alpha_threshold: float = _alpha_threshold_spinbox.value
-	var simplify_tolerance: float = _simplify_tolerance_spinbox.value
-	var min_area_ratio: float = _min_area_ratio_spinbox.value
-	var erosion_radius: int = int(_erosion_radius_spinbox.value)
-	var shape_type: int = _shape_type_option.selected
-	var shadow_simplify_tolerance: float = _shadow_simplify_tolerance_spinbox.value
-	var shadow_min_area_ratio: float = _shadow_min_area_ratio_spinbox.value
-	
-	var result: Dictionary
-	if mode == "body":
-		result = await injector.convert_body_contours(
-			_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio,
-			erosion_radius, shape_type, false, self,
-			shadow_simplify_tolerance, shadow_min_area_ratio
-		)
-	else:
-		result = await injector.convert_attack_contours(_skin_node, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, shape_type, false, self)
-	
-	# 显示结果
-	var error_count: int = result.errors.size()
-	var frame_count: int = result.frame_count
-	
-	var lines := []
-	lines.append("[b]%s 轮廓转换结果[/b]" % ("Body" if mode == "body" else "Attack"))
-	lines.append("")
-	lines.append("处理帧数: [b]%d[/b]" % frame_count)
-	lines.append("")
-	
-	if error_count == 0:
-		lines.append("[color=green]✅ 转换完成，无错误[/color]")
-	else:
-		lines.append("[color=red]❌ 有 %d 个错误：[/color]" % error_count)
-		for error in result.errors:
-			lines.append("  • %s" % error)
-	
-	_contour_result_label.text = "\n".join(lines)
-	
-	# 恢复按钮状态（法术模式下 Body 保持禁用）
-	_body_contour_btn.disabled = not _show_body_button
-	_attack_contour_btn.disabled = false
-	
-	if error_count == 0:
-		_contour_status_label.text = "✅ %s 转换完成" % ("Body" if mode == "body" else "Attack")
-		_contour_status_label.add_theme_color_override("font_color", Color.GREEN)
-	else:
-		_contour_status_label.text = "⚠️ %s 转换完成，有 %d 个错误" % ["Body" if mode == "body" else "Attack", error_count]
-		_contour_status_label.add_theme_color_override("font_color", Color.ORANGE)
-	
-	scan_completed.emit(0, frame_count, error_count)
+	runner.start(mode, _skin_node, {
+		"alpha_threshold": _alpha_threshold_spinbox.value,
+		"simplify_tolerance": _simplify_tolerance_spinbox.value,
+		"min_area_ratio": _min_area_ratio_spinbox.value,
+		"erosion_radius": int(_erosion_radius_spinbox.value),
+		"shape_type": _shape_type_option.selected,
+		"shadow_simplify_tolerance": _shadow_simplify_tolerance_spinbox.value,
+		"shadow_min_area_ratio": _shadow_min_area_ratio_spinbox.value,
+	})
 
 
 ## 构建单文件测试 UI

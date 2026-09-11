@@ -36,11 +36,5 @@ func _parse_begin(object: Object) -> void:
 	if widget == null:
 		return
 	# 先添加到场景树触发 _ready()，再调用 set_skin_node()
-	QuiverEditorHelper.connect_between(widget.scan_completed, _on_scan_completed)
 	add_custom_control(widget)
 	widget.set_skin_node(object)
-
-
-func _on_scan_completed(anim_count: int, frame_count: int, error_count: int) -> void:
-	# 扫描完成后刷新文件系统，让资源更新可见
-	EditorInterface.get_resource_filesystem().scan()
