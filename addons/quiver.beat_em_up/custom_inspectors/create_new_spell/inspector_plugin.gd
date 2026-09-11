@@ -97,7 +97,7 @@ size = Vector2(8000, 200)
 
 [node name="TestSpellStage" type="Node2D"]
 
-[node name="Background" type="Node2D" parent="."]
+[node name="Background" type="CanvasLayer" parent="."]
 script = ExtResource("9_debug_grid")
 bg_color = Color(0.06, 0.06, 0.06, 1)
 grid_color = Color(0.2, 0.2, 0.2, 1)

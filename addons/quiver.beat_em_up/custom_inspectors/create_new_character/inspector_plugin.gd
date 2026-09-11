@@ -138,7 +138,7 @@ fill_to = Vector2(0.5, 0)
 
 [node name="TestStage" type="Node2D"]
 
-[node name="Background" type="Node2D" parent="."]
+[node name="Background" type="CanvasLayer" parent="."]
 script = ExtResource("9_debug_grid")
 
 [node name="Ground" type="StaticBody2D" parent="."]
