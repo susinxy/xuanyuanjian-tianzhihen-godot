@@ -200,7 +200,7 @@ func _hide_proxies() -> void:
 		pr.visible = false
 
 ## 将 ShadowBox polygon 投影到地面
-## 坐标空间：AnimatedSprite2D 本地 → 角色空间
+## 坐标空间：AnimatedSprite2D 本地 → 角色空间（经 sprite 完整局部变换：rotation/scale/position 全生效）
 ## 投影原理：沿光线方向压扁 polygon，锚定在脚部位置
 ## 使用 Transform2D 矩阵一次性完成所有顶点的仿射变换
 ## 距离衰减：按各顶点投影偏移量（≈ 离脚底高度）逐帧归一化 → smoothstep → alpha
@@ -220,15 +220,15 @@ func _project_polygon_to_ground() -> Dictionary:
 	if polygon.size() < 3:
 		return {}
 
-	var sprite_pos: Vector2 = sprite.position
+	# sprite.transform 即渲染器实际使用的完整局部变换（rotation/scale/position 组合）
+	var sprite_xf: Transform2D = sprite.transform
 	var elevation := _get_current_elevation()
 	var shadow_dir := _get_shadow_direction()
 	var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
 
-	# 用 Transform2D 批量平移（C++ 实现，更快）
-	var translate_transform := Transform2D.IDENTITY.translated(sprite_pos)
-	var char_polygon := translate_transform * polygon
-
+	# 用 Transform2D 批量应用 sprite 的旋转/缩放/平移（C++ 实现，更快）
+	# scale=1、rotation=0 时与旧的"仅平移"公式逐位等价
+	var char_polygon := sprite_xf * polygon
 	# 找到脚部位置（角色空间中 Y 最大的点）
 	var foot_y: float = -INF
 	for v in char_polygon:

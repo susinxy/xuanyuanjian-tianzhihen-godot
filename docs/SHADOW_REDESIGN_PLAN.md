@@ -169,7 +169,7 @@ func _project_polygon_to_ground() -> PackedVector2Array:
     if polygon.size() < 3:
         return PackedVector2Array()
 
-    var sprite_pos: Vector2 = sprite.position
+    var sprite_xf: Transform2D = sprite.transform  # 渲染器实际使用的完整局部变换
     var elevation := _get_current_elevation()
     var shadow_dir := _get_shadow_direction()
     var tan_elev := tan(deg_to_rad(max(elevation, MIN_ELEVATION)))
@@ -177,7 +177,7 @@ func _project_polygon_to_ground() -> PackedVector2Array:
     # 找到脚部位置（角色空间中 Y 最大的点）
     var foot_y: float = -INF
     for v in polygon:
-        var v_char := v + sprite_pos
+        var v_char := sprite_xf * v
         foot_y = max(foot_y, v_char.y)
 
     # 构建投影变换矩阵
@@ -190,9 +190,8 @@ func _project_polygon_to_ground() -> PackedVector2Array:
     var transform := Transform2D(basis_x, basis_y, origin)
 
     # 转换到角色空间并应用投影变换
-    var char_polygon := PackedVector2Array()
-    for v in polygon:
-        char_polygon.append(v + sprite_pos)
+    # （sprite 的旋转/缩放/平移全量生效：sprite.scale=0.3 时影子同步缩小）
+    var char_polygon := sprite_xf.xform(polygon)
 
     return transform.xform(char_polygon)
 
@@ -341,7 +340,7 @@ RunTest (CharacterBody2D)          position = (0, 0)  ← 脚底
 
 ```
 输入: vertex_sprite (AnimatedSprite2D 本地坐标)
-转换: vertex_char = vertex_sprite + AnimatedSprite2D.position
+转换: vertex_char = AnimatedSprite2D.transform * vertex_sprite  # 含 rotation/scale/position
 脚部: foot_y = max(所有 vertex_char.y)  # polygon 中 Y 最大的点
 高度: h = foot_y - vertex_char.y  # 相对于脚部的高度，h >= 0
 偏移: shadow_offset = h / tan(仰角)
@@ -351,6 +350,8 @@ RunTest (CharacterBody2D)          position = (0, 0)  ← 脚底
 
 **关键点**：
 - 阴影锚定在脚部位置（`foot_y`），而不是精灵图底部
+- 转换用 sprite 的**完整局部变换**（rotation/scale/position 全生效）：对 AnimatedSprite2D 设置 `scale=0.3` 做小体型时，影子与视觉同步缩小；scale=1、rotation=0 时与旧"仅平移"公式逐位等价（历史角色零行为差异）
+- 注意：sprite 缩放只同步"渲染 + hurtbox + 影子"；`physical_height/width` 轨道、高度层 Y 偏移、跳跃位移为像素单位烘死，不随 sprite.scale 缩放
 - 使用 `Transform2D` 矩阵一次性完成所有顶点的仿射变换
 - `shadow_dir` 是阴影方向向量（光线反方向），控制阴影延伸方向
 
