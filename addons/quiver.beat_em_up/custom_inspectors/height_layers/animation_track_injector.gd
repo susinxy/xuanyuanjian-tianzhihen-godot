@@ -1263,6 +1263,10 @@ func _inject_all_tracks(
 				transitions = build_uniform_transitions(sprite_frames, sprite_anim_name)
 				errors.append("动画 '%s' 无有效 :frame 轨道，形状轨道按 SpriteFrames 均匀速度注入" % anim_name)
 			
+			# attack 类动画结构性体检（模板曾带病发布 attack*_down/up，防复发）
+			if category == "attack":
+				_validate_attack_animation_structure(anim, anim_name, errors)
+			
 			# 内层：按 shape 写入 per-shape tracks
 			for node_info in shape_nodes:
 				# shape type 变更时删除旧 tracks，否则只清除 keyframe
@@ -1391,6 +1395,32 @@ func _apply_static_defaults(skin_node: Node, static_defaults: Dictionary) -> voi
 				res_obj.set(parts[2], static_defaults[track_path])
 		else:
 			target.set(parts[1], static_defaults[track_path])
+
+
+## Attack 动画结构体检（发现即报，不自动修——方法轨道时刻与 disabled 窗口
+## 属节奏/手感设计，工具无权替创作者决定；报错让烘焙结果大声可见）
+## 检查 1：缺 end_of_skin_animation 方法轨道 → 攻击状态机唯一出口失联，攻击无法结束
+## 检查 2：所有 :disabled 轨道全天 true → 攻击盒永不激活，打不中人
+func _validate_attack_animation_structure(anim: Animation, anim_name: String, errors: Array[String]) -> void:
+	var has_end_of_anim := false
+	var disabled_track_count := 0
+	var has_open_window := false
+	for i in range(anim.get_track_count()):
+		match anim.track_get_type(i):
+			Animation.TYPE_METHOD:
+				for k in range(anim.track_get_key_count(i)):
+					if String(anim.method_track_get_name(i, k)) == "end_of_skin_animation":
+						has_end_of_anim = true
+			Animation.TYPE_VALUE:
+				if str(anim.track_get_path(i)).ends_with(":disabled"):
+					disabled_track_count += 1
+					for k in range(anim.track_get_key_count(i)):
+						if anim.track_get_key_value(i, k) == false:
+							has_open_window = true
+	if not has_end_of_anim:
+		errors.append("攻击动画 '%s' 缺 end_of_skin_animation 方法轨道——攻击状态将无法结束（参考同角色的 attack*_right 结构）" % anim_name)
+	if disabled_track_count > 0 and not has_open_window:
+		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 attack*_right 的开合窗口）" % anim_name)
 
 
 ## 把 "AnimatedSprite2D:animation" 字符串值轨道强制为离散更新模式
