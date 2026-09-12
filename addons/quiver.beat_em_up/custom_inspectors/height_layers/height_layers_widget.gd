@@ -34,6 +34,11 @@ const ContourConversionRunner = preload(
 	+ "contour_conversion_runner.gd"
 )
 
+const PngScaleTool = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "png_scale_tool.gd"
+)
+
 # 持久化文件路径（跨 widget 重建）
 static var _persisted_preview_file_path: String = ""
 
@@ -65,6 +70,7 @@ var _scale_reclaim_check: CheckBox
 var _scale_apply_btn: Button
 var _scale_restore_btn: Button
 var _scale_result_label: Label
+var _pending_scale_args: Dictionary = {}
 var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
@@ -359,7 +365,7 @@ func _build_png_scale_ui() -> void:
 	factor_row.add_child(_scale_factor_spin)
 	_scale_reclaim_check = CheckBox.new()
 	_scale_reclaim_check.text = "以当前图重新采集原底"
-	_scale_reclaim_check.tooltip_text = "仅当手动替换了一整套新美术时勾选；否则备份只认第一次，缩放永远从备份原图重算"
+	_scale_reclaim_check.tooltip_text = "逃生门：忽略账本判定，把源目录当前内容整体立为新原底（不可逆，执行前弹确认）。日常增删改原画不需要它——直接点执行缩放，账本逐文件自动识别"
 	factor_row.add_child(_scale_reclaim_check)
 	add_child(factor_row)
 	
@@ -401,7 +407,8 @@ func _on_scale_restore_pressed() -> void:
 	_dispatch_scale("restore")
 
 
-## 路径校验后投递给常驻 runner（分帧执行，见 contour_conversion_runner.gd）
+## 路径校验后投递给常驻 runner（分帧执行，见 contour_conversion_runner.gd）。
+## 两道不可逆操作前置确认：逃生门（全量换底，弹窗含"疑似印品"计数）、恢复原图（复活孤儿计数）
 func _dispatch_scale(scale_mode: String) -> void:
 	var source_dir := _scale_source_edit.text.strip_edges().trim_suffix("/")
 	var backup_dir := _scale_backup_edit.text.strip_edges().trim_suffix("/")
@@ -411,6 +418,48 @@ func _dispatch_scale(scale_mode: String) -> void:
 	if backup_dir == source_dir or backup_dir.begins_with(source_dir + "/"):
 		_scale_result_label.text = "❌ 备份目录不能在源目录内部或与其相同（兄弟目录如 sprites_master/ 是合法的）"
 		return
+	if scale_mode == "scale" and _scale_reclaim_check.button_pressed:
+		var preview: Dictionary = PngScaleTool.preview_actions(source_dir, backup_dir, _scale_factor_spin.value)
+		_confirm_then_start(
+			"⚠️ 逃生门已勾选：将用源目录当前内容【整体覆盖】备份原底。\n"
+			+ "其中 %d 个文件与账本吻合（疑似缩小图），其原底会被不可逆替换。\n" % preview.reprinted
+			+ "仅在你确定源目录全部是原画时使用。确认执行？",
+			{"mode": scale_mode, "src": source_dir, "bak": backup_dir}
+		)
+		return
+	if scale_mode == "restore":
+		var orphans: int = PngScaleTool.count_orphans(
+			ProjectSettings.globalize_path(source_dir), ProjectSettings.globalize_path(backup_dir)
+		)
+		if orphans > 0:
+			_confirm_then_start(
+				"备份中有 %d 个文件在源目录已不存在（多半是被你删除的美术）。\n" % orphans
+				+ "恢复将把它们复活回源目录。确认执行？",
+				{"mode": scale_mode, "src": source_dir, "bak": backup_dir}
+			)
+			return
+	_start_scale_job(scale_mode, source_dir, backup_dir)
+
+
+func _confirm_then_start(text: String, args: Dictionary) -> void:
+	_pending_scale_args = args
+	var dlg := ConfirmationDialog.new()
+	dlg.dialog_text = text
+	dlg.title = "确认操作"
+	add_child(dlg)
+	dlg.confirmed.connect(_on_confirm_scale_confirmed)
+	dlg.popup_centered()
+
+
+func _on_confirm_scale_confirmed() -> void:
+	if _pending_scale_args.is_empty():
+		return
+	var a := _pending_scale_args
+	_pending_scale_args = {}
+	_start_scale_job(a["mode"], a["src"], a["bak"])
+
+
+func _start_scale_job(scale_mode: String, source_dir: String, backup_dir: String) -> void:
 	var runner := ContourConversionRunner.get_or_create()
 	if runner == null or runner.is_running:
 		return

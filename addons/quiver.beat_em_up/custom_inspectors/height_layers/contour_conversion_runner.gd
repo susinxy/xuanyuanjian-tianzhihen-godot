@@ -192,11 +192,21 @@ func start_scale(scale_mode: String, source_dir: String, backup_dir: String, fac
 	_execute_scale(_session, scale_mode, source_dir, backup_dir, factor, reclaim_original)
 
 
-## 缩放任务协程：逐文件 await 让出一帧，编辑器全程可交互
+## 缩放任务协程：逐文件 await 让出一帧（编辑器全程可交互）；判定核心在
+## PngScaleTool.process_pair（journal 内容裁判，见工具头注释）。迁移模式（无账本
+## 首次运行）由本侧检测并传入；收尾压实账本、统计孤儿、恢复任务清账。
 func _execute_scale(session: int, scale_mode: String, source_dir: String, backup_dir: String, factor: float, reclaim_original: bool) -> void:
-	var result := {"scaled": 0, "masks": 0, "backed_up": 0, "restored": 0, "errors": [] as Array[String]}
+	var result := {"scaled": 0, "masks": 0, "backed_up": 0, "recaptured": 0, "restored": 0, "orphans": 0, "migrated": false, "errors": [] as Array[String]}
+	var seen := {}
+	var src_global := ProjectSettings.globalize_path(source_dir)
+	var bak_global := ProjectSettings.globalize_path(backup_dir)
+	var journal := {}
+	var migration := false
 	var pairs: Array[Dictionary] = []
 	if scale_mode == "scale":
+		migration = not FileAccess.file_exists(PngScaleTool.journal_path(bak_global))
+		result.migrated = migration
+		journal = PngScaleTool.load_journal(bak_global)
 		pairs = PngScaleTool.collect_scale_pairs(source_dir, backup_dir)
 	else:
 		pairs = PngScaleTool.collect_restore_pairs(source_dir, backup_dir)
@@ -204,7 +214,7 @@ func _execute_scale(session: int, scale_mode: String, source_dir: String, backup
 	var total := pairs.size()
 	if total == 0:
 		result.errors.append("没有可处理的 PNG（%s）" % ("源目录为空？" if scale_mode == "scale" else "备份目录为空？从未执行过缩放？"))
-		_finish_scale_job(result)
+		_finish_scale_job(result, scale_mode)
 		return
 	
 	for i in total:
@@ -212,16 +222,20 @@ func _execute_scale(session: int, scale_mode: String, source_dir: String, backup
 			return  # 已被新任务接管
 		var p: Dictionary = pairs[i]
 		if scale_mode == "scale":
-			var r: Dictionary = PngScaleTool.scale_one(p["src"], p["bak"], factor, reclaim_original)
+			var r: Dictionary = PngScaleTool.process_pair(p["src"], p["bak"], p["rel"], factor, reclaim_original, migration, false, bak_global, journal)
 			if not r.error.is_empty():
 				(result.errors as Array[String]).append(r.error)
 			else:
-				if r.backed_up:
-					result.backed_up += 1
+				match r.action:
+					"captured":
+						result.backed_up += 1
+					"recaptured":
+						result.recaptured += 1
 				if r.is_mask:
 					result.masks += 1
 				else:
 					result.scaled += 1
+				seen[p["rel"]] = journal.get(p["rel"], "")
 		else:
 			var err := PngScaleTool.restore_one(p["bak"], p["src"])
 			if err.is_empty():
@@ -232,26 +246,44 @@ func _execute_scale(session: int, scale_mode: String, source_dir: String, backup
 		progress_updated.emit()
 		await get_tree().process_frame
 	
-	_finish_scale_job(result)
+	if session != _session:
+		return
+	if scale_mode == "scale":
+		PngScaleTool.compact_journal(bak_global, seen)
+		result.orphans = PngScaleTool.count_orphans(src_global, bak_global)
+	else:
+		PngScaleTool.clear_journal(bak_global)
+	_finish_scale_job(result, scale_mode)
 
 
-func _finish_scale_job(result: Dictionary) -> void:
+func _finish_scale_job(result: Dictionary, scale_mode: String) -> void:
 	is_running = false
+	_active_skin = null
 	var errors: Array = result.get("errors", [])
 	var error_count: int = errors.size()
 	progress_text = ""
 	result_text = ""
 	
-	if error_count == 0:
-		var extra := "——请重跑 Body + Attack 轮廓转换" if running_mode == "PNG 缩放" else ""
-		status_text = "✅ %s 完成：图 %d / 掩码 %d / 采原底 %d / 恢复 %d %s" % [
-			running_mode, result.scaled, result.masks, result.backed_up, result.restored, extra
+	if scale_mode == "scale":
+		var summary := "✅ 缩放完成：图 %d / 掩码 %d ｜新收底 %d / 换底 %d / 孤儿 %d" % [
+			result.scaled, result.masks, result.backed_up, result.recaptured, result.orphans
 		]
-		status_color = Color.GREEN
+		if result.migrated:
+			summary += "（迁移建账）"
+		if error_count == 0:
+			summary += "——请重跑 Body + Attack 轮廓转换"
+			status_color = Color.GREEN
+		else:
+			summary = "⚠️ " + summary
+			status_color = Color.ORANGE
+		status_text = summary if error_count == 0 else "%s ｜%d 个错误：%s" % [summary, error_count, " | ".join(errors.slice(0, 3))]
 	else:
-		var preview: Array = errors.slice(0, 3)
-		status_text = "⚠️ %s 结束，有 %d 个错误：%s" % [running_mode, error_count, " | ".join(preview)]
-		status_color = Color.ORANGE
+		if error_count == 0:
+			status_text = "✅ 已恢复 %d 个原图（账本已清空）" % result.restored
+			status_color = Color.GREEN
+		else:
+			status_text = "⚠️ 恢复完成 %d，有 %d 个错误：%s" % [result.restored, error_count, " | ".join(errors.slice(0, 3))]
+			status_color = Color.ORANGE
 	
 	EditorInterface.get_resource_filesystem().scan()
 	run_finished.emit()

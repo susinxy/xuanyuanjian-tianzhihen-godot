@@ -1132,7 +1132,14 @@ custom_inspectors/height_layers/
 - 转换期间关闭目标场景页签：runner 在下一次进度回调检测 `is_instance_valid(_active_skin)` 失败 → `_session+1` 作废旧协程收尾权 → 立即 `_finalize` 报错并复位 `is_running`（不会永久卡运行态）
 - 防 class_name 缓存时序问题：widget 经 `const preload` 引用 runner 与 injector（新文件同步到另一台机器后首启即编译，不依赖全局类注册时机）
 
-**PNG 缩放与备份工具**（`png_scale_tool.gd`，widget 底部区块）：资产层角色缩放方案——体型差异通过缩小精灵图实现（"两个体型=两个角色"工作流），系统运行时对缩放零认知。规则：①首次执行把源目录 PNG 备份到 `resources/sprites_master/`（文件名不变仅换位置），备份只认第一次；②缩放永远从备份原图重算写回源目录（杜绝复损），系数可反复改；③"恢复原图"从备份整体拷回；④"重新采集原底"复选框仅在手换整套美术时勾选；⑤`.mask.png/.body.mask.png/.attack.mask.png` 三型掩码自动识别直接 resize，精灵图走 `fix_alpha_edges`（4.7 无 depremultiply_alpha，premultiply 路线不可逆）→ Lanczos；⑥完成后提醒重跑 Body+Attack 两类轮廓转换（动画数据从缩小后的图重新烘焙）。核心拆为单文件原语 `scale_one()/restore_one()/collect_*()`（纯静态文件操作，不依赖 EditorInterface）+ 同步封装 `apply_scale()/restore_to_original()`（headless 测试入口，与 runner 共用同一原语保证单一语义）。**执行走 `ContourConversionRunner`**（与轮廓转换同款宿主模式）：`start_scale(scale|restore, ...)` 投递任务 → runner 协程逐文件 `await process_frame` 分帧让出（编辑器全程可交互、进度 `⏳ 缩放 37/420 (rel/path.png)`、切页回来状态照常、与轮廓转换互斥共享 `is_running` 锁、session 防旧协程）→ 完成时 fs.scan + 结果快照。headless 已验证原语的备份/复损防护/字节级恢复（重构前后行为逐项一致）。
+**PNG 缩放与备份工具 v2（`png_scale_tool.gd`，widget 底部区块）**：资产层角色缩放方案——体型差异通过缩小精灵图实现（"两个体型=两个角色"工作流），系统运行时对缩放零认知。
+- **目录语义**：`source_dir`（如 `characters/<c>/resources/sprites/`）=派生物+用户投稿箱；`backup_dir`（`resources/sprites_master/`）=原画唯一真理。备份目录纳入 git（双机 Syncthing 下防"缩小图被误采为原底"）
+- **journal 内容裁判**（`_journal.log` 在备份根，append-only `rel\tmd5` 行）：逐文件规则 R0 无备份/reclaim→收底/换底（源必须可解码，否则跳过且不碰备份）；R1 源==备份字节→原画未动→印；R2 源==账本记录的上次输出字节→印品未动→从备份重印；R3 其余=内容被改→**自动换底再印**。尺寸仅在**迁移模式**（无账本首跑，一次性兜底）参与：尺寸≠备份→当旧印品重印（保守），同尺寸异内容→当换画收底。运行末尾账本**压实**（只留本次所见文件，删除的美术不留死条目）；"恢复原图"后**清账**（源==备份由 R1 接管）
+- **用户日常操作**：在 sprites/ 里增删改原画（新图放原尺寸）→ 点"执行缩放"即可，逐文件自动识别（新增/换画/同尺寸换画/**尺寸恰好撞上旧印品的换画**均由哈希裁判）；删除的文件留孤儿原画做后悔药（汇总报孤儿数；恢复会复活它们，>0 时弹确认）
+- **逃生门**（"重新采集原底"复选框）：忽略账本，把源目录当前内容整体立为原底（不可逆）；勾选执行前**干跑预览弹确认**并显示"疑似印品 N 个"计数（`preview_actions`）。三用途：尺寸+内容双重撞车的极端投稿、以印品为稿的手工修图、修复被污染的备份。日常不需要
+- **执行形态**：走 `ContourConversionRunner` 同款宿主（逐文件 await 分帧、进度/互斥/session/切页安全），完成时 fs.scan + 汇总"图/掩码/新收底/换底/孤儿/（迁移建账）"，提醒重跑 Body+Attack 两类轮廓转换
+- 掩码三型（`.mask/.body.mask/.attack.mask.png`）自动识别仅 resize alpha；精灵图 `fix_alpha_edges` → Lanczos（4.7 无 `depremultiply_alpha`，premultiply 不可逆路线弃用；`get_screen_transform` 教训不适用于此，本工具用视口 canvas transform 仅限 debug 背景，与此无关）
+- headless 测试矩阵 16 项（收底/幂等/换系数/换画/同尺寸换画/尺寸撞车/删除→孤儿→恢复→清账/迁移两式/逃生门/损坏源护栏/预览只读/递归目录）全通过（`/tmp/opencode/scale_v2_tests.gd`，2026-09-12）
 
 **工作流程（轮廓转换）**：
 ```

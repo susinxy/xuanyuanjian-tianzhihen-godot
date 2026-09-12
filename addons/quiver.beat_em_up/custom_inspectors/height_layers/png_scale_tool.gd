@@ -1,92 +1,138 @@
 @tool
 extends RefCounted
-## PNG 缩放工具核心（纯文件操作原语，不依赖编辑器运行时，可 headless 测试）
+## PNG 缩放工具核心（纯文件操作，不依赖编辑器运行时，可 headless 测试）
 ##
-## 语义（钉死的规则）：
-## 1. 首次执行先把源目录 PNG 备份到备份目录（文件名不变、只换位置），备份只认第一次
-## 2. 缩放永远从备份原图重算写回源目录——杜绝"缩小版再缩小"的画质复损
-## 3. restore：备份整体拷回源目录
-## 4. reclaim_original=true 时才用当前源图覆盖备份（手动换了一套新美术的场景）
-## 5. *.mask.png（含 .body./.attack. 三型）直接 resize；普通精灵图
-##    fix_alpha_edges（不透明颜色渗入透明像素，防重采样黑边）→ Lanczos
-##    （4.7 的 Image 无 depremultiply_alpha，premultiply 路线不可逆，弃用）
-## 6. 单文件语义全部集中在 scale_one()/restore_one() 原语：
-##    同步封装 apply_scale()/restore_to_original()（headless 测试用）与
-##    编辑器 runner 的分帧循环共用同一原语，单一实现、双入口
-## 7. 完成后由调用方负责"重跑 Body/Attack 轮廓转换"提醒与资源扫描
+## 设计原则：备份柜（backup_dir）= 原画唯一真理；展示柜（source_dir）= 派生物 +
+## 用户的"投稿箱"。每次运行逐文件回答"这个源文件是什么"——判定以**内容哈希**为
+## 裁判（journal 账本），尺寸仅在无账本的迁移运行中兜底一次。
+##
+## 判定规则（process_pair，按序命中即止）：
+## R0 无备份 或 勾选"重新采集原底"(reclaim)
+##        → 以当前源内容为原底（源必须可解码，否则跳过且不碰备份）→ 印 → 记账
+##        动作名：无备份="captured"（新文件收底）/ reclaim="recaptured"（强制换底）
+## R1 源字节 == 备份字节            → 原画未动（含"恢复原图"后）→ 从备份印 "printed"
+## R2 源字节 == 账本记录的本文件上次输出字节 → 我的印品未被动过 → 从备份重印 "reprinted"
+## R3 其余（内容被改过/对不上）：
+##    - 正常模式：视为用户投稿的新原画 → 换底 + 印 + 记账 "recaptured"
+##    - 迁移模式（首次升级、账本尚不存在，一次性兜底）：
+##        源尺寸 == 备份尺寸（同尺寸换画）→ 换底 "recaptured"
+##        源尺寸 != 备份尺寸              → 判为无账本时代的旧印品 → 重印 "reprinted"
+## 护栏：任何"换底"动作前源图必须可解码；损坏文件只报错跳过，绝不污染备份。
+## 收尾：账本压实（仅保留本次源目录所见文件，删除的美术不留死条目）；
+##       孤儿统计（备份有、源无 = 被删除美术的原画保险，恢复原图会复活它们，故须报告）。
+## "恢复原图"完成后清空账本（源==备份，R1 自然接管）。
+##
+## 掩码三型（*.mask.png / *.body.mask.png / *.attack.mask.png）自动识别，直接
+## resize 仅取 alpha；普通精灵图 fix_alpha_edges → Lanczos（4.7 无 depremultiply，
+## premultiply 路线不可逆，弃用）。
+## 完成后由调用方（widget/runner）负责"重跑两类轮廓转换"提醒与资源扫描。
 
-## 源目录内全部待处理 PNG 的配对表（排除备份目录自身防自吞）
-## 返回 Array[Dictionary]: [{ "src": 绝对路径, "bak": 备份绝对路径, "rel": 相对路径 }]
-static func collect_scale_pairs(source_dir: String, backup_dir: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var src_root := ProjectSettings.globalize_path(source_dir)
-	var bak_root := ProjectSettings.globalize_path(backup_dir)
-	for abs_path in _collect_pngs(source_dir, backup_dir):
-		var rel: String = abs_path.trim_prefix(src_root).trim_prefix("/")
-		out.append({"src": abs_path, "bak": bak_root.path_join(rel), "rel": rel})
-	return out
+const JOURNAL_FILE := "_journal.log"
 
 
-## 单文件"采集备份（若缺/强制）→ 从备份缩放 → 写回源"。
-## 返回 { "error": ""表示成功, "backed_up": 本次是否新采集了原底, "is_mask": 是否掩码 }
-static func scale_one(src_abs: String, bak_abs: String, factor: float, reclaim_original: bool) -> Dictionary:
-	var out := {"error": "", "backed_up": false, "is_mask": src_abs.ends_with(".mask.png")}
+## 单文件全流程：判定 → （必要时换底）→ 从备份印 → 记账。
+## dry=true 仅判定不写盘（确认弹窗预览计数用）。journal 字典会被实时更新。
+## 返回 { "action": captured|printed|reprinted|recaptured|""(出错), "error": String,
+##        "is_mask": bool }
+static func process_pair(
+	src_abs: String,
+	bak_abs: String,
+	rel: String,
+	factor: float,
+	reclaim: bool,
+	migration: bool,
+	dry: bool,
+	bak_global: String,
+	journal: Dictionary
+) -> Dictionary:
+	var out := {"action": "", "error": "", "is_mask": rel.ends_with(".mask.png")}
 	if factor <= 0.0:
 		out.error = "缩放系数必须大于 0"
 		return out
-	
-	# 规则 1/4：备份缺失或显式 reclaim 时，以当前源图为原底
-	if reclaim_original or not FileAccess.file_exists(bak_abs):
-		if not FileAccess.file_exists(src_abs):
-			out.error = "源文件不存在: %s" % src_abs.get_file()
+	if not FileAccess.file_exists(src_abs):
+		out.error = "源文件不存在: %s" % rel
+		return out
+
+	var src_md5 := FileAccess.get_md5(src_abs)
+	var has_bak := FileAccess.file_exists(bak_abs)
+	var truth := bak_abs  # 打印母本（备份/新收的底片）
+
+	if not has_bak or reclaim:
+		# R0：新文件收底 / 逃生门强制换底 —— 源必须可解码
+		if Image.load_from_file(src_abs) == null:
+			out.error = "源不可解码，跳过（备份未受污染）: %s" % rel
 			return out
-		if not _ensure_parent_dir(bak_abs):
-			out.error = "无法创建备份目录: %s" % bak_abs.get_base_dir()
+		if not dry:
+			if not _ensure_parent_dir(bak_abs):
+				out.error = "无法创建备份目录: %s" % bak_abs.get_base_dir()
+				return out
+			var cp := DirAccess.copy_absolute(src_abs, bak_abs)
+			if cp != OK:
+				out.error = "采集备份失败: %s (err=%d)" % [rel, cp]
+				return out
+		out.action = "captured" if not has_bak else "recaptured"
+		truth = src_abs if not has_bak else bak_abs
+	elif src_md5 == FileAccess.get_md5(bak_abs):
+		# R1：原画未动
+		out.action = "printed"
+	elif journal.get(rel, "") == src_md5:
+		# R2：账本认证的我的印品
+		out.action = "reprinted"
+	elif migration:
+		# 迁移兜底（仅无账本的首次运行）
+		var src_img := Image.load_from_file(src_abs)
+		var bak_img := Image.load_from_file(bak_abs)
+		if src_img == null or bak_img == null:
+			out.error = "无法解码（迁移判定失败），跳过: %s" % rel
 			return out
-		var cp_err := DirAccess.copy_absolute(src_abs, bak_abs)
-		if cp_err != OK:
-			out.error = "备份失败: %s (err=%d)" % [src_abs.get_file(), cp_err]
+		if src_img.get_size() == bak_img.get_size():
+			# 同尺寸不同内容 = 同尺寸换画 → 换底
+			if not dry:
+				var cp2 := DirAccess.copy_absolute(src_abs, bak_abs)
+				if cp2 != OK:
+					out.error = "换底失败: %s (err=%d)" % [rel, cp2]
+					return out
+			out.action = "recaptured"
+		else:
+			# 尺寸不像原画 = 无账本时代的旧印品 → 保守重印（绝不误收底）
+			out.action = "reprinted"
+	else:
+		# R3：内容对不上任何已知身份 → 用户投稿的新原画 → 换底
+		if Image.load_from_file(src_abs) == null:
+			out.error = "源不可解码且身份不明，跳过（备份未受污染）: %s" % rel
 			return out
-		out.backed_up = true
-	
-	# 规则 2：永远从备份缩放
-	var image := Image.load_from_file(bak_abs)
+		if not dry:
+			var cp3 := DirAccess.copy_absolute(src_abs, bak_abs)
+			if cp3 != OK:
+				out.error = "换底失败: %s (err=%d)" % [rel, cp3]
+				return out
+		out.action = "recaptured"
+
+	# 打印（母本 = truth；R0 新收底时 truth 即源本身，与备份内容一致）
+	var image := Image.load_from_file(truth)
 	if image == null:
-		out.error = "无法读取备份图: %s" % bak_abs.get_file()
+		out.error = "无法读取原底: %s" % rel
 		return out
 	var nw := maxi(1, int(round(image.get_width() * factor)))
 	var nh := maxi(1, int(round(image.get_height() * factor)))
 	if not out.is_mask:
 		image.fix_alpha_edges()
 	image.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
+	if dry:
+		return out
 	var save_err := image.save_png(src_abs)
 	if save_err != OK:
-		out.error = "写回失败: %s (err=%d)" % [src_abs.get_file(), save_err]
+		out.error = "写回失败: %s (err=%d)" % [rel, save_err]
+		out.action = ""
 		return out
+	var out_md5 := FileAccess.get_md5(src_abs)
+	journal[rel] = out_md5
+	append_journal(bak_global, rel, out_md5)
 	return out
 
 
-## 备份目录 → 源目录的配对表（按备份侧枚举，恢复不依赖源当前内容）
-static func collect_restore_pairs(source_dir: String, backup_dir: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var src_root := ProjectSettings.globalize_path(source_dir)
-	var bak_root := ProjectSettings.globalize_path(backup_dir)
-	for abs_path in _collect_pngs_in(bak_root):
-		var rel: String = abs_path.trim_prefix(bak_root).trim_prefix("/")
-		out.append({"src": src_root.path_join(rel), "bak": abs_path, "rel": rel})
-	return out
+### 同步封装（headless 测试入口；runner 循环逐文件调 process_pair 同语义） -----
 
-
-## 单文件恢复：备份拷回源。返回 ""=成功。
-static func restore_one(bak_abs: String, src_abs: String) -> String:
-	_ensure_parent_dir(src_abs)
-	var err := DirAccess.copy_absolute(bak_abs, src_abs)
-	if err != OK:
-		return "恢复失败: %s (err=%d)" % [bak_abs.get_file(), err]
-	return ""
-
-
-## 同步封装：完整缩放流程（runner 分帧循环的等价一次性版本，headless 测试入口）
 static func apply_scale(source_dir: String, backup_dir: String, factor: float, reclaim_original: bool) -> Dictionary:
 	var result := _empty_result()
 	if factor <= 0.0:
@@ -96,21 +142,24 @@ static func apply_scale(source_dir: String, backup_dir: String, factor: float, r
 	if pairs.is_empty():
 		result.errors.append("源目录没有 PNG 文件: %s" % source_dir)
 		return result
+	var bak_global := ProjectSettings.globalize_path(backup_dir)
+	var src_global := ProjectSettings.globalize_path(source_dir)
+	var migration := not FileAccess.file_exists(bak_global.path_join(JOURNAL_FILE))
+	result.migrated = migration
+	var journal := load_journal(bak_global)
+	var seen := {}  # 仅本次源目录实际处理的文件（压实依据，删除的美术不留死条目）
 	for p in pairs:
-		var r := scale_one(p["src"], p["bak"], factor, reclaim_original)
+		var r := process_pair(p["src"], p["bak"], p["rel"], factor, reclaim_original, migration, false, bak_global, journal)
 		if not r.error.is_empty():
 			result.errors.append(r.error)
 			continue
-		if r.backed_up:
-			result.backed_up += 1
-		if r.is_mask:
-			result.masks += 1
-		else:
-			result.scaled += 1
+		_tally(result, r.action, r.is_mask)
+		seen[p["rel"]] = journal.get(p["rel"], "")
+	compact_journal(bak_global, seen)
+	result.orphans = count_orphans(src_global, bak_global)
 	return result
 
 
-## 同步封装：完整恢复流程
 static func restore_to_original(source_dir: String, backup_dir: String) -> Dictionary:
 	var result := _empty_result()
 	var pairs := collect_restore_pairs(source_dir, backup_dir)
@@ -123,22 +172,153 @@ static func restore_to_original(source_dir: String, backup_dir: String) -> Dicti
 			result.errors.append(err)
 			continue
 		result.restored += 1
+	clear_journal(ProjectSettings.globalize_path(backup_dir))
 	return result
 
 
-### 内部辅助 ------------------------------------------------------------------------
+## 干跑：仅判定（确认弹窗预览计数用），返回与 apply_scale 相同计数字典（不含写盘）
+static func preview_actions(source_dir: String, backup_dir: String, factor: float) -> Dictionary:
+	var result := _empty_result()
+	var pairs := collect_scale_pairs(source_dir, backup_dir)
+	var bak_global := ProjectSettings.globalize_path(backup_dir)
+	var migration := not FileAccess.file_exists(bak_global.path_join(JOURNAL_FILE))
+	result.migrated = migration
+	var journal := load_journal(bak_global)
+	for p in pairs:
+		var r := process_pair(p["src"], p["bak"], p["rel"], factor, false, migration, true, bak_global, journal)
+		if not r.error.is_empty():
+			result.errors.append(r.error)
+			continue
+		_tally(result, r.action, r.is_mask)
+	return result
+
+
+### 配对与恢复（源/备份目录扫描） ------------------------------------------------
+
+static func collect_scale_pairs(source_dir: String, backup_dir: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var src_root := ProjectSettings.globalize_path(source_dir)
+	var bak_root := ProjectSettings.globalize_path(backup_dir)
+	for abs_path in _collect_pngs(src_root, bak_root):
+		var rel: String = abs_path.trim_prefix(src_root).trim_prefix("/")
+		out.append({"src": abs_path, "bak": bak_root.path_join(rel), "rel": rel})
+	return out
+
+
+static func collect_restore_pairs(source_dir: String, backup_dir: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var src_root := ProjectSettings.globalize_path(source_dir)
+	var bak_root := ProjectSettings.globalize_path(backup_dir)
+	for abs_path in _collect_pngs_in(bak_root):
+		var rel: String = abs_path.trim_prefix(bak_root).trim_prefix("/")
+		out.append({"src": src_root.path_join(rel), "bak": abs_path, "rel": rel})
+	return out
+
+
+static func restore_one(bak_abs: String, src_abs: String) -> String:
+	_ensure_parent_dir(src_abs)
+	var err := DirAccess.copy_absolute(bak_abs, src_abs)
+	if err != OK:
+		return "恢复失败: %s (err=%d)" % [bak_abs.get_file(), err]
+	return ""
+
+
+## 备份有、源无 的 PNG 数量（被删除美术的原画残留统计，绝对路径入口）
+static func count_orphans(src_global: String, bak_global: String) -> int:
+	var n := 0
+	for bak_file in _collect_pngs_in(bak_global):
+		var rel: String = bak_file.trim_prefix(bak_global).trim_prefix("/")
+		if not FileAccess.file_exists(src_global.path_join(rel)):
+			n += 1
+	return n
+
+
+### 账本 ------------------------------------------------------------------------
+
+static func journal_path(bak_global: String) -> String:
+	return bak_global.path_join(JOURNAL_FILE)
+
+
+## 读账本：每行 "rel\thash"，后写覆盖先写（append-only 语义）
+static func load_journal(bak_global: String) -> Dictionary:
+	var out := {}
+	var f := FileAccess.open(journal_path(bak_global), FileAccess.READ)
+	if f == null:
+		return out
+	while not f.eof_reached():
+		var line := f.get_line()
+		if line.is_empty():
+			continue
+		var tab := line.find("\t")
+		if tab > 0:
+			out[line.substr(0, tab)] = line.substr(tab + 1)
+	return out
+
+
+static func append_journal(bak_global: String, rel: String, out_md5: String) -> void:
+	var path := journal_path(bak_global)
+	if not FileAccess.file_exists(path):
+		var mk := FileAccess.open(path, FileAccess.WRITE)
+		if mk != null:
+			mk.close()
+	var f := FileAccess.open(path, FileAccess.READ_WRITE)
+	if f == null:
+		return
+	f.seek_end()
+	f.store_line("%s\t%s" % [rel, out_md5])
+	f.close()
+
+
+## 压实：写入本次处理过的 { rel: 最新输出md5 }（同时完成迁移"建账"）
+static func compact_journal(bak_global: String, journal: Dictionary) -> void:
+	var keys := journal.keys()
+	keys.sort()
+	var f := FileAccess.open(journal_path(bak_global), FileAccess.WRITE)
+	if f == null:
+		return
+	for k in keys:
+		f.store_line("%s\t%s" % [k, journal[k]])
+	f.close()
+
+
+static func clear_journal(bak_global: String) -> void:
+	var f := FileAccess.open(journal_path(bak_global), FileAccess.WRITE)
+	if f != null:
+		f.close()
+
+
+### 内部辅助 --------------------------------------------------------------------
 
 static func _empty_result() -> Dictionary:
-	return {"scaled": 0, "masks": 0, "backed_up": 0, "restored": 0, "errors": [] as Array[String]}
+	return {
+		"scaled": 0, "masks": 0, "backed_up": 0, "recaptured": 0,
+		"printed": 0, "reprinted": 0,
+		"restored": 0, "orphans": 0, "migrated": false,
+		"errors": [] as Array[String],
+	}
 
 
-## 源目录下全部 PNG 绝对路径（递归）；排除位于备份目录内的文件（防自吞）
-static func _collect_pngs(source_dir: String, backup_dir: String) -> Array[String]:
-	var out := _collect_pngs_in(ProjectSettings.globalize_path(source_dir))
-	var bak := ProjectSettings.globalize_path(backup_dir)
+static func _tally(result: Dictionary, action: String, is_mask: bool) -> void:
+	match action:
+		"captured":
+			result.backed_up += 1
+		"recaptured":
+			result.recaptured += 1
+		"printed":
+			result.printed += 1
+		"reprinted":
+			result.reprinted += 1
+	if is_mask:
+		result.masks += 1
+	else:
+		result.scaled += 1
+
+
+static func _collect_pngs(src_global: String, bak_global: String) -> Array[String]:
+	var out := _collect_pngs_in(src_global)
 	var filtered: Array[String] = []
 	for p in out:
-		if not p.begins_with(bak + "/"):
+		if not p.begins_with(bak_global + "/"):
 			filtered.append(p)
 	return filtered
 
