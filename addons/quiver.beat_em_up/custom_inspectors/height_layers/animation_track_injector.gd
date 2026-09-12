@@ -1251,6 +1251,11 @@ func _inject_all_tracks(
 				continue
 			
 			var anim_modified := false
+			# 自检免疫：:animation 是 String 值轨，连续模式会触发 Mixer 实验性字符串
+			# 混合算法（启动即刷 "blends String types" 警告）；发现脏资产顺手修复并警告
+			if _fix_animation_string_track_discrete(anim):
+				errors.append("动画 '%s': :animation 轨道由连续修正为离散" % anim_name)
+				anim_modified = true
 			var flip_track_data := _extract_flip_h_track(anim)
 			# 时间真源 = :frame 轨道的实际换帧时刻（引擎插值结果）；无轨道回退旧均匀节奏并警告
 			var transitions := build_frame_transitions(anim, sprite_frames, sprite_anim_name)
@@ -1386,6 +1391,22 @@ func _apply_static_defaults(skin_node: Node, static_defaults: Dictionary) -> voi
 				res_obj.set(parts[2], static_defaults[track_path])
 		else:
 			target.set(parts[1], static_defaults[track_path])
+
+
+## 把 "AnimatedSprite2D:animation" 字符串值轨道强制为离散更新模式
+## （新建值轨道默认连续，任何历史批处理/手滑留下的连续字符串轨道在此自愈）
+## 返回 true 表示做了修正（调用方需触发保存）
+func _fix_animation_string_track_discrete(anim: Animation) -> bool:
+	for i in range(anim.get_track_count()):
+		if anim.track_get_type(i) != Animation.TYPE_VALUE:
+			continue
+		if str(anim.track_get_path(i)) != "AnimatedSprite2D:animation":
+			continue
+		if anim.value_track_get_update_mode(i) != Animation.UPDATE_DISCRETE:
+			anim.value_track_set_update_mode(i, Animation.UPDATE_DISCRETE)
+			return true
+		return false
+	return false
 
 
 ## 获取 track 属性值（含 flip_h 镜像）
