@@ -22,6 +22,7 @@ static var _instance: ContourConversionRunner = null
 ## 状态快照（widget 重建时读取）
 var is_running := false
 var running_mode := ""
+var job_kind := ""            # "contour"=轮廓转换 / "scale"=PNG 缩放与恢复
 var target_name := ""
 var status_text := ""
 var status_color := Color.GRAY
@@ -35,6 +36,11 @@ var _active_skin: Node = null
 const AnimationTrackInjector = preload(
 	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
 	+ "animation_track_injector.gd"
+)
+
+const PngScaleTool = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "png_scale_tool.gd"
 )
 
 
@@ -68,6 +74,7 @@ func start(mode: String, skin_node: Node, params: Dictionary) -> void:
 	_session += 1
 	is_running = true
 	running_mode = "Body" if mode == "body" else "Attack"
+	job_kind = "contour"
 	target_name = String(skin_node.name)
 	_active_skin = skin_node
 	status_text = "⏳ %s 轮廓转换中…（目标: %s，切页不影响进度）" % [running_mode, target_name]
@@ -161,5 +168,90 @@ func _finalize(result: Dictionary) -> void:
 	
 	# 文件系统自动刷新（原 widget scan_completed → inspector_plugin 中转；
 	# widget 死亡会断链，改由此处直调）
+	EditorInterface.get_resource_filesystem().scan()
+	run_finished.emit()
+
+
+### -----------------------------------------------------------------------------------------------
+## PNG 缩放/恢复任务（与轮廓转换同款宿主模式：分帧让出、进度快照、切页安全、互斥）
+
+## 启动缩放任务。scale_mode: "scale"（执行缩放）/ "restore"（恢复原图）
+func start_scale(scale_mode: String, source_dir: String, backup_dir: String, factor: float, reclaim_original: bool) -> void:
+	if is_running or source_dir.is_empty() or backup_dir.is_empty():
+		return
+	_session += 1
+	is_running = true
+	job_kind = "scale"
+	running_mode = "PNG 缩放" if scale_mode == "scale" else "恢复原图"
+	target_name = source_dir
+	status_text = "⏳ %s…（目标: %s，切页不影响进度）" % [running_mode, source_dir.get_file()]
+	status_color = Color.CYAN
+	progress_text = ""
+	result_text = ""
+	progress_updated.emit()
+	_execute_scale(_session, scale_mode, source_dir, backup_dir, factor, reclaim_original)
+
+
+## 缩放任务协程：逐文件 await 让出一帧，编辑器全程可交互
+func _execute_scale(session: int, scale_mode: String, source_dir: String, backup_dir: String, factor: float, reclaim_original: bool) -> void:
+	var result := {"scaled": 0, "masks": 0, "backed_up": 0, "restored": 0, "errors": [] as Array[String]}
+	var pairs: Array[Dictionary] = []
+	if scale_mode == "scale":
+		pairs = PngScaleTool.collect_scale_pairs(source_dir, backup_dir)
+	else:
+		pairs = PngScaleTool.collect_restore_pairs(source_dir, backup_dir)
+	
+	var total := pairs.size()
+	if total == 0:
+		result.errors.append("没有可处理的 PNG（%s）" % ("源目录为空？" if scale_mode == "scale" else "备份目录为空？从未执行过缩放？"))
+		_finish_scale_job(result)
+		return
+	
+	for i in total:
+		if session != _session:
+			return  # 已被新任务接管
+		var p: Dictionary = pairs[i]
+		if scale_mode == "scale":
+			var r: Dictionary = PngScaleTool.scale_one(p["src"], p["bak"], factor, reclaim_original)
+			if not r.error.is_empty():
+				(result.errors as Array[String]).append(r.error)
+			else:
+				if r.backed_up:
+					result.backed_up += 1
+				if r.is_mask:
+					result.masks += 1
+				else:
+					result.scaled += 1
+		else:
+			var err := PngScaleTool.restore_one(p["bak"], p["src"])
+			if err.is_empty():
+				result.restored += 1
+			else:
+				(result.errors as Array[String]).append(err)
+		progress_text = "⏳ %s: %d/%d (%s)" % [running_mode, i + 1, total, p["rel"]]
+		progress_updated.emit()
+		await get_tree().process_frame
+	
+	_finish_scale_job(result)
+
+
+func _finish_scale_job(result: Dictionary) -> void:
+	is_running = false
+	var errors: Array = result.get("errors", [])
+	var error_count: int = errors.size()
+	progress_text = ""
+	result_text = ""
+	
+	if error_count == 0:
+		var extra := "——请重跑 Body + Attack 轮廓转换" if running_mode == "PNG 缩放" else ""
+		status_text = "✅ %s 完成：图 %d / 掩码 %d / 采原底 %d / 恢复 %d %s" % [
+			running_mode, result.scaled, result.masks, result.backed_up, result.restored, extra
+		]
+		status_color = Color.GREEN
+	else:
+		var preview: Array = errors.slice(0, 3)
+		status_text = "⚠️ %s 结束，有 %d 个错误：%s" % [running_mode, error_count, " | ".join(preview)]
+		status_color = Color.ORANGE
+	
 	EditorInterface.get_resource_filesystem().scan()
 	run_finished.emit()

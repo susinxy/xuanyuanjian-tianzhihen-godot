@@ -1132,7 +1132,7 @@ custom_inspectors/height_layers/
 - 转换期间关闭目标场景页签：runner 在下一次进度回调检测 `is_instance_valid(_active_skin)` 失败 → `_session+1` 作废旧协程收尾权 → 立即 `_finalize` 报错并复位 `is_running`（不会永久卡运行态）
 - 防 class_name 缓存时序问题：widget 经 `const preload` 引用 runner 与 injector（新文件同步到另一台机器后首启即编译，不依赖全局类注册时机）
 
-**PNG 缩放与备份工具**（`png_scale_tool.gd`，widget 底部区块）：资产层角色缩放方案——体型差异通过缩小精灵图实现（"两个体型=两个角色"工作流），系统运行时对缩放零认知。规则：①首次执行把源目录 PNG 备份到 `resources/sprites_master/`（文件名不变仅换位置），备份只认第一次；②缩放永远从备份原图重算写回源目录（杜绝复损），系数可反复改；③"恢复原图"从备份整体拷回；④"重新采集原底"复选框仅在手换整套美术时勾选；⑤`.mask.png/.body.mask.png/.attack.mask.png` 三型掩码自动识别直接 resize，精灵图走 `fix_alpha_edges`（4.7 无 depremultiply_alpha，premultiply 路线不可逆）→ Lanczos；⑥完成后提醒重跑 Body+Attack 两类轮廓转换（动画数据从缩小后的图重新烘焙）。核心为纯静态文件操作（不依赖 EditorInterface），headless 已验证备份/复损防护/字节级恢复。
+**PNG 缩放与备份工具**（`png_scale_tool.gd`，widget 底部区块）：资产层角色缩放方案——体型差异通过缩小精灵图实现（"两个体型=两个角色"工作流），系统运行时对缩放零认知。规则：①首次执行把源目录 PNG 备份到 `resources/sprites_master/`（文件名不变仅换位置），备份只认第一次；②缩放永远从备份原图重算写回源目录（杜绝复损），系数可反复改；③"恢复原图"从备份整体拷回；④"重新采集原底"复选框仅在手换整套美术时勾选；⑤`.mask.png/.body.mask.png/.attack.mask.png` 三型掩码自动识别直接 resize，精灵图走 `fix_alpha_edges`（4.7 无 depremultiply_alpha，premultiply 路线不可逆）→ Lanczos；⑥完成后提醒重跑 Body+Attack 两类轮廓转换（动画数据从缩小后的图重新烘焙）。核心拆为单文件原语 `scale_one()/restore_one()/collect_*()`（纯静态文件操作，不依赖 EditorInterface）+ 同步封装 `apply_scale()/restore_to_original()`（headless 测试入口，与 runner 共用同一原语保证单一语义）。**执行走 `ContourConversionRunner`**（与轮廓转换同款宿主模式）：`start_scale(scale|restore, ...)` 投递任务 → runner 协程逐文件 `await process_frame` 分帧让出（编辑器全程可交互、进度 `⏳ 缩放 37/420 (rel/path.png)`、切页回来状态照常、与轮廓转换互斥共享 `is_running` 锁、session 防旧协程）→ 完成时 fs.scan + 结果快照。headless 已验证原语的备份/复损防护/字节级恢复（重构前后行为逐项一致）。
 
 **工作流程（轮廓转换）**：
 ```

@@ -34,11 +34,6 @@ const ContourConversionRunner = preload(
 	+ "contour_conversion_runner.gd"
 )
 
-const PngScaleTool = preload(
-	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
-	+ "png_scale_tool.gd"
-)
-
 # 持久化文件路径（跨 widget 重建）
 static var _persisted_preview_file_path: String = ""
 
@@ -399,6 +394,15 @@ func _prefill_scale_dirs(skin_node: Node) -> void:
 
 
 func _on_scale_apply_pressed() -> void:
+	_dispatch_scale("scale")
+
+
+func _on_scale_restore_pressed() -> void:
+	_dispatch_scale("restore")
+
+
+## 路径校验后投递给常驻 runner（分帧执行，见 contour_conversion_runner.gd）
+func _dispatch_scale(scale_mode: String) -> void:
 	var source_dir := _scale_source_edit.text.strip_edges().trim_suffix("/")
 	var backup_dir := _scale_backup_edit.text.strip_edges().trim_suffix("/")
 	if source_dir.is_empty() or backup_dir.is_empty():
@@ -407,39 +411,10 @@ func _on_scale_apply_pressed() -> void:
 	if backup_dir == source_dir or backup_dir.begins_with(source_dir + "/"):
 		_scale_result_label.text = "❌ 备份目录不能在源目录内部或与其相同（兄弟目录如 sprites_master/ 是合法的）"
 		return
-	
-	var result: Dictionary = PngScaleTool.apply_scale(source_dir, backup_dir, _scale_factor_spin.value, _scale_reclaim_check.button_pressed)
-	_report_scale_result(result, "缩放")
-	_refresh_filesystem()
-
-
-func _on_scale_restore_pressed() -> void:
-	var source_dir := _scale_source_edit.text.strip_edges().trim_suffix("/")
-	var backup_dir := _scale_backup_edit.text.strip_edges().trim_suffix("/")
-	if source_dir.is_empty() or backup_dir.is_empty():
-		_scale_result_label.text = "❌ 源目录/备份目录不能为空"
+	var runner := ContourConversionRunner.get_or_create()
+	if runner == null or runner.is_running:
 		return
-	
-	var result: Dictionary = PngScaleTool.restore_to_original(source_dir, backup_dir)
-	_report_scale_result(result, "恢复")
-	_refresh_filesystem()
-
-
-func _report_scale_result(result: Dictionary, action: String) -> void:
-	var error_count: int = (result.errors as Array).size()
-	if error_count > 0:
-		var first_errors: Array = (result.errors as Array).slice(0, 5)
-		_scale_result_label.text = "❌ %s 完成但有 %d 个错误：%s" % [action, error_count, " | ".join(first_errors)]
-		_scale_result_label.add_theme_color_override("font_color", Color.ORANGE)
-		return
-	_scale_result_label.text = "✅ %s 完成：图 %d 张 / 掩码 %d 张 / 采集备份 %d / 恢复 %d —— 请重跑 Body + Attack 轮廓转换" % [
-		action, result.scaled, result.masks, result.backed_up, result.restored
-	]
-	_scale_result_label.add_theme_color_override("font_color", Color.GREEN)
-
-
-func _refresh_filesystem() -> void:
-	EditorInterface.get_resource_filesystem().scan()
+	runner.start_scale(scale_mode, source_dir, backup_dir, _scale_factor_spin.value, _scale_reclaim_check.button_pressed)
 
 
 func _make_separator() -> HSeparator:
@@ -453,27 +428,41 @@ func _make_label(text: String) -> Label:
 
 
 ## 从常驻 runner 刷新状态/结果/按钮（widget 重建后恢复 + 运行中实时跟随）
+## 轮廓转换与 PNG 缩放共用同一 runner，按 job_kind 分流显示；互斥体现在四按钮全禁
 func _refresh_from_runner() -> void:
 	var runner := ContourConversionRunner.peek()
 	if runner == null or _contour_status_label == null:
 		return
 	if runner.is_running:
 		var text := runner.progress_text if not runner.progress_text.is_empty() else runner.status_text
-		_contour_status_label.text = text
-		_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
-		if not runner.result_text.is_empty():
-			_contour_result_label.text = runner.result_text
+		if runner.job_kind == "scale":
+			_scale_result_label.text = text
+			_scale_result_label.add_theme_color_override("font_color", Color.CYAN)
+		else:
+			_contour_status_label.text = text
+			_contour_status_label.add_theme_color_override("font_color", Color.CYAN)
+			if not runner.result_text.is_empty():
+				_contour_result_label.text = runner.result_text
 		_body_contour_btn.disabled = true
 		_attack_contour_btn.disabled = true
+		_scale_apply_btn.disabled = true
+		_scale_restore_btn.disabled = true
 	else:
-		if not runner.status_text.is_empty():
-			_contour_status_label.text = runner.status_text
-			_contour_status_label.add_theme_color_override("font_color", runner.status_color)
-		if not runner.result_text.is_empty():
-			_contour_result_label.text = runner.result_text
+		if runner.job_kind == "scale":
+			if not runner.status_text.is_empty():
+				_scale_result_label.text = runner.status_text
+				_scale_result_label.add_theme_color_override("font_color", runner.status_color)
+		else:
+			if not runner.status_text.is_empty():
+				_contour_status_label.text = runner.status_text
+				_contour_status_label.add_theme_color_override("font_color", runner.status_color)
+			if not runner.result_text.is_empty():
+				_contour_result_label.text = runner.result_text
 		# 恢复按钮状态（法术模式下 Body 保持禁用）
 		_body_contour_btn.disabled = not _show_body_button
 		_attack_contour_btn.disabled = false
+		_scale_apply_btn.disabled = false
+		_scale_restore_btn.disabled = false
 
 
 ## 碰撞形状类型切换时设置默认参数
