@@ -28,10 +28,15 @@ const AnimationTrackInjector = preload(
 )
 
 ## 用 const preload 而非全局类名引用：不依赖 class_name 缓存重建时机，
-## 新文件经 Syncthing 同步到 Windows 后首次启动编辑器也不会报"找不到类"
+## 新文件经 Syncthing 同步到另一台机器后首启即编译，不报"找不到类"
 const ContourConversionRunner = preload(
 	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
 	+ "contour_conversion_runner.gd"
+)
+
+const PngScaleTool = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/"
+	+ "png_scale_tool.gd"
 )
 
 # 持久化文件路径（跨 widget 重建）
@@ -57,6 +62,14 @@ var _body_contour_btn: Button
 var _attack_contour_btn: Button
 var _contour_status_label: Label
 var _contour_result_label: RichTextLabel
+# PNG 缩放与备份 UI
+var _scale_source_edit: LineEdit
+var _scale_backup_edit: LineEdit
+var _scale_factor_spin: SpinBox
+var _scale_reclaim_check: CheckBox
+var _scale_apply_btn: Button
+var _scale_restore_btn: Button
+var _scale_result_label: Label
 var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
@@ -113,6 +126,10 @@ func _ready() -> void:
 		QuiverEditorHelper.connect_between(runner.progress_updated, _refresh_from_runner)
 		QuiverEditorHelper.connect_between(runner.run_finished, _refresh_from_runner)
 		_refresh_from_runner()
+	
+	# set_skin_node 可能先于 _ready 发生（进入树后才构建 UI）→ 此处补预填
+	if _skin_node != null:
+		_prefill_scale_dirs(_skin_node)
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -123,6 +140,9 @@ func _ready() -> void:
 ## 由 inspector_plugin 调用，传入皮肤节点引用
 func set_skin_node(skin_node: Node) -> void:
 	_skin_node = skin_node
+	# UI 尚未构建时（_ready 晚于本调用），预填延迟到 _ready 尾部
+	if _scale_source_edit != null:
+		_prefill_scale_dirs(skin_node)
 
 
 ## 法术模式：隐藏 Body 按钮（法术不需要身体轮廓转换）
@@ -304,10 +324,132 @@ func _build_ui() -> void:
 	_contour_result_label.custom_minimum_size = Vector2(0, 100)
 	add_child(_contour_result_label)
 	
+	_build_png_scale_ui()
+	
 	# 法术模式：禁用 Body 按钮
 	if not _show_body_button:
 		_body_contour_btn.disabled = true
 		_body_contour_btn.tooltip_text = "法术不需要 Body 轮廓转换"
+
+
+### PNG 缩放与备份 ------------------------------------------------------------------
+
+## 构建"PNG 缩放与备份"区块（纯资产层工具：缩放写盘 + 备份只认第一次）
+func _build_png_scale_ui() -> void:
+	add_child(_make_separator())
+	
+	var title := Label.new()
+	title.text = "PNG 缩放与备份（资产层，缩放后需重跑两类轮廓转换）"
+	title.add_theme_font_size_override("font_size", 14)
+	add_child(title)
+	
+	_scale_source_edit = LineEdit.new()
+	_scale_source_edit.placeholder_text = "源目录 res://..."
+	_scale_source_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_scale_source_edit)
+	
+	_scale_backup_edit = LineEdit.new()
+	_scale_backup_edit.placeholder_text = "备份目录 res://...（首次执行自动采集原图）"
+	_scale_backup_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_scale_backup_edit)
+	
+	var factor_row := HBoxContainer.new()
+	factor_row.add_child(_make_label("缩放系数:"))
+	_scale_factor_spin = SpinBox.new()
+	_scale_factor_spin.min_value = 0.05
+	_scale_factor_spin.max_value = 4.0
+	_scale_factor_spin.step = 0.05
+	_scale_factor_spin.value = 0.55
+	_scale_factor_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	factor_row.add_child(_scale_factor_spin)
+	_scale_reclaim_check = CheckBox.new()
+	_scale_reclaim_check.text = "以当前图重新采集原底"
+	_scale_reclaim_check.tooltip_text = "仅当手动替换了一整套新美术时勾选；否则备份只认第一次，缩放永远从备份原图重算"
+	factor_row.add_child(_scale_reclaim_check)
+	add_child(factor_row)
+	
+	var btn_row := HBoxContainer.new()
+	_scale_apply_btn = Button.new()
+	_scale_apply_btn.text = "🖼 执行缩放"
+	_scale_apply_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scale_apply_btn.pressed.connect(_on_scale_apply_pressed)
+	btn_row.add_child(_scale_apply_btn)
+	_scale_restore_btn = Button.new()
+	_scale_restore_btn.text = "↩ 恢复原图"
+	_scale_restore_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scale_restore_btn.pressed.connect(_on_scale_restore_pressed)
+	btn_row.add_child(_scale_restore_btn)
+	add_child(btn_row)
+	
+	_scale_result_label = Label.new()
+	_scale_result_label.text = "就绪"
+	_scale_result_label.add_theme_color_override("font_color", Color.GRAY)
+	_scale_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_scale_result_label)
+
+
+## 选中皮肤节点时，从场景路径反推源/备份目录（可手动改）
+func _prefill_scale_dirs(skin_node: Node) -> void:
+	var scene_path := skin_node.scene_file_path
+	if scene_path.is_empty():
+		return
+	var char_dir := scene_path.get_base_dir()
+	_scale_source_edit.text = char_dir.path_join("resources/sprites")
+	_scale_backup_edit.text = char_dir.path_join("resources/sprites_master")
+
+
+func _on_scale_apply_pressed() -> void:
+	var source_dir := _scale_source_edit.text.strip_edges()
+	var backup_dir := _scale_backup_edit.text.strip_edges()
+	if source_dir.is_empty() or backup_dir.is_empty():
+		_scale_result_label.text = "❌ 源目录/备份目录不能为空"
+		return
+	if backup_dir.begins_with(source_dir):
+		_scale_result_label.text = "❌ 备份目录不能在源目录内部（会被反复缩放）"
+		return
+	
+	var result: Dictionary = PngScaleTool.apply_scale(source_dir, backup_dir, _scale_factor_spin.value, _scale_reclaim_check.button_pressed)
+	_report_scale_result(result, "缩放")
+	_refresh_filesystem()
+
+
+func _on_scale_restore_pressed() -> void:
+	var source_dir := _scale_source_edit.text.strip_edges()
+	var backup_dir := _scale_backup_edit.text.strip_edges()
+	if source_dir.is_empty() or backup_dir.is_empty():
+		_scale_result_label.text = "❌ 源目录/备份目录不能为空"
+		return
+	
+	var result: Dictionary = PngScaleTool.restore_to_original(source_dir, backup_dir)
+	_report_scale_result(result, "恢复")
+	_refresh_filesystem()
+
+
+func _report_scale_result(result: Dictionary, action: String) -> void:
+	var error_count: int = (result.errors as Array).size()
+	if error_count > 0:
+		var first_errors: Array = (result.errors as Array).slice(0, 5)
+		_scale_result_label.text = "❌ %s 完成但有 %d 个错误：%s" % [action, error_count, " | ".join(first_errors)]
+		_scale_result_label.add_theme_color_override("font_color", Color.ORANGE)
+		return
+	_scale_result_label.text = "✅ %s 完成：图 %d 张 / 掩码 %d 张 / 采集备份 %d / 恢复 %d —— 请重跑 Body + Attack 轮廓转换" % [
+		action, result.scaled, result.masks, result.backed_up, result.restored
+	]
+	_scale_result_label.add_theme_color_override("font_color", Color.GREEN)
+
+
+func _refresh_filesystem() -> void:
+	EditorInterface.get_resource_filesystem().scan()
+
+
+func _make_separator() -> HSeparator:
+	return HSeparator.new()
+
+
+func _make_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	return label
 
 
 ## 从常驻 runner 刷新状态/结果/按钮（widget 重建后恢复 + 运行中实时跟随）

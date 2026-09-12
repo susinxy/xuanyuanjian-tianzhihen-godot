@@ -1100,7 +1100,7 @@ func _parse_begin(object: Object) -> void:
 | `ai_states_dropdown/` | AI 状态脚本 | 提供 AI 状态下拉列表 |
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`characters/playable/_template/character_template.tscn`） | **创建/删除角色** |
-| **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）** |
+| **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）+ PNG 缩放与备份工具** |
 
 ### Height Layers Inspector（新增）
 
@@ -1118,6 +1118,7 @@ custom_inspectors/height_layers/
 ├── contour_conversion_runner.gd     # 轮廓转换运行器（extends Node, @tool, class_name ContourConversionRunner，常驻编辑器树）
 ├── animation_track_injector.gd      # 轨道注入核心 + 轮廓转换管道（extends RefCounted, @tool）
 ├── contour_tracer.gd                # 轮廓提取 + 几何计算（extends RefCounted, 全静态方法, @tool）
+├── png_scale_tool.gd                # PNG 批量缩放+备份核心（extends RefCounted, 静态方法, @tool, 纯文件操作）
 └── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool）
 ```
 
@@ -1130,6 +1131,8 @@ custom_inspectors/height_layers/
 - runner 转换完成后**自行**调用 `EditorInterface.get_resource_filesystem().scan()`（旧 widget `scan_completed` 信号 → plugin 中转链已废除，widget 半路死亡会断链）
 - 转换期间关闭目标场景页签：runner 在下一次进度回调检测 `is_instance_valid(_active_skin)` 失败 → `_session+1` 作废旧协程收尾权 → 立即 `_finalize` 报错并复位 `is_running`（不会永久卡运行态）
 - 防 class_name 缓存时序问题：widget 经 `const preload` 引用 runner 与 injector（新文件同步到另一台机器后首启即编译，不依赖全局类注册时机）
+
+**PNG 缩放与备份工具**（`png_scale_tool.gd`，widget 底部区块）：资产层角色缩放方案——体型差异通过缩小精灵图实现（"两个体型=两个角色"工作流），系统运行时对缩放零认知。规则：①首次执行把源目录 PNG 备份到 `resources/sprites_master/`（文件名不变仅换位置），备份只认第一次；②缩放永远从备份原图重算写回源目录（杜绝复损），系数可反复改；③"恢复原图"从备份整体拷回；④"重新采集原底"复选框仅在手换整套美术时勾选；⑤`.mask.png/.body.mask.png/.attack.mask.png` 三型掩码自动识别直接 resize，精灵图走 `fix_alpha_edges`（4.7 无 depremultiply_alpha，premultiply 路线不可逆）→ Lanczos；⑥完成后提醒重跑 Body+Attack 两类轮廓转换（动画数据从缩小后的图重新烘焙）。核心为纯静态文件操作（不依赖 EditorInterface），headless 已验证备份/复损防护/字节级恢复。
 
 **工作流程（轮廓转换）**：
 ```
