@@ -399,13 +399,13 @@ func _prefill_scale_dirs(skin_node: Node) -> void:
 
 
 func _on_scale_apply_pressed() -> void:
-	var source_dir := _scale_source_edit.text.strip_edges()
-	var backup_dir := _scale_backup_edit.text.strip_edges()
+	var source_dir := _scale_source_edit.text.strip_edges().trim_suffix("/")
+	var backup_dir := _scale_backup_edit.text.strip_edges().trim_suffix("/")
 	if source_dir.is_empty() or backup_dir.is_empty():
 		_scale_result_label.text = "❌ 源目录/备份目录不能为空"
 		return
-	if backup_dir.begins_with(source_dir):
-		_scale_result_label.text = "❌ 备份目录不能在源目录内部（会被反复缩放）"
+	if backup_dir == source_dir or backup_dir.begins_with(source_dir + "/"):
+		_scale_result_label.text = "❌ 备份目录不能在源目录内部或与其相同（兄弟目录如 sprites_master/ 是合法的）"
 		return
 	
 	var result: Dictionary = PngScaleTool.apply_scale(source_dir, backup_dir, _scale_factor_spin.value, _scale_reclaim_check.button_pressed)
@@ -414,8 +414,8 @@ func _on_scale_apply_pressed() -> void:
 
 
 func _on_scale_restore_pressed() -> void:
-	var source_dir := _scale_source_edit.text.strip_edges()
-	var backup_dir := _scale_backup_edit.text.strip_edges()
+	var source_dir := _scale_source_edit.text.strip_edges().trim_suffix("/")
+	var backup_dir := _scale_backup_edit.text.strip_edges().trim_suffix("/")
 	if source_dir.is_empty() or backup_dir.is_empty():
 		_scale_result_label.text = "❌ 源目录/备份目录不能为空"
 		return
