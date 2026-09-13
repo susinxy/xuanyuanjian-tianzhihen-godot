@@ -164,8 +164,45 @@ func _clear_track_keys(anim: Animation, track_idx: int) -> void:
 
 ## 从 SpriteFrames 提取所有帧的轮廓数据（共享扫描逻辑）
 ##
-## 统一的扫描逻辑：遍历帧 → 加载 PNG → 检查 mask → 提取轮廓
-## mask 处理统一：有 mask 用 mask，无 mask 全图扫描
+## 三类别 × 两族标记的解析链（首个存在即命中；类别间无继承——shadow 与 body 平级独立）
+const SCAN_MASK_CHAINS := {
+	"body": [".body.mask.png", ".mask.png"],
+	"attack": [".attack.mask.png", ".mask.png"],
+	"shadow": [".shadow.mask.png", ".mask.png"],
+}
+const SCAN_NO_MARKERS := {
+	"body": [".body.no.png", ".no.png"],
+	"attack": [".attack.no.png", ".no.png"],
+	"shadow": [".shadow.no.png", ".no.png"],
+}
+
+## 纯路径判定：返回命中的 .no.png 标记路径（""=不豁免）。命中帧整帧不检测、注入端自然不写键
+static func find_no_marker(png_path: String, suffix: String) -> String:
+	var base_path := png_path.replace(".png", "")
+	for marker in SCAN_NO_MARKERS.get(suffix, [".no.png"]):
+		var cand: String = base_path + marker
+		if FileAccess.file_exists(cand):
+			return cand
+	return ""
+
+## 纯路径判定：返回本类别应使用的蒙版路径（""=无蒙版全图扫描）。链内无跨类别回退
+static func resolve_mask_path(png_path: String, suffix: String) -> String:
+	var base_path := png_path.replace(".png", "")
+	for marker in SCAN_MASK_CHAINS.get(suffix, [".mask.png"]):
+		var cand: String = base_path + marker
+		if FileAccess.file_exists(cand):
+			return cand
+	return ""
+
+static func _load_mask_by_chain(png_path: String, suffix: String) -> Image:
+	var mask_path := resolve_mask_path(png_path, suffix)
+	if mask_path.is_empty():
+		return null
+	return Image.load_from_file(ProjectSettings.globalize_path(mask_path))
+
+
+## 统一的扫描逻辑：帧 → .no.png 豁免 → 解析链蒙版 → 提取轮廓
+## 蒙版按类别链解析（首个存在即用）；同 scan 的图/蒙版进跨扫描共享缓存（按后缀分键，互不串）
 ##
 ## 参数:
 ## - sprite_frames: SpriteFrames 资源
@@ -190,9 +227,12 @@ func _scan_frames_contours(
 	errors: Array[String],
 	erosion_radius: int = 0,
 	shared_image_cache: Dictionary = {},
-	scan_phase: String = ""
+	scan_phase: String = "",
+	out_stats: Dictionary = {}
 ) -> Dictionary:
 	var frames_data := {}
+	if not out_stats.has("no_marked"):
+		out_stats["no_marked"] = {}
 	
 	# 第一遍：预统计要处理的帧列表
 	var frames_to_process := []
@@ -223,6 +263,13 @@ func _scan_frames_contours(
 				continue
 			
 			var png_path := texture.resource_path
+			if png_path.is_empty():
+				continue
+			
+			# 豁免标记：整帧不检测（进度 total 天然不含）
+			if not find_no_marker(png_path, mask_suffix).is_empty():
+				out_stats.no_marked[png_path] = true
+				continue
 			
 			frames_to_process.append({
 				"sprite_anim_name": sprite_anim_name,
@@ -261,34 +308,25 @@ func _scan_frames_contours(
 			}
 			continue
 		
-		# 图像缓存：跨 scan 共享已加载的 PNG 和 mask，避免重复磁盘 I/O
+		# 图像缓存：跨 scan 共享已加载的 PNG；蒙版按后缀分键缓存
+		# （body/shadow 两类链各自解析，互不污染——旧单键结构会让先跑的类别吞掉后跑的蒙版）
 		var image: Image
 		var mask: Image
 		if shared_image_cache.has(png_path):
 			var cached_img: Dictionary = shared_image_cache[png_path]
 			image = cached_img["image"]
-			mask = cached_img["mask"]
+			if cached_img.masks.has(mask_suffix):
+				mask = cached_img.masks[mask_suffix]
+			else:
+				mask = _load_mask_by_chain(png_path, mask_suffix)
+				cached_img.masks[mask_suffix] = mask
 		else:
 			image = Image.load_from_file(ProjectSettings.globalize_path(png_path))
 			if image == null:
 				errors.append("无法加载图片: %s" % png_path)
 				continue
-			
-			# 检查 mask（优先级：专用 > 通用 > 无）
-			# 1. {name}.{suffix}.mask.png  （专用 mask）
-			# 2. {name}.mask.png           （通用 mask，向后兼容）
-			# 3. 无 mask → 全图扫描
-			var base_path := png_path.replace(".png", "")
-			var specific_mask_path := base_path + "." + mask_suffix + ".mask.png"
-			var generic_mask_path := base_path + ".mask.png"
-			
-			mask = null
-			if FileAccess.file_exists(specific_mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(specific_mask_path))
-			elif FileAccess.file_exists(generic_mask_path):
-				mask = Image.load_from_file(ProjectSettings.globalize_path(generic_mask_path))
-			
-			shared_image_cache[png_path] = {"image": image, "mask": mask}
+			mask = _load_mask_by_chain(png_path, mask_suffix)
+			shared_image_cache[png_path] = {"image": image, "masks": {mask_suffix: mask}}
 		
 		# 提取轮廓（原始像素坐标）— 不同 scan 可能用不同参数，不缓存轮廓结果
 		var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, erosion_radius)
@@ -390,6 +428,7 @@ func _convert_contours_common(
 		"errors": [] as Array[String],
 		"frames_info": {},
 		"png_renames": {},
+		"skipped_no": 0,
 	}
 	
 	# 1. 获取 SpriteFrames
@@ -421,10 +460,11 @@ func _convert_contours_common(
 	# 5. 扫描一次（body 轮廓）+ 共享图像缓存避免重复磁盘 I/O
 	var image_cache := {}
 	var scan_erosion: int = erosion_radius if shape_type != ShapeType.POLYGON else 0
+	var scan_stats := {}
 	var frames_data := await _scan_frames_contours(
 		sprite_frames, alpha_threshold, simplify_tolerance, min_area_ratio,
 		relevant_anims, unified_filter, category, callback_obj, result.errors, scan_erosion,
-		image_cache, "Body"
+		image_cache, "Body", scan_stats
 	)
 	
 	# 5b. ShadowBox 第二次独立扫描（仅 body category，参数独立）
@@ -436,8 +476,8 @@ func _convert_contours_common(
 	if shadow_scan_enabled:
 		var shadow_frames_data := await _scan_frames_contours(
 			sprite_frames, alpha_threshold, shadow_simplify_tolerance, shadow_min_area_ratio,
-			relevant_anims, unified_filter, category, callback_obj, result.errors, 0,
-			image_cache, "Shadow"
+			relevant_anims, unified_filter, "shadow", callback_obj, result.errors, 0,
+			image_cache, "Shadow", scan_stats
 		)
 		for shadow_anim_name in shadow_frames_data:
 			if not frames_data.has(shadow_anim_name):
@@ -522,6 +562,7 @@ func _convert_contours_common(
 	if anim_player != null:
 		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, result.errors, skin_scene_path, shape_type_changed, skin_node)
 	
+	result.skipped_no = (scan_stats.get("no_marked", {}) as Dictionary).size()
 	result.frames_info = frames_data
 	return result
 

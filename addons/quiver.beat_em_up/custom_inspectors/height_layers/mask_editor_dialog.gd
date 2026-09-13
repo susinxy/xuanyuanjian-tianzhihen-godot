@@ -81,6 +81,8 @@ func _update_mask_path() -> void:
 			_mask_path = base_path + ".body.mask.png"
 		2:  # Attack
 			_mask_path = base_path + ".attack.mask.png"
+		3:  # Shadow（独立解析链，不继承 body）
+			_mask_path = base_path + ".shadow.mask.png"
 		_:  # 通用
 			_mask_path = base_path + ".mask.png"
 
@@ -168,6 +170,7 @@ func _build_ui() -> void:
 	_mask_type_option.add_item("通用", 0)
 	_mask_type_option.add_item("Body", 1)
 	_mask_type_option.add_item("Attack", 2)
+	_mask_type_option.add_item("Shadow", 3)
 	_mask_type_option.select(0)
 	_mask_type_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mask_type_option.item_selected.connect(_on_mask_type_changed)

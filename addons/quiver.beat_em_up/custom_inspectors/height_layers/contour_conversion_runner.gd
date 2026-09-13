@@ -149,6 +149,9 @@ func _finalize(result: Dictionary) -> void:
 	lines.append("[b]%s 轮廓转换结果[/b]" % running_mode)
 	lines.append("")
 	lines.append("处理帧数: [b]%d[/b]" % frame_count)
+	var skipped_no: int = result.get("skipped_no", 0)
+	if skipped_no > 0:
+		lines.append("标记跳过: [i]%d 张（.no.png 豁免）[/i]" % skipped_no)
 	lines.append("")
 	if error_count == 0:
 		lines.append("[color=green]✅ 转换完成，无错误[/color]")

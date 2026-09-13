@@ -45,7 +45,7 @@ static func process_pair(
 	bak_global: String,
 	journal: Dictionary
 ) -> Dictionary:
-	var out := {"action": "", "error": "", "is_mask": rel.ends_with(".mask.png")}
+	var out := {"action": "", "error": "", "is_mask": rel.ends_with(".mask.png") or rel.ends_with(".no.png")}
 	if factor <= 0.0:
 		out.error = "缩放系数必须大于 0"
 		return out

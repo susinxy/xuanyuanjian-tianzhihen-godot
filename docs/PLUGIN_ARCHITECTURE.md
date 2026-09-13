@@ -1119,7 +1119,7 @@ custom_inspectors/height_layers/
 ├── animation_track_injector.gd      # 轨道注入核心 + 轮廓转换管道（extends RefCounted, @tool）
 ├── contour_tracer.gd                # 轮廓提取 + 几何计算（extends RefCounted, 全静态方法, @tool）
 ├── png_scale_tool.gd                # PNG 批量缩放+备份核心（extends RefCounted, 静态方法, @tool, 纯文件操作）
-└── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool）
+└── mask_editor_dialog.gd            # 交互式蒙版绘制工具（extends AcceptDialog, @tool；通用/Body/Attack/Shadow 四档）
 ```
 
 **Widget 生命周期契约（重要，4.7 源码实证）**：
@@ -1151,6 +1151,13 @@ Runner._execute() → AnimationTrackInjector.convert_body_contours() / convert_a
                     （callback_obj = runner：进度回调 + get_tree() 帧让出）
   ↓
 1. 扫描 PNG 图像，提取轮廓（_scan_frames_contours + ContourTracer）
+   - **帧级标记系统（三类别 body/attack/shadow × 两族，类别间无继承、互不平移）**：
+     - 蒙版族 `{name}{.类别}.mask.png → {name}.mask.png → 无`：常量表 `SCAN_MASK_CHAINS`，首个存在即用（`resolve_mask_path()`）
+     - 豁免族 `{name}{.类别}.no.png` 或 `{name}.no.png`：任一命中 → **整帧不检测**（`find_no_marker()`，预统计 pass 过滤、进度 total 不含、结果 `skipped_no` 计数）；被跳帧在注入端因 `frame_dict.has()` 守卫**不写任何键**（polygon/physical_height/width/attack_heights/occluder 全部保持上一键值，与 `:disabled` 窗口同机制）
+     - shadow 与 body 完全平级：`.body.mask.png`/`.body.no.png` **不影响** shadow（各有专属档 + 通用档）；shadow 扫描以 `mask_suffix="shadow"` 独立解析
+     - 跨扫描 `shared_image_cache` 值为 `{image, masks:{suffix→Image|null}}`——蒙版按后缀分键缓存，杜绝"先跑类别吞掉后跑类别蒙版"（v1 单键缺陷）
+     - 标记文件必须是合法 PNG（0 字节会触发导入器报错）；widget 预览区有"豁免标记"创建/删除辅助（2×2 合法图代生成，实时显示现有标记）
+     - 蒙版编辑器类型下拉含 通用/Body/Attack/Shadow 四档（`mask_editor_dialog.gd`）
 2. 后处理：计算 MABR、胶囊体参数、物理高度、攻击高度
 3. 修改场景树节点类型（_modify_scene_tree_node）
 4. 注入碰撞形状 tracks 到每个 Animation（_inject_all_tracks）
@@ -1315,7 +1322,7 @@ Body 和 Attack 共享同一个核心管道，通过 Callable 回调实现类别
 3. 从场景树发现 shape 节点（`_discover_shape_nodes()`）— Body: HurtBox 子节点；Attack: Attacks 下 Area2D 的子节点
 4. 构建统一帧过滤（`_build_unified_frame_filter()`）+ 找出所有相关动画
 5. **单次扫描**：`_scan_frames_contours()` — 遍历帧，加载 PNG，检查蒙版（specific > generic > none），调用 `ContourTracer.trace_contours()`
-   - **5b. ShadowBox 第二次独立扫描**（仅 Body 且 shadow 参数启用时）：使用 `shadow_simplify_tolerance` / `shadow_min_area_ratio`，`erosion_radius = 0`，结果合并到 `frame["shadow_raw_contours"]`。不执行 MABR/Capsule/Rectangle 转换，不计算 physical_height/width
+   - **5b. ShadowBox 第二次独立扫描**（仅 Body 且 shadow 参数启用时）：使用 `shadow_simplify_tolerance` / `shadow_min_area_ratio`，`erosion_radius = 0`，`mask_suffix="shadow"`（独立 `.shadow.mask.png`/`.shadow.no.png` 解析链，与 body 互不继承），结果合并到 `frame["shadow_raw_contours"]`。不执行 MABR/Capsule/Rectangle 转换，不计算 physical_height/width
 6. 前处理回调（Body: 无操作；Attack: 构建 sprite_anim → attack_node 映射）
 7. 后处理每帧：类别特定字段 + 坐标变换 + MABR + Capsule + Rectangle 计算
    - **7d. ShadowBox 轮廓坐标变换**：`shadow_raw_contours` → `pixels_to_shape_local()` → `frame["shadow_contours"]`

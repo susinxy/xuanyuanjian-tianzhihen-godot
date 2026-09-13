@@ -87,6 +87,11 @@ var _preview_contour_btn: Button
 var _preview_mask_btn: Button
 var _preview_mabr_test_btn: Button
 var _preview_result_label: RichTextLabel
+# .no.png 豁免标记辅助 UI
+var _marker_type_option: OptionButton
+var _marker_create_btn: Button
+var _marker_delete_btn: Button
+var _marker_state_label: Label
 var _preview_texture: TextureRect
 
 # 预览区域专用参数 UI
@@ -110,6 +115,7 @@ func _ready() -> void:
 		_preview_file_path.text = _persisted_preview_file_path
 		_preview_contour_btn.disabled = false
 		_preview_mask_btn.disabled = false
+		_refresh_marker_state()
 	
 	# 恢复持久化的转换参数
 	_alpha_threshold_spinbox.value = _persisted_alpha_threshold
@@ -590,6 +596,8 @@ func _build_preview_ui() -> void:
 	_preview_file_select_btn.pressed.connect(_on_preview_file_select_btn_pressed)
 	file_row.add_child(_preview_file_select_btn)
 	
+	_build_marker_ui()
+	
 	# 预览参数区域
 	var preview_param_container := VBoxContainer.new()
 	add_child(preview_param_container)
@@ -706,6 +714,93 @@ func _build_preview_ui() -> void:
 	add_child(HSeparator.new())
 
 
+### .no.png 豁免标记辅助 ----------------------------------------------------------
+
+const MARKER_SUFFIXES := ["", ".body", ".attack", ".shadow"]
+
+
+func _build_marker_ui() -> void:
+	var marker_row := HBoxContainer.new()
+	add_child(marker_row)
+	var marker_label := Label.new()
+	marker_label.text = "豁免标记:"
+	marker_label.custom_minimum_size.x = 80
+	marker_row.add_child(marker_label)
+	_marker_type_option = OptionButton.new()
+	_marker_type_option.add_item("三类全豁免", 0)
+	_marker_type_option.add_item("仅 Body", 1)
+	_marker_type_option.add_item("仅 Attack", 2)
+	_marker_type_option.add_item("仅 Shadow", 3)
+	_marker_type_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_marker_type_option.tooltip_text = "选中的 PNG 将整帧跳过对应类别的轮廓检测（不插入任何轨道键）。
+三类全豁免 = .no.png；其余 = .body/.attack/.shadow.no.png"
+	_marker_type_option.item_selected.connect(func(_i: int) -> void: _refresh_marker_state())
+	marker_row.add_child(_marker_type_option)
+	_marker_create_btn = Button.new()
+	_marker_create_btn.text = "➕ 创建"
+	_marker_create_btn.pressed.connect(_on_marker_create_pressed)
+	marker_row.add_child(_marker_create_btn)
+	_marker_delete_btn = Button.new()
+	_marker_delete_btn.text = "➖ 删除"
+	_marker_delete_btn.pressed.connect(_on_marker_delete_pressed)
+	marker_row.add_child(_marker_delete_btn)
+	_marker_state_label = Label.new()
+	_marker_state_label.add_theme_color_override("font_color", Color.GRAY)
+	add_child(_marker_state_label)
+	_refresh_marker_state()
+
+
+func _current_marker_path() -> String:
+	var file_path := _preview_file_path.text.strip_edges()
+	if file_path.is_empty() or not file_path.ends_with(".png"):
+		return ""
+	return file_path.replace(".png", "") + MARKER_SUFFIXES[_marker_type_option.get_selected_id()] + ".no.png"
+
+
+func _refresh_marker_state() -> void:
+	if _marker_state_label == null:
+		return
+	var file_path := _preview_file_path.text.strip_edges()
+	if file_path.is_empty():
+		_marker_state_label.text = "先在上方选择 PNG 文件"
+		_marker_create_btn.disabled = true
+		_marker_delete_btn.disabled = true
+		return
+	var base := file_path.replace(".png", "")
+	var existing: Array[String] = []
+	var names := ["三类全豁免", "Body", "Attack", "Shadow"]
+	for i in 4:
+		if FileAccess.file_exists(base + MARKER_SUFFIXES[i] + ".no.png"):
+			existing.append(names[i])
+	_marker_state_label.text = "现有标记: " + (", ".join(existing) if not existing.is_empty() else "无")
+	_marker_create_btn.disabled = false
+	_marker_delete_btn.disabled = false
+
+
+func _on_marker_create_pressed() -> void:
+	var marker_path := _current_marker_path()
+	if marker_path.is_empty():
+		return
+	if not FileAccess.file_exists(marker_path):
+		# 2×2 不透明合法 PNG——0 字节文件会让导入器报错，故由工具代生成
+		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		var err := img.save_png(ProjectSettings.globalize_path(marker_path))
+		if err != OK:
+			_marker_state_label.text = "❌ 创建标记失败 err=%d" % err
+			return
+	_refresh_marker_state()
+
+
+func _on_marker_delete_pressed() -> void:
+	var marker_path := _current_marker_path()
+	if marker_path.is_empty():
+		return
+	if FileAccess.file_exists(marker_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(marker_path))
+	_refresh_marker_state()
+
+
 ## 预览区域文件选择按钮点击
 func _on_preview_file_select_btn_pressed() -> void:
 	var file_dialog := FileDialog.new()
@@ -719,6 +814,7 @@ func _on_preview_file_select_btn_pressed() -> void:
 		_persisted_preview_file_path = path
 		_preview_contour_btn.disabled = false
 		_preview_mask_btn.disabled = false
+		_refresh_marker_state()
 		file_dialog.queue_free()
 	)
 	
