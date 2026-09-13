@@ -957,7 +957,13 @@ func _on_preview_mask_pressed() -> void:
 	# 母版上下文与缩放面板同源：mask 的权威版认同一个母版目录，不会跑偏
 	dialog.set_master_context(_scale_source_edit.text, _scale_backup_edit.text)
 	dialog.set_png_path(file_path)
-	dialog.popup_centered(Vector2i(900, 700))
+	# 编辑器内换图 → 面板"当前文件"跟随最后一张，免二次浏览
+	dialog.file_changed.connect(func(p: String):
+		_preview_file_path.text = p
+		_persisted_preview_file_path = p
+		_refresh_marker_state()
+	)
+	dialog.popup_centered(Vector2i(1220, 730))
 	dialog.closed.connect(func():
 		dialog.queue_free()
 	)

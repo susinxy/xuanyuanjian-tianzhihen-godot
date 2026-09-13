@@ -19,6 +19,15 @@ extends AcceptDialog
 const ContourTracer = preload(
 	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/contour_tracer.gd"
 )
+const Injector = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/animation_track_injector.gd"
+)
+const SpriteScan = preload(
+	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/sprite_browser_scan.gd"
+)
+
+## 在编辑器内换图时通知面板同步"当前文件"
+signal file_changed(new_path: String)
 
 var _png_path: String = ""
 var _mask_path: String = ""
@@ -36,6 +45,13 @@ var _master_mask_path: String = ""
 var _output_size: Vector2i = Vector2i.ZERO
 var _brush_scale: float = 1.0
 var _mask_suffix: String = ".mask"
+
+# 内嵌图片浏览器（左侧目录树 + 缩略图，点选换图）
+var _file_tree: Tree
+var _browse_root: String = ""
+var _thumb_cache: Dictionary = {}
+var _tree_items: Dictionary = {}   # 图片路径 -> TreeItem（刷新图标用）
+var _mask_dirty: bool = false      # 有未保存笔迹
 
 var _original_image: Image = null
 var _mask_image: Image = null
@@ -71,6 +87,7 @@ func _ready() -> void:
 	_build_ui()
 	if not _png_path.is_empty():
 		_load_images()
+	_populate_tree()
 
 
 func set_png_path(path: String) -> void:
@@ -138,7 +155,14 @@ func set_params(alpha: float, tolerance: float, min_area_ratio: float) -> void:
 
 func _build_ui() -> void:
 	var hsplit := HSplitContainer.new()
-	add_child(hsplit)
+	_browse_root = _resolve_browse_root()
+	if _browse_root.is_empty():
+		add_child(hsplit)
+	else:
+		var outer := HSplitContainer.new()
+		add_child(outer)
+		outer.add_child(_build_file_browser())
+		outer.add_child(hsplit)
 	
 	# 左侧：画布区域
 	var canvas_container := VBoxContainer.new()
@@ -308,6 +332,149 @@ func _build_ui() -> void:
 	_tool_panel.add_child(_status_label)
 
 
+### 内嵌图片浏览器 ----------------------------------------------------------------
+
+func _resolve_browse_root() -> String:
+	if _png_path.is_empty():
+		return ""
+	if not _source_dir.is_empty() and _png_path.begins_with(_source_dir + "/"):
+		return _source_dir
+	var i := _png_path.rfind("/sprites/")
+	if i >= 0:
+		return _png_path.substr(0, i + "/sprites".length())
+	return _png_path.get_base_dir()
+
+
+func _build_file_browser() -> Control:
+	var panel := VBoxContainer.new()
+	panel.custom_minimum_size = Vector2(250, 0)
+	var title := Label.new()
+	title.text = "📁 图片列表（点选换图）"
+	panel.add_child(title)
+	_file_tree = Tree.new()
+	_file_tree.hide_root = true
+	_file_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_file_tree.item_selected.connect(_on_tree_item_selected)
+	panel.add_child(_file_tree)
+	return panel
+
+
+func _populate_tree() -> void:
+	if _file_tree == null or _browse_root.is_empty():
+		return
+	_file_tree.clear()
+	_tree_items.clear()
+	var tree_root := _file_tree.create_item()
+	var groups: Array = SpriteScan.scan_sprite_tree(_browse_root)
+	var painted := 0
+	for g in groups:
+		var gitem: TreeItem = tree_root
+		if String(g["dir"]) != "":
+			gitem = _file_tree.create_item(tree_root)
+			gitem.set_text(0, String(g["dir"]))
+			gitem.set_selectable(0, false)
+			gitem.set_expanded(true)
+		for fpath in g["files"]:
+			var it := _file_tree.create_item(gitem)
+			it.set_metadata(0, fpath)
+			_tree_items[fpath] = it
+			painted += 1
+			if painted % 48 == 0:
+				await get_tree().process_frame  # 分批让出，构建不冻界面
+	_refresh_badges()
+	_ensure_current_selected()
+	# 缩略图第二遍分批挂（图已缓存过就不重复解码）
+	var n := 0
+	for fpath in _tree_items:
+		var it: TreeItem = _tree_items[fpath]
+		it.set_icon(0, _get_thumb(fpath))
+		n += 1
+		if n % 24 == 0:
+			await get_tree().process_frame
+
+
+## 当前所选类型 → 文件名后追加状态标记：🎭=该类型有生效蒙版  ⛔=该类型被跳过检测
+func _badge_suffix(png_path: String) -> String:
+	var cat := _current_category()
+	var out := ""
+	if not Injector.resolve_mask_path(png_path, cat).is_empty():
+		out += " 🎭"
+	if not Injector.find_no_marker(png_path, cat).is_empty():
+		out += " ⛔"
+	return out
+
+
+func _current_category() -> String:
+	var id := 0
+	if _mask_type_option != null:
+		id = _mask_type_option.get_selected_id()
+	return SpriteScan.option_category(id)
+
+
+func _refresh_badges() -> void:
+	for fpath in _tree_items:
+		var it: TreeItem = _tree_items[fpath]
+		it.set_text(0, String(fpath).get_file() + _badge_suffix(fpath))
+
+
+func _ensure_current_selected() -> void:
+	if _file_tree == null or not _tree_items.has(_png_path):
+		return
+	var it: TreeItem = _tree_items[_png_path]
+	it.select(0)
+	_file_tree.scroll_to_item(it)
+
+
+func _get_thumb(png_path: String) -> Texture2D:
+	if _thumb_cache.has(png_path):
+		return _thumb_cache[png_path]
+	var tex: Texture2D = null
+	var img := Image.load_from_file(ProjectSettings.globalize_path(png_path))
+	if img != null:
+		var w := maxi(1, img.get_width())
+		var h := maxi(1, img.get_height())
+		var scale := 48.0 / float(maxi(w, h))
+		img.resize(maxi(1, int(round(w * scale))), maxi(1, int(round(h * scale))), Image.INTERPOLATE_LANCZOS)
+		tex = ImageTexture.create_from_image(img)
+	_thumb_cache[png_path] = tex
+	return tex
+
+
+func _on_tree_item_selected() -> void:
+	if _file_tree == null:
+		return
+	var it := _file_tree.get_selected()
+	if it == null:
+		return
+	var meta = it.get_metadata(0)
+	if meta == null:
+		return
+	var p := String(meta)
+	if p.is_empty() or p == _png_path:
+		return
+	if _mask_dirty:
+		var confirm := ConfirmationDialog.new()
+		confirm.title = "有未保存的修改"
+		confirm.dialog_text = "「%s」的笔迹还没保存，切换后这些笔迹会丢失。" % _png_path.get_file()
+		add_child(confirm)
+		confirm.confirmed.connect(_do_switch_to.bind(p))
+		confirm.canceled.connect(confirm.queue_free)
+		confirm.popup_centered()
+	else:
+		_do_switch_to(p)
+
+
+func _do_switch_to(new_path: String) -> void:
+	_png_path = new_path
+	if _file_label != null:
+		_file_label.text = "文件: %s" % new_path.get_file()
+	_update_mask_path()
+	_load_images()
+	_refresh_badges()
+	_ensure_current_selected()
+	file_changed.emit(new_path)
+
+
 func _load_images() -> void:
 	if _png_path.is_empty():
 		return
@@ -360,6 +527,7 @@ func _load_images() -> void:
 		_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	_update_mask_display()
+	_mask_dirty = false
 
 
 func _update_mask_display() -> void:
@@ -414,6 +582,7 @@ func _on_canvas_gui_input(event: InputEvent) -> void:
 func _draw_at(pos: Vector2) -> void:
 	if _mask_image == null:
 		return
+	_mask_dirty = true
 	
 	var radius: float = _brush_size_spinbox.value * _brush_scale / 2.0
 	var color: Color = Color(1, 1, 1, 1) if not _is_eraser else Color(0, 0, 0, 0)
@@ -575,6 +744,7 @@ func _on_save_pressed() -> void:
 		_status_label.text = "✅ 已保存两份：母版 %d×%d ＋ 成品 %d×%d" % [
 			_mask_image.get_width(), _mask_image.get_height(), _output_size.x, _output_size.y]
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
+		_mask_dirty = false
 		return
 	
 	var global_path := ProjectSettings.globalize_path(_mask_path)
@@ -583,6 +753,7 @@ func _on_save_pressed() -> void:
 	if err == OK:
 		_status_label.text = "✅ 已保存: %s" % _mask_path.get_file()
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
+		_mask_dirty = false
 		
 		# 刷新文件系统
 		EditorInterface.get_resource_filesystem().scan()
@@ -596,6 +767,7 @@ func _on_clear_pressed() -> void:
 		return
 	
 	_mask_image.fill(Color(0, 0, 0, 0))
+	_mask_dirty = true
 	_update_mask_display()
 	_preview_texture.texture = null
 	_status_label.text = "Mask 已涂空（仍保留空蒙版文件，保存后＝检测区域清空）"
@@ -642,8 +814,10 @@ func _perform_delete(_will_delete: Array[String]) -> void:
 	if _preview_texture != null:
 		_preview_texture.texture = null
 	EditorInterface.get_resource_filesystem().scan()
+	_mask_dirty = false
 	if res.ok:
 		_status_label.text = "✅ 已删除 %d 个蒙版文件，本图恢复整图检测" % res.deleted.size()
+		_refresh_badges()
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
 	else:
 		_status_label.text = "⚠️ 删除部分出错：%s" % ", ".join(res.errors)
@@ -654,3 +828,4 @@ func _on_mask_type_changed(_idx: int) -> void:
 	_update_mask_path()
 	if not _png_path.is_empty():
 		_load_images()
+	_refresh_badges()
