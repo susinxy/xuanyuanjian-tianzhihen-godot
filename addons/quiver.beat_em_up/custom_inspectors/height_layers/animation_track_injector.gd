@@ -670,20 +670,6 @@ func _needs_attack_tscn_conversion(skin_node: Node, target_shape_type: int, shap
 
 
 
-## 根据 sprite_anim_name 确定对应的 Attack 节点名
-func _get_attack_node_name(sprite_anim_name: String) -> String:
-	if sprite_anim_name.contains("punch1"):
-		return "Attack1"
-	elif sprite_anim_name.contains("punch2"):
-		return "Attack2"
-	elif sprite_anim_name.contains("punch3"):
-		return "Attack3"
-	elif sprite_anim_name.contains("air_attack"):
-		return "AttackAir"
-	return ""
-
-
-
 
 ## 解析 disabled track 的离散模式，返回 disabled=false 的帧索引
 ##
@@ -870,12 +856,15 @@ static func build_uniform_transitions(
 ##   has_mask: bool,
 ##   error: String  # 如果有错误
 ## }
+## 单文件预览。mask_suffix 决定按哪一类转换的规则解析蒙版/跳过标记（与真实转换同源）。
+## 返回含 skipped/skip_reason/mask_used；attack_heights 恒计算（是否显示由界面层决定）。
 func preview_single_file(
 	file_path: String,
 	alpha_threshold: float,
 	simplify_tolerance: float,
 	min_area_ratio: float,
-	erosion_radius: int = 0
+	erosion_radius: int = 0,
+	mask_suffix: String = "body"
 ) -> Dictionary:
 	var result := {
 		"file_name": file_path.get_file(),
@@ -884,12 +873,14 @@ func preview_single_file(
 		"total_vertices": 0,
 		"physical_height": 0.0,
 		"attack_heights": [],
-		"attack_node": "",
 		"bounding_box": Rect2(),
 		"alpha_threshold": alpha_threshold,
 		"simplify_tolerance": simplify_tolerance,
 		"erosion_radius": erosion_radius,
 		"has_mask": false,
+		"mask_used": "",
+		"skipped": false,
+		"skip_reason": "",
 		"error": "",
 		"contours": [],
 		"eroded_contours": [],
@@ -907,12 +898,22 @@ func preview_single_file(
 	
 	result.image_size = Vector2(image.get_width(), image.get_height())
 	
-	# 2. 检查是否有对应的 .mask.png
-	var mask_path := file_path.replace(".png", ".mask.png")
+	# 2. 跳过标记检查（与转换同一 find_no_marker）
+	var skip_hit := find_no_marker(file_path, mask_suffix)
+	if not skip_hit.is_empty():
+		result.skipped = true
+		result.skip_reason = skip_hit
+		result.image = image
+		result.image_size = Vector2(image.get_width(), image.get_height())
+		return result
+	
+	# 2.5 蒙版按本类别解析链（与转换同一 resolve_mask_path，不再只认通用 .mask.png）
 	var mask: Image = null
-	if FileAccess.file_exists(mask_path):
+	var mask_path := resolve_mask_path(file_path, mask_suffix)
+	if not mask_path.is_empty():
 		mask = Image.load_from_file(ProjectSettings.globalize_path(mask_path))
 		result.has_mask = true
+		result.mask_used = mask_path
 	
 	# 3. 提取轮廓（原始，用于 polygon 显示）
 	var contours := ContourTracer.trace_contours(image, mask, alpha_threshold, simplify_tolerance, 512, min_area_ratio, 0)
@@ -947,13 +948,9 @@ func preview_single_file(
 	# 4. 计算 physical_height（始终计算）
 	result.physical_height = ContourTracer.calc_physical_height(contours, image.get_height())
 	
-	# 5. 尝试计算 attack_heights（如果文件名包含 attack 相关信息）
-	var sprite_anim_name := file_path.get_file().get_basename()
-	var attack_node := _get_attack_node_name(sprite_anim_name)
-	if not attack_node.is_empty():
-		var height_definitions := QuiverCharacter._build_height_definitions()
-		result.attack_heights = ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
-		result.attack_node = attack_node
+	# 5. attack_heights 恒计算（与转换同源；旧版按 punch1 文件名猜测，对 UUID 命名资产恒失效，已废除）
+	var height_definitions := QuiverCharacter.get_height_definitions()
+	result.attack_heights = ContourTracer.calc_attack_heights(contours, image.get_height(), height_definitions)
 	
 	# 6. 坐标转换 + bounding box
 	var local_contours: Array[PackedVector2Array] = []

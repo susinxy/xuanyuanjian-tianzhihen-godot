@@ -95,6 +95,7 @@ var _marker_delete_btn: Button
 var _marker_state_label: Label
 var _cleanup_btn: Button
 var _preview_texture: TextureRect
+var _preview_texture_attack: TextureRect
 
 # 预览区域专用参数 UI
 var _preview_alpha_threshold_spinbox: SpinBox
@@ -714,12 +715,34 @@ func _build_preview_ui() -> void:
 	_preview_result_label.custom_minimum_size = Vector2(0, 150)
 	add_child(_preview_result_label)
 	
-	# 轮廓预览图
+	# 轮廓预览图（双栏：左=body 规则，右=attack 规则含高度带）
+	var preview_imgs := HBoxContainer.new()
+	preview_imgs.add_theme_constant_override("separation", 8)
+	add_child(preview_imgs)
+	
+	var body_col := VBoxContainer.new()
+	body_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_imgs.add_child(body_col)
+	var body_cap := Label.new()
+	body_cap.text = "Body 检测预览"
+	body_col.add_child(body_cap)
 	_preview_texture = TextureRect.new()
 	_preview_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	_preview_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_preview_texture.custom_minimum_size = Vector2(0, 256)
-	add_child(_preview_texture)
+	body_col.add_child(_preview_texture)
+	
+	var atk_col := VBoxContainer.new()
+	atk_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_imgs.add_child(atk_col)
+	var atk_cap := Label.new()
+	atk_cap.text = "Attack 检测预览（绿带=命中高度层）"
+	atk_col.add_child(atk_cap)
+	_preview_texture_attack = TextureRect.new()
+	_preview_texture_attack.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_preview_texture_attack.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_texture_attack.custom_minimum_size = Vector2(0, 256)
+	atk_col.add_child(_preview_texture_attack)
 	
 	add_child(HSeparator.new())
 
@@ -993,108 +1016,119 @@ func _run_preview() -> void:
 	var min_area_ratio: float = _preview_min_area_ratio_spinbox.value
 	var erosion_radius: int = int(_preview_erosion_radius_spinbox.value)
 	
-	# 执行预览
+	# 执行预览（同一张图分别按 body / attack 规则各算一遍，与转换同源的解析链）
 	var injector := AnimationTrackInjector.new()
-	var result := injector.preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius)
+	var result := injector.preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, "body")
+	var result_attack := injector.preview_single_file(file_path, alpha_threshold, simplify_tolerance, min_area_ratio, erosion_radius, "attack")
 	
-	# 显示结果
-	_display_preview_result(result)
+	# 显示结果（两节报告）
+	_display_preview_result(result, result_attack)
 	
-	# 显示预览图
-	await _display_preview(result)
+	# 显示预览图（双栏；右栏叠攻击高度带）
+	await _display_preview(result, _preview_texture, false)
+	await _display_preview(result_attack, _preview_texture_attack, true)
 	
 	# 恢复按钮
 	_preview_contour_btn.disabled = false
 
 
 ## 显示预览结果
-func _display_preview_result(result: Dictionary) -> void:
-	var lines := []
-	
-	if result.error != "":
-		lines.append("[color=red]错误: %s[/color]" % result.error)
-		_preview_result_label.text = "\n".join(lines)
+func _display_preview_result(res_body: Dictionary, res_attack: Dictionary) -> void:
+	var base: Dictionary = res_body if res_body.error == "" else res_attack
+	if base.error != "":
+		_preview_result_label.text = "[color=red]错误: %s[/color]" % base.error
 		return
 	
-	lines.append("[b]文件名:[/b] %s" % result.file_name)
-	lines.append("[b]图片尺寸:[/b] %d × %d" % [result.image_size.x, result.image_size.y])
-	lines.append("[b]提取轮廓数:[/b] %d" % result.contour_count)
-	lines.append("[b]顶点总数:[/b] %d" % result.total_vertices)
-	lines.append("[b]Mask 文件:[/b] %s" % ("有" if result.has_mask else "无"))
+	var lines := []
+	lines.append("[b]文件:[/b] %s    [b]尺寸:[/b] %d × %d" % [base.file_name, base.image_size.x, base.image_size.y])
 	lines.append("")
 	
-	lines.append("[b]physical_height:[/b] %.1f" % result.physical_height)
-	
-	if not result.attack_heights.is_empty():
-		var heights_str := ""
-		for i in range(result.attack_heights.size()):
-			if i > 0:
-				heights_str += ", "
-			heights_str += "%.1f" % result.attack_heights[i]
-		lines.append("[b]attack_heights:[/b] [%s]" % heights_str)
-	
-	if result.has("attack_node") and result.attack_node != "":
-		lines.append("[b]Attack 节点:[/b] %s" % result.attack_node)
+	lines.append("[b]── Body 检测 ──[/b]")
+	_append_body_section(lines, res_body)
 	
 	lines.append("")
-	lines.append("[b]转换后坐标范围:[/b]")
-	lines.append("  X: %.1f ~ %.1f" % [result.bounding_box.position.x, result.bounding_box.position.x + result.bounding_box.size.x])
-	lines.append("  Y: %.1f ~ %.1f" % [result.bounding_box.position.y, result.bounding_box.position.y + result.bounding_box.size.y])
-	lines.append("")
-	lines.append("[b]参数:[/b] alpha=%.1f, tolerance=%.1f, erosion=%d" % [result.alpha_threshold, result.simplify_tolerance, result.erosion_radius])
-	
-	# MABR/Capsule/Rectangle 信息（从 preview_single_file 返回的数据）
-	if result.has("mabr") and not result.mabr.is_empty():
-		var mabr: Dictionary = result.mabr
-		var aabb := ContourTracer.calc_aabb(result.eroded_contours[0] if result.eroded_contours.size() > 0 else result.contours[0])
-		
-		lines.append("")
-		lines.append("[b]MABR (最小包围矩形):[/b]")
-		lines.append("  尺寸: %.1f × %.1f" % [mabr.size.x, mabr.size.y])
-		lines.append("  角度: %.1f°" % rad_to_deg(mabr.angle))
-		lines.append("  面积: %.1f" % mabr.area)
-		lines.append("[b]AABB (轴对齐包围盒):[/b]")
-		lines.append("  尺寸: %.1f × %.1f" % [aabb.size.x, aabb.size.y])
-		lines.append("  面积: %.1f" % aabb.area)
-		if aabb.area > 0.0:
-			var saving: float = (1.0 - mabr.area / aabb.area) * 100.0
-			lines.append("[b]MABR 节省:[/b] %.1f%%" % saving)
-	
-	if result.has("capsule") and not result.capsule.is_empty():
-		var capsule: Dictionary = result.capsule
-		lines.append("")
-		lines.append("[b]Capsule (胶囊):[/b]")
-		lines.append("  radius: %.1f" % capsule.radius)
-		lines.append("  height: %.1f" % capsule.height)
-		lines.append("  角度: %.1f°" % rad_to_deg(capsule.angle))
-		lines.append("  总长度: %.1f" % capsule.height)
-	
-	if result.has("rectangle") and not result.rectangle.is_empty():
-		var rectangle: Dictionary = result.rectangle
-		lines.append("")
-		lines.append("[b]Rectangle (矩形):[/b]")
-		lines.append("  尺寸: %.1f × %.1f" % [rectangle.size.x, rectangle.size.y])
-		lines.append("  角度: %.1f°" % rad_to_deg(rectangle.angle))
+	lines.append("[b]── Attack 检测 ──[/b]")
+	_append_attack_section(lines, res_attack)
 	
 	_preview_result_label.text = "\n".join(lines)
 
 
-## 显示轮廓预览图
-func _display_preview(result: Dictionary) -> void:
-	if result.contours.is_empty() or result.image == null:
-		_preview_texture.texture = null
+func _mask_line(r: Dictionary) -> String:
+	if r.skipped:
+		return "⛔ 本类别已跳过（标记文件: %s）" % r.skip_reason.get_file()
+	if r.has_mask:
+		return "蒙版: %s" % r.mask_used.get_file()
+	return "蒙版: 无（全图检测）"
+
+
+func _append_body_section(lines: Array, r: Dictionary) -> void:
+	lines.append("  " + _mask_line(r))
+	if r.skipped:
 		return
-	
+	if r.error != "":
+		lines.append("  [color=red]%s[/color]" % r.error)
+		return
+	lines.append("  [b]提取轮廓数:[/b] %d   [b]顶点总数:[/b] %d" % [r.contour_count, r.total_vertices])
+	lines.append("  [b]physical_height:[/b] %.1f" % r.physical_height)
+	lines.append("  [b]坐标范围:[/b] X %.1f~%.1f  Y %.1f~%.1f" % [
+		r.bounding_box.position.x, r.bounding_box.position.x + r.bounding_box.size.x,
+		r.bounding_box.position.y, r.bounding_box.position.y + r.bounding_box.size.y
+	])
+	if r.has("mabr") and not r.mabr.is_empty():
+		var mabr: Dictionary = r.mabr
+		lines.append("  [b]MABR:[/b] %.1f × %.1f @ %.1f°   [b]Capsule:[/b] r=%.1f h=%.1f" % [
+			mabr.size.x, mabr.size.y, rad_to_deg(mabr.angle),
+			r.capsule.radius if r.has("capsule") and not r.capsule.is_empty() else 0.0,
+			r.capsule.height if r.has("capsule") and not r.capsule.is_empty() else 0.0
+		])
+	lines.append("  [b]参数:[/b] alpha=%.1f, tolerance=%.1f, erosion=%d" % [r.alpha_threshold, r.simplify_tolerance, r.erosion_radius])
+
+
+func _append_attack_section(lines: Array, r: Dictionary) -> void:
+	lines.append("  " + _mask_line(r))
+	if r.skipped:
+		return
+	if r.error != "":
+		lines.append("  [color=red]%s[/color]" % r.error)
+		return
+	lines.append("  [b]提取轮廓数:[/b] %d   [b]顶点总数:[/b] %d" % [r.contour_count, r.total_vertices])
+	var heights: Array = r.attack_heights
+	if heights.is_empty():
+		lines.append("  攻击高度: 无可注入轮廓")
+		return
+	var defs: Array = QuiverCharacter.get_height_definitions()
+	var hs := []
+	var ls := []
+	for hv in heights:
+		hs.append("%.1f" % hv)
+		for def in defs:
+			if hv > def["min"] and hv <= def["max"]:
+				ls.append(str(def["layer"]))
+				break
+	lines.append("  [b]攻击高度:[/b] [%s] px（离脚底）" % ", ".join(hs))
+	lines.append("  [b]命中高度层:[/b] %s（图中绿带，亮线=代表高度）" % " / ".join(ls))
+
+
+## 显示轮廓预览图
+func _display_preview(result: Dictionary, target: TextureRect, show_bands := false) -> void:
+	if result.image == null:
+		target.texture = null
+		return
+	if result.skipped or (result.contours as Array).is_empty():
+		# 被本类别跳过 / 无轮廓：只显示干净原图，含义由文字报告说明
+		target.texture = ImageTexture.create_from_image(result.image)
+		return
 	var eroded_contours = result.eroded_contours if result.has("eroded_contours") else result.contours
-	var preview_texture = await _generate_contour_preview(result.image, result.contours, eroded_contours)
-	_preview_texture.texture = preview_texture
+	var heights: Array = result.attack_heights if show_bands else []
+	var preview_texture = await _generate_contour_preview(result.image, result.contours, eroded_contours, heights)
+	target.texture = preview_texture
 
 
 ## 生成轮廓预览图
 ##
 ## 在 SubViewport 中渲染：原图 + 轮廓多边形叠加
 ## 返回 ImageTexture
-func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array], eroded_contours: Array[PackedVector2Array]):
+func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array], eroded_contours: Array[PackedVector2Array], attack_heights: Array = []):
 	var img_w := image.get_width()
 	var img_h := image.get_height()
 	
@@ -1115,6 +1149,8 @@ func _generate_contour_preview(image: Image, contours: Array[PackedVector2Array]
 	var overlay := Node2D.new()
 	overlay.set_meta("contours", contours)
 	overlay.set_meta("eroded_contours", eroded_contours)
+	overlay.set_meta("attack_heights", attack_heights)
+	overlay.set_meta("img_size", Vector2(img_w, img_h))
 	viewport.add_child(overlay)
 	
 	# 连接 draw 信号
@@ -1193,5 +1229,21 @@ func _on_overlay_draw(overlay: Node2D) -> void:
 				capsule_polyline.append(p)
 			capsule_polyline.append(capsule_polygon[0])
 			overlay.draw_polyline(capsule_polyline, Color(1, 0, 1, 1), 2.0, true)
+	# 攻击高度带（仅 attack 栏传入 heights 时绘制）：
+	# 每个代表高度所属的整个层区间画半透明绿带 + 代表高度画一条亮绿线（离底=从下往上）
+	var heights: Array = overlay.get_meta("attack_heights", [])
+	if heights.is_empty():
+		return
+	var img_size: Vector2 = overlay.get_meta("img_size", Vector2.ZERO)
+	var defs: Array = QuiverCharacter.get_height_definitions()
+	for hv in heights:
+		var h: float = hv
+		for def in defs:
+			if h > def["min"] and h <= def["max"]:
+				var top_y: float = img_size.y - minf(def["max"], img_size.y)
+				var bot_y: float = img_size.y - def["min"]
+				overlay.draw_rect(Rect2(0, top_y, img_size.x, bot_y - top_y), Color(0.2, 0.85, 0.3, 0.25), true)
+				overlay.draw_line(Vector2(0, img_size.y - h), Vector2(img_size.x, img_size.y - h), Color(0.15, 0.95, 0.35, 0.9), 1.0)
+				break
 
 ### -----------------------------------------------------------------------------------------------

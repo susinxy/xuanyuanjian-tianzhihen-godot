@@ -1277,7 +1277,7 @@ AcceptDialog (title: "Mask Editor")
     │       └── Node2D（画笔预览圆圈）
     └── 右侧：工具面板
         ├── 文件名标签
-        ├── 蒙版类型选择（Generic / Body / Attack）
+        ├── 蒙版类型选择（Generic / Body / Attack / Shadow）
         ├── 画笔 / 橡皮擦切换按钮
         ├── 画笔大小（5-100px）
         ├── "Preview Contour" 按钮 + 预览图
@@ -1292,6 +1292,7 @@ AcceptDialog (title: "Mask Editor")
 | Generic (id=0) | `{name}.mask.png` | Body 和 Attack 扫描均使用 |
 | Body (id=1) | `{name}.body.mask.png` | 仅 Body 轮廓扫描使用 |
 | Attack (id=2) | `{name}.attack.mask.png` | 仅 Attack 轮廓扫描使用 |
+| Shadow (id=3) | `{name}.shadow.mask.png` | 仅 Body 转换内的 Shadow 第二次扫描使用（独立链，不继承 body 蒙版） |
 
 **绘制机制**：
 - 左键：绘制（白色不透明）或擦除（透明），取决于当前工具
@@ -1441,8 +1442,8 @@ VBoxContainer (this widget)
 │   │   ├── Min area ratio (0.1-0.8)
 │   │   └── Erosion radius (0-100px)
 │   ├── 操作按钮（Preview Contour / Edit Mask / MABR Test）
-│   ├── RichTextLabel（结果输出）
-│   └── TextureRect（预览图像）
+│   ├── RichTextLabel（结果输出，Body/Attack 两节）
+│   └── HBox：TextureRect × 2（左 Body 检测预览 / 右 Attack 检测预览+高度带）
 │
 ├── [轮廓转换区]
 │   ├── 转换参数（独立于预览参数）
@@ -1460,9 +1461,11 @@ VBoxContainer (this widget)
 
 **双参数集设计**：预览参数和转换参数独立控制，允许用户在单文件上调参实验而不影响批量转换设置。
 
+**预览双栏（v3）**："Preview Contour" 对同一张图按 `body`、`attack` 两种类别规则各算一遍（`preview_single_file(..., mask_suffix)`）：左图=Body 检测四层叠加（红轮廓/蓝 MABR/品红胶囊/黄心），右图=Attack 同套画法 + **攻击高度带**（`attack_heights` 命中的整个高度层区间画半透明绿带、代表高度画亮绿线，离底=脚底起算）。两栏解析链与转换**完全同源**：蒙版 `resolve_mask_path()` 链式、跳过标记 `find_no_marker()`（旧版预览只认通用蒙版、不看跳过、且 attack_heights 依赖 punch1 旧文件名对 UUID 资产恒失效——均已废除，attack_heights 恒计算）。文字报告分 Body/Attack 两节，各节首行标明所用蒙版文件或"⛔已跳过（标记文件名）"；被跳过的栏只显示干净原图。
+
 **静态持久化**：所有参数和选中文件路径存储为 `static` 变量，跨 widget 重建存活（Inspector 每次选择变化时重建自定义控件）。
 
-**异步执行**：所有转换操作使用 `await` 避免阻塞编辑器 UI。进度回调 `_on_contour_progress()` 逐帧更新状态标签。
+**异步执行**：转换/缩放长任务全部跑在常驻 `ContourConversionRunner` 上（逐文件 await 让出，切页不中断、进度实时恢复，见上文 Widget 生命周期契约）；注入器内部进度回调 `_on_contour_progress()` 由 runner 实现并广播。
 
 **SubViewport 渲染预览**：预览图像使用临时 SubViewport + Node2D 覆盖层绘制轮廓（绿色填充 + 红色边线）、MABR（蓝色半透明）、胶囊（品红色），捕获为 ImageTexture 后释放 SubViewport。
 
