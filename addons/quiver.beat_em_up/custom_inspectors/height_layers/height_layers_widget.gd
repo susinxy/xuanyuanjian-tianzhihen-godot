@@ -964,8 +964,11 @@ func _on_preview_mask_pressed() -> void:
 		_refresh_marker_state()
 	)
 	dialog.popup_centered(Vector2i(1220, 730))
-	dialog.closed.connect(func():
-		dialog.queue_free()
+	# AcceptDialog(Window) 没有 closed/popup_hide 信号；用 CanvasItem.visibility_changed
+	# 在隐藏后回收，避免每开一次泄漏一个窗口实例
+	dialog.visibility_changed.connect(func():
+		if not dialog.visible:
+			dialog.queue_free()
 	)
 
 

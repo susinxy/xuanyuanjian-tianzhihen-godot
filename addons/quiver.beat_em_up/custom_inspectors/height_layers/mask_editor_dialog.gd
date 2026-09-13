@@ -385,7 +385,7 @@ func _populate_tree() -> void:
 			gitem = _file_tree.create_item(tree_root)
 			gitem.set_text(0, String(g["dir"]))
 			gitem.set_selectable(0, false)
-			gitem.set_expanded(true)
+			gitem.set_collapsed(false)  # 4.7 TreeItem 无 set_expanded，展开的反向语义是"不折叠"
 		for fpath in g["files"]:
 			var it := _file_tree.create_item(gitem)
 			it.set_metadata(0, fpath)
