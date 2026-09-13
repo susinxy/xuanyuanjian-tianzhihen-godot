@@ -1138,8 +1138,10 @@ custom_inspectors/height_layers/
 - **用户日常操作**：在 sprites/ 里增删改原画（新图放原尺寸）→ 点"执行缩放"即可，逐文件自动识别（新增/换画/同尺寸换画/**尺寸恰好撞上旧印品的换画**均由哈希裁判）；删除的文件留孤儿原画做后悔药（汇总报孤儿数；恢复会复活它们，>0 时弹确认）
 - **逃生门**（"重新采集原底"复选框）：忽略账本，把源目录当前内容整体立为原底（不可逆）；勾选执行前**干跑预览弹确认**并显示"疑似印品 N 个"计数（`preview_actions`）。三用途：尺寸+内容双重撞车的极端投稿、以印品为稿的手工修图、修复被污染的备份。日常不需要
 - **执行形态**：走 `ContourConversionRunner` 同款宿主（逐文件 await 分帧、进度/互斥/session/切页安全），完成时 fs.scan + 汇总"图/掩码/新收底/换底/孤儿/（迁移建账）"，提醒重跑 Body+Attack 两类轮廓转换
-- 掩码三型（`.mask/.body.mask/.attack.mask.png`）自动识别仅 resize alpha；精灵图 `fix_alpha_edges` → Lanczos（4.7 无 `depremultiply_alpha`，premultiply 不可逆路线弃用；`get_screen_transform` 教训不适用于此，本工具用视口 canvas transform 仅限 debug 背景，与此无关）
+- 掩码三型（`.mask/.body.mask/.attack.mask.png`）仅 resize alpha；精灵图 `fix_alpha_edges` → Lanczos（4.7 无 `depremultiply_alpha`，premultiply 不可逆路线弃用）
+- **蒙版母版体系（v3 关键规则）**：蒙版的"原画"永远是母版目录那份（由蒙版编辑器在母版画布上写入，`PngScaleTool.write_mask_pair()` 双写核心），源目录蒙版只是印品。缩放处理蒙版时**永不走 R0/R3 收底/换底**——`process_pair()` 蒙版专用分支置于所有判定之前：有母版 → 从母版重印（随底图换系数同步）；无母版 → 判为历史孤儿，**告警跳过**（不污染母版、绝不二次缩小成"印品的印品"）。`*.no.png` 跳过标记是纯布尔旗标只需存在于源目录，`_collect_pngs_in()` 将其整体排除在缩放配对之外（恢复原图/孤儿统计同样不碰）
 - headless 测试矩阵 16 项（收底/幂等/换系数/换画/同尺寸换画/尺寸撞车/删除→孤儿→恢复→清账/迁移两式/逃生门/损坏源护栏/预览只读/递归目录）全通过（`/tmp/opencode/scale_v2_tests.gd`，2026-09-12）
+- headless 测试矩阵 v3 蒙版保护 13 项（孤儿告警不收底/母版不被污染/源孤儿蒙版不被缩小/有母版蒙版随系数重印同步/.no 全链路不碰/双写核心两份两尺寸…）全通过（2026-09-13）
 
 **工作流程（轮廓转换）**：
 ```
@@ -1158,6 +1160,7 @@ Runner._execute() → AnimationTrackInjector.convert_body_contours() / convert_a
      - 跨扫描 `shared_image_cache` 值为 `{image, masks:{suffix→Image|null}}`——蒙版按后缀分键缓存，杜绝"先跑类别吞掉后跑类别蒙版"（v1 单键缺陷）
      - 标记文件必须是合法 PNG（0 字节会触发导入器报错）；widget 预览区有"豁免标记"创建/删除辅助（2×2 合法图代生成，实时显示现有标记）
      - 蒙版编辑器类型下拉含 通用/Body/Attack/Shadow 四档（`mask_editor_dialog.gd`）
+     - **蒙版编辑器母版模式（v3）**：面板把缩放区的源/备份目录传入 `set_master_context()`；该图在母版目录存在原画 → 画布自动切换为母版大图（笔刷半径按倍率补偿），保存经 `write_mask_pair()` 双写：权威版入母版 + 缩印版随成品底图尺寸入 `sprites/`；无母版体系的角色（如 run_test/模板）自动落回旧单写行为，完全无感。加载优先级：母版蒙版 → 成品旧蒙版（升采样当起点并提示"保存即转正"）→ 新建
 2. 后处理：计算 MABR、胶囊体参数、物理高度、攻击高度
 3. 修改场景树节点类型（_modify_scene_tree_node）
 4. 注入碰撞形状 tracks 到每个 Animation（_inject_all_tracks）

@@ -25,6 +25,11 @@ extends RefCounted
 ## 掩码三型（*.mask.png / *.body.mask.png / *.attack.mask.png）自动识别，直接
 ## resize 仅取 alpha；普通精灵图 fix_alpha_edges → Lanczos（4.7 无 depremultiply，
 ## premultiply 路线不可逆，弃用）。
+##
+## 蒙版与缩放的关系（mask 母版体系）：蒙版的"原画"永远是母版目录里那份（由蒙版
+## 编辑器在母版画布上绘制写入），源目录的蒙版只是印品。因此蒙版**绝不走 R0/R3 的
+## 收底/换底**——有母版则从母版重印，无母版判为历史孤儿并告警跳过（不污染母版、
+## 不二次缩小）。*.no.png 跳过标记是纯布尔旗标、只需存在于源目录，缩放完全不碰。
 ## 完成后由调用方（widget/runner）负责"重跑两类轮廓转换"提醒与资源扫描。
 
 const JOURNAL_FILE := "_journal.log"
@@ -45,7 +50,7 @@ static func process_pair(
 	bak_global: String,
 	journal: Dictionary
 ) -> Dictionary:
-	var out := {"action": "", "error": "", "is_mask": rel.ends_with(".mask.png") or rel.ends_with(".no.png")}
+	var out := {"action": "", "error": "", "is_mask": rel.ends_with(".mask.png")}
 	if factor <= 0.0:
 		out.error = "缩放系数必须大于 0"
 		return out
@@ -57,7 +62,15 @@ static func process_pair(
 	var has_bak := FileAccess.file_exists(bak_abs)
 	var truth := bak_abs  # 打印母本（备份/新收的底片）
 
-	if not has_bak or reclaim:
+	if out.is_mask:
+		# 蒙版专用通道：原画永远是母版那份（编辑器写入），源目录蒙版只是印品。
+		# 永不从源收底/换底；无母版 = 历史孤儿 → 告警跳过（绝不误收底导致二次缩小）。
+		if not has_bak:
+			out.error = "孤儿蒙版（母版无对应原画，请在蒙版编辑器重新保存入册）: %s" % rel
+			return out
+		out.action = "reprinted"
+		truth = bak_abs
+	elif not has_bak or reclaim:
 		# R0：新文件收底 / 逃生门强制换底 —— 源必须可解码
 		if Image.load_from_file(src_abs) == null:
 			out.error = "源不可解码，跳过（备份未受污染）: %s" % rel
@@ -287,6 +300,27 @@ static func clear_journal(bak_global: String) -> void:
 		f.close()
 
 
+## mask 母版体系的双写核心（供编辑器与测试复用，纯文件操作可 headless）。
+## canvas = 母版画布尺寸的 mask：权威版原样写 master_path；
+## 再等比缩印到 output_size 写 output_path（游戏读的成品层）。
+## 返回 { "ok": bool, "master_error": String, "output_error": String }
+static func write_mask_pair(canvas: Image, master_path: String, output_path: String, output_size: Vector2i) -> Dictionary:
+	var res := {"ok": false, "master_error": "", "output_error": ""}
+	var m_err := canvas.save_png(ProjectSettings.globalize_path(master_path))
+	if m_err != OK:
+		res.master_error = "master save err=%d" % m_err
+		return res
+	var printed: Image = canvas.duplicate()
+	if printed.get_width() != output_size.x or printed.get_height() != output_size.y:
+		printed.resize(output_size.x, output_size.y, Image.INTERPOLATE_LANCZOS)
+	var o_err := printed.save_png(ProjectSettings.globalize_path(output_path))
+	if o_err != OK:
+		res.output_error = "output save err=%d" % o_err
+		return res
+	res.ok = true
+	return res
+
+
 ### 内部辅助 --------------------------------------------------------------------
 
 static func _empty_result() -> Dictionary:
@@ -334,7 +368,7 @@ static func _collect_pngs_in(global_dir: String) -> Array[String]:
 		var full := global_dir.path_join(name)
 		if dir.current_is_dir():
 			out.append_array(_collect_pngs_in(full))
-		elif name.ends_with(".png"):
+		elif name.ends_with(".png") and not name.ends_with(".no.png"):
 			out.append(full)
 		name = dir.get_next()
 	dir.list_dir_end()

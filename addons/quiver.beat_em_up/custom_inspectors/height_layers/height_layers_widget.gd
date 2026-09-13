@@ -954,6 +954,8 @@ func _on_preview_mask_pressed() -> void:
 	var dialog := MaskEditorDialog.new()
 	dialog.set_params(_alpha_threshold_spinbox.value, _simplify_tolerance_spinbox.value, _min_area_ratio_spinbox.value)
 	add_child(dialog)
+	# 母版上下文与缩放面板同源：mask 的权威版认同一个母版目录，不会跑偏
+	dialog.set_master_context(_scale_source_edit.text, _scale_backup_edit.text)
 	dialog.set_png_path(file_path)
 	dialog.popup_centered(Vector2i(900, 700))
 	dialog.closed.connect(func():

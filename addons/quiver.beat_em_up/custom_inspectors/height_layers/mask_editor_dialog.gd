@@ -3,14 +3,18 @@ extends AcceptDialog
 ## Mask 编辑器对话框
 ##
 ## 在精灵图片上绘制 mask，用于限制轮廓提取区域。
-## 保存为 .mask.png 文件，与原始 PNG 同目录。
+##
+## 两种模式（自动判定，对使用者透明）：
+## - 母版模式：该图在母版目录（sprites_master/，与缩放面板同源配置）存在原画 →
+##   画布 = 母版大图，保存自动写两份：权威版进母版 + 缩印版进游戏目录（永远同步）
+## - 普通模式：无母版体系的角色（run_test/敌人/模板）→ 与历史行为完全一致（单写）
 ##
 ## 工作流程：
-## 1. 加载原始 PNG 作为底图
-## 2. 如果已有 .mask.png，自动加载
-## 3. 鼠标绘制/擦除 mask
+## 1. 加载底图（母版模式自动换成大图原画）
+## 2. 如果已有 mask（优先母版版），自动加载
+## 3. 鼠标绘制/擦除 mask（笔刷随画布倍率补偿，手感一致）
 ## 4. 实时预览轮廓效果
-## 5. 保存为 .mask.png
+## 5. 保存（母版模式双写）
 
 const ContourTracer = preload(
 	"res://addons/quiver.beat_em_up/custom_inspectors/height_layers/contour_tracer.gd"
@@ -21,6 +25,17 @@ var _mask_path: String = ""
 var _alpha_threshold: float = 0.5
 var _simplify_tolerance: float = 2.0
 var _min_area_ratio: float = 0.3
+
+# 母版体系上下文（set_master_context 传入；判定不出母版则一切维持旧行为）
+var _source_dir: String = ""
+var _backup_dir: String = ""
+var _master_png_path: String = ""
+var _is_master_mode: bool = false
+var _output_mask_path: String = ""
+var _master_mask_path: String = ""
+var _output_size: Vector2i = Vector2i.ZERO
+var _brush_scale: float = 1.0
+var _mask_suffix: String = ".mask"
 
 var _original_image: Image = null
 var _mask_image: Image = null
@@ -66,25 +81,52 @@ func set_png_path(path: String) -> void:
 		_load_images()
 
 
+## 母版体系上下文（与缩放面板同源配置），须在 set_png_path 之前调用。
+func set_master_context(source_dir: String, backup_dir: String) -> void:
+	_source_dir = source_dir.strip_edges().trim_suffix("/")
+	_backup_dir = backup_dir.strip_edges().trim_suffix("/")
+
+
 func _update_mask_path() -> void:
 	if _png_path.is_empty():
 		_mask_path = ""
+		_output_mask_path = ""
+		_master_mask_path = ""
+		_master_png_path = ""
+		_is_master_mode = false
 		return
 	
-	var base_path := _png_path.replace(".png", "")
 	var selected_id := 0
 	if _mask_type_option != null:
 		selected_id = _mask_type_option.get_selected_id()
 	
 	match selected_id:
 		1:  # Body
-			_mask_path = base_path + ".body.mask.png"
+			_mask_suffix = ".body.mask"
 		2:  # Attack
-			_mask_path = base_path + ".attack.mask.png"
+			_mask_suffix = ".attack.mask"
 		3:  # Shadow（独立解析链，不继承 body）
-			_mask_path = base_path + ".shadow.mask.png"
+			_mask_suffix = ".shadow.mask"
 		_:  # 通用
-			_mask_path = base_path + ".mask.png"
+			_mask_suffix = ".mask"
+	
+	# 成品层 mask（游戏检测读取的那份）
+	_output_mask_path = _png_path.replace(".png", "") + _mask_suffix + ".png"
+	
+	# 母版判定：优先面板目录对；回退到 /sprites/ → /sprites_master/ 兄弟推导
+	_master_png_path = ""
+	var candidate := ""
+	if not _source_dir.is_empty() and not _backup_dir.is_empty() and _png_path.begins_with(_source_dir + "/"):
+		candidate = _backup_dir + _png_path.trim_prefix(_source_dir)
+	elif _png_path.contains("/sprites/"):
+		candidate = _png_path.replace("/sprites/", "/sprites_master/")
+	if not candidate.is_empty() and candidate != _png_path and FileAccess.file_exists(candidate):
+		_master_png_path = candidate
+	
+	_is_master_mode = not _master_png_path.is_empty()
+	_master_mask_path = (_master_png_path.replace(".png", "") + _mask_suffix + ".png") if _is_master_mode else ""
+	# 活动路径 = 母版画布对应的 mask；无母版时即成品 mask（旧行为）
+	_mask_path = _master_mask_path if _is_master_mode else _output_mask_path
 
 
 func set_params(alpha: float, tolerance: float, min_area_ratio: float) -> void:
@@ -261,8 +303,9 @@ func _load_images() -> void:
 	if _png_path.is_empty():
 		return
 	
-	# 加载原始图片
-	_original_image = Image.load_from_file(ProjectSettings.globalize_path(_png_path))
+	# 母版模式在大尺寸原画上作画；否则与旧行为一致画当前图
+	var active_png := _master_png_path if _is_master_mode else _png_path
+	_original_image = Image.load_from_file(ProjectSettings.globalize_path(active_png))
 	if _original_image == null:
 		_status_label.text = "错误: 无法加载图片"
 		_status_label.add_theme_color_override("font_color", Color.RED)
@@ -271,6 +314,15 @@ func _load_images() -> void:
 	var img_w := _original_image.get_width()
 	var img_h := _original_image.get_height()
 	
+	# 笔刷补偿：母版画布相对成品的倍率（同笔刷号手感一致）；成品尺寸供保存时缩印
+	_brush_scale = 1.0
+	_output_size = Vector2i(img_w, img_h)
+	if _is_master_mode:
+		var out_img := Image.load_from_file(ProjectSettings.globalize_path(_png_path))
+		if out_img != null and out_img.get_width() > 0:
+			_output_size = Vector2i(out_img.get_width(), out_img.get_height())
+			_brush_scale = float(img_w) / float(out_img.get_width())
+	
 	# 设置 viewport 尺寸
 	_viewport.size = Vector2i(img_w, img_h)
 	
@@ -278,16 +330,24 @@ func _load_images() -> void:
 	_bg_texture_rect.texture = ImageTexture.create_from_image(_original_image)
 	_bg_texture_rect.size = Vector2(img_w, img_h)
 	
-	# 加载或创建 mask
-	if FileAccess.file_exists(_mask_path):
-		_mask_image = Image.load_from_file(ProjectSettings.globalize_path(_mask_path))
+	# 加载或创建 mask：权威母版 → 成品旧版（升采样当起点，保存即转正）→ 新建
+	var seed_from_output := false
+	var load_path := _mask_path
+	if _is_master_mode and not FileAccess.file_exists(_mask_path) and FileAccess.file_exists(_output_mask_path):
+		load_path = _output_mask_path
+		seed_from_output = true
+	if FileAccess.file_exists(load_path):
+		_mask_image = Image.load_from_file(ProjectSettings.globalize_path(load_path))
 		if _mask_image.get_width() != img_w or _mask_image.get_height() != img_h:
 			_mask_image.resize(img_w, img_h, Image.INTERPOLATE_LANCZOS)
-		_status_label.text = "已加载现有 mask"
+		if seed_from_output:
+			_status_label.text = "⚠️ 以成品层旧 mask 为起点（升采样），保存后将入册母版为权威版"
+		else:
+			_status_label.text = "已加载现有 mask" + ("（母版）" if _is_master_mode else "")
 		_status_label.add_theme_color_override("font_color", Color.GREEN)
 	else:
 		_mask_image = Image.create(img_w, img_h, false, Image.FORMAT_RGBA8)
-		_status_label.text = "新建 mask (透明)"
+		_status_label.text = "新建 mask (透明)" + ("　[母版画布 %d×%d]" % [img_w, img_h] if _is_master_mode else "")
 		_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
 	_update_mask_display()
@@ -346,7 +406,7 @@ func _draw_at(pos: Vector2) -> void:
 	if _mask_image == null:
 		return
 	
-	var radius: float = _brush_size_spinbox.value / 2.0
+	var radius: float = _brush_size_spinbox.value * _brush_scale / 2.0
 	var color: Color = Color(1, 1, 1, 1) if not _is_eraser else Color(0, 0, 0, 0)
 	
 	var center_x := int(pos.x)
@@ -385,7 +445,7 @@ func _on_canvas_mouse_exited() -> void:
 
 
 func _on_brush_preview_draw() -> void:
-	var radius: float = _brush_size_spinbox.value / 2.0
+	var radius: float = _brush_size_spinbox.value * _brush_scale / 2.0
 	var color: Color = Color(0, 1, 0, 0.5) if not _is_eraser else Color(1, 0, 0, 0.5)
 	_brush_preview.draw_arc(_brush_position, radius, 0, TAU, 32, color, 2.0)
 
@@ -488,6 +548,24 @@ func _draw_line_on_image(image: Image, from: Vector2, to: Vector2, color: Color)
 
 func _on_save_pressed() -> void:
 	if _mask_image == null:
+		return
+	
+	if _is_master_mode:
+		# 双写核心下沉在 PngScaleTool.write_mask_pair（与缩放同一母版体系，可 headless 测试）
+		var PngScaleTool = preload("res://addons/quiver.beat_em_up/custom_inspectors/height_layers/png_scale_tool.gd")
+		var res: Dictionary = PngScaleTool.write_mask_pair(_mask_image, _master_mask_path, _output_mask_path, _output_size)
+		EditorInterface.get_resource_filesystem().scan()
+		if not res.ok:
+			if not res.master_error.is_empty():
+				_status_label.text = "❌ 母版保存失败 (%s)" % res.master_error
+				_status_label.add_theme_color_override("font_color", Color.RED)
+			else:
+				_status_label.text = "⚠️ 母版已存，成品层写入失败 (%s)" % res.output_error
+				_status_label.add_theme_color_override("font_color", Color.ORANGE_RED)
+			return
+		_status_label.text = "✅ 已保存两份：母版 %d×%d ＋ 成品 %d×%d" % [
+			_mask_image.get_width(), _mask_image.get_height(), _output_size.x, _output_size.y]
+		_status_label.add_theme_color_override("font_color", Color.GREEN)
 		return
 	
 	var global_path := ProjectSettings.globalize_path(_mask_path)
