@@ -51,6 +51,18 @@ static func is_companion_png(file_name: String) -> bool:
 	return false
 
 
+## 由图片路径推导浏览根：面板目录对优先 → "/sprites/" 锚点 → 兜底取所在目录。""=路径未就绪
+static func resolve_browse_root(png_path: String, source_dir: String) -> String:
+	if png_path.is_empty():
+		return ""
+	if not source_dir.is_empty() and png_path.begins_with(source_dir.trim_suffix("/") + "/"):
+		return source_dir.trim_suffix("/")
+	var i := png_path.rfind("/sprites/")
+	if i >= 0:
+		return png_path.substr(0, i + "/sprites".length())
+	return png_path.get_base_dir()
+
+
 ## 类型下拉框选项 id → 解析链类别键（与注入器同词表；"generic" 走默认单档链）
 static func option_category(id: int) -> String:
 	match id:

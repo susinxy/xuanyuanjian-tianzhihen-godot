@@ -51,6 +51,8 @@ var _file_tree: Tree
 var _browse_root: String = ""
 var _thumb_cache: Dictionary = {}
 var _tree_items: Dictionary = {}   # 图片路径 -> TreeItem（刷新图标用）
+var _browser_panel: Control = null
+var _tree_populated: bool = false  # 列表只建一次；重复给路径仅移动选中
 var _mask_dirty: bool = false      # 有未保存笔迹
 
 var _original_image: Image = null
@@ -87,7 +89,7 @@ func _ready() -> void:
 	_build_ui()
 	if not _png_path.is_empty():
 		_load_images()
-	_populate_tree()
+		_ensure_browser()
 
 
 func set_png_path(path: String) -> void:
@@ -97,6 +99,7 @@ func set_png_path(path: String) -> void:
 	if _file_label != null:
 		_file_label.text = "文件: %s" % path.get_file()
 		_load_images()
+	_ensure_browser()
 
 
 ## 母版体系上下文（与缩放面板同源配置），须在 set_png_path 之前调用。
@@ -154,15 +157,13 @@ func set_params(alpha: float, tolerance: float, min_area_ratio: float) -> void:
 
 
 func _build_ui() -> void:
+	# 左列位置先常驻搭好，"是否显示/填什么"等拿到图片路径后由 _ensure_browser() 决定
+	# （面板是 add_child 之后才 set_png_path，构建期路径必然为空——曾因此列表永不显示）
 	var hsplit := HSplitContainer.new()
-	_browse_root = _resolve_browse_root()
-	if _browse_root.is_empty():
-		add_child(hsplit)
-	else:
-		var outer := HSplitContainer.new()
-		add_child(outer)
-		outer.add_child(_build_file_browser())
-		outer.add_child(hsplit)
+	var outer := HSplitContainer.new()
+	add_child(outer)
+	outer.add_child(_build_file_browser())
+	outer.add_child(hsplit)
 	
 	# 左侧：画布区域
 	var canvas_container := VBoxContainer.new()
@@ -334,19 +335,25 @@ func _build_ui() -> void:
 
 ### 内嵌图片浏览器 ----------------------------------------------------------------
 
-func _resolve_browse_root() -> String:
-	if _png_path.is_empty():
-		return ""
-	if not _source_dir.is_empty() and _png_path.begins_with(_source_dir + "/"):
-		return _source_dir
-	var i := _png_path.rfind("/sprites/")
-	if i >= 0:
-		return _png_path.substr(0, i + "/sprites".length())
-	return _png_path.get_base_dir()
+## 拿到路径后才决定：列表填哪个根、或不显示左列；重复进入仅把选中移到当前文件
+func _ensure_browser() -> void:
+	if _file_tree == null:
+		return
+	_browse_root = SpriteScan.resolve_browse_root(_png_path, _source_dir)
+	if _browse_root.is_empty():
+		if _browser_panel != null:
+			_browser_panel.visible = false
+		return
+	if not _tree_populated:
+		_tree_populated = true
+		_populate_tree()
+	else:
+		_ensure_current_selected()
 
 
 func _build_file_browser() -> Control:
 	var panel := VBoxContainer.new()
+	_browser_panel = panel
 	panel.custom_minimum_size = Vector2(250, 0)
 	var title := Label.new()
 	title.text = "📁 图片列表（点选换图）"
