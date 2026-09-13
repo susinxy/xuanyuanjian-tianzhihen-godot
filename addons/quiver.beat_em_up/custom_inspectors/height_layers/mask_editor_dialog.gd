@@ -162,7 +162,10 @@ func _build_ui() -> void:
 	var hsplit := HSplitContainer.new()
 	var outer := HSplitContainer.new()
 	add_child(outer)
-	outer.add_child(_build_file_browser())
+	var browser: Control = _build_file_browser()
+	browser.size_flags_stretch_ratio = 0.22  # 左列起步约 250px，画布拿大头；分隔条可拖
+	hsplit.size_flags_stretch_ratio = 1.0
+	outer.add_child(browser)
 	outer.add_child(hsplit)
 	
 	# 左侧：画布区域
@@ -361,6 +364,7 @@ func _build_file_browser() -> Control:
 	_file_tree = Tree.new()
 	_file_tree.hide_root = true
 	_file_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_file_tree.columns = 1
 	_file_tree.item_selected.connect(_on_tree_item_selected)
 	panel.add_child(_file_tree)
 	return panel
@@ -373,7 +377,8 @@ func _populate_tree() -> void:
 	_tree_items.clear()
 	var tree_root := _file_tree.create_item()
 	var groups: Array = SpriteScan.scan_sprite_tree(_browse_root)
-	var painted := 0
+	# 全同步一次性建完：编辑器默认"低处理器模式"空闲时不刷帧，
+	# 任何 await 帧信号都可能让构建无限期停摆（只肯出前 48 项的事故根源）
 	for g in groups:
 		var gitem: TreeItem = tree_root
 		if String(g["dir"]) != "":
@@ -384,20 +389,10 @@ func _populate_tree() -> void:
 		for fpath in g["files"]:
 			var it := _file_tree.create_item(gitem)
 			it.set_metadata(0, fpath)
+			it.set_icon(0, _get_thumb(fpath))
 			_tree_items[fpath] = it
-			painted += 1
-			if painted % 48 == 0:
-				await get_tree().process_frame  # 分批让出，构建不冻界面
 	_refresh_badges()
 	_ensure_current_selected()
-	# 缩略图第二遍分批挂（图已缓存过就不重复解码）
-	var n := 0
-	for fpath in _tree_items:
-		var it: TreeItem = _tree_items[fpath]
-		it.set_icon(0, _get_thumb(fpath))
-		n += 1
-		if n % 24 == 0:
-			await get_tree().process_frame
 
 
 ## 当前所选类型 → 文件名后追加状态标记：🎭=该类型有生效蒙版  ⛔=该类型被跳过检测
