@@ -1458,8 +1458,10 @@ func _validate_attack_animation_structure(anim: Animation, anim_name: String, er
 					for k in range(anim.track_get_key_count(i)):
 						if anim.track_get_key_value(i, k) == false:
 							has_open_window = true
-	if not has_end_of_anim:
-		errors.append("攻击动画 '%s' 缺 end_of_skin_animation 方法轨道——攻击状态将无法结束（参考同角色的 attack*_right 结构）" % anim_name)
+	# air_* 豁免电话检查：QuiverActionJumpAttack 出口由 _end_condition 决定，
+	# 距离档（模板/chad/chen 现行配置）不需要这通电话
+	if not has_end_of_anim and not anim_name.begins_with("air_"):
+		errors.append("地面攻击动画 '%s' 缺 end_of_skin_animation 方法轨道——攻击状态将无法结束（参考同角色的 attack*_right 结构）" % anim_name)
 	if disabled_track_count > 0 and not has_open_window:
 		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 attack*_right 的开合窗口）" % anim_name)
 
