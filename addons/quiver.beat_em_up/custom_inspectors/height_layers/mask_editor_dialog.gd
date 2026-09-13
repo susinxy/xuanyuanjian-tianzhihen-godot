@@ -76,6 +76,7 @@ var _preview_texture: TextureRect
 var _save_btn: Button
 var _clear_btn: Button
 var _delete_btn: Button
+var _skip_btn: Button
 var _status_label: Label
 
 var _is_drawing: bool = false
@@ -329,6 +330,13 @@ func _build_ui() -> void:
 	_delete_btn.pressed.connect(_on_delete_pressed)
 	_tool_panel.add_child(_delete_btn)
 	
+	_skip_btn = Button.new()
+	_skip_btn.text = "⏭ 设为跳过检测"
+	_skip_btn.tooltip_text = "对【当前类型】生效：通用=一开关停全部三类；Body/Attack/Shadow=只停本类。\n标记是纯旗标文件（.no.png），只存在于游戏目录，不进母版、不参与缩放。\n再点一次取消。列表行以 ⛔ 标示。"
+	_skip_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_skip_btn.pressed.connect(_on_skip_toggle_pressed)
+	_tool_panel.add_child(_skip_btn)
+	
 	# 状态标签
 	_status_label = Label.new()
 	_status_label.text = "就绪"
@@ -530,6 +538,7 @@ func _load_images() -> void:
 	
 	_update_mask_display()
 	_mask_dirty = false
+	_refresh_skip_btn()
 
 
 func _update_mask_display() -> void:
@@ -824,6 +833,36 @@ func _perform_delete(_will_delete: Array[String]) -> void:
 	else:
 		_status_label.text = "⚠️ 删除部分出错：%s" % ", ".join(res.errors)
 		_status_label.add_theme_color_override("font_color", Color.ORANGE_RED)
+
+
+## 跳过标记切换：无标记→创建（合法 2×2 小图），有标记→删除（含导入伴生）。与面板按钮同源实现
+func _on_skip_toggle_pressed() -> void:
+	if _png_path.is_empty():
+		return
+	var cat := _current_category()
+	var hit := Injector.find_no_marker(_png_path, cat)
+	if hit.is_empty():
+		var created := Injector.create_no_marker(_png_path, cat)
+		if created.is_empty():
+			_status_label.text = "❌ 跳过标记创建失败"
+			_status_label.add_theme_color_override("font_color", Color.RED)
+			return
+		_status_label.text = "⏭ 已设为跳过: %s（本类检测将忽略此图）" % created.get_file()
+	else:
+		var n := Injector.delete_no_marker_by_path(hit)
+		_status_label.text = "↩ 已取消跳过（删除 %d 个文件）" % n
+	_status_label.add_theme_color_override("font_color", Color.GREEN)
+	EditorInterface.get_resource_filesystem().scan()
+	_refresh_skip_btn()
+	_refresh_badges()
+
+
+## 按钮文案跟随当前图的标记现状
+func _refresh_skip_btn() -> void:
+	if _skip_btn == null:
+		return
+	var hit := Injector.find_no_marker(_png_path, _current_category())
+	_skip_btn.text = "↩ 取消跳过（本类）" if not hit.is_empty() else "⏭ 设为跳过检测"
 
 
 func _on_mask_type_changed(_idx: int) -> void:

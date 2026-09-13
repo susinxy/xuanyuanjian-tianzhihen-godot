@@ -890,18 +890,18 @@ func _refresh_marker_state() -> void:
 	_marker_delete_btn.disabled = false
 
 
+## 类别 id（选项 0=全部→generic）→ 注入器链词表；创建/删除共用注入器静态实现（与编辑器同源）
+const MARKER_CATEGORIES := ["generic", "body", "attack", "shadow"]
+
+
 func _on_marker_create_pressed() -> void:
-	var marker_path := _current_marker_path()
-	if marker_path.is_empty():
+	var file_path := _preview_file_path.text.strip_edges()
+	if file_path.is_empty():
 		return
-	if not FileAccess.file_exists(marker_path):
-		# 2×2 不透明合法 PNG——0 字节文件会让导入器报错，故由工具代生成
-		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
-		img.fill(Color(1, 1, 1, 1))
-		var err := img.save_png(ProjectSettings.globalize_path(marker_path))
-		if err != OK:
-			_marker_state_label.text = "❌ 跳过文件创建失败 err=%d" % err
-			return
+	var cat: String = MARKER_CATEGORIES[_marker_type_option.get_selected_id()]
+	if AnimationTrackInjector.create_no_marker(file_path, cat).is_empty():
+		_marker_state_label.text = "❌ 跳过文件创建失败"
+		return
 	_refresh_marker_state()
 
 
@@ -909,8 +909,7 @@ func _on_marker_delete_pressed() -> void:
 	var marker_path := _current_marker_path()
 	if marker_path.is_empty():
 		return
-	if FileAccess.file_exists(marker_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(marker_path))
+	AnimationTrackInjector.delete_no_marker_by_path(marker_path)  # 连导入伴生一并清走
 	_refresh_marker_state()
 
 

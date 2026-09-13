@@ -194,6 +194,37 @@ static func resolve_mask_path(png_path: String, suffix: String) -> String:
 			return cand
 	return ""
 
+## 跳过标记命名：本类别专属档（与 find_no_marker 首选项一致）。suffix 用链词表（generic/body/attack/shadow）
+static func no_marker_path(png_path: String, suffix: String) -> String:
+	var chain: Array = SCAN_NO_MARKERS.get(suffix, [".no.png"])
+	return png_path.replace(".png", "") + String(chain[0])
+
+
+## 创建跳过标记：2×2 不透明合法 PNG（0 字节会让导入器报错，必须合法可解码）。
+## 已存在则幂等返回原路径；失败返回 ""。
+static func create_no_marker(png_path: String, suffix: String) -> String:
+	var marker := no_marker_path(png_path, suffix)
+	if FileAccess.file_exists(marker):
+		return marker
+	var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 1))
+	return marker if img.save_png(ProjectSettings.globalize_path(marker)) == OK else ""
+
+
+## 删除标记本体与导入伴生（.import/.uid，防残留报错）。返回实际删除数（0=本来就没有）。
+static func delete_no_marker_by_path(marker_path: String) -> int:
+	if marker_path.is_empty() or not FileAccess.file_exists(marker_path):
+		return 0
+	var n := 0
+	var g := ProjectSettings.globalize_path(marker_path)
+	if DirAccess.remove_absolute(g) == OK:
+		n += 1
+	for side in [g + ".import", g + ".uid"]:
+		if FileAccess.file_exists(side):
+			DirAccess.remove_absolute(side)
+	return n
+
+
 static func _load_mask_by_chain(png_path: String, suffix: String) -> Image:
 	var mask_path := resolve_mask_path(png_path, suffix)
 	if mask_path.is_empty():
