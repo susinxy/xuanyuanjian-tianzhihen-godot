@@ -1151,7 +1151,7 @@ Runner._execute() → AnimationTrackInjector.convert_body_contours() / convert_a
                     （callback_obj = runner：进度回调 + get_tree() 帧让出）
   ↓
 1. 扫描 PNG 图像，提取轮廓（_scan_frames_contours + ContourTracer）
-   - **帧级标记系统（三类别 body/attack/shadow × 两族，类别间无继承、互不平移）**：
+   - **帧级标记系统（三类别 body/attack/shadow × 两族，类别间无继承、互不平移。UI 术语对照：界面称「跳过检测」= 本族的 `.no.png` 文件；「蒙版编辑」= `.mask.png` 族）**：
      - 蒙版族 `{name}{.类别}.mask.png → {name}.mask.png → 无`：常量表 `SCAN_MASK_CHAINS`，首个存在即用（`resolve_mask_path()`）
      - 豁免族 `{name}{.类别}.no.png` 或 `{name}.no.png`：任一命中 → **整帧不检测**（`find_no_marker()`，预统计 pass 过滤、进度 total 不含、结果 `skipped_no` 计数）；被跳帧在注入端因 `frame_dict.has()` 守卫**不写任何键**（polygon/physical_height/width/attack_heights/occluder 全部保持上一键值，与 `:disabled` 窗口同机制）
      - shadow 与 body 完全平级：`.body.mask.png`/`.body.no.png` **不影响** shadow（各有专属档 + 通用档）；shadow 扫描以 `mask_suffix="shadow"` 独立解析

@@ -720,33 +720,48 @@ const MARKER_SUFFIXES := ["", ".body", ".attack", ".shadow"]
 
 
 func _build_marker_ui() -> void:
+	var title := Label.new()
+	title.text = "跳过检测（轮廓转换时不处理该图的指定检测类别）"
+	title.add_theme_font_size_override("font_size", 14)
+	add_child(title)
+	
 	var marker_row := HBoxContainer.new()
 	add_child(marker_row)
 	var marker_label := Label.new()
-	marker_label.text = "豁免标记:"
+	marker_label.text = "类别:"
 	marker_label.custom_minimum_size.x = 80
 	marker_row.add_child(marker_label)
 	_marker_type_option = OptionButton.new()
-	_marker_type_option.add_item("三类全豁免", 0)
-	_marker_type_option.add_item("仅 Body", 1)
-	_marker_type_option.add_item("仅 Attack", 2)
-	_marker_type_option.add_item("仅 Shadow", 3)
+	_marker_type_option.add_item("跳过全部三类（body+attack+shadow）", 0)
+	_marker_type_option.add_item("只跳过 Body（受击框/身高，影子不受影响）", 1)
+	_marker_type_option.add_item("只跳过 Attack（挥拳判定框）", 2)
+	_marker_type_option.add_item("只跳过 Shadow（影子轮廓，身体不受影响）", 3)
 	_marker_type_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_marker_type_option.tooltip_text = "选中的 PNG 将整帧跳过对应类别的轮廓检测（不插入任何轨道键）。
-三类全豁免 = .no.png；其余 = .body/.attack/.shadow.no.png"
 	_marker_type_option.item_selected.connect(func(_i: int) -> void: _refresh_marker_state())
 	marker_row.add_child(_marker_type_option)
 	_marker_create_btn = Button.new()
-	_marker_create_btn.text = "➕ 创建"
+	_marker_create_btn.text = "⛔ 跳过"
 	_marker_create_btn.pressed.connect(_on_marker_create_pressed)
 	marker_row.add_child(_marker_create_btn)
 	_marker_delete_btn = Button.new()
-	_marker_delete_btn.text = "➖ 删除"
+	_marker_delete_btn.text = "↩️ 恢复检测"
 	_marker_delete_btn.pressed.connect(_on_marker_delete_pressed)
 	marker_row.add_child(_marker_delete_btn)
 	_marker_state_label = Label.new()
-	_marker_state_label.add_theme_color_override("font_color", Color.GRAY)
+	_marker_state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_marker_state_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	add_child(_marker_state_label)
+	
+	var info := Label.new()
+	info.text = ("「跳过」后，重跑轮廓转换时这张图不再被检测：对应的受击多边形 / 攻击判定 / "
+		+ "影子轮廓 / 高度数据都不会为使用它的帧写入关键帧，沿用前面最近一次被检测帧的值。改回后需重跑转换才生效。\n"
+		+ "典型场景：某帧画面里有不该算作身体的元素（武器入画、变身特效、道具残影）。"
+		+ "若只是「部分不要」而非「整张不要」，应改用旁边的「蒙版编辑」圈定检测区域，而不是这里。\n"
+		+ "实现：图片同目录落一个合法小 PNG 文件（如 xxx.shadow.no.png），也可手动创建删除。")
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_theme_font_size_override("font_size", 11)
+	info.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	add_child(info)
 	_refresh_marker_state()
 
 
@@ -762,17 +777,23 @@ func _refresh_marker_state() -> void:
 		return
 	var file_path := _preview_file_path.text.strip_edges()
 	if file_path.is_empty():
-		_marker_state_label.text = "先在上方选择 PNG 文件"
+		_marker_state_label.text = "先在上方「PNG 文件」浏览选择要控制的那张图"
 		_marker_create_btn.disabled = true
 		_marker_delete_btn.disabled = true
 		return
 	var base := file_path.replace(".png", "")
-	var existing: Array[String] = []
-	var names := ["三类全豁免", "Body", "Attack", "Shadow"]
-	for i in 4:
-		if FileAccess.file_exists(base + MARKER_SUFFIXES[i] + ".no.png"):
-			existing.append(names[i])
-	_marker_state_label.text = "现有标记: " + (", ".join(existing) if not existing.is_empty() else "无")
+	var has_generic := FileAccess.file_exists(base + ".no.png")
+	var names := ["Body", "Attack", "Shadow"]
+	var suffixes := [".body.no.png", ".attack.no.png", ".shadow.no.png"]
+	var parts: Array[String] = []
+	for i in 3:
+		if FileAccess.file_exists(base + suffixes[i]):
+			parts.append(names[i] + " ⛔已跳过")
+		elif has_generic:
+			parts.append(names[i] + " ⛔已跳过（通用 .no.png）")
+		else:
+			parts.append(names[i] + " 正常检测")
+	_marker_state_label.text = "当前状态: " + " ｜ ".join(parts)
 	_marker_create_btn.disabled = false
 	_marker_delete_btn.disabled = false
 
@@ -787,7 +808,7 @@ func _on_marker_create_pressed() -> void:
 		img.fill(Color(1, 1, 1, 1))
 		var err := img.save_png(ProjectSettings.globalize_path(marker_path))
 		if err != OK:
-			_marker_state_label.text = "❌ 创建标记失败 err=%d" % err
+			_marker_state_label.text = "❌ 跳过文件创建失败 err=%d" % err
 			return
 	_refresh_marker_state()
 
