@@ -561,6 +561,10 @@ func _convert_contours_common(
 	# 13. 统一注入 tracks（遍历动画一次，内层按 shape 分发）
 	if anim_player != null:
 		_inject_all_tracks(anim_player, sprite_frames, shape_nodes, shape_type, frames_data, per_shape_filters, result.errors, skin_scene_path, shape_type_changed, skin_node)
+		
+		# attack 转换专属审计（按动画名受理，与注入互不影响）
+		if category == "attack":
+			_audit_attack_animations(anim_player, shape_nodes, skin_node, result.errors)
 	
 	result.skipped_no = (scan_stats.get("no_marked", {}) as Dictionary).size()
 	result.frames_info = frames_data
@@ -1181,12 +1185,17 @@ func _build_frame_filter_for_node(
 				else:
 					new_enabled_frames = enabled_frames
 			else:
-				# 没有 disabled track：读取节点初始 disabled 值
-				if not shape_info["initial_disabled"]:
-					# 初始 disabled=false → 处理所有帧
+				# 没有 disabled track：
+				# attack 类：参与的唯一凭据是动画显式声明的开盒窗口（false 键），
+				#         无轨道 = 未声明 = 不处理。不再读节点初始 disabled——
+				#         节点属性可被重建/误触污染，且注入产物会让脏数据自我维持
+				#         （falling_left 被注入 Attack2 数据的事故根因，2026-09-13）
+				# body 类：受击框无开关窗概念，保留初值兜底（初值开着=全程有效）
+				if shape_info["category"] == "attack":
+					new_enabled_frames = null
+				elif not shape_info["initial_disabled"]:
 					new_enabled_frames = []
 				else:
-					# 初始 disabled=true → 跳过
 					new_enabled_frames = null
 			
 			# 合并或新增 filter entry
@@ -1240,8 +1249,7 @@ func _find_attack_node_for_anim(
 			var enabled_frames := _parse_disabled_track(anim, disabled_idx, sprite_anim_name, skin_node)
 			if not enabled_frames.is_empty():
 				return node_info["area_node_name"]
-		elif not node_info["initial_disabled"]:
-			return node_info["area_node_name"]
+		# 无 disabled 轨道 = 未声明参与（不再读节点初值，与帧过滤规则一致）
 	return ""
 
 
@@ -1303,10 +1311,6 @@ func _inject_all_tracks(
 			if transitions.is_empty():
 				transitions = build_uniform_transitions(sprite_frames, sprite_anim_name)
 				errors.append("动画 '%s' 无有效 :frame 轨道，形状轨道按 SpriteFrames 均匀速度注入" % anim_name)
-			
-			# attack 类动画结构性体检（模板曾带病发布 attack*_down/up，防复发）
-			if category == "attack":
-				_validate_attack_animation_structure(anim, anim_name, errors)
 			
 			# 内层：按 shape 写入 per-shape tracks
 			for node_info in shape_nodes:
@@ -1464,6 +1468,131 @@ func _validate_attack_animation_structure(anim: Animation, anim_name: String, er
 		errors.append("地面攻击动画 '%s' 缺 end_of_skin_animation 方法轨道——攻击状态将无法结束（参考同角色的 attack*_right 结构）" % anim_name)
 	if disabled_track_count > 0 and not has_open_window:
 		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 attack*_right 的开合窗口）" % anim_name)
+
+
+## Attack 转换专属审计（独立于注入循环，按动画名受理）：
+## - 只有 sprite 动画名以 attack / air_attack 开头的动画进入体检
+##   （falling_left 等即使携带历史注入残留也绝不再被误报）
+## - 无任何开盒声明（:disabled 无 false 键）→ 报"缺窗口"（旧模板病正形于此）
+## - 有开盒 → 执行方法轨道/恒关闭结构检查
+func _audit_attack_animations(
+	anim_player: AnimationPlayer,
+	shape_nodes: Array,
+	skin_node: Node,
+	errors: Array[String]
+) -> void:
+	for lib_name in anim_player.get_animation_library_list():
+		var library := anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty():
+				continue
+			if not (sprite_anim_name.begins_with("attack") or sprite_anim_name.begins_with("air_attack")):
+				continue
+			var has_window := false
+			for node_info in shape_nodes:
+				if node_info["category"] != "attack":
+					continue
+				var disabled_idx := anim.find_track(node_info["shape_path"] + ":disabled", Animation.TYPE_VALUE)
+				if disabled_idx < 0:
+					continue
+				if not _parse_disabled_track(anim, disabled_idx, sprite_anim_name, skin_node).is_empty():
+					has_window = true
+					break
+			if not has_window:
+				errors.append("攻击动画 '%s' 没有任何攻击盒开盒声明（:disabled 轨道缺少 false 键），不会为其注入攻击数据——如确为攻击动作请补开合窗口轨道" % anim_name)
+				continue
+			_validate_attack_animation_structure(anim, anim_name, errors)
+
+
+## 清理非法注入的攻击数据（面板常驻功能）——按新受理标准删除历史污染：
+## - 形状级注入专有轨道（polygon/position/rotation/shape:*）：未声明参与的形状下全删
+## - 容器级 {parent}:position（注入的跟随拷贝）删；:visible 仅当含 true 键才删
+##   （全 false 的是手写的防御性关闭声明，保留）
+## - .:attack_heights：该动画无任何参与形状时删除
+## - 手写的 :disabled 轨道一律不碰；body 轨道一律不碰
+## dry_run=true 只出报告不落盘。报告 { deleted: ["anim::track",...], files: int, errors }
+func cleanup_illegal_attack_data(
+	skin_node: Node,
+	anim_player: AnimationPlayer,
+	shape_nodes: Array,
+	dry_run: bool
+) -> Dictionary:
+	var report := {"deleted": [] as Array[String], "files": 0, "errors": [] as Array[String]}
+	if anim_player == null:
+		return report
+	for lib_name in anim_player.get_animation_library_list():
+		var library := anim_player.get_animation_library(lib_name)
+		if library == null:
+			continue
+		for anim_name in library.get_animation_list():
+			var anim := library.get_animation(anim_name)
+			if anim == null:
+				continue
+			var sprite_anim_name := _find_sprite_anim_name(anim)
+			if sprite_anim_name.is_empty():
+				continue
+			var inactive: Array[Dictionary] = []
+			var active_count := 0
+			for node_info in shape_nodes:
+				if node_info["category"] != "attack":
+					continue
+				var disabled_idx := anim.find_track(node_info["shape_path"] + ":disabled", Animation.TYPE_VALUE)
+				var participates := false
+				if disabled_idx >= 0:
+					participates = not _parse_disabled_track(anim, disabled_idx, sprite_anim_name, skin_node).is_empty()
+				if participates:
+					active_count += 1
+				else:
+					inactive.append(node_info)
+			var remove_indices := {}
+			for ti in range(anim.get_track_count()):
+				if anim.track_get_type(ti) != Animation.TYPE_VALUE:
+					continue
+				var path := str(anim.track_get_path(ti))
+				if path == ".:attack_heights":
+					if active_count == 0:
+						remove_indices[ti] = true
+					continue
+				for node_info in inactive:
+					if path.begins_with(node_info["shape_path"] + ":"):
+						if not path.ends_with(":disabled"):
+							remove_indices[ti] = true
+						break
+					if path == node_info["parent_path"] + ":position":
+						remove_indices[ti] = true
+						break
+					if path == node_info["parent_path"] + ":visible":
+						var has_true := false
+						for k in range(anim.track_get_key_count(ti)):
+							if anim.track_get_key_value(ti, k) == true:
+								has_true = true
+						if has_true:
+							remove_indices[ti] = true
+						break
+			if remove_indices.is_empty():
+				continue
+			report.files += 1
+			var idx_sorted: Array = remove_indices.keys()
+			idx_sorted.sort()
+			for i in range(idx_sorted.size() - 1, -1, -1):
+				var ti: int = idx_sorted[i]
+				report.deleted.append("%s::%s" % [anim_name, str(anim.track_get_path(ti))])
+				if not dry_run:
+					anim.remove_track(ti)
+			if dry_run:
+				continue
+			anim.emit_changed()
+			if not anim.resource_path.is_empty():
+				var err := ResourceSaver.save(anim, anim.resource_path)
+				if err != OK:
+					report.errors.append("保存失败 %s err=%d" % [anim.resource_path, err])
+	return report
 
 
 ## 把 "AnimatedSprite2D:animation" 字符串值轨道强制为离散更新模式

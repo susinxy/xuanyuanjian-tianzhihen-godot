@@ -71,6 +71,7 @@ var _scale_apply_btn: Button
 var _scale_restore_btn: Button
 var _scale_result_label: Label
 var _pending_scale_args: Dictionary = {}
+var _pending_cleanup: Dictionary = {}
 var _shape_type_option: OptionButton
 var _alpha_threshold_spinbox: SpinBox
 var _simplify_tolerance_spinbox: SpinBox
@@ -92,6 +93,7 @@ var _marker_type_option: OptionButton
 var _marker_create_btn: Button
 var _marker_delete_btn: Button
 var _marker_state_label: Label
+var _cleanup_btn: Button
 var _preview_texture: TextureRect
 
 # 预览区域专用参数 UI
@@ -318,6 +320,12 @@ func _build_ui() -> void:
 	_attack_contour_btn.pressed.connect(_on_attack_contour_pressed)
 	contour_btn_container.add_child(_attack_contour_btn)
 	
+	_cleanup_btn = Button.new()
+	_cleanup_btn.text = "🧹 清理非法注入的攻击数据"
+	_cleanup_btn.tooltip_text = "按开盒声明标准删除历史误注入的轨道（形状 polygon/position/rotation、跟随位置、显隐、attack_heights）；手写轨道不碰。执行前显示预览清单确认"
+	_cleanup_btn.pressed.connect(_on_cleanup_pressed)
+	add_child(_cleanup_btn)
+	
 	# 轮廓转换状态
 	_contour_status_label = Label.new()
 	_contour_status_label.text = "就绪"
@@ -502,6 +510,7 @@ func _refresh_from_runner() -> void:
 		_attack_contour_btn.disabled = true
 		_scale_apply_btn.disabled = true
 		_scale_restore_btn.disabled = true
+		_cleanup_btn.disabled = true
 	else:
 		if runner.job_kind == "scale":
 			if not runner.status_text.is_empty():
@@ -518,6 +527,7 @@ func _refresh_from_runner() -> void:
 		_attack_contour_btn.disabled = false
 		_scale_apply_btn.disabled = false
 		_scale_restore_btn.disabled = false
+		_cleanup_btn.disabled = false
 
 
 ## 碰撞形状类型切换时设置默认参数
@@ -712,6 +722,65 @@ func _build_preview_ui() -> void:
 	add_child(_preview_texture)
 	
 	add_child(HSeparator.new())
+
+
+### 非法注入数据清理 ------------------------------------------------------------------
+
+func _on_cleanup_pressed() -> void:
+	if _skin_node == null:
+		return
+	var runner := ContourConversionRunner.peek()
+	if runner != null and runner.is_running:
+		return
+	var injector := AnimationTrackInjector.new()
+	var errors: Array[String] = []
+	var anim_player := injector._get_animation_player(_skin_node, errors)
+	if anim_player == null:
+		_contour_result_label.text = "❌ 未找到 AnimationPlayer，无法清理"
+		return
+	var shapes: Array = injector._discover_shape_nodes(_skin_node).filter(
+		func(n: Dictionary) -> bool: return n["category"] == "attack"
+	)
+	var dry: Dictionary = injector.cleanup_illegal_attack_data(_skin_node, anim_player, shapes, true)
+	var deleted: Array = dry.deleted
+	if deleted.is_empty():
+		_contour_result_label.text = "[color=green]✅ 无需清理：未发现非法注入数据[/color]"
+		return
+	var preview := ""
+	for i in mini(deleted.size(), 12):
+		preview += "  " + str(deleted[i]) + "\n"
+	if deleted.size() > 12:
+		preview += "  ... 等共 %d 条\n" % deleted.size()
+	_pending_cleanup = {
+		"injector": injector, "player": anim_player, "shapes": shapes,
+	}
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "清理预览（%d 个动画，共 %d 条轨道）" % [dry.files, deleted.size()]
+	dlg.dialog_text = "将删除以下注入产物轨道（手写 :disabled 轨道不碰）：\n" + preview + "\n确认执行？"
+	add_child(dlg)
+	dlg.confirmed.connect(_on_cleanup_confirmed)
+	dlg.popup_centered()
+
+
+func _on_cleanup_confirmed() -> void:
+	if _pending_cleanup.is_empty():
+		return
+	var injector = _pending_cleanup["injector"]
+	var ap = _pending_cleanup["player"]
+	var shapes: Array = _pending_cleanup["shapes"]
+	_pending_cleanup = {}
+	var wet: Dictionary = injector.cleanup_illegal_attack_data(_skin_node, ap, shapes, false)
+	var lines := ["[b]清理完成：删除 %d 条轨道（%d 个动画）[/b]" % [(wet.deleted as Array).size(), wet.files]]
+	for d in (wet.deleted as Array).slice(0, 20):
+		lines.append("  " + str(d))
+	if (wet.deleted as Array).size() > 20:
+		lines.append("  ...")
+	for e in wet.errors:
+		lines.append("[color=red]" + str(e) + "[/color]")
+	lines.append("")
+	lines.append("[color=green]✅ 建议随重跑一次 Attack 轮廓转换[/color]")
+	_contour_result_label.text = "\n".join(lines)
+	EditorInterface.get_resource_filesystem().scan()
 
 
 ### .no.png 豁免标记辅助 ----------------------------------------------------------
