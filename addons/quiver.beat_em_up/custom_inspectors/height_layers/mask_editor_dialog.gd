@@ -57,6 +57,7 @@ var _preview_contour_btn: Button
 var _preview_texture: TextureRect
 var _save_btn: Button
 var _clear_btn: Button
+var _delete_btn: Button
 var _status_label: Label
 
 var _is_drawing: bool = false
@@ -279,7 +280,7 @@ func _build_ui() -> void:
 	
 	_tool_panel.add_child(HSeparator.new())
 	
-	# 保存/清除按钮
+	# 保存/涂空/删除按钮
 	_save_btn = Button.new()
 	_save_btn.text = "💾 保存 Mask"
 	_save_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -287,10 +288,18 @@ func _build_ui() -> void:
 	_tool_panel.add_child(_save_btn)
 	
 	_clear_btn = Button.new()
-	_clear_btn.text = "🗑 清除 Mask"
+	_clear_btn.text = "🧹 涂空 Mask（保留文件）"
+	_clear_btn.tooltip_text = "把画布涂成全透明但仍保存空蒙版文件（＝检测区域被清空）。\n与「删除」不同：删除是移除文件、恢复整图检测。"
 	_clear_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_clear_btn.pressed.connect(_on_clear_pressed)
 	_tool_panel.add_child(_clear_btn)
+	
+	_delete_btn = Button.new()
+	_delete_btn.text = "🗑 删除 Mask 文件…"
+	_delete_btn.tooltip_text = "彻底移除本图【当前所选档位】的蒙版文件。\n母版模式同时删母版+成品两份并清导入伴生（不会被缩放复活）。\n删除后此图恢复整图检测。不影响其它档位。"
+	_delete_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_delete_btn.pressed.connect(_on_delete_pressed)
+	_tool_panel.add_child(_delete_btn)
 	
 	# 状态标签
 	_status_label = Label.new()
@@ -589,8 +598,56 @@ func _on_clear_pressed() -> void:
 	_mask_image.fill(Color(0, 0, 0, 0))
 	_update_mask_display()
 	_preview_texture.texture = null
-	_status_label.text = "Mask 已清除"
+	_status_label.text = "Mask 已涂空（仍保留空蒙版文件，保存后＝检测区域清空）"
 	_status_label.add_theme_color_override("font_color", Color.CYAN)
+
+
+## 删除当前档位的蒙版文件（真删，非涂空）：确认弹窗列出将被删文件，删除后复位画布＝整图检测
+func _on_delete_pressed() -> void:
+	if _png_path.is_empty():
+		return
+	
+	var candidates: Array[String] = []
+	if _is_master_mode:
+		candidates.append(_master_mask_path)
+	candidates.append(_output_mask_path)
+	var will_delete: Array[String] = []
+	for c in candidates:
+		if not c.is_empty() and c not in will_delete and FileAccess.file_exists(c):
+			will_delete.append(c)
+	
+	if will_delete.is_empty():
+		_status_label.text = "本图当前【%s】档无蒙版文件，无需删除" % _mask_suffix
+		_status_label.add_theme_color_override("font_color", Color.GRAY)
+		return
+	
+	var confirm := ConfirmationDialog.new()
+	confirm.title = "🗑 确认删除蒙版（%s 档）" % _mask_suffix
+	confirm.dialog_text = "将彻底删除以下 %d 个文件（不可撤销）：\n\n%s\n\n删除后此图恢复整图检测。不影响其它档位与其它图。" % [
+		will_delete.size(), "\n".join(will_delete)
+	]
+	add_child(confirm)
+	confirm.confirmed.connect(_perform_delete.bind(will_delete))
+	confirm.canceled.connect(confirm.queue_free)
+	confirm.popup_centered()
+
+
+func _perform_delete(_will_delete: Array[String]) -> void:
+	var PngScaleTool = preload("res://addons/quiver.beat_em_up/custom_inspectors/height_layers/png_scale_tool.gd")
+	var res: Dictionary = PngScaleTool.delete_mask_pair(_master_mask_path, _output_mask_path, _is_master_mode)
+	# 画布复位为全透明＝等同于"未加载蒙版"的整图检测起点
+	if _mask_image != null:
+		_mask_image.fill(Color(0, 0, 0, 0))
+		_update_mask_display()
+	if _preview_texture != null:
+		_preview_texture.texture = null
+	EditorInterface.get_resource_filesystem().scan()
+	if res.ok:
+		_status_label.text = "✅ 已删除 %d 个蒙版文件，本图恢复整图检测" % res.deleted.size()
+		_status_label.add_theme_color_override("font_color", Color.GREEN)
+	else:
+		_status_label.text = "⚠️ 删除部分出错：%s" % ", ".join(res.errors)
+		_status_label.add_theme_color_override("font_color", Color.ORANGE_RED)
 
 
 func _on_mask_type_changed(_idx: int) -> void:

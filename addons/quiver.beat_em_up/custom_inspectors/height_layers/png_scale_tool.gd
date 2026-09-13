@@ -321,6 +321,33 @@ static func write_mask_pair(canvas: Image, master_path: String, output_path: Str
 	return res
 
 
+## 与 write_mask_pair 对称的删除核心：彻底移除某档蒙版文件。
+## 母版模式删 母版+成品 两份（并清各自 .import/.uid 伴生，杜绝缩放从母版复活、杜绝残留报错）；
+## 非母版模式仅删成品单份。不存在的目标静默跳过（幂等）。
+## 返回 { "ok": bool, "deleted": [路径…], "errors": [信息…] }
+static func delete_mask_pair(master_path: String, output_path: String, in_master_mode: bool) -> Dictionary:
+	var result := {"ok": true, "deleted": [] as Array[String], "errors": [] as Array[String]}
+	var targets: Array[String] = []
+	if in_master_mode and not master_path.is_empty():
+		targets.append(master_path)
+	if not output_path.is_empty() and (not in_master_mode or output_path != master_path):
+		targets.append(output_path)
+	for res_path in targets:
+		if not FileAccess.file_exists(res_path):
+			continue
+		var g := ProjectSettings.globalize_path(res_path)
+		var err := DirAccess.remove_absolute(g)
+		if err == OK:
+			result.deleted.append(res_path)
+		else:
+			result.ok = false
+			result.errors.append("删除失败: %s (err=%d)" % [res_path, err])
+		for side in [g + ".import", g + ".uid"]:
+			if FileAccess.file_exists(side):
+				DirAccess.remove_absolute(side)
+	return result
+
+
 ### 内部辅助 --------------------------------------------------------------------
 
 static func _empty_result() -> Dictionary:
