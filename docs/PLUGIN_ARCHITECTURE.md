@@ -1142,7 +1142,7 @@ custom_inspectors/height_layers/
 - 掩码三型（`.mask/.body.mask/.attack.mask.png`）仅 resize alpha；精灵图 `fix_alpha_edges` → Lanczos（4.7 无 `depremultiply_alpha`，premultiply 不可逆路线弃用）
 - **蒙版母版体系（v3 关键规则）**：蒙版的"原画"永远是母版目录那份（由蒙版编辑器在母版画布上写入，`PngScaleTool.write_mask_pair()` 双写核心），源目录蒙版只是印品。缩放处理蒙版时**永不走 R0/R3 收底/换底**——`process_pair()` 蒙版专用分支置于所有判定之前：有母版 → 从母版重印（随底图换系数同步）；无母版 → 判为历史孤儿，**告警跳过**（不污染母版、绝不二次缩小成"印品的印品"）。`*.no.png` 跳过标记是纯布尔旗标只需存在于源目录，`_collect_pngs_in()` 将其整体排除在缩放配对之外（恢复原图/孤儿统计同样不碰）
 - headless 测试矩阵 16 项（收底/幂等/换系数/换画/同尺寸换画/尺寸撞车/删除→孤儿→恢复→清账/迁移两式/逃生门/损坏源护栏/预览只读/递归目录）全通过（`/tmp/opencode/scale_v2_tests.gd`，2026-09-12）
-- headless 测试矩阵 v3 蒙版保护 13 项（孤儿告警不收底/母版不被污染/源孤儿蒙版不被缩小/有母版蒙版随系数重印同步/.no 全链路不碰/双写核心两份两尺寸…）+ 删除核心 11 项（母版双份删净/sidecar 清走/不误伤底图与其它档/幂等重删/非母版单删/删后缩放不复活）全通过（2026-09-13）；内嵌浏览器数据层 9 项（目录分组/伴生与备份及母版目录排除/字母序/🎭⛔ 与注入器链一致/类型映射）全通过（2026-09-13）；UI-API 引擎自省断言（蒙版浏览器用到的每个 TreeItem/Tree/Dialog 方法与信号逐一经 ClassDB 向引擎本体核实存在，含 set_expanded/popup_hide 两条"不存在"反向结论）全通过（2026-09-13）。教训固化：浏览器目录行展开用 `TreeItem.set_collapsed(false)`（4.7 无 set_expanded）；蒙版窗口回收监听 `CanvasItem.visibility_changed` 判不可见后 queue_free（AcceptDialog 无 closed/popup_hide 信号，历史 `dialog.closed` 调用一直报错且泄漏窗口实例，已修）
+- headless 测试矩阵 v3 蒙版保护 13 项（孤儿告警不收底/母版不被污染/源孤儿蒙版不被缩小/有母版蒙版随系数重印同步/.no 全链路不碰/双写核心两份两尺寸…）+ 删除核心 11 项（母版双份删净/sidecar 清走/不误伤底图与其它档/幂等重删/非母版单删/删后缩放不复活）全通过（2026-09-13）；内嵌浏览器数据层 9 项（目录分组/伴生与备份及母版目录排除/字母序/🎭⛔ 与注入器链一致/类型映射）全通过（2026-09-13）；跳过标记共用静态函数 8 项（四档命名链/合法落盘/幂等/专属不跨类/通用全类可见/删除连伴生/缺失幂等/底图无恙）全通过（2026-09-13）；UI-API 引擎自省断言（蒙版浏览器用到的每个 TreeItem/Tree/Dialog 方法与信号逐一经 ClassDB 向引擎本体核实存在，含 set_expanded/popup_hide 两条"不存在"反向结论）全通过（2026-09-13）。教训固化：浏览器目录行展开用 `TreeItem.set_collapsed(false)`（4.7 无 set_expanded）；蒙版窗口回收监听 `CanvasItem.visibility_changed` 判不可见后 queue_free（AcceptDialog 无 closed/popup_hide 信号，历史 `dialog.closed` 调用一直报错且泄漏窗口实例，已修）
 
 **工作流程（轮廓转换）**：
 ```
@@ -1159,7 +1159,7 @@ Runner._execute() → AnimationTrackInjector.convert_body_contours() / convert_a
      - 豁免族 `{name}{.类别}.no.png` 或 `{name}.no.png`：任一命中 → **整帧不检测**（`find_no_marker()`，预统计 pass 过滤、进度 total 不含、结果 `skipped_no` 计数）；被跳帧在注入端因 `frame_dict.has()` 守卫**不写任何键**（polygon/physical_height/width/attack_heights/occluder 全部保持上一键值，与 `:disabled` 窗口同机制）
      - shadow 与 body 完全平级：`.body.mask.png`/`.body.no.png` **不影响** shadow（各有专属档 + 通用档）；shadow 扫描以 `mask_suffix="shadow"` 独立解析
      - 跨扫描 `shared_image_cache` 值为 `{image, masks:{suffix→Image|null}}`——蒙版按后缀分键缓存，杜绝"先跑类别吞掉后跑类别蒙版"（v1 单键缺陷）
-     - 标记文件必须是合法 PNG（0 字节会触发导入器报错）；widget 预览区有"豁免标记"创建/删除辅助（2×2 合法图代生成，实时显示现有标记）
+     - 标记文件必须是合法 PNG（0 字节会触发导入器报错）；widget 预览区有"豁免标记"创建/删除辅助（2×2 合法图代生成，实时显示现有标记）。**v3.2：标记创建/删除下沉为注入器静态函数（`no_marker_path/create_no_marker/delete_no_marker_by_path`，删除连带 `.import/.uid` 伴生），widget 预览区按钮与蒙版编辑器新增「⏭ 设为跳过检测 / ↩ 取消跳过」切换按钮共用同一实现——编辑器内按钮跟随当前类型（通用=一开关停三类，专属=只停本类），切换后列表 ⛔ 徽标即时重算；标记只存在于游戏目录，不进母版、不参与缩放**
      - 蒙版编辑器类型下拉含 通用/Body/Attack/Shadow 四档（`mask_editor_dialog.gd`）
      - **蒙版编辑器母版模式（v3）**：面板把缩放区的源/备份目录传入 `set_master_context()`；该图在母版目录存在原画 → 画布自动切换为母版大图（笔刷半径按倍率补偿），保存经 `write_mask_pair()` 双写：权威版入母版 + 缩印版随成品底图尺寸入 `sprites/`；无母版体系的角色（如 run_test/模板）自动落回旧单写行为，完全无感。加载优先级：母版蒙版 → 成品旧蒙版（升采样当起点并提示"保存即转正"）→ 新建
      - **蒙版删除（v3）**：编辑器三按钮语义严格区分——💾 保存（母版双写）/ 🧹 涂空 Mask（画布转透明、保留文件、保存后＝空蒙版＝检测区域清空）/ 🗑 删除 Mask 文件（真删）。删除作用于**当前所选档位**（通用/Body/Attack/Shadow），经确认弹窗列出待删文件后调用 `PngScaleTool.delete_mask_pair()`：母版模式一次清掉 母版+成品 两份及各自 `.import/.uid` 伴生（杜绝缩放从残留母版复活、杜绝孤儿 import 报错），非母版模式删单份；不存在的目标幂等跳过。删除后画布复位＝该图恢复整图检测。`*.no.png` 跳过标记的创建/删除仍由 widget 预览区独立管理，不在此列
