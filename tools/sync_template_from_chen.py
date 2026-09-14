@@ -43,6 +43,8 @@ def skip_rel(rel: str) -> bool:
         return True
     if ".mask.png" in f or ".no.png" in f:
         return True
+    if ".backup-" in f:  # 历史烘焙备份文件（轮廓工具时代遗留），不随模板传播
+        return True
     return False
 
 def tokenize(text: str) -> str:
