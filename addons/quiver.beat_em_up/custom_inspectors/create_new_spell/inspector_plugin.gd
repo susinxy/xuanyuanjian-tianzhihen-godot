@@ -78,19 +78,9 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
-[ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="3_enemy"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="4_attack_data"]
 [ext_resource type="Script" path="" id="5_test_helper"]
-[ext_resource type="Script" path="res://characters/playable/enemy/enemy_hurt_handler.gd" id="6_hurt_handler"]
 [ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
 [ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
-
-[sub_resource type="Resource" id="test_attack_data"]
-script = ExtResource("4_attack_data")
-attack_damage = 50.0
-hurt_type = 0
-knockback = 3
-launch_angle = 30
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(8000, 200)
@@ -121,15 +111,6 @@ limit_left = 0
 limit_top = -500
 limit_right = 6000
 limit_bottom = 1000
-
-[node name="Enemy" parent="." instance=ExtResource("3_enemy")]
-position = Vector2(522, 480)
-
-[node name="HurtHandler" type="Node" parent="Enemy"]
-script = ExtResource("6_hurt_handler")
-
-[node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
-attack_data = SubResource("test_attack_data")
 
 [node name="DebugLabel" type="Label" parent="."]
 offset_left = 10.0
@@ -189,7 +170,11 @@ func _physics_process(delta):
 	# Replace tokens in test scene
 	var test_scene_content = test_scene_template\
 		.replace("{{CHAR_PATH}}", character_scene_path)\
-		.replace("{{CHAR_NAME}}", char_name)\
+		.replace("{{CHAR_NAME}}", char_name)
+	# 单壳编排：注入默认对手 spar_enemy（存在时），旧 enemy 块保险剥离
+	var subject_mode := QuiverRunTestSceneBuilder.scene_behavior_mode(character_scene_path)
+	test_scene_content = QuiverRunTestSceneBuilder.compose(
+			test_scene_content, character_scene_path, subject_mode)\
 		.replace("{{SPELL_NAME}}", spell_name)
 	
 	# Update the helper script ext_resource path

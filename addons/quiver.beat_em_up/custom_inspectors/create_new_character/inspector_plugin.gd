@@ -90,22 +90,12 @@ func _on_character_test_requested(char_name: String, pkg: String = "playable") -
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
-[ext_resource type="PackedScene" path="res://characters/playable/enemy/enemy.tscn" id="4_enemy"]
-[ext_resource type="Script" path="res://characters/playable/enemy/enemy_periodic_attack.gd" id="5_periodic_attack"]
 [ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/quiver_attack_data.gd" id="8_attack_data"]
 [ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
 [ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
 [ext_resource type="Script" path="res://scripts/shadow_region.gd" id="13_shadow_region"]
-
-[sub_resource type="Resource" id="test_attack_data"]
-script = ExtResource("8_attack_data")
-attack_damage = 50.0
-hurt_type = 0
-knockback = 3
-launch_angle = 30
 
 [sub_resource type="CapsuleShape2D" id="short_wall_shape"]
 radius = 20.0
@@ -158,17 +148,6 @@ limit_left = 0
 limit_top = -500
 limit_right = 6000
 limit_bottom = 1000
-
-[node name="Enemy" parent="." instance=ExtResource("4_enemy")]
-position = Vector2(522, 480)
-
-[node name="Attack1" parent="Enemy/EnemySkin/Attacks" index="0"]
-attack_data = SubResource("test_attack_data")
-
-[node name="PeriodicAttack" type="Node" parent="Enemy"]
-script = ExtResource("5_periodic_attack")
-facing_direction = -1
-rest_duration = 0.0
 
 [node name="ShortWall" type="StaticBody2D" parent="."]
 position = Vector2(1000, 480)
@@ -321,9 +300,8 @@ debug_preview = true
 			character_scene_path, subject_mode)
 	var test_scene_content := test_scene_template.replace("{{CHAR_NAME}}", char_name)
 	test_scene_content = test_scene_content.replace("{{CHAR_PATH}}", hero_path)
-	if subject_mode != 0:
-		test_scene_content = QuiverRunTestSceneBuilder.attach_nonplayer_subject(
-				test_scene_content, character_scene_path)
+	test_scene_content = QuiverRunTestSceneBuilder.compose(
+			test_scene_content, character_scene_path, subject_mode)
 	
 	# Ensure test_scenes directory exists
 	if not DirAccess.dir_exists_absolute("res://test_scenes"):

@@ -407,12 +407,21 @@ QuiverBehaviorAI.on_hurt"承接。
   目录/组/档位（AI 档 v1 仅敌人阵营，友方 AI 索敌参数化留切片设计会）；
   `CharacterDeleter.delete_character(name, pkg)`。面板新增"控制方式"下拉与阵营联动。
 - **Run Test 生成**：纯逻辑抽出为 `QuiverRunTestSceneBuilder`（RefCounted 静态类，
-  headless 可测）：读 behavior_mode → 玩家档=被测者当主角；非玩家档=主角换 chen、
-  被测者作为对手实例注入（AI 自动追打 chen = 天然验收）。
+  headless 可测）`compose()` 统一编排：读 behavior_mode → 玩家档=被测者当主角、
+  注入正式对手 `spar_enemy`（缺失则空场，优雅降级）；非玩家档=主角换 chen、被测者
+  作为对手实例注入（AI 自动追打 chen = 天然验收）。生成物模板已不含任何敌人引用；
+  旧 enemy 块剥离逻辑保留为保险丝。角色/法术两个 Run Test 模板同此。
+- **正式验证角色（内容资产，进 git）**：`characters/enemies/spar_enemy/`（AI 档，
+  默认小抄：歇→追→三连段；Run Test 玩家场景的常驻陪练——删除它会改变测试场景编排，
+  建议保留）、`characters/neutrals/street_vendor/`（被动档站桩样板）。
+- **旧 enemy 魔法替身已退役**（2026-09-14）：`characters/playable/enemy/`（含
+  enemy_periodic_attack / enemy_hurt_handler 拨皮肤 hack）整目录删除，gitignore
+  例外同步移除；其历史职责由 AI 档正式角色承接。
 - **阵营包目录**：`characters/enemies|allies|neutrals/` 纳入 git（.gitkeep 占位）。
 
 **回归验证**：`tools/wp2_creation_test/`（create 30 断言 + verify 6 断言，两阶段夹
-一次 `--import`；scene-gen 9 断言）。
+一次 `--import`；scene-gen 13 断言）与 `tools/wp3_formal/`（spawn 幂等生成正式角色 +
+verify 5 断言：小抄约定加载、逼近、伤害、站桩）。
 
 ### 5.1 通用状态机框架
 
