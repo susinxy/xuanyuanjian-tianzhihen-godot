@@ -115,7 +115,7 @@ func _check(w: Dictionary) -> void:
 				_anomaly_prints += 1
 				print("[GHOST-PROBE] ★ANOMALY f=%d %s 连续第%d帧" % [
 						_frame, w["label"], w["anomaly_streak"]])
-				print("    anim=%r 名合法=%s sprite_frames=%s frames内名=%d" % [
+				print("    anim=%s 名合法=%s sprite_frames=%s frames内名=%d" % [
 						String(anim_name), legit_name, frames != null,
 						frames.get_animation_names().size() if frames != null else -1])
 				print("    frame=%d/%d 帧可显示=%s 可见链=%s modulate.a=%s" % [
