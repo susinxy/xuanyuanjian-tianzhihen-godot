@@ -34,6 +34,13 @@ const INVALID_NODEPATH = ^"invalid"
 
 @export var should_process_input := true
 
+## 输入窗口开关：deliver_event 是否放行事件。
+## 攻击连段窗口、空中攻击许可等机制在 enter/exit/计时回调里切换它。
+## 注意：不要改用 Node 原生 is_processing_unhandled_input 标志——Godot 4 会
+## 根据"脚本是否覆写 _unhandled_input 虚函数"自动改写该标志（本脚本已不覆写，
+## 标志恒为 false，用它当门控会把输入永久锁死）。
+var input_window_open := true
+
 ## Current state.
 var state: QuiverState = null:
 	set(value):
@@ -63,9 +70,21 @@ func _ready() -> void:
 	emit_signal("transitioned", get_path_to(state))
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if should_process_input:
-		state.unhandled_input(event)
+## 事件注入口。本节点不再监听物理键盘（旧 _unhandled_input 管道已拆除，
+## 串台漏洞从源头消灭）。输入只能由角色的行为脚本投递：
+## [br]· 玩家 → QuiverBehaviorPlayer._unhandled_input 转投真实 OS 事件
+## [br]· AI → QuiverBehaviorAI 的合成事件（press_attack 等）
+## 原有的"输入窗口"语义完整保留：连段/空中攻击窗口通过 [member
+## input_window_open] 切换本入口的通过率。
+func deliver_event(event: InputEvent) -> void:
+	if not should_process_input:
+		return
+	if not input_window_open:
+		return
+	# 初始状态就绪（_ready 中 await owner.ready）之前可能已到输入帧，静默丢弃
+	if not is_instance_valid(state):
+		return
+	state.unhandled_input(event)
 
 
 func _process(delta: float) -> void:

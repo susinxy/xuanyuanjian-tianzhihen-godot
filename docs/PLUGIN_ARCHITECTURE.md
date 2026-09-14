@@ -19,6 +19,8 @@ quiver.beat_em_up/
 │   ├── quiver_character_skin.gd   # 皮肤基类（信号、朝向、抓取配置）
 │   ├── quiver_character_skin_anim_tree.gd  # AnimationTree 版皮肤（BlendSpace1D）
 │   ├── quiver_character_skin_base.tscn     # 皮肤基础场景
+│   ├── quiver_input_channel.gd   # 私有输入通道（虚拟手柄，见 5.0）
+│   ├── behaviors/                # 行为脚本（玩家采集/AI 小抄基类/被动零写入，见 5.0）
 │   ├── action_states/            # 所有动作状态脚本
 │   │   ├── quiver_character_action.gd  # 动作状态基类（提供 _character, _skin, _attributes）
 │   │   ├── quiver_action_ground.gd     # 地面状态基类（连接 hurt/knockout/grab 信号）
@@ -29,7 +31,7 @@ quiver.beat_em_up/
 │   │   ├── ground_actions/
 │   │   │   ├── quiver_action_move.gd       # 地面移动基类（apply velocity + move_and_slide）
 │   │   │   └── move_actions/
-│   │   │       ├── quiver_action_idle.gd       # Idle 状态（读输入，转到 Walk/Run）
+│   │   │       ├── quiver_action_idle.gd       # Idle 状态（读通道，转到 Walk/Run）
 │   │   │       └── quiver_action_locomotion.gd # Walk/Run 通用移动状态（单类，实例配置区分）
 │   │   └── (子目录: air_actions/)
 │   └── ai/                       # AI 行为状态机
@@ -93,6 +95,14 @@ var _hitboxes: Array[QuiverHitBox] = []     # 缓存的 HitBox 数组
 var _skin: QuiverCharacterSkin           # 皮肤引用（默认 "Skin" 子节点）
 var _collision: Node2D                   # 碰撞体引用（默认 "Collision" 子节点）
 var _state_machine: QuiverStateMachine   # 动作状态机引用（默认 $StateMachine）
+var state_machine: QuiverStateMachine    # 公开只读访问器（行为脚本投递事件用）
+
+# 输入通道与行为脚本（见 5.0）
+@export var behavior_mode: BehaviorMode  # PLAYER_INPUT / AI_POLICY / PASSIVE
+@export var ai_policy_script: Script     # AI 档挂载的策略小抄脚本
+var channel: QuiverInputChannel          # 私有虚拟手柄（_ready 创建）
+var behavior: Node                       # 行为脚本节点（宽松类型防编译期互引）
+func switch_behavior(mode)               # 运行时操控权交接接口位
 ```
 
 ### 高度层系统（方案 C）
@@ -330,6 +340,58 @@ class HitLaneLimits:
 
 ## 5. 动作状态机系统 (Action States)
 
+### 5.0 输入通道与行为脚本（2026-09-14 单壳架构改造）
+
+**设计**：所有角色（玩家/AI/被动）共用同一种壳与同一套动作状态，"能做什么"完全
+一致；"谁发号施令"由挂在角色下的**行为脚本**决定。差异被收敛为：每具角色体内存
+在一个私有输入通道，动作状态只认通道，物理键盘事件永远不会到达非玩家角色。
+
+```
+QuiverCharacter
+ ├─ channel: QuiverInputChannel        # characters/quiver_input_channel.gd（私有"虚拟手柄"）
+ │    ├─ axis: Vector2                 # 摇杆歪向（走路/空中控制的唯一方向来源）
+ │    ├─ _held{动作名: bool}           # 按住名单（walk 持续、抓取方向键挣脱等）
+ │    └─ _edge_tick{动作名: 物理帧号}   # "刚按下"边沿：盖帧戳、读一次即消费、超龄清理
+ │
+ └─ behavior: QuiverBehavior           # characters/behaviors/，运行时按 behavior_mode 挂载
+      ├─ QuiverBehaviorPlayer           # 0 玩家操控：全场唯一 OS 听众
+      │    ├─ _unhandled_input → 通道盖戳 + state_machine.deliver_event(转投)
+      │    └─ pre_physics → channel.refresh_from_os()（摇杆+全量 InputMap 按住扫描）
+      ├─ QuiverBehaviorAI               # 1 AI：策略小抄（角色自己的 <名字>_ai.gd 继承它）
+      │    └─ pre_physics → tick()：move_towards/press_attack 等写通道、投合成事件
+      └─ QuiverBehaviorIdle             # 2 被动：零写入（站桩/路人/活道具）
+```
+
+- **事件路径**：动作状态中 `event.is_action_pressed(...)` 的判读代码**零改动**——变化
+  只在事件来源。玩家=转投真实 OS 事件；AI=`deliver_event(InputEventAction 合成)`。
+  连段窗口机制对两者天然同构（AI 连段水平=它再按的时机）。
+- **轮询路径**：`Input.get_vector/is_action_pressed` 共 10 处已改为
+  `_character.channel.axis / .is_held(动作)`（涉及 Idle、Locomotion、Landing、
+  MidAir、GrabIdle）。全插件运行时读物理键盘只剩通道内 `refresh_from_os` 一处。
+- **输入窗口**：`QuiverStateMachine.input_window_open`（显式属性）。原先通过
+  `set_process_unhandled_input(bool)` 实现的连段/空中攻击窗口已全部改用此属性。
+  ⚠ **引擎陷阱**：不要用 `is_processing_unhandled_input()` 做门控——Godot 4 会按
+  "脚本是否覆写 `_unhandled_input` 虚函数"**自动改写**该原生标志（本状态机已不覆写，
+  该标志恒为 false）。
+- **泵水顺序**：`QuiverCharacter._physics_process` 首行依次
+  `channel.prune_stale_edges()` → `behavior.pre_physics(delta)`。父节点先于子节点
+  执行，行为脚本写入的值在本物理帧内即可被状态机读到，不依赖场景树节点顺序。
+- **根脚本键**（法术 spell_1..4）：改在角色根脚本 `_physics_process` 轮询
+  `channel.just_pressed("spell_X")`（chen.gd / 模板 / 法术 Run Test helper 同）。
+  角色相关脚本不再有任何 `_unhandled_input` OS 听众。
+- **运行时交接**：`QuiverCharacter.switch_behavior(mode)` 换挂行为（通道保留、
+  旧操控者状态清零）。这是"剧情附身/队友接管"的接口位。
+- **多玩家提醒**：两个 PLAYER_INPUT 行为共存时 push_warning（允许共存便于双打测试）。
+
+**退役清单（文件保留仅供考古，禁止用于新角色）**：`quiver_action_idle_ai.gd`、
+`quiver_action_follow.gd`、`quiver_action_die_ai.gd`、`quiver_enemy_character.gd`、
+`characters/ai/`（11 块 AI 积木状态 + QuiverAiStateMachine）。它们的动机（免键盘动作
+变体、AI 专用树、受击打断接线）在通道架构下分别由"事件来源隔离 / 小抄直接驱动原树 /
+QuiverBehaviorAI.on_hurt"承接。
+
+**回归验证**：`tools/input_channel_test/test_runner.tscn`（headless 17 断言：通道单元
+语义、玩家移动/攻击链路、被动角色不被物理键盘劫持、窗口门控、AI 注入链路）。
+
 ### 5.1 通用状态机框架
 
 **基类**: `utilities/custom_nodes/state_machines/quiver_state_machine.gd`
@@ -339,14 +401,17 @@ class HitLaneLimits:
 signal transitioned(state_path)      # 每次状态切换时发射
 
 @export var initial_state: NodePath  # 初始状态路径
-@export var should_process_input := true
+@export var should_process_input := true   # 总闸（长期屏蔽输入时用）
+var input_window_open := true               # 连段/空攻窗口（见 5.0 引擎陷阱）
 
 var state: QuiverState               # 当前激活的状态
 var state_name: NodePath             # 当前状态路径
 ```
 
-**生命周期委托**:
-- `_unhandled_input(event)` → `state.unhandled_input(event)`
+**生命周期与输入管道**:
+- `deliver_event(event)` → 三重门控（`should_process_input` → `input_window_open` →
+  state 有效）后 → `state.unhandled_input(event)`。**本节点不再监听物理键盘**
+  （旧 `_unhandled_input` OS 管道已拆除，串台漏洞自源头消灭，见 5.0）
 - `_process(delta)` → `state.process(delta)`
 - `_physics_process(delta)` → `state.physics_process(delta)`
 
@@ -426,9 +491,9 @@ Ground/Move/Idle/ (QuiverActionMoveIdle)
 
 | 状态 | enter() 链 | physics_process() 链 |
 |---|---|---|
-| Idle | Idle→Move→Ground | Idle(读输入) → Move(apply velocity + move_and_slide) → Ground(track ground_level) |
-| Walk (Locomotion, _is_walk_mode=true) | Walk→Move→Ground（enter 加 modifier 降速） | Walk(读输入+转身) → Move → Ground |
-| Run (Locomotion, _is_walk_mode=false) | Run→Move→Ground（enter 无 modifier） | Run(读输入+转身) → Move → Ground |
+| Idle | Idle→Move→Ground | Idle(读通道) → Move(apply velocity + move_and_slide) → Ground(track ground_level) |
+| Walk (Locomotion, _is_walk_mode=true) | Walk→Move→Ground（enter 加 modifier 降速） | Walk(读通道+转身) → Move → Ground |
+| Run (Locomotion, _is_walk_mode=false) | Run→Move→Ground（enter 无 modifier） | Run(读通道+转身) → Move → Ground |
 | Attack (Combo1/2/3) | Attack→Ground | Attack(maybe apply damage during animation) → Ground |
 | Hurt | Hurt → explicitly call _ground_state.enter() | — |
 | Jump/Impulse | ...→Ground.exit() | Air(gravity + move_and_slide) |

@@ -83,7 +83,7 @@ func enter(msg: = {}) -> void:
 	_air_control_max_speed = _attributes.move_speed * _attributes.air_control
 	
 	if not _can_attack:
-		_state_machine.set_process_unhandled_input(false)
+		_state_machine.input_window_open = false
 
 
 func unhandled_input(event: InputEvent) -> void:
@@ -101,7 +101,7 @@ func unhandled_input(event: InputEvent) -> void:
 
 
 func physics_process(delta: float) -> void:
-	var h_direction := Input.get_vector("move_left", "move_right", "move_up", "move_down").x
+	var h_direction := _character.channel.axis.x
 	var air_control_influence: float = _air_control_max_speed * h_direction
 	
 	if _should_apply_air_control(h_direction):

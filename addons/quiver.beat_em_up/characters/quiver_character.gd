@@ -17,7 +17,21 @@ extends CharacterBody2D
 
 #--- enums ----------------------------------------------------------------------------------------
 
+## 行为模式：决定"谁往本角色的私有输入通道里写指令"。
+enum BehaviorMode {
+	PLAYER_INPUT,  ## 玩家行为：采集物理键盘/手柄（全场唯一 OS 听众）
+	AI_POLICY,     ## AI 行为：策略小抄脚本按决策写入
+	PASSIVE,       ## 站立行为：零写入（剧情路人/商人/活道具）
+}
+
 #--- constants ------------------------------------------------------------------------------------
+
+## 三种行为脚本的路径（运行时 load，避免与行为脚本形成编译期互引）
+const BEHAVIOR_SCRIPTS := {
+	BehaviorMode.PLAYER_INPUT: "res://addons/quiver.beat_em_up/characters/behaviors/quiver_behavior_player.gd",
+	BehaviorMode.AI_POLICY: "res://addons/quiver.beat_em_up/characters/behaviors/quiver_behavior_ai.gd",
+	BehaviorMode.PASSIVE: "res://addons/quiver.beat_em_up/characters/behaviors/quiver_behavior_idle.gd",
+}
 
 ## 高度层系统常量
 ## Godot 4 中，layer N 对应 bit (N-1)：layer 15 = bit 14 = 1<<14
@@ -104,10 +118,28 @@ var _path_collision := NodePath("Collision"):
 			_collision = get_node_or_null(_path_collision)
 		update_configuration_warnings()
 
+## 行为模式：玩家操控 / AI 策略 / 被动站立。非玩家角色由创建器写入场景。
+@export var behavior_mode: BehaviorMode = BehaviorMode.PLAYER_INPUT
+
+## AI_POLICY 模式挂载的策略小抄脚本（须为 QuiverBehaviorAI 的子类脚本）。
+## 未配置时 AI 档退化为站立行为并告警。
+@export var ai_policy_script: Script = null
+
 @onready var _skin := get_node_or_null(_path_skin) as QuiverCharacterSkin
 @onready var _collision := get_node_or_null(_path_collision) as Node2D
 @warning_ignore("unused_private_class_variable")
 @onready var _state_machine := $StateMachine as QuiverStateMachine
+
+## 本角色私有的输入通道（虚拟手柄），_ready 中创建。
+var channel: QuiverInputChannel = null
+
+## 当前行为脚本节点（QuiverBehavior 子类实例；宽松类型避免编译期互引）。
+var behavior: Node = null
+
+## 状态机公开只读访问（行为脚本投递事件用）。
+var state_machine: QuiverStateMachine:
+	get:
+		return _state_machine
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -140,6 +172,10 @@ func _ready() -> void:
 	
 	# 阴影系统：动态创建 ShadowRenderer
 	_create_shadow_renderer()
+	
+	# 输入通道 + 行为脚本：本角色一切动作指令的唯一来源
+	channel = QuiverInputChannel.new()
+	_attach_behavior()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -164,7 +200,13 @@ func _get_configuration_warnings() -> PackedStringArray:
 	return warnings
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	# 泵水先行：父节点回调先于全部子节点执行，保证行为脚本写入通道的值
+	# 在本物理帧内即可被状态机子节点读到，且不依赖场景树中的节点顺序
+	if channel != null:
+		channel.prune_stale_edges()
+	if behavior != null:
+		behavior.pre_physics(delta)
 	_update_collision_layers()
 
 ### -----------------------------------------------------------------------------------------------
@@ -175,6 +217,19 @@ func _physics_process(_delta: float) -> void:
 ## Method to be overridden for character that can't be grabbed.
 func can_deny_grabs() -> bool:
 	return false
+
+
+## 运行时切换操控权（剧情夺舍/队友接管等场景的接口位）。
+## 通道保持原样挂载，只更换"写通道的人"；切换瞬间清空旧操控者残留。
+func switch_behavior(mode: BehaviorMode) -> void:
+	behavior_mode = mode
+	if Engine.is_editor_hint():
+		return
+	if behavior != null:
+		behavior.queue_free()
+	if channel != null:
+		channel.reset()
+	_attach_behavior()
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -195,6 +250,32 @@ func _create_shadow_renderer() -> void:
 	sr.set_script(SHADOW_CONTROLLER_SCRIPT)
 	add_child(sr)
 	sr.setup(_skin)
+
+
+## 按 behavior_mode 实例化行为脚本并挂到本角色下，注入宿主与通道。
+## AI 档若未配置策略小抄，退化为站立并告警（不崩溃，方便场景调试期）。
+func _attach_behavior() -> void:
+	var script_path: String = BEHAVIOR_SCRIPTS.get(behavior_mode, "")
+	if script_path.is_empty():
+		return
+	
+	if behavior_mode == BehaviorMode.AI_POLICY:
+		if ai_policy_script != null:
+			# 策略小抄本身就是行为脚本的子类，直接用它实例化
+			behavior = Node.new()
+			behavior.set_script(ai_policy_script)
+			behavior.name = "Behavior"
+			add_child(behavior)
+			behavior.configure(self, channel)
+			return
+		push_warning("AI_POLICY 模式但未配置 ai_policy_script，角色退化为被动站立。")
+		script_path = BEHAVIOR_SCRIPTS[BehaviorMode.PASSIVE]
+	
+	var behavior_script := load(script_path)
+	behavior = behavior_script.new()
+	behavior.name = "Behavior"
+	add_child(behavior)
+	behavior.configure(self, channel)
 
 
 func _disable_collisions() -> void:

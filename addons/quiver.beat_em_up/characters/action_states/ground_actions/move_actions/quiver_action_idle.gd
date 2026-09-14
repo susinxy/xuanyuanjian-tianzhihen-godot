@@ -63,9 +63,9 @@ func unhandled_input(event: InputEvent) -> void:
 
 
 func physics_process(delta: float) -> void:
-	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_move_state._direction = _character.channel.axis
 	if _move_state._direction != Vector2.ZERO:
-		if Input.is_action_pressed("walk"):
+		if _character.channel.is_held("walk"):
 			_state_machine.transition_to(_path_walk_state)
 		elif _state_machine.has_node(_path_run_state):
 			_state_machine.transition_to(_path_run_state)

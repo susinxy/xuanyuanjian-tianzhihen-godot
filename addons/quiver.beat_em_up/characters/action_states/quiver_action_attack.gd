@@ -84,7 +84,7 @@ func enter(msg: = {}) -> void:
 		_auto_combo_amount = msg.auto_combo
 	else:
 		_should_combo = false
-		_state_machine.set_process_unhandled_input(_can_combo)
+		_state_machine.input_window_open = _can_combo
 	
 	var dir := _skin.skin_direction
 	if abs(dir.x) >= abs(dir.y):
@@ -119,7 +119,7 @@ func exit() -> void:
 	if _movement_is_enabled:
 		_disable_movement()
 	
-	_state_machine.set_process_unhandled_input(true)
+	_state_machine.input_window_open = true
 	super()
 	if _should_exit_parent:
 		get_parent().exit()
@@ -179,7 +179,7 @@ func _disconnect_signals() -> void:
 
 
 func _on_attack_input_frames_finished() -> void:
-	_state_machine.set_process_unhandled_input(false)
+	_state_machine.input_window_open = false
 	if _should_combo:
 		_auto_combo_amount -= 1
 		if _auto_combo_amount > 0:

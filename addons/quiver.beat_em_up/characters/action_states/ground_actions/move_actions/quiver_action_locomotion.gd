@@ -63,7 +63,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 ### Public Methods --------------------------------------------------------------------------------
 
 func enter(msg: = {}) -> void:
-	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_move_state._direction = _character.channel.axis
 	super(msg)
 	_move_state.enter(msg)
 	if _is_walk_mode and _attributes.move_speed > 0:
@@ -80,7 +80,7 @@ func unhandled_input(event: InputEvent) -> void:
 
 
 func physics_process(delta: float) -> void:
-	_move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_move_state._direction = _character.channel.axis
 	if not _move_state._direction.is_equal_approx(Vector2.ZERO):
 		# 先更新 facing_x，再更新 skin_direction
 		# 因为 skin_direction 的 setter 会触发 _update_blend_directions()
@@ -93,7 +93,7 @@ func physics_process(delta: float) -> void:
 	if _move_state._direction.is_equal_approx(Vector2.ZERO):
 		_state_machine.transition_to(_path_idle_state)
 		return
-	if _path_other_state != "" and Input.is_action_pressed("walk") != _is_walk_mode:
+	if _path_other_state != "" and _character.channel.is_held("walk") != _is_walk_mode:
 		_state_machine.transition_to(_path_other_state)
 
 

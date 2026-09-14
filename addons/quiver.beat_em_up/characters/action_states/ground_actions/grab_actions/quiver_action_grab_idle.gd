@@ -69,7 +69,7 @@ func enter(msg: = {}) -> void:
 	_skin.transition_to(_skin_state)
 	
 	_release_action = "move_left" if _skin.skin_direction.x > 0 else "move_right"
-	_is_holding_backwards = Input.is_action_pressed(_release_action)
+	_is_holding_backwards = _character.channel.is_held(_release_action)
 
 
 func unhandled_input(event: InputEvent) -> void:

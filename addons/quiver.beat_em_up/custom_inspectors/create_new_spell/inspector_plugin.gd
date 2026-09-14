@@ -170,9 +170,9 @@ func _ready():
 
 func _physics_process(delta):
 	_spell_manager.tick(delta)
-
-func _unhandled_input(event):
-	if event.is_action_pressed("spell_1"):
+	# 法术键读被测角色的私有输入通道（根脚本/助手不再监听物理键盘）
+	var host = get_parent()
+	if host.channel != null and host.channel.just_pressed("spell_1"):
 		_spell_manager.cast_spell_by_index(0)
 """
 	

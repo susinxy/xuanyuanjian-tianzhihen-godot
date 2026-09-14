@@ -41,17 +41,15 @@ func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	_spell_manager.tick(delta)
-
-func _unhandled_input(event: InputEvent) -> void:
-	if Engine.is_editor_hint():
-		return
-	if event.is_action_pressed("spell_1"):
+	# 法术键改读私有输入通道（帧戳边沿，读一次即消费）：
+	# 根脚本不再监听物理键盘，非玩家角色由模板出生即无按键劫持
+	if channel.just_pressed("spell_1"):
 		_spell_manager.cast_spell_by_index(0)
-	elif event.is_action_pressed("spell_2"):
+	elif channel.just_pressed("spell_2"):
 		_spell_manager.cast_spell_by_index(1)
-	elif event.is_action_pressed("spell_3"):
+	elif channel.just_pressed("spell_3"):
 		_spell_manager.cast_spell_by_index(2)
-	elif event.is_action_pressed("spell_4"):
+	elif channel.just_pressed("spell_4"):
 		_spell_manager.cast_spell_by_index(3)
 
 ### -----------------------------------------------------------------------------------------------
