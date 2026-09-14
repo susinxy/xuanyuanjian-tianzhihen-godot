@@ -49,6 +49,12 @@ signal grab_frame_reached(ref_position: Marker2D)
 			get_tree().set_group(StringName(get_path()), "character_attributes", attributes)
 
 
+## 本皮肤的方向语义（契约）：**任意世界方向向量**（任意角度、任意幅度）。
+## 混合空间几何归皮肤所有，因此 setter 在进入树前把输入径向投影到八向混合域
+## （见 [method project_to_blend_domain]）——方向语义由此成为全函数：
+## 八键方向、摇杆模拟量、AI 连续角度、弹道向量一视同仁，混合权重永不为零。
+## 历史上"永远没事"靠的是巧合（输入只在八个顶点方向上）；任何连续角度源
+## （AI 追击、手柄摇杆）都会踩中八边形边外的权重塌陷区（表现为角色隐形/闪烁）。
 @export var skin_direction: Vector2 = Vector2.RIGHT:
 	set(value):
 		var raw = value
@@ -57,6 +63,7 @@ signal grab_frame_reached(ref_position: Marker2D)
 			converted_value = Vector2.LEFT if raw < 0 else Vector2.RIGHT
 		else:
 			converted_value = raw
+		converted_value = project_to_blend_domain(converted_value)
 		var has_changed := not converted_value.is_equal_approx(skin_direction)
 		skin_direction = converted_value
 		
@@ -130,6 +137,27 @@ func _ready() -> void:
 
 
 ### Public Methods --------------------------------------------------------------------------------
+
+## 将任意方向向量径向投影到"八向混合域"（顶点位于 0°/45°/…/315°、外接圆
+## 半径 1 的正八边形）边界上或其内部，角度严格保持：
+## [br]· 已在域内（含八个顶点、任何小幅度向量、零向量）→ 原样返回——
+##   玩家八键与摇杆输入全部落在域内，因此本投影对既有手感是数学恒等
+## [br]· 域外 → 沿原射线拉回边界（该角度处的边界半径 r(α)=cos22.5°/cos(22.5°−α)，
+##   α 为与最近顶点方向的夹角），得到相邻节点间正确的角度配比
+static func project_to_blend_domain(direction: Vector2) -> Vector2:
+	var magnitude := direction.length()
+	if magnitude == 0.0:
+		return direction
+	var angle := abs(atan2(direction.y, direction.x))
+	# 折叠到"与最近顶点方向的夹角" α ∈ [0, 22.5°]
+	var to_vertex: float = fmod(angle, PI / 4.0)
+	to_vertex = min(to_vertex, PI / 4.0 - to_vertex)
+	# 该角度处的域边界半径：α=0（顶点方向）为 1.0，α=22.5°（边中点方向）为 cos22.5°≈0.924
+	var boundary_radius: float = cos(PI / 8.0) / cos(PI / 8.0 - to_vertex)
+	if magnitude <= boundary_radius:
+		return direction
+	return direction * (boundary_radius / magnitude)
+
 
 ## Virtual function to be overriden. It's the main public method for the skin, where you should fill in the logic for your skin to play animations. Here is a suggestion of what your body should be like, but don't use this directly.
 func transition_to(anim_state: StringName) -> void:
