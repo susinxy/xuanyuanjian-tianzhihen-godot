@@ -1,16 +1,12 @@
 [gd_resource type="Resource" script_class="QuiverAttributes" format=3]
 
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
+[ext_resource type="Script" uid="uid://ck1mf2limgpfj" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/__NAME___gradient.tres" id="1_4dxsn"]
 [ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/__NAME___profile.png" id="2_g3jjg"]
 
 [resource]
 script = ExtResource("1_1ikth")
-display_name = "__DISPLAY_NAME__"
+display_name = "  陈靖仇"
 profile_texture = ExtResource("2_g3jjg")
 life_bar_gradient = ExtResource("1_4dxsn")
-move_speed = __MOVE_SPEED__
-walk_speed = __WALK_SPEED__
-health_max = __HEALTH_MAX__
-air_control = __AIR_CONTROL__
-hit_lane_offset = __HIT_LANE_OFFSET__
+health_max = 101

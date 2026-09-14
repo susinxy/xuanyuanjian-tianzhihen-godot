@@ -1,211 +1,31 @@
-# 角色模板 (Character Template)
+# 角色模板（_template）
 
-本目录包含创建新角色的模板和 Inspector 工具。
+> 2026-09-14 起：模板内容 = **chen 的占位符化快照**（旧"骨架模板"退役）。
+> 新角色创建出来即自带完整可跑状态：全动画结构 + 演示图（chen 的图）+ 属性/攻击演示值。
 
-## 创建新角色
+## 创建新角色（不变）
 
-在 Godot 编辑器中使用 **Character Creator Inspector**：
+Inspector 面板流程原样：打开 `character_template.tscn` → 填英文名/类名/显示名 → Create。
+占位符：`__NAME__`（snake）、`__CLASS__`（Pascal）、`__DISPLAY_NAME__`。
 
-1. 打开 `characters/playable/_template/character_template.tscn`
-2. 选中根节点 `CharacterTemplate`
-3. 在右侧 Inspector 面板中找到 "Create New Character" 区域
-4. 填写表单：
-   - **English Name** (snake_case)：例如 `yu_xiaoxue`
-   - **Class Name** (PascalCase)：自动生成，例如 `YuXiaoxue`（可手动修改）
-   - **Display Name**：例如 `于小雪`
-5. 验证通过后点击 "Create Character ▶"
-6. 等待创建完成，文件系统会自动刷新
+## 创建后的三步工作流
 
-### 命名约定
+1. **换图 = 同名覆盖**。目录结构即 chen 规范：
+   - `resources/sprites/<attackN|idle|walk|run|hurt|jump|knock_out|air_attack>/<方向>/<动画名>_<槽号两位>.png`
+   - 新角色画好的图用**相同文件名**盖掉占位图即可，所有引用零改动
+   - `__NAME___profile.png` 是头像（被 attributes 引用），同样同名覆盖
+2. **跑两类轮廓转换**（Body + Attack，Inspector 高度层面板）：
+   轮廓/身高/攻击窗口/时间轴全部按新图重算——占位图带来的 chen 数据会被自动冲掉
+3. **体检归零**（面板"attack 结构体检"无告警）+ 按需在编辑器调属性/攻击数值
 
-- **English Name**：使用 snake_case（如 `yu_xiaoxue`），用于文件名和 `@tool class_name` 声明
-- **Class Name**：使用 PascalCase（如 `YuXiaoxue`），用于 GDScript 类名
-- **Display Name**：使用中文全名（如 `于小雪`），用于游戏内显示
+可选：若走"大图画、缩着进游戏"的缩放管线，创建后自行建 `resources/sprites_master/`
+（模板**不带**母版目录、账本、蒙版和跳过标记——新角色自己产生）。
 
-### 验证规则
-
-- **English Name**：必须是小写字母和下划线的组合，以字母开头，不能连续下划线
-  - ✅ 正确：`yu_xiaoxue`, `chen_jingchou`, `tax_man`
-  - ❌ 错误：`YuXiaoxue`, `yu-xiaoxue`, `123_character`, `_name`, `_yu__xiao`
-
-- **Class Name**：必须是字母数字的组合，以大写开头
-  - ✅ 正确：`YuXiaoxue`, `ChenJingchou`, `TaxMan`
-  - ❌ 错误：`yuXiaoxue`, `yu_xiaoxue`, `123Character`
-
-- **Display Name**：任意非空字符串
-  - ✅ 正确：`于小雪`, `陈靖仇`, `税吏`
-
-## 删除角色
-
-在 Inspector 的 "Delete Character" 区域：
-
-1. 从下拉菜单选择要删除的角色
-2. 点击 "Delete 🗑️" 按钮
-3. 在确认对话框中确认删除
-
-⚠️ **警告**：删除操作不可逆，建议在删除前备份重要资源！
-
-## 创建后的文件结构
-
-创建成功后会生成以下结构：
+## 刷新模板（chen 更新后）
 
 ```
-characters/playable/yu_xiaoxue/
-├── yu_xiaoxue.tscn              # 角色场景文件
-├── yu_xiaoxue_skin.tscn         # 皮肤场景文件
-├── yu_xiaoxue.gd                # 角色脚本
-├── yu_xiaoxue_skin.gd           # 皮肤脚本
-└── resources/
-    ├── animations/              # 动画文件（idle、walk、attack 等的 .tres 关键帧）
-    ├── attacks/                 # 攻击数据
-    │   ├── punch1_attack_data.tres
-    │   ├── punch2_attack_data.tres
-    │   ├── punch3_attack_data.tres
-    │   └── air_kick_attack_data.tres
-    ├── sprites/                 # 占位图片素材（需要替换）
-    ├── yu_xiaoxue_attributes.tres  # 角色属性 Resource
-    ├── yu_xiaoxue_gradient.tres    # HP 条颜色渐变
-    ├── anim_library_yu_xiaoxue.tres # 动画库 Resource
-    └── spriteframes_yu_xiaoxue.tres # SpriteFrames Resource
+python3 tools/sync_template_from_chen.py
 ```
 
-## 各部分职责
-
-### 通用部分（所有角色共享，不需要改）
-
-| 内容 | 文件 | 说明 |
-|------|------|------|
-| 角色基类 | `quiver_character_base.tscn` | Quiver 插件提供，不要修改 |
-| 皮肤基类 | `quiver_character_skin_base.tscn` | Quiver 插件提供，不要修改 |
-| 动作状态机 | `yu_xiaoxue.tscn` 中 `StateMachine` 节点 | 完整的行为树（Ground/Air/Die），所有角色结构一样 |
-| 各 action state 脚本 | Quiver 插件提供 | 移动、攻击、击飞等通用逻辑 |
-
-### 每个角色需要定制的部分
-
-| 内容 | 文件 | 说明 |
-|------|------|------|
-| **角色属性** | `resources/yu_xiaoxue_attributes.tres` | 名字、HP、速度、跳跃力等 |
-| **攻击数据** | `resources/attacks/*.tres` | 每次攻击的伤害、击退强度、发射方向 |
-| **Sprite 动画** | `resources/sprites/*/*.png` | 所有动作的图片资源 |
-| **动画文件** | `resources/animations/*.tres` | 每个动作的动画曲线（帧数、关键帧） |
-| **SpriteFrames** | `resources/spriteframes_yu_xiaoxue.tres` | 动作名 → 图片动画的映射 |
-| **动画库** | `resources/anim_library_yu_xiaoxue.tres` | AnimationLibrary（所有动画注册） |
-| **AnimationTree** | `resources/animations/animation_tree_root.tres` | 动画树的 BlendSpace 配置 |
-| **HitBox 形状** | `yu_xiaoxue_skin.tscn` | Attack1/2/3/Air 的 CollisionBox 大小和位置 |
-| **碰撞胶囊** | `yu_xiaoxue.tscn` | Collision (CapsuleShape2D) 的 size |
-| **角色脚本** | `yu_xiaoxue.gd` | 通常保留模板内容，仅加角色特有逻辑（如特殊法术信号） |
-| **皮肤脚本** | `yu_xiaoxue_skin.gd` | 通常保留模板内容，仅加皮肤特有信号/方法 |
-
-## 替换 Sprite 图片指南
-
-### 图片命名规范（必须严格遵守）
-
-```
-resources/sprites/
-├── idle/
-│   ├── idle_00_physical_180_width_204.png   # 待机 4 帧
-│   ├── idle_01_physical_180_width_204.png
-│   ├── idle_02_physical_180_width_204.png
-│   └── idle_03_physical_180_width_204.png
-├── walk/
-│   └── walk_00.png ~ walk_11.png（带 physical 和 width 标签）
-├── jump/
-│   └── jump_01.png ~ jump_04.png（首帧可带 speed 标签）
-├── punches/
-│   ├── punch1_00_physical_180_width_204_attack_80.png  # 第一拳 2 帧
-│   ├── punch1_01_physical_180_width_204_attack_80.png
-│   ├── punch2_00_physical_180_width_204_attack_100.png  # 第二拳 2 帧
-│   ├── punch2_01_physical_180_width_204_attack_100.png
-│   └── punch3_*.png（带 physical、width、attack 标签）
-├── air_attack/
-│   └── air_attack_00_physical_180_width_204_attack_70.png  # 空中攻击 2 帧
-├── hurt/
-│   ├── hurt_high_physical_180_width_204.png    # 高打硬直
-│   └── hurt_mid_physical_180_width_204.png     # 中打硬直
-├── knock_out/
-│   └── knockout_00.png ~ knockout_05.png（带 physical 和 width 标签）
-└── turn_around/
-    └── turnaround_00.png ~ turnaround_02.png（带 physical 和 width 标签）
-```
-
-**标签说明**：
-- `physical_<P>`：角色物理身高（像素），必填
-- `width_<W>`：角色碰撞体宽度（像素），映射到 CapsuleShape2D.height，可选
-- `attack_<A>`：攻击高度偏移，仅攻击动画需要
-- `speed_<S>`：跳跃/击飞初速度，仅首帧可选
-
-### 素材要求
-
-- **格式**：PNG，透明背景
-- **尺寸**：参考 chen_jingchou 的素材（~400×600 px）
-- **风格**：保持一致的画风（天之痕水墨风）
-- **方向**：所有图片画面朝左（由动画的 `flip_h` 控制翻转向右）
-
-## 调整角色属性
-
-编辑 `resources/yu_xiaoxue_attributes.tres`：
-
-```
-@export var display_name := "于小雪"      # UI 显示名
-@export var health_max := 100             # 最大 HP
-@export var move_speed := 600.0           # 移动速度（像素/秒）
-@export var air_control := 0.6            # 空中控制灵活性（0=无法控制，1=和地面一样灵活）
-@export var hit_lane_offset := 0          # 攻击范围调整（正值扩大，负值缩小）
-@export var jump_force := -800.0          # 跳跃初速度（负数向上，从 PNG 文件名获取）
-```
-
-### Inspector 创建时的字段说明
-
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| 阵营 | players | 角色阵营，决定根节点 group（players/enemies） |
-| 移动速度 | 600 | 地面移动速度（像素/秒） |
-| 最大生命值 | 100 | 角色的最大生命值 |
-| 空中控制 | 0.6 | 空中控制灵活性（0=无法控制，1=和地面一样灵活） |
-| 攻击范围调整 | 0 | 调整攻击的Y轴判定范围（正值扩大，负值缩小） |
-
-### 从 PNG 文件名获取的属性
-
-| 属性 | PNG 标签 | 说明 |
-|------|----------|------|
-| physical_height | `physical_<P>` | 角色物理身高 |
-| jump_force | `speed_<S>` | 跳跃初速度（仅首帧） |
-| CapsuleShape2D.height | `width_<W>` | 角色碰撞体宽度 |
-
-### 数值参考
-
-| 角色 | move_speed | jump_force | health_max |
-|------|-----------|------------|------------|
-| 陈靖仇 | 500 | -800 | 100 |
-| Chad（模板）| 500 | -800 | 100 |
-| 推荐轻快型 | 600 | -900 | 80 |
-| 推荐重装型 | 350 | -700 | 150 |
-
-## 故障排除
-
-### 角色创建失败
-
-1. 检查 Godot 控制台输出错误信息
-2. 确认 `characters/playable/` 目录存在且可写
-3. 确认模板文件完整（`_template/` 目录下应有所有必需文件）
-
-### Inspector 没有显示
-
-1. 确认已打开 `character_template.tscn`
-2. 确认已选中根节点 `CharacterTemplate`
-3. 确认 Quiver Beat-em Up 插件已启用（Project Settings > Plugins 中 `Quiver Beat'em Up` 和 `Dialogic` 都应为 Enabled）
-
-### 文件系统没有刷新
-
-1. 点击 FileSystem 面板的刷新按钮
-2. 或使用菜单：Project > Tools > File System > Refresh
-
-## 更多资源
-
-- 查看完整角色示例：`characters/playable/chen_jingchou/`
-- 了解 Quiver 插件：`addons/quiver.beat_em_up/`
-- 阅读插件架构文档：`docs/PLUGIN_ARCHITECTURE.md`
-
----
-
-**最后更新**：2026-08-11
+从 chen 目录一键重拍"标准照"（复制→占位命名→身份替换→内部引用去 uid→残留断言），
+可反复执行；`character_template.*` 触发文件永不触碰。脚本失败（残留非零）时勿提交。

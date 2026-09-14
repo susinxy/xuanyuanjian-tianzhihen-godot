@@ -2,97 +2,96 @@
 
 [resource]
 resource_name = "idle_down"
-length = 0.5
 loop_mode = 1
 step = 0.0416667
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath("AnimatedSprite2D:position")
+tracks/0/path = NodePath("AnimatedSprite2D:flip_h")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(0, -167)]
+"update": 0,
+"values": [false]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("AnimatedSprite2D:frame")
+tracks/1/path = NodePath("AnimatedSprite2D:animation")
 tracks/1/interp = 1
-tracks/1/loop_wrap = false
+tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.375),
-"transitions": PackedFloat32Array(1, 1),
-"update": 0,
-"values": [0, 3]
-}
-tracks/2/type = "value"
-tracks/2/imported = false
-tracks/2/enabled = true
-tracks/2/path = NodePath("AnimatedSprite2D:animation")
-tracks/2/interp = 1
-tracks/2/loop_wrap = true
-tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [&"idle_down"]
 }
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AnimatedSprite2D:frame")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 1),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0, 17]
+}
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:size")
+tracks/3/path = NodePath("AnimatedSprite2D:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(149, 329)]
+"update": 0,
+"values": [Vector2(10, -50)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/4/path = NodePath(".:attributes:is_invulnerable")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(5, 0.5)]
+"values": [false]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/5/path = NodePath(".:attributes:can_be_grabbed")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [0.0]
+"values": [true]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
 tracks/6/enabled = true
-tracks/6/path = NodePath(".:attributes:is_invulnerable")
+tracks/6/path = NodePath("Attacks/Attack1/Attack1Shape:disabled")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [false]
+"values": [true]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
 tracks/7/enabled = true
-tracks/7/path = NodePath(".:attributes:can_be_grabbed")
+tracks/7/path = NodePath("Attacks/Attack2/Attack2Shape:disabled")
 tracks/7/interp = 1
 tracks/7/loop_wrap = true
 tracks/7/keys = {
@@ -104,19 +103,19 @@ tracks/7/keys = {
 tracks/8/type = "value"
 tracks/8/imported = false
 tracks/8/enabled = true
-tracks/8/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/8/path = NodePath("Attacks/AttackAir/AttackAirShape:disabled")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [false]
+"update": 1,
+"values": [true]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
 tracks/9/enabled = true
-tracks/9/path = NodePath("Attacks/Attack1/Attack1Shape:disabled")
+tracks/9/path = NodePath("Attacks/Attack3/Attack3Shape:disabled")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
@@ -128,36 +127,84 @@ tracks/9/keys = {
 tracks/10/type = "value"
 tracks/10/imported = false
 tracks/10/enabled = true
-tracks/10/path = NodePath("Attacks/Attack2/Attack2Shape:disabled")
-tracks/10/interp = 1
+tracks/10/path = NodePath(".:physical_width")
+tracks/10/interp = 0
 tracks/10/loop_wrap = true
 tracks/10/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.041666668, 0.097222224, 0.15277778, 0.20833333, 0.2777778, 0.33333334, 0.3888889, 0.44444445, 0.5, 0.5694444, 0.625, 0.6805556, 0.7361111, 0.8055556, 0.9166667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [true]
+"values": [86.0, 87.0, 89.0, 90.0, 92.0, 93.0, 94.0, 92.0, 89.0, 91.0, 87.0, 84.0, 85.0, 83.0, 82.0, 83.0]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
 tracks/11/enabled = true
-tracks/11/path = NodePath("Attacks/AttackAir/AttackAirShape:disabled")
-tracks/11/interp = 1
+tracks/11/path = NodePath(".:physical_height")
+tracks/11/interp = 0
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.20833333, 0.3888889, 0.44444445, 0.625, 0.6805556, 0.7361111, 0.8611111),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [true]
+"values": [212.0, 211.0, 210.0, 211.0, 212.0, 211.0, 212.0, 213.0]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
 tracks/12/enabled = true
-tracks/12/path = NodePath("Attacks/Attack3/Attack3Shape:disabled")
-tracks/12/interp = 1
+tracks/12/path = NodePath("AnimatedSprite2D/ShadowBox:occluder:polygon")
+tracks/12/interp = 0
 tracks/12/loop_wrap = true
 tracks/12/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.041666668, 0.097222224, 0.15277778, 0.20833333, 0.2777778, 0.33333334, 0.3888889, 0.44444445, 0.5, 0.5694444, 0.625, 0.6805556, 0.7361111, 0.8055556, 0.8611111, 0.9166667, 0.9722222),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [true]
+"values": [PackedVector2Array(-1, -67, -1, -65, 12, -50, 12, -46, 1, -24, 3, -24, 23, -48, 26, -48, 31, -46, 31, -43, 30, -13, 29, -13, 23, -14, 23, -25, 25, -37, 24, -37, 17, -27, 17, -25, 21, -21, 20, -21, 13, -17, 14, -17, 41, 47, 40, 47, 37, 52, 37, 50, 30, 40, 24, 40, 12, 45, 12, 71, 2, 71, -10, 45, -11, 45, -20, 67, -25, 67, -39, 68, -39, 63, -31, 54, -32, 54, -40, 44, -41, 44, -49, 46, -49, 40, -40, 29, -40, 27, -47, 24, -47, 19, -46, 3, -45, 3, -29, -21, -29, -24, -33, -50, -32, -50, -13, -69, -13, -70), PackedVector2Array(-4, -69, -4, -68, 12, -49, 12, -47, 1, -24, 3, -24, 22, -47, 24, -47, 31, -46, 31, -13, 30, -13, 23, -16, 23, -25, 25, -37, 24, -37, 17, -27, 17, -25, 21, -21, 20, -21, 13, -17, 14, -17, 42, 46, 41, 46, 39, 52, 39, 51, 31, 40, 24, 40, 12, 45, 12, 71, 2, 71, -10, 46, -15, 46, -20, 67, -25, 67, -39, 68, -39, 63, -31, 54, -32, 54, -39, 43, -40, 43, -49, 46, -49, 40, -40, 30, -40, 27, -47, 23, -47, 19, -46, 3, -45, 3, -29, -21, -29, -24, -33, -50, -32, -50, -13, -69, -13, -70), PackedVector2Array(12, -49, 12, -46, 1, -24, 3, -24, 24, -48, 29, -48, 31, -46, 31, -42, 32, -13, 29, -13, 25, -36, 24, -36, 17, -26, 17, -25, 21, -20, 20, -20, 13, -16, 14, -16, 25, 17, 26, 17, 44, 42, 43, 42, 42, 51, 41, 51, 32, 39, 27, 39, 13, 45, 13, 46, 12, 71, 2, 71, -10, 46, -15, 46, -20, 67, -24, 67, -39, 68, -39, 63, -31, 55, -32, 55, -37, 42, -39, 42, -49, 46, -49, 40, -40, 30, -40, 28, -46, 25, -46, 4, -45, 4, -29, -21, -29, -22, -33, -49, -32, -49, -12, -69, -12, -70), PackedVector2Array(12, -48, 12, -46, 2, -23, 5, -23, 23, -47, 25, -47, 31, -45, 31, -42, 27, -28, 28, -28, 34, -14, 33, -14, 25, -16, 25, -36, 24, -36, 17, -26, 17, -24, 21, -20, 20, -20, 13, -16, 14, -16, 24, 15, 25, 15, 45, 34, 45, 47, 44, 47, 34, 39, 28, 39, 13, 45, 13, 70, 12, 70, 2, 71, 2, 70, -16, 46, -16, 47, -20, 67, -24, 67, -39, 68, -39, 63, -31, 55, -32, 55, -37, 42, -38, 42, -49, 47, -49, 41, -40, 31, -40, 28, -46, 25, -46, 4, -45, 4, -25, -23, -25, -24, -30, -22, -30, -24, -34, -37, -34, -45, -31, -53, -29, -53, -12, -69, -12, -70), PackedVector2Array(12, -48, 12, -44, 1, -23, 3, -23, 24, -47, 29, -47, 31, -45, 31, -41, 27, -28, 28, -28, 35, -13, 34, -13, 26, -18, 26, -22, 25, -35, 24, -35, 17, -25, 17, -24, 21, -19, 20, -19, 13, -16, 14, -16, 24, 14, 25, 14, 47, 33, 47, 47, 46, 47, 35, 37, 33, 37, 12, 44, 12, 46, 13, 70, 12, 70, 2, 71, 2, 70, -16, 44, -16, 48, -20, 67, -25, 67, -39, 68, -39, 63, -31, 55, -32, 55, -36, 41, -37, 41, -49, 47, -49, 41, -39, 30, -39, 28, -46, 26, -46, 6, -45, 6, -36, -16, -35, -16, -25, -22, -25, -24, -33, -27, -33, -28, -32, -50, -31, -50, -12, -68, -12, -69), PackedVector2Array(13, -48, 13, -47, 1, -23, 3, -23, 23, -46, 25, -46, 31, -45, 31, -41, 28, -27, 29, -27, 37, -15, 36, -15, 27, -18, 27, -21, 25, -35, 24, -35, 17, -25, 17, -24, 21, -19, 20, -19, 13, -16, 14, -16, 24, 13, 25, 13, 48, 32, 48, 46, 47, 46, 37, 37, 32, 37, 22, 45, 16, 45, 10, 40, 10, 42, 13, 70, 12, 70, 2, 71, 2, 70, -16, 44, -16, 48, -20, 67, -24, 67, -39, 68, -39, 63, -31, 55, -32, 55, -36, 41, -37, 41, -49, 47, -49, 41, -39, 30, -39, 28, -46, 26, -46, 20, -45, 4, -44, 4, -36, -16, -35, -16, -25, -22, -25, -24, -33, -27, -33, -28, -31, -52, -30, -52, -12, -68, -12, -69), PackedVector2Array(13, -49, 13, -38, 11, -38, 5, -40, 5, -32, 2, -22, 5, -22, 23, -46, 25, -46, 31, -45, 31, -41, 28, -28, 29, -28, 39, -16, 38, -16, 28, -18, 28, -21, 24, -35, 24, -33, 13, -15, 14, -15, 25, 13, 26, 13, 49, 32, 49, 43, 48, 43, 45, 48, 45, 46, 37, 36, 36, 36, 24, 44, 15, 44, 10, 40, 10, 43, 13, 70, 12, 70, 2, 71, 2, 70, -16, 43, -16, 48, -20, 67, -24, 67, -39, 68, -39, 63, -31, 56, -32, 56, -36, 41, -37, 41, -49, 48, -49, 42, -39, 30, -39, 29, -46, 26, -46, 20, -45, 4, -44, 4, -25, -22, -25, -23, -32, -23, -32, -25, -33, -48, -32, -48, -11, -68, -11, -69), PackedVector2Array(15, -53, 15, -50, 9, -48, 14, -48, 15, -41, 14, -41, 5, -46, 5, -43, 2, -22, 5, -22, 5, -29, 7, -29, 30, -46, 30, -44, 38, -15, 37, -15, 30, -13, 30, -17, 25, -36, 25, -35, 13, -15, 14, -15, 44, 26, 44, 28, 47, 41, 46, 41, 36, 51, 36, 37, 31, 37, 11, 39, 11, 40, 13, 70, 12, 70, 2, 71, 2, 70, -15, 41, -15, 42, -20, 67, -24, 67, -39, 68, -39, 63, -31, 56, -32, 56, -37, 43, -39, 43, -49, 48, -49, 42, -39, 31, -39, 29, -46, 26, -46, 21, -45, 5, -44, 5, -25, -22, -25, -23, -31, -22, -31, -26, -36, -41, -35, -41, -13, -67, -13, -68), PackedVector2Array(1, -56, 3, -56, 15, -55, 15, -51, 9, -50, 11, -50, 15, -41, 13, -41, 4, -47, 4, -46, 1, -23, 3, -23, 24, -47, 29, -47, 31, -45, 31, -41, 34, -13, 30, -13, 27, -37, 25, -37, 20, -18, 19, -18, 13, -16, 14, -16, 41, 24, 41, 27, 44, 42, 43, 42, 32, 52, 32, 51, 33, 38, 27, 38, 10, 40, 10, 42, 12, 71, 2, 71, -13, 42, -15, 42, -20, 67, -26, 67, -39, 68, -39, 63, -31, 59, -31, 55, -36, 41, -37, 41, -48, 48, -48, 47, -49, 41, -48, 41, -39, 30, -39, 28, -46, 26, -46, 20, -45, 4, -44, 4, -29, -20, -29, -22, -37, -40, -36, -40, -12, -68, -12, -69), PackedVector2Array(3, -54, 15, -54, 15, -50, 9, -49, 11, -49, 15, -41, 14, -41, 5, -46, 5, -44, 1, -23, 3, -23, 23, -46, 25, -46, 31, -45, 31, -41, 36, -13, 32, -13, 27, -36, 25, -36, 17, -25, 17, -23, 21, -19, 20, -19, 13, -16, 14, -16, 42, 24, 42, 26, 46, 42, 45, 42, 34, 51, 34, 48, 35, 37, 30, 37, 10, 40, 10, 43, 12, 71, 2, 71, -12, 42, -15, 42, -20, 67, -24, 67, -39, 68, -39, 64, -31, 56, -32, 56, -36, 41, -37, 41, -49, 48, -49, 42, -39, 31, -39, 29, -46, 26, -46, 21, -45, 4, -44, 4, -25, -22, -25, -23, -30, -21, -30, -23, -36, -41, -35, -41, -11, -68, -11, -69), PackedVector2Array(15, -54, 15, -51, 9, -51, 9, -50, 14, -41, 13, -41, 4, -48, 4, -47, 1, -23, 3, -23, 22, -46, 24, -46, 31, -45, 31, -42, 33, -14, 32, -14, 25, -17, 25, -18, 27, -37, 25, -37, 13, -16, 14, -16, 40, 25, 40, 28, 42, 43, 41, 43, 29, 52, 29, 49, 31, 38, 27, 38, 10, 40, 10, 43, 12, 71, 2, 71, -13, 42, -15, 42, -20, 67, -25, 67, -39, 68, -39, 63, -31, 59, -31, 55, -36, 41, -37, 41, -49, 47, -49, 41, -48, 41, -39, 30, -39, 28, -46, 26, -46, 6, -45, 6, -29, -20, -29, -23, -36, -43, -35, -43, -12, -68, -12, -69), PackedVector2Array(15, -54, 15, -50, 10, -51, 10, -50, 13, -40, 11, -40, 4, -49, 4, -47, 1, -24, 3, -24, 24, -48, 29, -48, 31, -45, 31, -14, 30, -14, 23, -15, 23, -16, 27, -37, 25, -37, 13, -17, 14, -17, 37, 24, 37, 27, 39, 44, 38, 44, 26, 53, 26, 49, 28, 39, 24, 39, 10, 41, 10, 43, 12, 71, 2, 71, -12, 43, -15, 43, -24, 68, -39, 68, -31, 59, -31, 55, -35, 40, -37, 40, -49, 46, -49, 40, -39, 29, -39, 28, -46, 25, -46, 4, -45, 4, -28, -22, -28, -23, -34, -48, -33, -48, -12, -69, -12, -70), PackedVector2Array(15, -54, 15, -50, 10, -51, 10, -50, 13, -40, 12, -40, 4, -49, 4, -47, 1, -24, 3, -24, 23, -47, 25, -47, 31, -45, 31, -13, 27, -13, 27, -37, 25, -37, 17, -26, 17, -24, 21, -20, 20, -20, 13, -17, 14, -17, 38, 24, 38, 27, 40, 44, 39, 44, 27, 53, 27, 49, 30, 39, 24, 39, 10, 40, 10, 43, 12, 71, 2, 71, -11, 43, -16, 43, -25, 68, -39, 68, -31, 59, -31, 55, -35, 40, -37, 40, -49, 47, -49, 41, -39, 29, -39, 28, -46, 25, -46, 5, -45, 5, -28, -21, -28, -22, -36, -42, -35, -42, -13, -68, -13, -69), PackedVector2Array(14, -54, 14, -49, 10, -39, 10, -42, 4, -49, 4, -48, 1, -24, 3, -24, 22, -47, 24, -47, 31, -46, 31, -42, 30, -14, 28, -14, 26, -38, 25, -38, 13, -17, 14, -17, 35, 22, 35, 25, 38, 44, 37, 44, 25, 54, 25, 50, 28, 40, 22, 40, 10, 41, 10, 43, 12, 71, 2, 71, -13, 43, -15, 43, -24, 68, -39, 68, -31, 59, -31, 54, -35, 40, -37, 40, -49, 46, -49, 40, -39, 29, -39, 28, -46, 25, -46, 4, -45, 4, -28, -22, -28, -23, -35, -46, -34, -46, -13, -69, -13, -70), PackedVector2Array(14, -53, 14, -49, 9, -39, 9, -43, 4, -49, 4, -48, 2, -24, 4, -24, 23, -48, 25, -48, 31, -46, 31, -43, 30, -14, 27, -14, 26, -38, 25, -38, 13, -17, 14, -17, 35, 25, 35, 28, 37, 45, 36, 45, 25, 54, 25, 50, 26, 40, 21, 40, 10, 41, 10, 43, 12, 71, 2, 71, -13, 43, -15, 43, -25, 68, -39, 68, -31, 59, -31, 54, -35, 39, -36, 39, -49, 46, -49, 40, -40, 30, -40, 27, -47, 23, -47, 22, -46, 3, -45, 3, -28, -22, -28, -23, -35, -46, -34, -46, -13, -69, -13, -70), PackedVector2Array(14, -52, 14, -51, 11, -39, 9, -39, 5, -47, 5, -35, 1, -25, 3, -25, 23, -48, 25, -48, 31, -46, 31, -14, 28, -14, 26, -38, 25, -38, 13, -17, 14, -17, 37, 45, 36, 45, 26, 55, 26, 48, 25, 40, 21, 40, 11, 43, 11, 45, 12, 71, 2, 71, -10, 45, -13, 45, -25, 68, -39, 68, -31, 59, -31, 54, -35, 39, -37, 39, -49, 46, -49, 40, -39, 28, -39, 27, -47, 23, -47, 19, -46, 3, -45, 3, -28, -22, -28, -24, -35, -46, -34, -46, -12, -70, -12, -71), PackedVector2Array(13, -53, 13, -48, 11, -39, 8, -39, 5, -46, 5, -35, 1, -25, 3, -25, 23, -48, 25, -48, 31, -46, 31, -14, 29, -14, 26, -38, 24, -38, 20, -20, 19, -20, 13, -18, 14, -18, 38, 44, 37, 44, 28, 55, 28, 41, 11, 43, 11, 45, 12, 71, 2, 71, -10, 45, -13, 45, -20, 67, -25, 67, -39, 68, -39, 63, -31, 59, -31, 53, -35, 39, -37, 39, -49, 45, -49, 40, -39, 28, -39, 27, -47, 23, -47, 19, -46, 3, -45, 3, -28, -22, -28, -24, -35, -46, -34, -46, -12, -70, -12, -71), PackedVector2Array(13, -52, 13, -48, 11, -39, 8, -39, 5, -46, 5, -35, 1, -25, 3, -25, 22, -48, 24, -48, 31, -47, 31, -44, 32, -15, 31, -15, 24, -14, 24, -23, 26, -38, 25, -38, 17, -28, 17, -26, 21, -21, 20, -21, 13, -18, 14, -18, 38, 44, 37, 44, 28, 55, 28, 41, 11, 43, 11, 45, 12, 71, 2, 71, -10, 45, -13, 45, -20, 67, -24, 67, -39, 68, -39, 63, -31, 59, -31, 53, -35, 39, -37, 39, -49, 45, -49, 39, -39, 28, -39, 26, -47, 24, -47, 18, -46, 2, -44, 2, -28, -22, -28, -24, -35, -46, -34, -46, -12, -70, -12, -71)]
+}
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:radius")
+tracks/13/interp = 0
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0, 0.041666668, 0.097222224, 0.15277778, 0.20833333, 0.2777778, 0.33333334, 0.3888889, 0.44444445, 0.5, 0.5694444, 0.625, 0.6805556, 0.7361111, 0.8055556, 0.9166667, 0.9722222),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [43.14178, 43.60196, 44.445618, 45.09754, 46.0179, 46.516426, 46.89991, 45.679787, 44.407272, 45.36598, 43.448566, 42.02968, 42.48986, 41.53115, 41.070976, 41.53115, 41.5695]
+}
+tracks/14/type = "value"
+tracks/14/imported = false
+tracks/14/enabled = true
+tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:height")
+tracks/14/interp = 0
+tracks/14/loop_wrap = true
+tracks/14/keys = {
+"times": PackedFloat32Array(0, 0.097222224, 0.20833333, 0.33333334, 0.3888889, 0.44444445, 0.5, 0.5694444, 0.625, 0.6805556, 0.7361111, 0.8611111),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [135.44601, 135.5227, 134.52567, 134.60236, 133.81491, 134.52567, 134.60236, 134.52567, 135.5227, 134.44896, 135.44601, 136.51978]
+}
+tracks/15/type = "value"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:position")
+tracks/15/interp = 0
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0, 0.041666668, 0.097222224, 0.15277778, 0.20833333, 0.2777778, 0.33333334, 0.3888889, 0.44444445, 0.5, 0.5694444, 0.625, 0.6805556, 0.7361111, 0.8055556, 0.8611111, 0.9166667, 0.9722222),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(-0.7205882, 0.8676458), Vector2(-0.2617653, 0.90293986), Vector2(0.5823512, 0.92940944), Vector2(1.3088237, 0.98529196), Vector2(2.1882362, 1.5529393), Vector2(2.6852953, 1.5911746), Vector2(3.1470592, 1.5882325), Vector2(3.1573992, 3.044043), Vector2(0.5823521, 1.4294097), Vector2(1.6176459, 1.4705853), Vector2(-0.37352794, 1.3558805), Vector2(-1.8264718, 0.74411535), Vector2(-1.332353, 1.3205873), Vector2(-2.326472, 0.74411625), Vector2(-2.785293, 0.70882237), Vector2(-2.7441165, 0.17352703), Vector2(-2.2852955, 0.20882095), Vector2(-2.32353, 0.20587985)]
+}
+tracks/16/type = "value"
+tracks/16/imported = false
+tracks/16/enabled = true
+tracks/16/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
+tracks/16/interp = 0
+tracks/16/loop_wrap = true
+tracks/16/keys = {
+"times": PackedFloat32Array(0, 0.3888889, 0.44444445),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [-3.0648207588914143, 0.10768986863061492, -3.0648207588914143]
 }

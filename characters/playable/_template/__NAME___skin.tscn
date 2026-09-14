@@ -1,12 +1,12 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/characters/quiver_character_skin_base.tscn" id="1_neyaj"]
+[ext_resource type="PackedScene" uid="uid://bkfvltx0n6b8y" path="res://addons/quiver.beat_em_up/characters/quiver_character_skin_base.tscn" id="1_neyaj"]
 [ext_resource type="AnimationLibrary" path="res://characters/playable/__NAME__/resources/anim_library___NAME__.tres" id="3_uxodg"]
 [ext_resource type="AnimationNodeBlendTree" path="res://characters/playable/__NAME__/resources/animations/animation_tree_root.tres" id="4_6ugt2"]
 [ext_resource type="SpriteFrames" path="res://characters/playable/__NAME__/resources/spriteframes___NAME__.tres" id="4_l5bf7"]
 [ext_resource type="Animation" path="res://characters/playable/__NAME__/resources/animations/RESET.tres" id="4_vrxwg"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_f1o2m"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hurt_box.gd" id="5_k0gpy"]
+[ext_resource type="Script" uid="uid://c417jlrjfa4ed" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_f1o2m"]
+[ext_resource type="Script" uid="uid://bw7uijal3vjrj" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hurt_box.gd" id="5_k0gpy"]
 [ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/__NAME___attributes.tres" id="6_iqdvs"]
 [ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/punch1_attack_data.tres" id="8_uylrb"]
 [ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/attacks/punch2_attack_data.tres" id="9_cutyj"]
@@ -18,31 +18,39 @@ _data = {
 &"RESET": ExtResource("4_vrxwg")
 }
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_372fo"]
+radius = 27.220373
+height = 137.49829
+
 [sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_shadow"]
-polygon = PackedVector2Array(-20, -80, 20, -80, 20, 80, -20, 80)
+polygon = PackedVector2Array(26, -49, 26, -41, 20, -21, 15, -21, 14, -22, 14, -20, 22, -11, 22, 31, 20, 31, 13, 55, 14, 55, 21, 62, 20, 62, 12, 64, 12, 65, 15, 71, 5, 71, -4, 69, -4, 66, -12, 38, -14, 38, -22, 50, -22, 47, -34, 43, -34, 40, -36, 31, -35, 31, -14, -4, -14, -10, -17, -51, -16, -51, -2, -70, -2, -71)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_75u0j"]
-size = Vector2(149, 329)
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_ib3s2"]
+radius = 9.316744
+height = 93.05025
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_once2"]
-size = Vector2(144, 52)
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_vltho"]
+radius = 59.48307
+height = 259.96075
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_tcrug"]
-size = Vector2(222, 73)
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_wl2ac"]
+radius = 31.42223
+height = 119.358864
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_vo5ct"]
-size = Vector2(161, 329.5)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_e0e1l"]
-size = Vector2(261.336, 79.2264)
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_vgyrj"]
+radius = 51.759262
+height = 125.141014
 
 [node name="__CLASS__Skin" unique_id=1847221230 instance=ExtResource("1_neyaj")]
 _path_playback = "parameters/state_machine/playback"
 attributes = ExtResource("6_iqdvs")
+physical_height = 213.0
+physical_width = 58.0
+attack_heights = [10.5]
 _has_grab = false
 _has_grabbed = false
-metadata/_edit_vertical_guides_ = [-141.0, 140.0]
-metadata/_edit_horizontal_guides_ = [14.0, -445.0, -390.0]
+metadata/_edit_vertical_guides_ = [-34.0, 34.0]
+metadata/_edit_horizontal_guides_ = [21.0, -37.0]
 
 [node name="AnimationPlayer" parent="." index="0"]
 callback_mode_process = 0
@@ -76,7 +84,7 @@ parameters/state_machine/walk/blend_position = Vector2(1, 0)
 parameters/time_scale/scale = 1.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2" unique_id=1424120061]
-position = Vector2(0, -167)
+position = Vector2(5, -54)
 sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle_right"
 
@@ -84,66 +92,75 @@ animation = &"idle_right"
 monitorable = false
 script = ExtResource("5_k0gpy")
 
-[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1852356286]
+[node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1102742199]
 modulate = Color(0, 0.0666667, 0.701961, 1)
-position = Vector2(5, 0.5)
-shape = SubResource("RectangleShape2D_75u0j")
+position = Vector2(-5.226866, -0.326548)
+rotation = 3.1900983
+shape = SubResource("CapsuleShape2D_372fo")
 
 [node name="ShadowBox" type="LightOccluder2D" parent="AnimatedSprite2D" index="1" unique_id=1172678836]
-sdf_collision = false
+visible = false
 occluder = SubResource("OccluderPolygon2D_shadow")
+sdf_collision = false
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
 [node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:__NAME__"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(-5, -50)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("8_uylrb")
 
-[node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=1459140912]
+[node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=1657902277]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(202, -303)
-shape = SubResource("RectangleShape2D_once2")
+position = Vector2(33.386272, 64.62232)
+rotation = 2.586099
+shape = SubResource("CapsuleShape2D_ib3s2")
 disabled = true
 
 [node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:__NAME__"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(-5, -50)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("9_cutyj")
 
-[node name="Attack2Shape" type="CollisionShape2D" parent="Attacks/Attack2" index="0" unique_id=2070321484]
+[node name="Attack2Shape" type="CollisionShape2D" parent="Attacks/Attack2" index="0" unique_id=1388186099]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(231, -274.5)
-shape = SubResource("RectangleShape2D_tcrug")
+position = Vector2(7.9550824, 7.478773)
+rotation = 2.5313714
+shape = SubResource("CapsuleShape2D_vltho")
 disabled = true
 
 [node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:__NAME__"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(16, -50)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
 
-[node name="Attack3Shape" type="CollisionShape2D" parent="Attacks/Attack3" index="0" unique_id=1937822495]
+[node name="Attack3Shape" type="CollisionShape2D" parent="Attacks/Attack3" index="0" unique_id=680596758]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(96.5, -389.25)
-shape = SubResource("RectangleShape2D_vo5ct")
+position = Vector2(18.231451, -90.26906)
+rotation = -1.3125441
+shape = SubResource("CapsuleShape2D_wl2ac")
 disabled = true
 
 [node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:__NAME__"]]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
+position = Vector2(-10, -110)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("10_556uq")
 
-[node name="AttackAirShape" type="CollisionShape2D" parent="Attacks/AttackAir" index="0" unique_id=110280612]
+[node name="AttackAirShape" type="CollisionShape2D" parent="Attacks/AttackAir" index="0" unique_id=880515638]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(187, -254)
-rotation = 0.294481
-shape = SubResource("RectangleShape2D_e0e1l")
+position = Vector2(2.5260992, 3.4148803)
+rotation = -0.7541584
+shape = SubResource("CapsuleShape2D_vgyrj")
 disabled = true
