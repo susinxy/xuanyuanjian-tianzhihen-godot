@@ -12,7 +12,8 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(REPO, "characters/playable/chen")
 DST = os.path.join(REPO, "characters/playable/_template")
 KEEP_IN_DST = {"character_template.tscn", "character_template.gd", "character_template.gd.uid",
-               "README.md", "create_character.sh"}
+               "README.md", "create_character.sh",
+               "__NAME___ai.gd", "__NAME___ai.gd.uid"}  # 默认策略小抄：模板自带，非 chen 来源
 
 FILE_TOKENS = [  # 文件名占位（先文件名词，后目录词）
     ("/chen_skin.tscn", "/__NAME___skin.tscn"), ("/chen.gd", "/__NAME__.gd"),
@@ -47,7 +48,7 @@ def skip_rel(rel: str) -> bool:
 def tokenize(text: str) -> str:
     for old, new in FILE_TOKENS:            # 1) 文件名词
         text = text.replace(old, new)
-    text = text.replace("characters/playable/chen/", "characters/playable/__NAME__/")  # 2) 目录
+    text = text.replace("characters/playable/chen/", "characters/__PKG__/__NAME__/")  # 2) 目录（含阵营包）
     text = text.replace("ChenSkin", "__CLASS__Skin")          # 3) 节点名与 _path_skin
     text = re.sub(r'node name="Chen"(\s|])', r'node name="__CLASS__"\1', text)
     text = text.replace("libraries/Chen", "libraries/__CLASS__")   # 4) 动画库键
@@ -61,12 +62,34 @@ def tokenize(text: str) -> str:
     # 8) 去"指向本角色内部"的 ext uid（外部引用保留）
     def strip_int(m):
         line = m.group(0)
-        if "playable/__NAME__/" in line:
+        if "__PKG__/__NAME__/" in line:
             line = line.replace(' uid="uid://', ' uidSTRIPPED="uid://')
             line = re.sub(r' uidSTRIPPED="uid://[^"]*"', "", line)
         return line
     text = re.sub(r'\[ext_resource [^\]]*\]', strip_int, text)
     return text
+
+# ---------- 2.5 主场景专属注入（单壳行为档位，chen 快照本身没有） ----------
+def inject_behavior_tokens(text: str, path: str) -> str:
+    """仅对 __NAME__.tscn：根节点组占位 + behavior_mode 属性行。"""
+    if not path.endswith("__NAME__.tscn"):
+        return text
+    n1 = text.count('groups=["players"]')
+    assert n1 == 1, f"主 tscn 根节点 groups=[\"players\"] 出现 {n1} 次（应为 1）"
+    text = text.replace('groups=["players"]', 'groups=["__BODY_GROUP__"]')
+    root = re.search(r'\[node name="__CLASS__"[^\n]*instance=ExtResource\("[^"]*"\)\]\n', text)
+    assert root, "主 tscn 未找到根节点行（name=__CLASS__ + instance）"
+    if "behavior_mode = __BEHAVIOR_MODE__" in text:
+        return text
+    end = root.end()
+    return text[:end] + "behavior_mode = __BEHAVIOR_MODE__\n" + text[end:]
+
+# ---------- 0. 源头守卫：chen 的 faction group 声明必须完好（防编辑器手滑扩散） ----------
+src_skin = open(os.path.join(SRC, "chen_skin.tscn"), encoding="utf-8").read()
+if src_skin.count("area2d:chen") != 5:
+    print(f"  ✗ chen_skin.tscn 阵营组声明异常：area2d:chen 出现 {src_skin.count('area2d:chen')} 次（应为 5）")
+    print("    疑似编辑器保存误删 groups，先修复 characters/playable/chen/chen_skin.tscn 再同步")
+    sys.exit(1)
 
 # ---------- 1. 复制 ----------
 if os.path.exists(DST):
@@ -97,7 +120,7 @@ for root, _, files in os.walk(DST):
             continue
         p = os.path.join(root, f)
         s = open(p, encoding="utf-8").read()
-        t = tokenize(s)
+        t = inject_behavior_tokens(tokenize(s), f)
         if t != s:
             open(p, "w", encoding="utf-8").write(t)
             changed += 1
@@ -133,4 +156,20 @@ for root, _, files in os.walk(DST):
 print(f"复制 {copied} 个文件，占位符化 {changed} 个文本")
 if problems:
     print("残留问题："); [print("  ✗", x) for x in problems]; sys.exit(1)
-print("断言通过：模板内已无任何 chen 身份残留")
+
+# ---------- 4. 单壳行为档正向断言（防同步工具回退丢注入） ----------
+main = open(os.path.join(DST, "__NAME__.tscn"), encoding="utf-8").read()
+for needle, label in [
+    ('groups=["__BODY_GROUP__"]', "根节点阵营组占位"),
+    ("behavior_mode = __BEHAVIOR_MODE__", "行为档属性行"),
+    ("characters/__PKG__/__NAME__/", "阵营包目录占位"),
+]:
+    if needle not in main:
+        print(f"  ✗ 主 tscn 缺注入: {label}"); sys.exit(1)
+tpl_skin = open(os.path.join(DST, "__NAME___skin.tscn"), encoding="utf-8").read()
+if tpl_skin.count("area2d:__NAME__") != 5:
+    print(f"  ✗ 模板阵营组注入异常：area2d:__NAME__ 出现 {tpl_skin.count('area2d:__NAME__')} 次（应为 5）"); sys.exit(1)
+if not os.path.exists(os.path.join(DST, "__NAME___ai.gd")):
+    print("  ✗ 缺默认策略小抄 __NAME___ai.gd"); sys.exit(1)
+
+print("断言通过：模板内已无任何 chen 身份残留（含单壳行为档注入与小抄在位检查）")

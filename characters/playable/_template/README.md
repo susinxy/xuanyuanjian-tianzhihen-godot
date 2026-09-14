@@ -3,10 +3,30 @@
 > 2026-09-14 起：模板内容 = **chen 的占位符化快照**（旧"骨架模板"退役）。
 > 新角色创建出来即自带完整可跑状态：全动画结构 + 演示图（chen 的图）+ 属性/攻击演示值。
 
-## 创建新角色（不变）
+## 创建新角色（单壳+行为脚本，2026-09 起）
 
-Inspector 面板流程原样：打开 `character_template.tscn` → 填英文名/类名/显示名 → Create。
-占位符：`__NAME__`（snake）、`__CLASS__`（Pascal）、`__DISPLAY_NAME__`。
+Inspector 面板：打开 `character_template.tscn` → 填英文名/类名/显示名 → 选**控制方式**与**阵营** → Create。
+占位符：`__NAME__`（snake）、`__CLASS__`（Pascal）、`__DISPLAY_NAME__`、`__PKG__`（阵营包目录）、
+`__BODY_GROUP__`（根节点 body group）、`__BEHAVIOR_MODE__`（行为档）。
+
+| 控制方式 | 阵营 | 输出目录 | behavior_mode | 出生即有何行为 |
+|---|---|---|---|---|
+| 玩家操控 | players（锁定） | `characters/playable/` | 0 | 键盘采集（含法术键） |
+| AI 自动战斗 | enemies（锁定） | `characters/enemies/` | 1 | 挂 `<名字>_ai.gd` 小抄：歇→追→三连段 |
+| 被动站立 | 四选自由 | `playable/ · enemies/ · allies/ · neutrals/` | 2 | 站桩；受击/死亡反应完好 |
+
+所有档位共用同一具身体与同一套动作树（`docs/PLUGIN_ARCHITECTURE.md` 5.0）。
+玩家/AI/被动角色一律进 git 内容管理（playable 仍按旧例外规则忽略）。
+
+## 改动路由表（每次想改东西，先查这张表）
+
+| 想改什么 | 改哪里 | 动壳吗 |
+|---|---|---|
+| 美术图、动画、伤害、阴影 | 身体资源（同名覆盖/轮廓面板） | 否 |
+| 这只 AI 怪的节奏/攻击距离/休息时长 | 它自己的 `<名字>_ai.gd`（常量 `ATTACK_RANGE/REST_DURATION`，逻辑在 `tick()`） | 否 |
+| 个别怪的特异功能（逃跑/远程/多阶段） | 写它自己的小抄子类逻辑（工具方法在 `QuiverBehaviorAI`） | 否 |
+| 一群怪共用的新能力 | 插件 `characters/behaviors/` 或状态积木 → 全体受益 | 插件层 |
+| 剧情让它反过来受玩家操控 | 运行时 `character.switch_behavior(0)` | 否 |
 
 ## 创建后的三步工作流
 
@@ -28,4 +48,6 @@ python3 tools/sync_template_from_chen.py
 ```
 
 从 chen 目录一键重拍"标准照"（复制→占位命名→身份替换→内部引用去 uid→残留断言），
-可反复执行；`character_template.*` 触发文件永不触碰。脚本失败（残留非零）时勿提交。
+可反复执行；`character_template.*` 触发文件与 `__NAME___ai.gd` 默认小抄（模板自维护、
+非 chen 来源）永不删除；主场景的 `__BODY_GROUP__`/`behavior_mode` 注入由脚本自动补齐并
+有正向断言防丢。脚本失败（残留非零）时勿提交。

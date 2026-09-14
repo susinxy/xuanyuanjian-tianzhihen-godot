@@ -1,9 +1,9 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" uid="uid://dkels061mhrsg" path="res://addons/quiver.beat_em_up/characters/quiver_character_base.tscn" id="1_aj842"]
-[ext_resource type="PackedScene" path="res://characters/playable/__NAME__/__NAME___skin.tscn" id="2_1tk2w"]
-[ext_resource type="Script" path="res://characters/playable/__NAME__/__NAME__.gd" id="2_dwyxr"]
-[ext_resource type="Resource" path="res://characters/playable/__NAME__/resources/__NAME___attributes.tres" id="3_ylsip"]
+[ext_resource type="PackedScene" path="res://characters/__PKG__/__NAME__/__NAME___skin.tscn" id="2_1tk2w"]
+[ext_resource type="Script" path="res://characters/__PKG__/__NAME__/__NAME__.gd" id="2_dwyxr"]
+[ext_resource type="Resource" path="res://characters/__PKG__/__NAME__/resources/__NAME___attributes.tres" id="3_ylsip"]
 [ext_resource type="Script" uid="uid://dqeyslbsb1b5m" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_ground.gd" id="4_vubfk"]
 [ext_resource type="Script" uid="uid://csmrxade8wchv" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/quiver_action_move.gd" id="5_5sh7r"]
 [ext_resource type="Script" uid="uid://28emo4k672bl" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/move_actions/quiver_action_locomotion.gd" id="6_jtgbp"]
@@ -27,7 +27,8 @@
 radius = 20.0
 height = 69.999954
 
-[node name="__CLASS__" unique_id=222398885 groups=["players"] instance=ExtResource("1_aj842")]
+[node name="__CLASS__" unique_id=222398885 groups=["__BODY_GROUP__"] instance=ExtResource("1_aj842")]
+behavior_mode = __BEHAVIOR_MODE__
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")
 _path_skin = NodePath("__CLASS__Skin")

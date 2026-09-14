@@ -392,6 +392,28 @@ QuiverBehaviorAI.on_hurt"承接。
 **回归验证**：`tools/input_channel_test/test_runner.tscn`（headless 17 断言：通道单元
 语义、玩家移动/攻击链路、被动角色不被物理键盘劫持、窗口门控、AI 注入链路）。
 
+#### 5.0.1 生产线接线（WP2，2026-09-14）
+
+- **模板 token 扩展**（`tools/sync_template_from_chen.py` 注入 + `character_creator.gd` 替换）：
+  `__PKG__`（阵营包目录 playable/enemies/allies/neutrals）、`__BODY_GROUP__`（根节点 body
+  group）、`__BEHAVIOR_MODE__`（主场景根属性行）。主 tscn 注入由同步脚本做正向断言保护。
+- **默认策略小抄**：模板自带 `__NAME___ai.gd`（`class_name __CLASS__AI`，QuiverBehaviorAI
+  子类：歇→追→Combo 跟进三段→受击定身 0.8s），sync 工具 KEEP_IN_DST 豁免。玩家档角色
+  该文件闲置无害。
+- **约定加载**：AI 档 `ai_policy_script` 导出未配置时，`QuiverCharacter`
+  自动加载同目录 `<场景文件名>_ai.gd`（FileAccess 判定，不依赖导入扫描）——创建器因此
+  只需替换一个整数 token，无需 ext_resource 手术。
+- **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
+  目录/组/档位（AI 档 v1 仅敌人阵营，友方 AI 索敌参数化留切片设计会）；
+  `CharacterDeleter.delete_character(name, pkg)`。面板新增"控制方式"下拉与阵营联动。
+- **Run Test 生成**：纯逻辑抽出为 `QuiverRunTestSceneBuilder`（RefCounted 静态类，
+  headless 可测）：读 behavior_mode → 玩家档=被测者当主角；非玩家档=主角换 chen、
+  被测者作为对手实例注入（AI 自动追打 chen = 天然验收）。
+- **阵营包目录**：`characters/enemies|allies|neutrals/` 纳入 git（.gitkeep 占位）。
+
+**回归验证**：`tools/wp2_creation_test/`（create 30 断言 + verify 6 断言，两阶段夹
+一次 `--import`；scene-gen 9 断言）。
+
 ### 5.1 通用状态机框架
 
 **基类**: `utilities/custom_nodes/state_machines/quiver_state_machine.gd`

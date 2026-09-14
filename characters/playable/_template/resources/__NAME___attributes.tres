@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="QuiverAttributes" format=3]
 
 [ext_resource type="Script" uid="uid://ck1mf2limgpfj" path="res://addons/quiver.beat_em_up/characters/quiver_attributes.gd" id="1_1ikth"]
-[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/__NAME___gradient.tres" id="1_4dxsn"]
-[ext_resource type="Texture2D" path="res://characters/playable/__NAME__/resources/sprites/__NAME___profile.png" id="2_g3jjg"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/__NAME___gradient.tres" id="1_4dxsn"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/__NAME___profile.png" id="2_g3jjg"]
 
 [resource]
 script = ExtResource("1_1ikth")

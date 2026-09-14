@@ -11,7 +11,7 @@ class_name CharacterDeleter
 
 #--- constants ------------------------------------------------------------------------------------
 
-const CHARACTER_DIR = "res://characters/playable/"
+const CHARACTERS_ROOT = "res://characters/"
 
 #--- public variables - order: export > normal var & onready --------------------------------------
 
@@ -23,9 +23,10 @@ const CHARACTER_DIR = "res://characters/playable/"
 ### Public Methods --------------------------------------------------------------------------------
 
 ## Deletes a character directory and all its contents.
+## pkg 为阵营包目录（playable/enemies/allies/neutrals）。
 ## Returns true on success, false on failure.
-func delete_character(char_name: String) -> bool:
-	var target_dir = CHARACTER_DIR.path_join(char_name)
+func delete_character(char_name: String, pkg: String = "playable") -> bool:
+	var target_dir = CHARACTERS_ROOT.path_join(pkg).path_join(char_name)
 	
 	# Check if directory exists
 	if not DirAccess.dir_exists_absolute(target_dir):

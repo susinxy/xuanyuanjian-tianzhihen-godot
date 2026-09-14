@@ -67,9 +67,9 @@ func _on_character_deleted(char_name: String) -> void:
 	print("[CharacterCreator] Character '%s' deleted successfully!" % char_name)
 
 
-func _on_character_test_requested(char_name: String) -> void:
+func _on_character_test_requested(char_name: String, pkg: String = "playable") -> void:
 	var test_scene_path = "res://test_scenes/_test_" + char_name + ".tscn"
-	var character_scene_path = "res://characters/playable/" + char_name + "/" + char_name + ".tscn"
+	var character_scene_path = "res://characters/%s/%s/%s.tscn" % [pkg, char_name, char_name]
 	
 	# Check if character scene exists
 	if not FileAccess.file_exists(character_scene_path):
@@ -312,9 +312,18 @@ size = Vector2(900, 300)
 debug_preview = true
 """
 	
-	var test_scene_content = test_scene_template\
-		.replace("{{CHAR_PATH}}", character_scene_path)\
-		.replace("{{CHAR_NAME}}", char_name)
+	# 被测角色是玩家档（behavior_mode=0）时：它是主角，敌人位保留旧 enemy 占位
+	# （旧敌人退役时另行处理）；非玩家档时：主角固定 chen，被测角色作为对手
+	# 加入（AI 档会自动追打 chen，被动档站桩挨打），并移除旧 enemy 块。
+	# 纯逻辑在 QuiverRunTestSceneBuilder（headless 可测）。
+	var subject_mode := QuiverRunTestSceneBuilder.scene_behavior_mode(character_scene_path)
+	var hero_path: String = QuiverRunTestSceneBuilder.hero_path_for(
+			character_scene_path, subject_mode)
+	var test_scene_content := test_scene_template.replace("{{CHAR_NAME}}", char_name)
+	test_scene_content = test_scene_content.replace("{{CHAR_PATH}}", hero_path)
+	if subject_mode != 0:
+		test_scene_content = QuiverRunTestSceneBuilder.attach_nonplayer_subject(
+				test_scene_content, character_scene_path)
 	
 	# Ensure test_scenes directory exists
 	if not DirAccess.dir_exists_absolute("res://test_scenes"):

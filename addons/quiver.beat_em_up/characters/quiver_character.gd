@@ -122,7 +122,7 @@ var _path_collision := NodePath("Collision"):
 @export var behavior_mode: BehaviorMode = BehaviorMode.PLAYER_INPUT
 
 ## AI_POLICY 模式挂载的策略小抄脚本（须为 QuiverBehaviorAI 的子类脚本）。
-## 未配置时 AI 档退化为站立行为并告警。
+## 未配置时按约定自动加载同目录 `<场景文件名>_ai.gd`；两者皆无则退化为站立并告警。
 @export var ai_policy_script: Script = null
 
 @onready var _skin := get_node_or_null(_path_skin) as QuiverCharacterSkin
@@ -260,15 +260,18 @@ func _attach_behavior() -> void:
 		return
 	
 	if behavior_mode == BehaviorMode.AI_POLICY:
-		if ai_policy_script != null:
+		var policy := ai_policy_script
+		if policy == null:
+			policy = _load_policy_by_convention()
+		if policy != null:
 			# 策略小抄本身就是行为脚本的子类，直接用它实例化
 			behavior = Node.new()
-			behavior.set_script(ai_policy_script)
+			behavior.set_script(policy)
 			behavior.name = "Behavior"
 			add_child(behavior)
 			behavior.configure(self, channel)
 			return
-		push_warning("AI_POLICY 模式但未配置 ai_policy_script，角色退化为被动站立。")
+		push_warning("AI_POLICY 模式但未找到策略小抄（导出属性未配置且无约定文件 <场景名>_ai.gd），角色退化为被动站立。")
 		script_path = BEHAVIOR_SCRIPTS[BehaviorMode.PASSIVE]
 	
 	var behavior_script := load(script_path)
@@ -276,6 +279,19 @@ func _attach_behavior() -> void:
 	behavior.name = "Behavior"
 	add_child(behavior)
 	behavior.configure(self, channel)
+
+
+## 约定加载：与场景文件同目录、同名的 `_ai.gd` 即为本角色的策略小抄。
+## 创建器因此只需写一个 behavior_mode 整数，无需做 ext_resource 手术。
+func _load_policy_by_convention() -> Script:
+	if scene_file_path.is_empty():
+		return null
+	var policy_path := scene_file_path.get_base_dir().path_join(
+			scene_file_path.get_file().get_basename() + "_ai.gd")
+	# FileAccess 判定而非 ResourceLoader.exists：新建角色文件可能未经导入扫描
+	if FileAccess.file_exists(policy_path):
+		return load(policy_path) as Script
+	return null
 
 
 func _disable_collisions() -> void:

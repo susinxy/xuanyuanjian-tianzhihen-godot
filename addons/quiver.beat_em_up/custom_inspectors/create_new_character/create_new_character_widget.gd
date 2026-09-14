@@ -8,13 +8,15 @@ extends VBoxContainer
 
 signal character_created(char_name: String)
 signal character_deleted(char_name: String)
-signal character_test_requested(char_name: String)
+signal character_test_requested(char_name: String, pkg: String)
 
 #--- enums ----------------------------------------------------------------------------------------
 
 #--- constants ------------------------------------------------------------------------------------
 
-const CHARACTER_DIR = "res://characters/playable/"
+const CHARACTERS_ROOT = "res://characters/"
+## 阵营包目录（列表扫描与重名检查共用）
+const PKG_DIRS = ["playable", "enemies", "allies", "neutrals"]
 const TEMPLATE_DIR = "res://characters/playable/_template/"
 
 #--- public variables - order: export > normal var & onready --------------------------------------
@@ -24,6 +26,7 @@ const TEMPLATE_DIR = "res://characters/playable/_template/"
 var _char_name_edit: LineEdit
 var _class_name_edit: LineEdit
 var _display_name_edit: LineEdit
+var _control_option: OptionButton
 var _faction_option: OptionButton
 var _move_speed_spin: SpinBox
 var _walk_speed_spin: SpinBox
@@ -124,6 +127,22 @@ func _build_ui() -> void:
 	hbox3.add_child(_display_name_edit)
 	add_child(hbox3)
 	
+	# Control mode dropdown（单壳架构：控制方式决定行为档与输出目录）
+	var hbox_control := HBoxContainer.new()
+	var label_control := Label.new()
+	label_control.text = "控制方式:"
+	label_control.custom_minimum_size.x = 120
+	hbox_control.add_child(label_control)
+	_control_option = OptionButton.new()
+	_control_option.add_item("玩家操控", 0)
+	_control_option.add_item("AI 自动战斗", 1)
+	_control_option.add_item("被动站立", 2)
+	_control_option.select(0)
+	_control_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_control_option.item_selected.connect(_on_control_mode_selected)
+	hbox_control.add_child(_control_option)
+	add_child(hbox_control)
+	
 	# Faction dropdown
 	var hbox_faction := HBoxContainer.new()
 	var label_faction := Label.new()
@@ -133,15 +152,24 @@ func _build_ui() -> void:
 	_faction_option = OptionButton.new()
 	_faction_option.add_item("players", 0)
 	_faction_option.add_item("enemies", 1)
+	_faction_option.add_item("allies", 2)
+	_faction_option.add_item("neutrals", 3)
 	_faction_option.select(0)
 	_faction_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox_faction.add_child(_faction_option)
 	add_child(hbox_faction)
 	var faction_hint := Label.new()
-	faction_hint.text = "players: 死亡触发慢动作+游戏结束, 进入区域触发战斗锁屏刷怪, 被AI追踪\nenemies: 死亡直接消失, 不触发战斗, 不被AI追踪"
+	faction_hint.text = (
+		"控制方式联动阵营与输出目录：\n"
+		+"玩家操控 → characters/playable/（阵营固定 players）\n"
+		+"AI 自动战斗 → characters/enemies/（阵营固定 enemies；挂默认策略小抄：歇→追→三连段）\n"
+		+"被动站立 → 阵营任选（站桩/路人/活道具：不自主行动，受击/死亡反应完好）\n"
+		+"players 阵营死亡触发慢动作+游戏结束事件；非 players 阵营死亡直接消失"
+	)
 	faction_hint.add_theme_color_override("font_color", Color.GRAY)
 	faction_hint.add_theme_font_size_override("font_size", 12)
 	add_child(faction_hint)
+	_apply_control_linkage()
 	
 	# Move Speed input
 	var hbox_move_speed := HBoxContainer.new()
@@ -341,57 +369,77 @@ func _refresh_character_list() -> void:
 		_test_dropdown.clear()
 		_test_btn.disabled = true
 	
-	var dir := DirAccess.open(CHARACTER_DIR)
-	if dir == null:
-		_delete_dropdown.selected = -1
-		if is_instance_valid(_test_dropdown):
-			_test_dropdown.selected = -1
-		return
-	
 	var characters := []
-	dir.list_dir_begin()
-	var folder_name := dir.get_next()
-	while not folder_name.is_empty():
-		if dir.current_is_dir() and folder_name != "." and folder_name != ".." and folder_name != "_template":
-			# Try to read display name from attributes file
-			var attrs_path = CHARACTER_DIR.path_join(folder_name).path_join("resources").path_join(folder_name + "_attributes.tres")
-			var display_name := ""
-			if FileAccess.file_exists(attrs_path):
-				var file := FileAccess.open(attrs_path, FileAccess.READ)
-				if file:
-					var content := file.get_as_text()
-					var match_str := 'display_name = "'
-					var start := content.find(match_str)
-					if start != -1:
-						start += match_str.length()
-						var end := content.find('"', start)
-						if end != -1:
-							display_name = content.substr(start, end - start)
-			
-			if display_name.is_empty():
-				display_name = folder_name
-			
-			characters.append({"name": folder_name, "display": display_name})
-		
-		folder_name = dir.get_next()
+	for pkg in PKG_DIRS:
+		var pkg_dir := CHARACTERS_ROOT.path_join(pkg)
+		var dir := DirAccess.open(pkg_dir)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		var folder_name := dir.get_next()
+		while not folder_name.is_empty():
+			if dir.current_is_dir() and folder_name != "." and folder_name != ".." \
+					and folder_name != "_template":
+				# Try to read display name from attributes file
+				var attrs_path = pkg_dir.path_join(folder_name).path_join("resources") \
+						.path_join(folder_name + "_attributes.tres")
+				var display_name := ""
+				if FileAccess.file_exists(attrs_path):
+					var file := FileAccess.open(attrs_path, FileAccess.READ)
+					if file:
+						var content := file.get_as_text()
+						var match_str := 'display_name = "'
+						var start := content.find(match_str)
+						if start != -1:
+							start += match_str.length()
+							var end := content.find('"', start)
+							if end != -1:
+								display_name = content.substr(start, end - start)
+				
+				if display_name.is_empty():
+					display_name = folder_name
+				
+				characters.append({"pkg": pkg, "name": folder_name, "display": display_name})
+			folder_name = dir.get_next()
 	
-	# Sort by English name (stable)
-	characters.sort_custom(func(a, b): return a.name < b.name)
+	# Sort by package then English name (stable)
+	characters.sort_custom(func(a, b):
+		if a.pkg != b.pkg:
+			return PKG_DIRS.find(a.pkg) < PKG_DIRS.find(b.pkg)
+		return a.name < b.name)
 	
 	for char_data in characters:
-		var item_text = "%s (%s)" % [char_data.display, char_data.name]
+		var item_text = "%s (%s) ▸%s" % [char_data.display, char_data.name, char_data.pkg]
 		_delete_dropdown.add_item(item_text)
-		_delete_dropdown.set_item_metadata(_delete_dropdown.item_count - 1, char_data.name)
+		_delete_dropdown.set_item_metadata(_delete_dropdown.item_count - 1, char_data)
 		
 		if is_instance_valid(_test_dropdown):
 			_test_dropdown.add_item(item_text)
-			_test_dropdown.set_item_metadata(_test_dropdown.item_count - 1, char_data.name)
+			_test_dropdown.set_item_metadata(_test_dropdown.item_count - 1, char_data)
 	
 	# Force no selection AFTER all items are added
 	# (OptionButton auto-selects index 0 on first add_item)
 	_delete_dropdown.selected = -1
 	if is_instance_valid(_test_dropdown):
 		_test_dropdown.selected = -1
+
+
+func _on_control_mode_selected(_index: int) -> void:
+	_apply_control_linkage()
+	_validate_all_inputs()
+
+
+## 控制方式 → 阵营锁定联动（与 CharacterCreator.resolve_layout 的约束保持一致）
+func _apply_control_linkage() -> void:
+	match _control_option.selected:
+		0:  # 玩家操控
+			_faction_option.select(0)
+			_faction_option.disabled = true
+		1:  # AI 自动战斗（v1 仅敌人阵营）
+			_faction_option.select(1)
+			_faction_option.disabled = true
+		_:  # 被动站立：阵营四选自由
+			_faction_option.disabled = false
 
 
 func _validate_snake_case(text: String) -> bool:
@@ -428,8 +476,11 @@ func _auto_generate_class_name(snake: String) -> String:
 
 
 func _char_name_exists(name: String) -> bool:
-	var path := CHARACTER_DIR.path_join(name)
-	return DirAccess.dir_exists_absolute(path)
+	# 跨阵营包查重名（不同目录同名角色同样会造成引用混乱）
+	for pkg in PKG_DIRS:
+		if DirAccess.dir_exists_absolute(CHARACTERS_ROOT.path_join(pkg).path_join(name)):
+			return true
+	return false
 
 
 func _validate_all_inputs() -> bool:
@@ -517,7 +568,8 @@ func _on_create_pressed() -> void:
 		"walk_speed": _walk_speed_spin.value,
 		"health_max": int(_health_max_spin.value),
 		"air_control": _air_control_spin.value,
-		"hit_lane_offset": int(_hit_lane_offset_spin.value)
+		"hit_lane_offset": int(_hit_lane_offset_spin.value),
+		"control_mode": _control_option.selected
 	}
 	
 	# 异步执行创建
@@ -535,7 +587,8 @@ func _create_character_async(params: Dictionary) -> void:
 		params.walk_speed,
 		params.health_max,
 		params.air_control,
-		params.hit_lane_offset
+		params.hit_lane_offset,
+		params.control_mode
 	)
 	
 	_on_create_completed(success, params.char_name, params.display_name)
@@ -550,7 +603,9 @@ func _on_create_completed(success: bool, char_name: String, display_name: String
 		_char_name_edit.text = ""
 		_class_name_edit.text = ""
 		_display_name_edit.text = ""
+		_control_option.select(0)
 		_faction_option.select(0)
+		_apply_control_linkage()
 		_move_speed_spin.value = 600
 		_walk_speed_spin.value = 300
 		_health_max_spin.value = 100
@@ -582,8 +637,9 @@ func _on_delete_dropdown_selected(index: int) -> void:
 		_delete_path_label.text = ""
 		return
 	
-	var char_name := _delete_dropdown.get_item_metadata(index) as String
-	_delete_path_label.text = "⚠️ This will permanently delete: %s" % [CHARACTER_DIR.path_join(char_name)]
+	var char_data: Dictionary = _delete_dropdown.get_item_metadata(index)
+	_delete_path_label.text = "⚠️ This will permanently delete: %s" % [
+		CHARACTERS_ROOT.path_join(char_data.pkg).path_join(char_data.name)]
 	_delete_btn.disabled = false
 
 
@@ -592,18 +648,18 @@ func _on_delete_pressed() -> void:
 	if index < 0:
 		return
 	
-	var char_name := _delete_dropdown.get_item_metadata(index) as String
+	var char_data: Dictionary = _delete_dropdown.get_item_metadata(index)
 	
 	# Show confirmation dialog
 	var confirm_dialog := ConfirmationDialog.new()
 	confirm_dialog.title = "Delete Character"
-	confirm_dialog.dialog_text = "确定删除角色 %s？此操作不可逆。" % char_name
-	confirm_dialog.confirmed.connect(_on_delete_confirmed.bind(char_name))
+	confirm_dialog.dialog_text = "确定删除角色 %s？此操作不可逆。" % char_data.name
+	confirm_dialog.confirmed.connect(_on_delete_confirmed.bind(char_data))
 	add_child(confirm_dialog)
 	confirm_dialog.popup_centered()
 
 
-func _on_delete_confirmed(char_name: String) -> void:
+func _on_delete_confirmed(char_data: Dictionary) -> void:
 	_is_processing = true
 	
 	# 立即更新 UI：按钮变灰、文本变化、颜色变暗
@@ -618,14 +674,14 @@ func _on_delete_confirmed(char_name: String) -> void:
 	await get_tree().process_frame
 	
 	# 异步执行删除
-	await _delete_character_async(char_name)
+	await _delete_character_async(char_data)
 
 
-func _delete_character_async(char_name: String) -> void:
+func _delete_character_async(char_data: Dictionary) -> void:
 	var deleter = CharacterDeleter.new()
-	var success = deleter.delete_character(char_name)
+	var success = deleter.delete_character(char_data.name, char_data.pkg)
 	
-	_on_delete_completed(success, char_name)
+	_on_delete_completed(success, char_data.name)
 
 
 func _on_delete_completed(success: bool, char_name: String) -> void:
@@ -668,10 +724,10 @@ func _on_test_pressed() -> void:
 	if index < 0:
 		return
 	
-	var char_name := _test_dropdown.get_item_metadata(index) as String
-	_status_label.text = "Status: 🧪 Testing character '%s'..." % char_name
+	var char_data: Dictionary = _test_dropdown.get_item_metadata(index)
+	_status_label.text = "Status: 🧪 Testing character '%s'..." % char_data.name
 	_status_label.add_theme_color_override("font_color", Color.CYAN)
 	
-	character_test_requested.emit(char_name)
+	character_test_requested.emit(char_data.name, char_data.pkg)
 
 ### -----------------------------------------------------------------------------------------------
