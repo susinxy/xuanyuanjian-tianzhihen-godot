@@ -722,9 +722,11 @@ func physics_process(delta: float) -> void:
 "攻击的同款骨架去掉连段"：`QuiverCharacterAction` 子类，挂在角色场景
 `StateMachine/Ground` 下（chen.tscn 与模板 `__NAME__.tscn` 均已挂，`_skin_state=&"spell"`）。
 
-- **与攻击的差异**：施法动画是**循环**动画（永不自然播完），由
-  `SpellDefinition.caster_cast_time` 计时收尾；到点调用 SpellManager 投递的
-  `release` Callable 让法术体上场，再转 `_path_next_state`（默认 Ground/Move/Idle）。
+- **与攻击的机制差异——两段式**（契约详见 docs/SPELL_SYSTEM_DESIGN.md 17.1）：起手槽
+  `_start_state`（spell_start，非循环，尾帧 end_of_skin_animation 方法轨道宣告完成，
+  时长=角色资产自然长、必完整播放）→ 收到信号切引导槽 `_loop_state`（spelling，
+  循环保持姿势，时长=`SpellDefinition.caster_cast_time` 由本状态倒计时）→ 归零调用
+  SpellManager 投递的 `release` 出手并转 `_path_next_state`。缺槽降级不改计时。
 - **承诺制**：法力/冷却由 SpellManager 在**起手瞬间**扣除；咏唱中被打断
   （Ground 现成 hurt/knockout 信号链）法术作废、不退还。
 - **输入窗口**：enter 关闭（`input_window_open=false`，攻击键无法把施法切走），
