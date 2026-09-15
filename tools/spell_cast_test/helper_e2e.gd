@@ -19,6 +19,7 @@ func _ready() -> void:
 	_string_checks()
 	await _old_structure_race()
 	await _new_structure_cast()
+	await _os_key_full_chain()
 	print("════════ spell-helper-e2e: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
 
@@ -78,6 +79,42 @@ func _new_structure_cast() -> void:
 		await get_tree().physics_frame
 	_check(_spell_bodies(ctx.stage) > before, "新形态：注入 spell_1 后法术体真实上场")
 	ctx.stage.queue_free()
+
+
+## OS 键盘全链路（2026-09-15 定罪回归锁）：引擎的未处理输入流只广播带动作
+## 匹配结果的原始按键事件、不广播 InputEventAction——行为脚本盖戳若只认
+## InputEventAction 类，真实键盘法术键将永远无效（本 runner 其余场景直注通道
+## 恰好测不到这一层）。用 Input.parse_input_event 走 OS 同一入口打全链路。
+func _os_key_full_chain() -> void:
+	var ctx := _spawn_chen(NewHelperSim.new())
+	await _frames(3)
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_1
+	ev.physical_keycode = KEY_1
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	var ev2 := InputEventKey.new()
+	ev2.keycode = KEY_1
+	ev2.physical_keycode = KEY_1
+	ev2.pressed = false
+	Input.parse_input_event(ev2)
+	await _frames(4)
+	_check(_spell_bodies(ctx.stage) >= 1, "OS 真按键 spell_1 全链路施法成功")
+	_check(not _first_body(ctx.stage).is_in_group("players"),
+			"法术体不混入阵营包组（防查询污染）")
+	ctx.stage.queue_free()
+
+
+func _first_body(stage: Node) -> SpellBase:
+	for c in stage.get_children():
+		if c is SpellBase:
+			return c
+	return null
+
+
+func _frames(n: int) -> void:
+	for _i in n:
+		await get_tree().physics_frame
 
 
 func _spell_bodies(stage: Node) -> int:

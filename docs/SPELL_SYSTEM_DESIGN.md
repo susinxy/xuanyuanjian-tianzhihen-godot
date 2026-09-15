@@ -137,6 +137,10 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
      `add_to_group` 的脚本 override，缓存不刷新（阵营检查读缓存）→ 法术自伤
   3. 复制时机在 `spell.cast()`（add_child 之后的同一同步调用内），早于首次
      物理查询刷出 area_entered，缓存竞态安全
+  4. **只复制 `area2d:` 阵营组，不复制施法者根节点上的阵营包组（players/enemies
+     等）**——法术体混进阵营包组会污染一切按组查询角色的逻辑（调试面板曾把
+     火球当角色赋值直接崩，2026-09-15）。原决策"复制所有 group 无副作用"被
+     证伪：`are_factions_equal()` 确实只看 faction 组，但**别的系统看组**
 
 ### 2.6 轮廓转换工具
 

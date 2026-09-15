@@ -51,18 +51,18 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	# 阵营身份必须完整跟随施法者：法术体的 hitbox 若无施法者的 area2d: 阵营组，
 	# 施法者自己的 HurtBox 会把贴身生成的法术当敌人打（实测 2026-09-15 契约测试）。
 	# 注意阵营组挂在角色各战斗 Area2D（皮肤内）上，CharacterBody2D 根节点未必有，
-	# 因此除复制根组外，还要扫描后代 Area2D 收集 area2d: 前缀组。
+	# 须扫描后代 Area2D 收集 area2d: 前缀组。
+	# 修订（2026-09-15 复现定罪）：**只复制阵营组，不复制施法者根节点上的
+	# 阵营包组（players/enemies 等）**——法术体混进 players 组会污染
+	# 一切按组查询角色的逻辑（调试面板把火球当角色赋值直接崩、
+	# 未来 AI 索敌同理）。阵营过滤只比对 area2d: 前缀，语义完备。
 	var faction_groups := _collect_caster_faction_groups(caster)
 	
-	for group in caster.get_groups():
-		add_to_group(group)
 	for group in faction_groups:
 		add_to_group(group)
 	
 	if _skin:
 		for hitbox in _skin.hitboxes:
-			for group in caster.get_groups():
-				hitbox.add_to_group(group)
 			for group in faction_groups:
 				# 必须走显式刷新入口：typed 调用绕过 add_to_group 的脚本 override
 				hitbox.add_faction_group(group)

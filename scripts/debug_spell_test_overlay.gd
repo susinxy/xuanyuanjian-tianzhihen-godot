@@ -49,29 +49,27 @@ func _setup_label() -> void:
 
 
 func _find_nodes() -> void:
-	# 查找 Player
-	if not player_path.is_empty():
-		_player = get_node_or_null(player_path)
-	else:
-		_player = get_tree().get_first_node_in_group("players")
+	# 面板曾整场显示 NOT FOUND（2026-09-15 复盘）：一次性解析失败不再重试 +
+	# 硬编码实名皮肤路径（Skin/EnemySkin 皆非实名，chen 叫 ChenSkin）。
+	# 修复：每刷新节拍重试未解析项；皮肤走 QuiverCharacter 的公开装配口，
+	# 伤害箱按语义 find_child 查找，不赌节点名。
+	if _player == null:
+		if not player_path.is_empty():
+			_player = get_node_or_null(player_path) as QuiverCharacter
+		else:
+			_player = get_tree().get_first_node_in_group("players") as QuiverCharacter
+		if _player != null:
+			_player_skin = _player.get("_skin") as QuiverCharacterSkin
+			_player_hurtbox = _player.find_child("HurtBox", true, false) as QuiverHurtBox
 	
-	if _player:
-		_player_skin = _player.get_node_or_null("Skin")
-		_player_hurtbox = _player.get_node_or_null("Skin/AnimatedSprite2D/HurtBox")
-	
-	# 查找 Enemy
-	if not enemy_path.is_empty():
-		_enemy = get_node_or_null(enemy_path)
-	else:
-		_enemy = get_tree().get_first_node_in_group("enemies")
-	
-	if _enemy:
-		_enemy_skin = _enemy.get_node_or_null("EnemySkin")
-		if not _enemy_skin:
-			_enemy_skin = _enemy.get_node_or_null("Skin")
-		_enemy_hurtbox = _enemy.get_node_or_null("EnemySkin/AnimatedSprite2D/HurtBox")
-		if not _enemy_hurtbox:
-			_enemy_hurtbox = _enemy.get_node_or_null("Skin/AnimatedSprite2D/HurtBox")
+	if _enemy == null:
+		if not enemy_path.is_empty():
+			_enemy = get_node_or_null(enemy_path) as QuiverCharacter
+		else:
+			_enemy = get_tree().get_first_node_in_group("enemies") as QuiverCharacter
+		if _enemy != null:
+			_enemy_skin = _enemy.get("_skin") as QuiverCharacterSkin
+			_enemy_hurtbox = _enemy.find_child("HurtBox", true, false) as QuiverHurtBox
 
 
 func _find_all_spells() -> Array:
@@ -115,6 +113,7 @@ func _process(delta: float) -> void:
 		return
 	_update_timer = 0.0
 	
+	_find_nodes()
 	_update_display()
 
 

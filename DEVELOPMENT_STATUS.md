@@ -100,6 +100,15 @@
   3. 出手方向/体型读取硬走 `get_node("Skin")` 路径（chen 实名 ChenSkin）→
      恒默认右 → 改 `_skin` 公开引用，并升级四向出手（上/下/左/右同攻击）
 - 详见 docs/SPELL_CAST_PLAN.md、docs/SPELL_SYSTEM_DESIGN.md 阵营修订、PLUGIN_CHANGES.md
+- **验收反噬复盘（同日）**：程序化组装 + 直注通道的测试全绿，真实场景却按 1
+  无反应——定罪出第三个真 bug：**引擎未处理输入流不广播 InputEventAction**，
+  行为盖戳只认该类 → 真键盘法术键自单壳改造起从未生效（AGENTS 记两条陷阱：
+  未处理流事件形态；headless 测试必须含 OS 注入全链路断言）。修复后
+  helper_e2e 新增 `_os_key_full_chain` 回归锁
+- 发令台迁入 `QuiverRunTestSceneBuilder.compose()` 统一注入（法术测试场景
+  曾被遗漏：chen 被陪练白打死且无法暂停）；法术面板 NOT FOUND 修复
+  （解析重试 + 弃用实名皮肤路径）；法术体不再复制 players/enemies 阵营包组
+  （防按组查询污染，此前面板把火球当角色直接赋值崩溃）
 - **遗留**：cast 美术帧未产出（机制已即插即用，缺失期降级为无动画锁时长）
 
 ## 后续开发路线

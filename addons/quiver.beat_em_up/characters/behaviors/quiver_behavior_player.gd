@@ -21,8 +21,6 @@ extends QuiverBehavior
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
-#--- private variables - order: export > normal var > onready -------------------------------------
-
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -50,17 +48,38 @@ func _warn_if_multiple_players() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint() or not active:
 		return
-	# 边沿盖戳：供根脚本轮询的自定义键（法术 spell_1..4 等）读取。
-	# InputMap 映射的动作在输入阶段即表现为 InputEventAction。
-	if event is InputEventAction and not event.is_echo():
-		if event.pressed:
-			_channel.press(String(event.action))
-		else:
-			_channel.release(String(event.action))
+	_stamp_action_edges(event)
 	# 事件转投宿主状态机（窗口门控在 deliver_event 内部，保持原语义）
 	var machine := _get_machine()
 	if machine != null:
 		machine.deliver_event(event)
+
+
+## 边沿盖戳：供根脚本轮询的自定义键（法术 spell_1..4 等）读取。
+## 引擎事实（2026-09-15 复现定罪）：未处理输入流里**只有携带动作匹配结果的
+## 原始事件**（InputEventKey 等，`event.is_action_pressed` 可判），并不会额外
+## 广播 InputEventAction——旧实现只认 InputEventAction 类，真键盘法术键永远
+## 盖不上戳（J 攻击幸存只因状态用 is_action_pressed 匹配原始事件）。
+## 两条匹配路径并存：显式动作事件（AI 合成投递等）走类分支；其余事件逐动作
+## 做语义匹配。
+func _stamp_action_edges(event: InputEvent) -> void:
+	if _channel == null or event.is_echo():
+		return
+	if event is InputEventAction:
+		if event.pressed:
+			_channel.press(String(event.action))
+		else:
+			_channel.release(String(event.action))
+		return
+	# 按键事件稀疏（按住不重复触发、echo 已滤），直接遍历 InputMap 不做缓存。
+	for action in InputMap.get_actions():
+		var action_name := String(action)
+		if action_name.begins_with("ui_"):
+			continue
+		if event.is_action_pressed(action):
+			_channel.press(action_name)
+		elif event.is_action_released(action):
+			_channel.release(action_name)
 
 ### -----------------------------------------------------------------------------------------------
 

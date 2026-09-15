@@ -373,6 +373,12 @@ QuiverCharacter
   ⚠ **引擎陷阱**：不要用 `is_processing_unhandled_input()` 做门控——Godot 4 会按
   "脚本是否覆写 `_unhandled_input` 虚函数"**自动改写**该原生标志（本状态机已不覆写，
   该标志恒为 false）。
+- **盖戳语义**（2026-09-15 定罪修正）：引擎未处理输入流只广播**带动作匹配结果的
+  原始事件**（对 `event.is_action_pressed(动作)` 可判），**不会**广播合成的
+  `InputEventAction`。`QuiverBehaviorPlayer._stamp_action_edges` 因此对原始事件
+  逐动作做语义匹配盖戳；`InputEventAction` 分支仅服务于 AI 合成投递等直连
+  `deliver_event` 的来源。旧实现"只认 InputEventAction 类"导致真实键盘法术键
+  静默无效（J 攻击幸存因状态内用 is_action_pressed 匹配原始事件）。
 - **泵水顺序**：`QuiverCharacter._physics_process` 首行依次
   `channel.prune_stale_edges()` → `behavior.pre_physics(delta)`。父节点先于子节点
   执行，行为脚本写入的值在本物理帧内即可被状态机读到，不依赖场景树节点顺序。

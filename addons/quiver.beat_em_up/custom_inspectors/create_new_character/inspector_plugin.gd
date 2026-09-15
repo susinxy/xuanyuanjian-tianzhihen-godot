@@ -96,7 +96,6 @@ func _on_character_test_requested(char_name: String, pkg: String = "playable") -
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
 [ext_resource type="Script" path="res://scripts/shadow_region.gd" id="13_shadow_region"]
-[ext_resource type="Script" path="res://scripts/test_scene_ai_conductor.gd" id="14_conductor"]
 
 [sub_resource type="CapsuleShape2D" id="short_wall_shape"]
 radius = 20.0
@@ -293,8 +292,6 @@ position = Vector2(50, 400)
 size = Vector2(900, 300)
 debug_preview = true
 
-[node name="AIConductor" type="Node" parent="."]
-script = ExtResource("14_conductor")
 """
 	
 	# 被测角色是玩家档（behavior_mode=0）时：它是主角，敌人位保留旧 enemy 占位

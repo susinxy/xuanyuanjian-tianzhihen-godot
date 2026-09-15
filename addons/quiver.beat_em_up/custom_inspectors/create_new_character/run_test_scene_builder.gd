@@ -46,7 +46,21 @@ static func compose(content: String, subject_path: String, subject_mode: int) ->
 		# 此时主角位是 chen（操作锚），窗口若仍指它，显示的就是 chen 而非被测怪物
 		out = out.replace("character_path = NodePath(\"../Character\")", \
 				"character_path = NodePath(\"../Subject\")")
+	out = ensure_conductor(out)
 	return out
+
+
+## 发令台（Enter 控制 AI 待命/进攻）统一注入：所有 Run Test 场景共用同一编排，
+## 场景种类不再各自硬编码（曾漏掉法术测试场景导致被测角色被陪练白打死）。
+static func ensure_conductor(content: String) -> String:
+	if content.contains("test_scene_ai_conductor.gd"):
+		return content
+	var ext_line := "[ext_resource type=\"Script\" path=\"res://scripts/test_scene_ai_conductor.gd\" id=\"14_conductor\"]"
+	var insert_at := content.find("[sub_resource")
+	if insert_at == -1:
+		insert_at = content.find("[node")
+	content = content.left(insert_at) + ext_line + "\n\n" + content.substr(insert_at)
+	return content + "\n[node name=\"AIConductor\" type=\"Node\" parent=\".\"]\nscript = ExtResource(\"14_conductor\")\n"
 
 
 ## 剥离旧 enemy（魔法替身）引用块：ext、专属 hack 脚本、节点与属性覆盖

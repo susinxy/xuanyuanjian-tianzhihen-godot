@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/spell_cast_test/repro_spell_scene.gd" id="1_repro"]
+
+[node name="ReproSpellScene" type="Node"]
+script = ExtResource("1_repro")

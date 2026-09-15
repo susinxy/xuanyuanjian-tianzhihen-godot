@@ -74,6 +74,9 @@ behavior_mode = 1
 	checks.append([composed_ai.count('character_path = NodePath("../Subject")') == 2 \
 			and not composed_ai.contains('character_path = NodePath("../Character")'),
 			"compose 非玩家档=调试窗口改指被测者（测谁看谁）"])
+	checks.append([composed_ai.contains("test_scene_ai_conductor.gd")
+			and composed_ai.contains('name="AIConductor"'),
+			"compose 非玩家档=自动注入 Enter 发令台"])
 	checks.append([composed_ai.find('[node name="Subject"') \
 			< composed_ai.find('[node name="DebugHeightOverlay"'),
 			"compose 非玩家档=被测者节点排在数据窗口之前（装载可解析）"])
@@ -89,6 +92,8 @@ behavior_mode = 1
 			"compose 玩家档=注入 spar_enemy 陪练"])
 	checks.append([composed_player.count('character_path = NodePath("../Character")') == 2,
 			"compose 玩家档=调试窗口保持指被测玩家"])
+	checks.append([composed_player.contains('name="AIConductor"'),
+			"compose 玩家档=自动注入 Enter 发令台"])
 	checks.append([composed_player.find('[node name="Enemy"') \
 			< composed_player.find('[node name="DebugHeightOverlay"'),
 			"compose 玩家档=陪练节点排在数据窗口之前（装载可解析）"])
