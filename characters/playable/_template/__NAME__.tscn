@@ -123,7 +123,8 @@ _path_idle_state = "Ground/Move/Idle"
 
 [node name="Cast" type="Node" parent="StateMachine/Ground" index="6"]
 script = ExtResource("99_quivercast")
-_skin_state = &"spell"
+_start_state = &"spell_start"
+_loop_state = &"spelling"
 _path_next_state = "Ground/Move/Idle"
 parent_should_enter = true
 parent_should_exit = true

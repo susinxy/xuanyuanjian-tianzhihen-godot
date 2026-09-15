@@ -47,8 +47,9 @@ func _file_checks() -> void:
 	_check(chen_src.contains('name="Cast"') and chen_src.contains('_start_state = &"spell_start"')
 			and chen_src.contains('_loop_state = &"spelling"'),
 			"chen.tscn 已挂两段式 Cast 施法状态")
-	_check(tpl_src.contains('name="Cast"') and tpl_src.contains('_skin_state = &"spell"'),
-			"模板 __NAME__.tscn 已挂 Cast（新角色出生即有）")
+	_check(tpl_src.contains('name="Cast"') and tpl_src.contains('_start_state = &"spell_start"')
+			and tpl_src.contains('_loop_state = &"spelling"'),
+			"模板 __NAME__.tscn 已挂两段式 Cast（新角色出生即有）")
 
 
 func _bodies() -> int:
