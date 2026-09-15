@@ -7,7 +7,8 @@ extends RefCounted
 ## [br]· 被测者=玩家档 → 它是主角；场景注入默认对手 spar_enemy（AI 自动靠近攻击，
 ##   给玩家角色当陪练），不存在则空场景
 ## [br]· 被测者=非玩家档 → 主角固定 chen，被测者作为对手实例注入
-##   （AI 档自动追打 chen = 天然验收；被动档站桩挨打）
+##   （AI 自动追打 chen = 天然验收；被动档站桩挨打），
+##   且调试数据窗口的门牌改指被测者——"测谁看谁"
 ## 生成物模板本身不再内置任何敌人；旧 enemy 块剥离逻辑保留为保险丝。
 
 const CHEN_SCENE := "res://characters/playable/chen/chen.tscn"
@@ -39,6 +40,10 @@ static func compose(content: String, subject_path: String, subject_mode: int) ->
 			out = inject_actor(out, DEFAULT_OPPONENT, "Enemy", Vector2(522, 480))
 	else:
 		out = inject_actor(out, subject_path, "Subject", Vector2(522, 480))
+		# 调试数据窗口（高度层/击倒）的门牌跟着被测者走：
+		# 主角位此时是 chen（操作锚），窗口若仍指它会显示陪练的数据而非被测怪物的
+		out = out.replace("character = NodePath(\"../Character\")", \
+				"character = NodePath(\"../Subject\")")
 	return out
 
 
