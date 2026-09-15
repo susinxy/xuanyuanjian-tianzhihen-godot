@@ -2286,3 +2286,42 @@ spell_4={
 - `docs/SPELL_SYSTEM_DESIGN.md` — 本设计文档
 - `docs/PLUGIN_ARCHITECTURE.md` — Quiver 插件架构文档（如修改 Quiver 源码）
 - `PLUGIN_CHANGES.md`（项目根目录）— Quiver 插件修改记录
+
+---
+
+## 十七、施法动作体系实施补篇（2026-09-15 阶段 2 完成）
+
+### 17.1 施法者动画（占位已接，真帧待美术）
+
+- 动画树槽名 **`spell`**：四点 BlendSpace2D（结构照抄 attack1），**四个输入节点
+  暂全部指向同一动画 `X/spell`**（用户契约：施法者只有一个动画；将来要分方向，
+  只改对应输入节点的动画名，接线零动）。
+- `spell.tres` = attack1_right 复制、**删全部方法轨道**（不带攻击信号行为）、
+  线性循环。占位观感=循环出拳，真帧同名覆盖即替换。
+- **美术真帧约定**：施法姿势画成**左右中性**（正面抱球/双手合印），单动画才能
+  在任意朝向下成立。
+
+### 17.2 动画树接线中枢原则（用户拍板，connectivity 测试锁死）
+
+- 每个动作态只与 `idle` 直连（进出各一条）；walk↔run、walk→attack1 等历史冗余
+  边已清；`travel()` 经 idle 同帧中转无观感差异，边数不随动作×移动态组合爆炸。
+- 例外仅两类：连段链 attack1→2→3（语义所需）、位移/击倒机制链（jump/rising/
+  falling/knockout 系）。
+- **回连完整性**：除 die（合法终态）外任何状态必须一步可达 idle——attack2 曾缺
+  回连（寻路误放 attack3），已由 `tools/tree_connectivity_test/` 全态遍历锁死。
+  4.7 API 备忘：查边用 `sm.get("transitions")` 平坦三元组、当前态
+  `playback.get_current_node()`。
+
+### 17.3 法术体四向（已实现）
+
+- `SpellSkin.skin_direction`: LEFT/RIGHT 枚举 → **四正单位向量**（与角色皮肤同构，
+  直接作 blend 坐标）；`SpellBase.cast` 经 `SpellManager.snap_to_four_direction`
+  传完整方向（旧只传 x 轴，上/下飞只能侧身）。
+- 法术动画树 `active` = 四点 BlendSpace2D（right/left/up/down 各一 .tres）；
+  fire_ball 的 `active_up/down.tres` 为占位复制，真帧同名覆盖；
+  创建工具（spell_creator）内置模板同步四点化，**新法术出生即四向**。
+
+### 17.4 键位终审
+
+1-4 = spell_1..4（InputMap，唯一法术键源）；5-8 = 昼夜相位调试（硬编码节点）；
+O 光照覆盖 / T 阴影 / L 软边 / J 攻击 / Space 跳 / WASD 移动 / Enter AI 发令台。

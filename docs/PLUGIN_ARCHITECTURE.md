@@ -448,7 +448,9 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   NodePath 时引擎不转换为节点引用（恒 null）**，窗口一直靠"自动找场上第一个角色"
   的兜底运行——所以"改配置指向被测怪"不生效、测怪物永远显示 chen 的数据。
   端到端断言 `tools/wp2_creation_test/overlay_e2e.tscn` 锁定该行为（真实帧验证）。
-- **AI 发令台 `TestSceneAIConductor`**（仅注入角色 Run Test 生成模板）：场景就绪把
+- **AI 发令台 `TestSceneAIConductor`**（由 `QuiverRunTestSceneBuilder.compose()` 统一
+  注入，角色/法术两类 Run Test 场景皆有——早期只挂角色模板，法术场景的 chen 曾被
+  陪练白打死，2026-09-15 迁入编排器根治）：场景就绪把
   场上所有 AI 档行为置 `active=false` 待命，**Enter** 开始/暂停（可反复，便于
   "摆位→再战"式复测）。它是 `active` 原语的第一个驱动者，测试台专属、正式关卡不挂。
   键位避让备忘：1-4=法术（InputMap spell_1..4），5-8=昼夜相位调试（原 1-4，2026-09 让位），O=光照覆盖，T=阴影区域，L=软边，J/Space/WASD=战斗，Enter=AI 发令台。
@@ -724,8 +726,9 @@ func physics_process(delta: float) -> void:
   （Ground 现成 hurt/knockout 信号链）法术作废、不退还。
 - **输入窗口**：enter 关闭（`input_window_open=false`，攻击键无法把施法切走），
   exit 重开；`transition_to` 程序转换不受窗口影响，打断照常。
-- **降级**：皮肤无 `spell` 动画槽时不播动画但**仍锁满时长**（节奏一致），
-  每个皮肤一次性 push_warning；美术补帧即自动生效（见 docs/SPELL_CAST_PLAN.md 阶段 2）。
+- **动画槽**：`spell` 槽已入模板（四点混合暂指单一动画，新角色出生即有）；**降级**
+  分支（不播动画但锁满时长、单皮肤一次性告警）保留给缺槽皮肤（spar/street_vendor
+  等历史资产与外部改皮），见 docs/SPELL_SYSTEM_DESIGN.md 17.1。
 - **闸口**（SpellManager 侧）：咏唱中拒绝再起手；空中（Air 子树）拒绝起手；
   `caster_cast_time=0` 或未挂 Cast 节点的角色维持旧瞬发行为（向后兼容）。
 

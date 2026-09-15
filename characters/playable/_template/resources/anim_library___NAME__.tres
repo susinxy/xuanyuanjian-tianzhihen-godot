@@ -1,7 +1,8 @@
-[gd_resource type="AnimationLibrary" load_steps=65 format=3]
+[gd_resource type="AnimationLibrary" load_steps=66 format=3]
 
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/air_attack_right.tres" id="1_jgcla"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/attack1_right.tres" id="2_qtktm"]
+[ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/spell.tres" id="2_spell1"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/attack2_right.tres" id="3_btu6m"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/die_right.tres" id="4_i5tkq"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/falling_right.tres" id="5_wb2lw"]
@@ -73,6 +74,7 @@ _data = {
 "attack1_left": ExtResource("30_1ys5c"),
 "attack1_right": ExtResource("2_qtktm"),
 "attack1_up": ExtResource("71_att71"),
+"spell": ExtResource("2_spell1"),
 "attack2_down": ExtResource("74_att74"),
 "attack2_left": ExtResource("31_l68i0"),
 "attack2_right": ExtResource("3_btu6m"),

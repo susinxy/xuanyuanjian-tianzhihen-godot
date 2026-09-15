@@ -51,3 +51,9 @@ python3 tools/sync_template_from_chen.py
 可反复执行；`character_template.*` 触发文件与 `__NAME___ai.gd` 默认小抄（模板自维护、
 非 chen 来源）永不删除；主场景的 `__BODY_GROUP__`/`behavior_mode` 注入由脚本自动补齐并
 有正向断言防丢。脚本失败（残留非零）时勿提交。
+
+## 施法动画补帧通道（阶段 2 预留）
+- 施法者：动画树 `spell` 槽四点混合暂全部指向单一动画 `spell.tres`（占位=attack1 循环）。
+  真帧要求**左右中性姿势**；到位后替换 spell.tres 引用即可，若将来分方向再逐点改动画名。
+- 动画树接线纪律：任何新动作态只连 idle 两条边（进出各一）；禁止 walk/run→动作 的
+  交叉边（travel 经 idle 同帧中转，无观感差异）。tools/tree_connectivity_test 强制。

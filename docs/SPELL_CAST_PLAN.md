@@ -40,6 +40,12 @@
 6. 契约测试：未到点无实体/到点有实体且归 Idle/起手扣蓝/打断不退还/咏唱中二次注入被拒
 7. 文档 + 全矩阵 + 提交
 
-## 阶段 2（本轮不做，留档）
-cast 美术帧管线（sprites/cast/{up,down,right}/ + AnimTree spell 状态 + 轮廓转换 .tres）——
-机制侧已即插即用。
+## 阶段 2（2026-09-15 已完成，用户 F5 验收 1-5 通过）
+- 施法者：`spell` 槽四点混合暂指单一动画（用户设计，见 SPELL_SYSTEM_DESIGN 17.1/17.2）；
+  占位=attack1_right 复制删方法轨+循环；run→attack1 保险边被否——中枢原则确立、
+  walk↔run/walk→attack1 一并清理；attack2 缺回连 idle 真 bug 顺带修复
+- 法术体：SpellSkin 方向向量四正量化 + fire_ball active 四点 + creator 模板四点化（17.3）
+- 回归网：tree_connectivity（7 边断言+19 态回 idle）、契约 I 段升级为"活动态=spell"、
+  wp2 创建流"+3 断言=33"（出生即有槽）；模板已 sync 进 _template
+- 遗留：真帧管线待美术（左右中性约定）；`_beat_em_up` 转换工具对"单动画"类别的支持
+  届时再定
