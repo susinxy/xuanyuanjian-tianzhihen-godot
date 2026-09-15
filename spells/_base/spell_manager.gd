@@ -69,6 +69,7 @@ func cast_spell(slot: SpellSlot) -> void:
     _character.attributes.mana_current -= slot.definition.mana_cost
     slot.start_cooldown()
 
+    # caster_cast_time 语义=引导段时长（起手段由角色动画自带）
     var cast_time := slot.definition.caster_cast_time
     if cast_time > 0.0:
         if _has_cast_state():

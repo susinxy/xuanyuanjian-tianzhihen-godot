@@ -2,15 +2,25 @@
 class_name QuiverActionCast
 extends QuiverCharacterAction
 
-## 地面施法动作状态——"攻击的同款骨架去掉连段"版。
-## 与 QuiverActionAttack 的差异：
-## · 施法动画是**循环**动画（永不自然播完），由法术定义的 caster_cast_time 计时收尾；
-## · 到点调用 SpellManager 注入的 release 回调让法术体上场，再回 Idle；
-## · 无连段、无动画位移驱动；法力/冷却已由管理器在起手瞬间扣除（承诺制），
-##   中途被打断则法术作废、不退还；
-## · 皮肤无 "spell" 动画槽时降级：不播动画但**仍锁满时长**（节奏一致，2026-09 拍板）。
+## 地面施法动作状态——两段式起手+引导（2026-09-15 定稿契约）。
 ##
-## msg 约定（由 SpellManager 投递）：{ cast_time: float, release: Callable }
+## 时间轴（信号/计时分工）：
+##   enter ──▶ spell_start 槽（非循环，角色资产自然时长，唯一信源是动画尾帧
+##             的 end_of_skin_animation 方法调用——与攻击结束同款机制）
+##         ──信号──▶ spelling 槽（循环姿势保持；时长=法术定义 caster_cast_time，
+##                   本状态倒计时）──倒计时归零──▶ release 出手 → 回 Idle。
+## 分工原则：起手时长归角色动画（每个法术都必须完整经历），引导时长归法术数据
+## （循环天然适配任意时长，禁止变速/掐断/定格的中间态）。
+##
+## 降级阶梯（缺资产时节奏与计时一律不变，2026-09-15 拍板）：
+##   缺 spell_start 槽 → 跳过起手段，进 Cast 即上膛引导计时；
+##   缺 spelling 槽   → 起手播完定格保持（不切循环），引导照常倒数；
+##   两槽全缺         → 有 idle 切 idle，无则维持残影但计时照走（一次性告警）。
+##
+## 承诺制：法力/冷却由 SpellManager 在起手瞬间扣除，中途被打断法术作废不退还；
+## 咏唱期间关闭输入窗口（攻击键不可切走），受击/击倒走 Ground 现成信号链打断。
+##
+## msg 约定（SpellManager 投递）：{ cast_time: float(引导段秒数), release: Callable }
 
 ### Member Variables and Dependencies -------------------------------------------------------------
 #--- signals --------------------------------------------------------------------------------------
@@ -23,7 +33,11 @@ extends QuiverCharacterAction
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
-var _skin_state: StringName = &"spell"
+## 起手段槽名（非循环动画，尾帧方法调用宣告结束）
+var _start_state: StringName = &"spell_start"
+
+## 引导段槽名（循环动画，时长由法术定义驱动）
+var _loop_state: StringName = &"spelling"
 
 var _path_next_state := "Ground/Move/Idle"
 
@@ -32,8 +46,10 @@ var _should_exit_parent := true
 var _should_process_parent := true
 
 var _time_left := 0.0
+var _timing_active := false
 var _release: Callable = Callable()
 var _released := false
+var _start_signal_on := false
 
 static var _warned_missing_anim: Dictionary = {}
 
@@ -51,8 +67,8 @@ func _ready() -> void:
 func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := PackedStringArray()
 	
-	if _skin_state == &"":
-		warnings.append("施法状态必须指定一个皮肤动画槽名（约定为 spell）。")
+	if _start_state == &"" and _loop_state == &"":
+		warnings.append("施法状态至少要指定一个皮肤动画槽（起手或引导）。")
 	
 	return warnings
 
@@ -66,29 +82,34 @@ func enter(msg: = {}) -> void:
 	if _should_enter_parent:
 		get_parent().enter(msg)
 	
-	# 咏唱期间关闭输入窗口：攻击键不能把施法切走（与攻击 _can_combo=false 同语义）
+	# 咏唱期间关闭输入窗口（与攻击 _can_combo=false 同语义）
 	_state_machine.input_window_open = false
 	
 	_time_left = float(msg.get("cast_time", 0.0))
 	_release = msg.get("release", Callable())
 	_released = false
+	_timing_active = false
 	_character.velocity = Vector2.ZERO
 	
 	# 方向归一化与攻击完全同款（与 SpellManager 出手共用唯一实现）
 	_skin.skin_direction = SpellManager.snap_to_four_direction(_skin.skin_direction)
 	
-	if _skin.has_anim_state(_skin_state):
-		_skin.transition_to(_skin_state)
+	if _skin.has_anim_state(_start_state):
+		_skin.transition_to(_start_state)
+		_arm_start_listener()
+	elif _skin.has_anim_state(_loop_state):
+		_skin.transition_to(_loop_state)
+		_timing_active = true
+		_warn_missing_once("spell_start")
 	else:
-		# 降级契约：无施法动画槽时显式切回待机——若放任不管，动画树会残留在
-		# 施法前的最后一站（跑动中起手=腿在 run 循环、人已定身，2026-09-15 观察）。
-		_warn_missing_anim()
 		if _skin.has_anim_state(&"idle"):
 			_skin.transition_to(&"idle")
+		_timing_active = true
+		_warn_missing_once("spell_start/spelling")
 
 
 func unhandled_input(_event: InputEvent) -> void:
-	# 施法不消费任何输入（输入窗口也已在 enter 关闭）
+	# 施法不消费任何输入（输入窗口已在 enter 关闭）
 	pass
 
 
@@ -96,7 +117,7 @@ func physics_process(delta: float) -> void:
 	if _should_process_parent:
 		get_parent().physics_process(delta)
 	
-	if _released:
+	if not _timing_active or _released:
 		return
 	
 	_time_left -= delta
@@ -108,6 +129,8 @@ func physics_process(delta: float) -> void:
 
 
 func exit() -> void:
+	_disarm_start_listener()
+	_timing_active = false
 	_release = Callable()
 	_state_machine.input_window_open = true
 	
@@ -130,13 +153,37 @@ func _disconnect_signals() -> void:
 	super()
 
 
-func _warn_missing_anim() -> void:
-	var key := str(_skin.name) + ":" + str(_skin_state)
+## 起手段监听：一次性消费设计——信号到达即断开，杜绝循环槽误触发
+func _arm_start_listener() -> void:
+	if _start_signal_on:
+		return
+	QuiverEditorHelper.connect_between(
+			_skin.skin_animation_finished, _on_start_animation_finished)
+	_start_signal_on = true
+
+
+func _disarm_start_listener() -> void:
+	if not _start_signal_on:
+		return
+	QuiverEditorHelper.disconnect_between(
+			_skin.skin_animation_finished, _on_start_animation_finished)
+	_start_signal_on = false
+
+
+func _on_start_animation_finished() -> void:
+	# 起手播完（动画尾帧方法轨道宣告）：上膛引导 + 切循环槽
+	_disarm_start_listener()
+	if _skin.has_anim_state(_loop_state):
+		_skin.transition_to(_loop_state)
+	_timing_active = true
+
+
+func _warn_missing_once(what: String) -> void:
+	var key := str(_skin.name) + ":" + what
 	if _warned_missing_anim.has(key):
 		return
 	_warned_missing_anim[key] = true
-	push_warning("皮肤 %s 缺少施法动画槽 '%s'，施法降级为无动画锁时长" % [
-			_skin.name, _skin_state])
+	push_warning("皮肤 %s 缺少施法动画槽 %s，施法按降级节奏执行" % [_skin.name, what])
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -147,7 +194,14 @@ func _warn_missing_anim() -> void:
 
 func _get_custom_properties() -> Dictionary:
 	var custom_properties := {
-		"_skin_state": {
+		"_start_state": {
+			type = TYPE_STRING,
+			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
+			hint = PROPERTY_HINT_ENUM,
+			hint_string = \
+					'ExternalEnum{"property": "_skin", "property_name": "_animation_list"}'
+		},
+		"_loop_state": {
 			type = TYPE_STRING,
 			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
 			hint = PROPERTY_HINT_ENUM,
@@ -188,14 +242,6 @@ func _get_custom_properties() -> Dictionary:
 			usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE,
 			hint = PROPERTY_HINT_NONE,
 		},
-#		"": {
-#			backing_field = "", # use if dict key and variable name are different
-#			default_value = "", # use if you want property to have a default value
-#			type = TYPE_NIL,
-#			usage = PROPERTY_USAGE_DEFAULT,
-#			hint = PROPERTY_HINT_NONE,
-#			hint_string = "",
-#		},
 	}
 	
 	return custom_properties

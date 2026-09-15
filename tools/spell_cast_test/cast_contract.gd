@@ -44,8 +44,9 @@ func _frames(n: int) -> void:
 func _file_checks() -> void:
 	var chen_src := FileAccess.get_file_as_string(CHEN)
 	var tpl_src := FileAccess.get_file_as_string(TEMPLATE_TSCN)
-	_check(chen_src.contains('name="Cast"') and chen_src.contains('_skin_state = &"spell"'),
-			"chen.tscn 已挂 Cast 施法状态")
+	_check(chen_src.contains('name="Cast"') and chen_src.contains('_start_state = &"spell_start"')
+			and chen_src.contains('_loop_state = &"spelling"'),
+			"chen.tscn 已挂两段式 Cast 施法状态")
 	_check(tpl_src.contains('name="Cast"') and tpl_src.contains('_skin_state = &"spell"'),
 			"模板 __NAME__.tscn 已挂 Cast（新角色出生即有）")
 
@@ -100,10 +101,16 @@ func _main_flow() -> void:
 	_check(is_equal_approx(_chen.attributes.mana_current, mana0 - 10.0), "C 法力起手即扣")
 	_check(not _chen.state_machine.input_window_open, "F 咏唱中输入窗口关闭")
 	_check(_bodies() == 0, "A 前摇期间法术体未出现")
-	await _frames(10)
-	_check(_state() == "Ground/Cast" and _bodies() == 0, "B 时长未满：仍在咏唱、未出手")
-	await _frames(35)
-	_check(_bodies() == 1, "B 时长已满：法术体上场")
+	await _frames(3)
+	_check(_chen._skin._playback.get_current_node() == &"spell_start",
+			"B1 起手期（0.05s）活动态=spell_start")
+	await _frames(22)
+	_check(_state() == "Ground/Cast" and _bodies() == 0,
+			"B 引导未满（0.42s）：仍在咏唱、未出手")
+	_check(_chen._skin._playback.get_current_node() == &"spelling",
+			"B2 起手播完（0.333s）已切入 spelling（活动态=%s）" % _chen._skin._playback.get_current_node())
+	await _frames(40)
+	_check(_bodies() == 1, "B 总时长已满（起手0.333+引导0.5）：法术体上场")
 	_check(_state() == "Ground/Move/Idle", "B 施毕归 Idle（实际=%s）——法术体不得自伤施法者" % _state())
 	_check(_spell_has_caster_faction(), "阵营跟随：法术体携带施法者 area2d 组（贴身不误伤）")
 	_check(_chen.state_machine.input_window_open, "F 施毕输入窗口重开")
@@ -112,7 +119,7 @@ func _main_flow() -> void:
 	_chen.channel.press("spell_1")
 	await _frames(2)
 	_chen.channel.press("spell_1")
-	await _frames(48)
+	await _frames(70)
 	_check(_bodies() == 2, "D 咏唱中二次按键被拒（本回合一发）")
 	
 	# ── E：受击打断 ──
@@ -145,12 +152,13 @@ func _main_flow() -> void:
 			"四向出手：法术体皮肤朝向同步量化为上（blend 坐标 0,-1）")
 	
 	# ── 槽位配对断言 ──
-	_check(_chen._skin.has_anim_state(&"spell"), "chen 皮肤已含 spell 动画槽")
+	_check(_chen._skin.has_anim_state(&"spell_start") and _chen._skin.has_anim_state(&"spelling"),
+			"chen 皮肤已含 spell_start+spelling 两槽")
 	var spar := (load("res://characters/enemies/spar_enemy/spar_enemy.tscn") as PackedScene).instantiate()
 	_stage.add_child(spar)
 	await _frames(2)
-	_check(not spar._skin.has_anim_state(&"spell"),
-			"spar 皮肤无 spell 槽（has_anim_state 降级门语义对照组）")
+	_check(not spar._skin.has_anim_state(&"spell_start"),
+			"spar 皮肤无起手槽（has_anim_state 降级门语义对照组）")
 	spar.queue_free()
 	
 	# ── I：跑动起手（run→spell 直连边）──
@@ -169,9 +177,9 @@ func _main_flow() -> void:
 	_check(_state() == "Ground/Cast", "I 跑动中起手成功转 Cast")
 	var anim_now := String(sprite.animation)
 	_check("run" not in anim_now, "I 咏唱中不残留跑动动画（实际=%s）" % anim_now)
-	_check(_chen._skin._playback.get_current_node() == &"spell",
-			"I 咏唱中动画树活动状态=spell（槽位已接）")
-	await _frames(40)
+	_check(String(_chen._skin._playback.get_current_node()) in ["spell_start", "spelling"],
+			"I 跑动起手切入施法槽（活动态=%s）" % _chen._skin._playback.get_current_node())
+	await _frames(70)
 	_check(_bodies() >= 4, "I 跑动起手同样到点出手")
 	_mark_done()
 

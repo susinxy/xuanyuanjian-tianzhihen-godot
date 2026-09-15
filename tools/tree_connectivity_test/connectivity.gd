@@ -36,7 +36,7 @@ func _ready() -> void:
 
 	# ── 1) 中枢原则定向断言（用户 2026-09-15 拍板的边集合） ──
 	for banned in [["walk", "run"], ["run", "walk"], ["walk", "attack1"],
-			["run", "attack1"], ["walk", "spell"], ["run", "spell"]]:
+			["run", "attack1"], ["walk", "spell_start"], ["run", "spell_start"], ["walk", "spelling"], ["run", "spelling"], ["spell_start", "spelling"], ["spelling", "spell_start"]]:
 		_check(not _has_edge(edges, banned[0], banned[1]),
 				"冗余边 %s→%s 不存在（经 idle 中转）" % banned)
 	var state_names: Array[String] = []
@@ -45,7 +45,7 @@ func _ready() -> void:
 		if pn.begins_with("states/") and pn.ends_with("/node"):
 			state_names.append(pn.get_slice("/", 1))
 	for name_str in state_names:
-		if name_str != "spell":
+		if name_str not in ["spell_start", "spelling"]:
 			continue
 		var spell_edges: Array[String] = []
 		for e in edges:
@@ -58,7 +58,7 @@ func _ready() -> void:
 		var want: Array[String] = ["→idle", "idle→"]
 		want.sort()
 		_check(spell_edges == want,
-				"spell 只与 idle 直连（实际=%s）" % str(spell_edges))
+				"施法槽只与 idle 直连（实际=%s）" % str(spell_edges))
 	_check(_has_edge(edges, "attack2", "idle"),
 			"attack2 已回连 idle（曾缺边：寻路误放 attack3）")
 

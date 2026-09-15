@@ -11,7 +11,7 @@ extends Resource
 @export var cooldown: float = 0.0
 @export var allowed_states: Array[StringName] = []
 @export var disallowed_states: Array[StringName] = [&"Die", &"Knockout"]
-## 施法时长（秒）：施法者以循环动画施法，锁满此时长后才释放法术体；
-## 0.0 = 无施法动作瞬发（旧行为，向后兼容）。
-## 施法动作本身在角色皮肤动画树里固定槽名 "spell"（与 attack1 同风格约定）。
+## 引导时长（秒）：起手动画（槽 spell_start，角色资产、自然时长、必完整播放）结束后，
+## 保持姿势循环（槽 spelling）倒数满本字段才释放法术体；实际总硬直=起手动画长+本值。
+## 0 = 无施法动作瞬发（旧行为，向后兼容）。
 @export var caster_cast_time: float = 0.0
