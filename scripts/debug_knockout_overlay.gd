@@ -1,6 +1,12 @@
 extends CanvasLayer
 
-@export var character: CharacterBody2D
+## 要显示哪个角色的数据：存路径、运行时解析（_ready 里 get_node）。
+## 注意：不要用节点对象引用型导出——文本形式赋 NodePath 时引擎不会
+## 转换成节点引用（实测恒为 null，2026-09-15 复盘），一律 NodePath + get_node。
+@export var character_path: NodePath = NodePath("../Character")
+
+## 运行时解析结果（_ready 填充；解析不到则走自动兜底）
+var character: CharacterBody2D
 
 var _attributes: QuiverAttributes
 var _panel: Panel
@@ -12,6 +18,9 @@ var _knockout_snapshot: Dictionary = {}
 
 func _ready() -> void:
 	_create_panel()
+	
+	if not character_path.is_empty():
+		character = get_node_or_null(character_path)
 	
 	if not character:
 		_auto_find_character()

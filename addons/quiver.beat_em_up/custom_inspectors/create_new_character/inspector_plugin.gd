@@ -281,11 +281,11 @@ script = ExtResource("11_debug_dn_input")
 
 [node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("3_debug_overlay")
-character = NodePath("../Character")
+character_path = NodePath("../Character")
 
 [node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("6_knockout_overlay")
-character = NodePath("../Character")
+character_path = NodePath("../Character")
 
 [node name="ShadowRegion" type="ReferenceRect" parent="."]
 script = ExtResource("13_shadow_region")

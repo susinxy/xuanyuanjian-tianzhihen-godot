@@ -432,9 +432,15 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   headless 可测）`compose()` 统一编排：读 behavior_mode → 玩家档=被测者当主角、
   注入正式对手 `spar_enemy`（缺失则空场，优雅降级）；非玩家档=主角换 chen（操作锚）、
   被测者作为对手实例注入（AI 自动追打 chen = 天然验收），并把两个调试数据窗口
-  （高度层/击倒）的 `character` 门牌改指被测者——**测谁看谁**。生成物模板已不含
-  任何敌人引用；旧 enemy 块剥离逻辑保留为保险丝。角色/法术两个 Run Test 模板同此。
+  "显示谁"的设置改指被测者——**测谁看谁**。生成物模板已不含任何敌人引用；
+  旧 enemy 块剥离逻辑保留为保险丝。角色/法术两个 Run Test 模板同此。
   （镜头不跟随被测者：它挂在主角下，测怪时 chen 才是可操作视角锚。）
+- **调试窗口的角色指向（2026-09-15 教训）**：窗口脚本用
+  `@export var character_path: NodePath` + `_ready` 时 `get_node_or_null()` 解析。
+  曾经的 `@export var character: CharacterBody2D` 节点对象引用型导出在**文本赋值
+  NodePath 时引擎不转换为节点引用（恒 null）**，窗口一直靠"自动找场上第一个角色"
+  的兜底运行——所以"改配置指向被测怪"不生效、测怪物永远显示 chen 的数据。
+  端到端断言 `tools/wp2_creation_test/overlay_e2e.tscn` 锁定该行为（真实帧验证）。
 - **AI 发令台 `TestSceneAIConductor`**（仅注入角色 Run Test 生成模板）：场景就绪把
   场上所有 AI 档行为置 `active=false` 待命，**Enter** 开始/暂停（可反复，便于
   "摆位→再战"式复测）。它是 `active` 原语的第一个驱动者，测试台专属、正式关卡不挂。

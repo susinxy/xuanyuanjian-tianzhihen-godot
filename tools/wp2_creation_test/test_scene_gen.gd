@@ -43,10 +43,10 @@ behavior_mode = 1
 		"attack_data = SubResource(\"test_attack_data\")",
 		"",
 		'[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]',
-		'character = NodePath("../Character")',
+		'character_path = NodePath("../Character")',
 		"",
 		'[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]',
-		'character = NodePath("../Character")',
+		'character_path = NodePath("../Character")',
 		"",
 	])
 	var stripped := QuiverRunTestSceneBuilder.strip_enemy_legacy(fake_stage)
@@ -71,9 +71,12 @@ behavior_mode = 1
 	checks.append([composed_ai.contains('name="Subject"') \
 			and not composed_ai.contains("spar_enemy"),
 			"compose 非玩家档=注入被测者（不叠加对手）"])
-	checks.append([composed_ai.count('character = NodePath("../Subject")') == 2 \
-			and not composed_ai.contains('character = NodePath("../Character")'),
-			"compose 非玩家档=调试窗口门牌改指被测者（测谁看谁）"])
+	checks.append([composed_ai.count('character_path = NodePath("../Subject")') == 2 \
+			and not composed_ai.contains('character_path = NodePath("../Character")'),
+			"compose 非玩家档=调试窗口改指被测者（测谁看谁）"])
+	checks.append([composed_ai.find('[node name="Subject"') \
+			< composed_ai.find('[node name="DebugHeightOverlay"'),
+			"compose 非玩家档=被测者节点排在数据窗口之前（装载可解析）"])
 	var hero := QuiverRunTestSceneBuilder.hero_path_for(
 			"res://characters/enemies/tmp_x/tmp_x.tscn", 1)
 	checks.append([hero.ends_with("chen/chen.tscn"), "compose 非玩家档主角=chen"])
@@ -84,8 +87,11 @@ behavior_mode = 1
 	checks.append([composed_player.contains('name="Enemy"') \
 			and composed_player.contains("spar_enemy/spar_enemy.tscn"),
 			"compose 玩家档=注入 spar_enemy 陪练"])
-	checks.append([composed_player.count('character = NodePath("../Character")') == 2,
-			"compose 玩家档=调试窗口门牌保持指被测玩家"])
+	checks.append([composed_player.count('character_path = NodePath("../Character")') == 2,
+			"compose 玩家档=调试窗口保持指被测玩家"])
+	checks.append([composed_player.find('[node name="Enemy"') \
+			< composed_player.find('[node name="DebugHeightOverlay"'),
+			"compose 玩家档=陪练节点排在数据窗口之前（装载可解析）"])
 	
 	for c in checks:
 		if c[0]:
