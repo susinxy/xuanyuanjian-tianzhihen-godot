@@ -44,7 +44,7 @@ func _ready() -> void:
 ### Public Methods --------------------------------------------------------------------------------
 
 func pre_physics(delta: float) -> void:
-	if _character == null or _channel == null:
+	if _character == null or _channel == null or not active:
 		return
 	tick(delta)
 

@@ -19,6 +19,18 @@ extends Node
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
+## 是否发号施令（产品级原语，非测试专用）：false 时本行为对通道零写入/零事件
+## 投递，宿主角色自然回落待机，但受击/倒地/死亡反应照常（碰撞信号路径不经输入）。
+## 关闭瞬间通道清零，防止旧指令残留（如按死的摇杆）。用途：过场定身、伏击待命、
+## 测试场景"发令枪"（TestSceneAIConductor）等，一律由外部驱动，子类不自行改。
+var active := true:
+	set(value):
+		if value == active:
+			return
+		active = value
+		if not value and _channel != null:
+			_channel.reset()
+
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 var _character: QuiverCharacter = null

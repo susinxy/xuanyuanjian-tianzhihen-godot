@@ -9,7 +9,8 @@ extends QuiverBehavior
 ##   并在通道上盖法术等自定义轮询键的边沿戳。
 ## [br]· 轮询类（摇杆/按住）：pre_physics 每帧把真实输入状态刷进通道。
 ##
-## input_enabled 是过场/对话期间的总开关（供未来的剧情系统调用）。
+## 过场/对话期间的总开关用基类 [member QuiverBehavior.active]（置 false 即
+## 停止采集并清零通道，供剧情系统调用）。
 
 ### Member Variables and Dependencies -------------------------------------------------------------
 #--- signals --------------------------------------------------------------------------------------
@@ -19,14 +20,6 @@ extends QuiverBehavior
 #--- constants ------------------------------------------------------------------------------------
 
 #--- public variables - order: export > normal var > onready --------------------------------------
-
-## 是否采集物理输入（剧情对话/过场期间由外部置 false）。
-var input_enabled := true:
-	set(value):
-		input_enabled = value
-		if not value and _channel != null:
-			# 交还控制权瞬间清零，防止角色带着"残留按住"进下一段
-			_channel.reset()
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
@@ -55,7 +48,7 @@ func _warn_if_multiple_players() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if Engine.is_editor_hint() or not input_enabled:
+	if Engine.is_editor_hint() or not active:
 		return
 	# 边沿盖戳：供根脚本轮询的自定义键（法术 spell_1..4 等）读取。
 	# InputMap 映射的动作在输入阶段即表现为 InputEventAction。
@@ -77,7 +70,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func pre_physics(_delta: float) -> void:
 	if Engine.is_editor_hint() or _channel == null:
 		return
-	if input_enabled:
+	if active:
 		_channel.refresh_from_os()
 	else:
 		_channel.reset()

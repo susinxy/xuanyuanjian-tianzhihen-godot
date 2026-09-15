@@ -381,6 +381,10 @@ QuiverCharacter
   角色相关脚本不再有任何 `_unhandled_input` OS 听众。
 - **运行时交接**：`QuiverCharacter.switch_behavior(mode)` 换挂行为（通道保留、
   旧操控者状态清零）。这是"剧情附身/队友接管"的接口位。
+- **行为总开关 `QuiverBehavior.active`（产品级原语）**：false 时该类行为停止一切
+  通道写入/事件投递，宿主自然回落待机，受击/死亡反应照常（碰撞信号不经输入）；
+  关闭瞬间通道 reset 防残留。统一取代早期玩家侧的 `input_enabled` 提案。
+  用途：过场定身、伏击待命、测试发令台等，一律由**外部驱动**，行为子类不自改。
 - **多玩家提醒**：两个 PLAYER_INPUT 行为共存时 push_warning（允许共存便于双打测试）。
 
 **退役清单（文件保留仅供考古，禁止用于新角色）**：`quiver_action_idle_ai.gd`、
@@ -429,6 +433,10 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   注入正式对手 `spar_enemy`（缺失则空场，优雅降级）；非玩家档=主角换 chen、被测者
   作为对手实例注入（AI 自动追打 chen = 天然验收）。生成物模板已不含任何敌人引用；
   旧 enemy 块剥离逻辑保留为保险丝。角色/法术两个 Run Test 模板同此。
+- **AI 发令台 `TestSceneAIConductor`**（仅注入角色 Run Test 生成模板）：场景就绪把
+  场上所有 AI 档行为置 `active=false` 待命，**Enter** 开始/暂停（可反复，便于
+  "摆位→再战"式复测）。它是 `active` 原语的第一个驱动者，测试台专属、正式关卡不挂。
+  键位避让备忘：1-4=法术/昼夜切换，O=光照覆盖，T=阴影区域，L=软边，J/Space/WASD=战斗。
 - **正式验证角色（内容资产，进 git）**：`characters/enemies/spar_enemy/`（AI 档，
   默认小抄：歇→追→三连段；Run Test 玩家场景的常驻陪练——删除它会改变测试场景编排，
   建议保留）、`characters/neutrals/street_vendor/`（被动档站桩样板）。
@@ -438,8 +446,9 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
 - **阵营包目录**：`characters/enemies|allies|neutrals/` 纳入 git（.gitkeep 占位）。
 
 **回归验证**：`tools/wp2_creation_test/`（create 30 断言 + verify 6 断言，两阶段夹
-一次 `--import`；scene-gen 13 断言）与 `tools/wp3_formal/`（spawn 幂等生成正式角色 +
-verify 5 断言：小抄约定加载、逼近、伤害、站桩）。
+一次 `--import`；scene-gen 13 断言）、`tools/wp3_formal/`（spawn 幂等生成正式角色 +
+verify 5 断言：小抄约定加载、逼近、伤害、站桩）与 `tools/conductor_test/`
+（发令台 9 断言：待命/零位移/Enter 开令/逼近/再按暂停/通道清零）。
 
 ### 5.1 通用状态机框架
 
