@@ -17,6 +17,7 @@ const FIRE_SCENE := "res://spells/fire_ball/fire_ball.tscn"
 const TEMPLATE_TSCN := "res://characters/playable/_template/__NAME__.tscn"
 
 var _fails := 0
+var _finished := false
 var _stage: Node2D
 var _chen: QuiverCharacter
 
@@ -24,6 +25,7 @@ var _chen: QuiverCharacter
 func _ready() -> void:
 	_file_checks()
 	await _main_flow()
+	_check(_finished, "契约全序列执行完成（防协程静默中断假绿）")
 	print("════════ cast-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
 
@@ -167,7 +169,12 @@ func _main_flow() -> void:
 	_check(_state() == "Ground/Cast", "I 跑动中起手成功转 Cast")
 	var anim_now := String(sprite.animation)
 	_check("run" not in anim_now, "I 咏唱中不残留跑动动画（实际=%s）" % anim_now)
-	_check(_chen._skin._playback.get_current() == &"spell",
+	_check(_chen._skin._playback.get_current_node() == &"spell",
 			"I 咏唱中动画树活动状态=spell（槽位已接）")
 	await _frames(40)
 	_check(_bodies() >= 4, "I 跑动起手同样到点出手")
+	_mark_done()
+
+
+func _mark_done() -> void:
+	_finished = true

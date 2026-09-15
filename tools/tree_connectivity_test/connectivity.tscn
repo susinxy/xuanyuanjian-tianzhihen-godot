@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/tree_connectivity_test/connectivity.gd" id="1_conn"]
+
+[node name="TreeConnectivity" type="Node"]
+script = ExtResource("1_conn")
