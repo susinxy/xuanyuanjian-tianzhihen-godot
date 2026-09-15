@@ -1,12 +1,9 @@
-[gd_resource type="Resource" script_class="SpellDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="SpellDefinition" format=3 uid="uid://dc31bxaech8is"]
 
-[ext_resource type="Script" path="res://spells/_base/spell_definition.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://kec2mjg6vctf" path="res://spells/_base/spell_definition.gd" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
 spell_id = &"fire_ball"
 display_name = "火球术"
-description = ""
-mana_cost = 0.0
-max_lifetime = 5.0
-cooldown = 0.0
+caster_cast_time = 0.8

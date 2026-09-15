@@ -80,7 +80,11 @@ func enter(msg: = {}) -> void:
 	if _skin.has_anim_state(_skin_state):
 		_skin.transition_to(_skin_state)
 	else:
+		# 降级契约：无施法动画槽时显式切回待机——若放任不管，动画树会残留在
+		# 施法前的最后一站（跑动中起手=腿在 run 循环、人已定身，2026-09-15 观察）。
 		_warn_missing_anim()
+		if _skin.has_anim_state(&"idle"):
+			_skin.transition_to(&"idle")
 
 
 func unhandled_input(_event: InputEvent) -> void:

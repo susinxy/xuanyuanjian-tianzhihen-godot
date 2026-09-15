@@ -139,3 +139,22 @@ func _main_flow() -> void:
 			last = b
 	_check(last != null and last.direction == Vector2.UP,
 			"四向出手：朝上施法法术体向上飞（实际=%s）" % (last.direction if last else null))
+	
+	# ── I：跑动中起手的降级观感——无 spell 槽时必须切待机，不得残留 run ──
+	var sprite = _chen._skin.find_child("AnimatedSprite2D", true, false)
+	Input.action_press("move_right")
+	var running := false
+	for _i in 20:
+		await get_tree().physics_frame
+		if "run" in String(sprite.animation):
+			running = true
+			break
+	_check(running, "I 前置：跑动动画已就位（实际=%s）" % sprite.animation)
+	_chen.channel.press("spell_1")
+	await _frames(2)
+	Input.action_release("move_right")
+	_check(_state() == "Ground/Cast", "I 跑动中起手成功转 Cast")
+	var anim_now := String(sprite.animation)
+	_check("run" not in anim_now, "I 降级不留残影：咏唱中动画非 run（实际=%s）" % anim_now)
+	await _frames(40)
+	_check(_bodies() >= 4, "I 跑动起手同样到点出手")
