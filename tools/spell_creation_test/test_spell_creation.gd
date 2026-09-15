@@ -82,6 +82,10 @@ func _initialize():
 	_check(deleter.delete_spell(TMP_NAME), "删除产物成功")
 	_check(not DirAccess.dir_exists_absolute(DIR), "产物目录已移除")
 	
+	# ── 库存守卫：全仓"不该有镜像覆盖标签"的文件确实干净（编辑器旧内存回写防复发） ──
+	var dirty := _scan_forced_mirror_tags()
+	_check(dirty.is_empty(), "无文件被重新写回错误镜像标签（脏=%s）" % dirty)
+	
 	print("════════ spell-creation: %d PASS / %d FAIL ════════" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
 
@@ -92,3 +96,25 @@ func _check(ok: bool, label: String) -> void:
 	else:
 		_fail += 1
 	print("  %s: %s" % ["PASS" if ok else "FAIL", label])
+
+
+func _scan_forced_mirror_tags() -> Array[String]:
+	var bad: Array[String] = []
+	for root in ["res://characters", "res://spells"]:
+		var stack: Array = [root]
+		while not stack.is_empty():
+			var dir_path: String = stack.pop_back()
+			var d := DirAccess.open(dir_path)
+			if d == null:
+				continue
+			d.list_dir_begin()
+			var f := d.get_next()
+			while not f.is_empty():
+				var full := dir_path.path_join(f)
+				if d.current_is_dir():
+					stack.append(full)
+				elif f in ["spell.tres", "active_up.tres", "active_down.tres"]:
+					if "mirrored_name" in FileAccess.get_file_as_string(full):
+						bad.append(full)
+				f = d.get_next()
+	return bad

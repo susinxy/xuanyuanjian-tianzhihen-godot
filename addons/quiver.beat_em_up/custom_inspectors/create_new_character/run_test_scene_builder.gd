@@ -100,3 +100,272 @@ static func inject_actor(
 	if debug_pos != -1:
 		return out.left(debug_pos + 1) + actor_block + out.substr(debug_pos + 1)
 	return out + "\n" + actor_block
+
+
+## Run Test 场景底版（角色测试与法术测试共用唯一真相，2026-09-15 产线统一迁入）。
+## 2.5D 碰撞约束：所有物理碰撞用 CapsuleShape2D（radius=20）旋转 90° 水平放置，
+## 物体底部贴 ground_level 线（Y=500，position.y=480 因半径 20），地面仅可视化。
+## tokens：{{CHAR_PATH}}（主角场景）、{{CHAR_NAME}}（显示名）。
+## 法术侧差异一律走 add_spell_test_kit()，禁止复制第二份底版（历史上两份模板
+## 漂移出"发令台漏装/数据窗口缺席"等多起事故）。
+static func base_scene_text() -> String:
+	return """[gd_scene load_steps=20 format=3]
+
+[ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
+[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
+[ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
+[ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
+[ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
+[ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
+[ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
+[ext_resource type="Script" path="res://scripts/shadow_region.gd" id="13_shadow_region"]
+
+[sub_resource type="CapsuleShape2D" id="short_wall_shape"]
+radius = 20.0
+height = 60.0
+
+[sub_resource type="CapsuleShape2D" id="tall_wall_shape"]
+radius = 20.0
+height = 60.0
+
+[sub_resource type="CapsuleShape2D" id="platform_shape"]
+radius = 20.0
+height = 300.0
+
+[sub_resource type="RectangleShape2D" id="ground_shape"]
+size = Vector2(8000, 200)
+
+[sub_resource type="Resource" id="SceneTimeData_test"]
+script = ExtResource("12_scene_time_data")
+
+[sub_resource type="Gradient" id="Gradient_lantern"]
+colors = PackedColorArray(1, 0.8, 0.4, 1, 1, 0.5, 0.2, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_lantern"]
+gradient = SubResource("Gradient_lantern")
+width = 256
+height = 256
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0)
+
+[node name="TestStage" type="Node2D"]
+
+[node name="Background" type="CanvasLayer" parent="."]
+script = ExtResource("9_debug_bg")
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(2000, 600)
+collision_layer = 16384
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("ground_shape")
+
+[node name="Character" parent="." instance=ExtResource("1_character")]
+position = Vector2(200, 480)
+
+[node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
+offset = Vector2(0, -80)
+zoom = Vector2(0.85, 0.85)
+limit_left = 0
+limit_top = -500
+limit_right = 6000
+limit_bottom = 1000
+
+[node name="ShortWall" type="StaticBody2D" parent="."]
+position = Vector2(1000, 480)
+collision_layer = 16384
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ShortWall"]
+rotation = 1.5708
+shape = SubResource("short_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="ShortWall"]
+offset_left = -30.0
+offset_top = -140.0
+offset_right = 30.0
+offset_bottom = 20.0
+color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="Label" type="Label" parent="ShortWall"]
+offset_left = -40.0
+offset_top = -100.0
+offset_right = 40.0
+offset_bottom = -80.0
+text = "矮墙 160px"
+horizontal_alignment = 1
+
+[node name="TallWall" type="StaticBody2D" parent="."]
+position = Vector2(2400, 480)
+collision_layer = 16760832
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TallWall"]
+rotation = 1.5708
+shape = SubResource("tall_wall_shape")
+
+[node name="Visual" type="ColorRect" parent="TallWall"]
+offset_left = -30.0
+offset_top = -380.0
+offset_right = 30.0
+offset_bottom = 20.0
+color = Color(0.7, 0.3, 0.3, 1)
+
+[node name="Label" type="Label" parent="TallWall"]
+offset_left = -40.0
+offset_top = -220.0
+offset_right = 40.0
+offset_bottom = -200.0
+text = "高墙 400px"
+horizontal_alignment = 1
+
+[node name="Platform" type="StaticBody2D" parent="."]
+position = Vector2(1700, 480)
+collision_layer = 262144
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform"]
+rotation = 1.5708
+shape = SubResource("platform_shape")
+
+[node name="Visual" type="ColorRect" parent="Platform"]
+offset_left = -150.0
+offset_top = -20.0
+offset_right = 150.0
+offset_bottom = 20.0
+color = Color(0.3, 0.7, 0.5, 1)
+
+[node name="Label" type="Label" parent="Platform"]
+offset_left = -60.0
+offset_top = -40.0
+offset_right = 60.0
+offset_bottom = -20.0
+text = "悬空平台"
+horizontal_alignment = 1
+
+[node name="DebugLabel" type="Label" parent="."]
+offset_left = 10.0
+offset_top = 270.0
+offset_right = 500.0
+offset_bottom = 510.0
+text = "=== 2.5D 高度层 + 昼夜测试 ===
+
+操作: WASD 移动, Space 跳跃, J 攻击\n1-4 法术(已学) | 5-8 昼夜相位 | O 光照覆盖 | Enter 敌人进攻
+
+高度层测试:
+1. 跳跃穿过矮墙 (160px)
+2. 钻过悬空平台
+3. 撞击高墙 (400px)
+4. 攻击敌人 / 被敌人攻击
+
+昼夜测试:
+5/6/7/8 → 切换 DAWN/DAY/DUSK/NIGHT
+O → 应用 3 秒光照覆盖（Boss 战变暗）
+
+阴影测试:
+L → 开/关软边(P2)
+T → 开/关阴影区域(绿框)
+走出绿框边界: 阴影被裁剪 / 出界无影
+
+观察: 角色阴影方向平滑过渡, 灯笼 DUSK/NIGHT 点亮
+
+AI 发令: Enter → 敌人开始行动/暂停（摆位复测用）"
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+
+[node name="DirectionalLight2D" type="DirectionalLight2D" parent="."]
+shadow/enabled = false
+rotation = -0.7853982
+
+[node name="DayNightController" type="Node" parent="."]
+script = ExtResource("10_day_night_ctrl")
+scene_time_data = SubResource("SceneTimeData_test")
+canvas_modulate_path = NodePath("../CanvasModulate")
+directional_light_path = NodePath("../DirectionalLight2D")
+point_lights_paths = Array[NodePath]([NodePath("../Lantern1"), NodePath("../Lantern2")])
+
+[node name="Lantern1" type="PointLight2D" parent="."]
+position = Vector2(400, 280)
+scale = Vector2(2, 2)
+enabled = false
+color = Color(1, 0.8, 0.5, 1)
+energy = 0.8
+texture = SubResource("GradientTexture2D_lantern")
+
+[node name="Lantern2" type="PointLight2D" parent="."]
+position = Vector2(1600, 280)
+scale = Vector2(2, 2)
+enabled = false
+color = Color(1, 0.8, 0.5, 1)
+energy = 0.8
+texture = SubResource("GradientTexture2D_lantern")
+
+[node name="DebugDayNightInput" type="Node" parent="."]
+script = ExtResource("11_debug_dn_input")
+
+[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_debug_overlay")
+character_path = NodePath("../Character")
+
+[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("6_knockout_overlay")
+character_path = NodePath("../Character")
+
+[node name="ShadowRegion" type="ReferenceRect" parent="."]
+script = ExtResource("13_shadow_region")
+position = Vector2(50, 400)
+size = Vector2(900, 300)
+debug_preview = true
+
+"""
+
+
+## 法术测试套件：底版之上只做三件事——
+##  1) 挂"法术注入脚本"节点（教 slot1 被测法术）+ 法术调试面板（左上角大面板）；
+##  2) 两个数据窗口让位到屏幕右列（x=845，宽 300），避让 820 宽的法术面板；
+##  3) 帮助文本标注被测法术。
+## 其余部件（昼夜/墙台/灯笼/阴影/发令台/相机）与角色测试场景**完全同源**。
+static func add_spell_test_kit(content: String, spell_name: String, helper_script_path: String) -> String:
+	var out := content
+	# ext 区追加（插到首个 sub_resource/node 之前，与 inject_actor 同规则）
+	var ext_lines := "[ext_resource type=\"Script\" path=\"res://scripts/debug_spell_test_overlay.gd\" id=\"7_spell_overlay\"]\n"
+	ext_lines += "[ext_resource type=\"Script\" path=\"" + helper_script_path + "\" id=\"5_test_helper\"]\n\n"
+	var insert_at := out.find("[sub_resource")
+	if insert_at == -1:
+		insert_at = out.find("[node")
+	out = out.left(insert_at) + ext_lines + out.substr(insert_at)
+	# load_steps 同步 +2
+	var rx := RegEx.new()
+	rx.compile("(?m)^\\[gd_scene load_steps=(\\d+)")
+	var m := rx.search(out)
+	if m != null:
+		out = out.replace(m.get_string(0), "[gd_scene load_steps=%d" % (int(m.get_string(1)) + 2))
+	# helper 节点：插到被测角色（Character）块尾、LevelCamera 之前
+	var anchor := "position = Vector2(200, 480)\n\n[node name=\"LevelCamera\""
+	assert(out.contains(anchor))
+	out = out.replace(anchor,
+			"position = Vector2(200, 480)\n\n"
+			+ "[node name=\"TestSpellHelper\" type=\"Node\" parent=\"Character\"]\n"
+			+ "script = ExtResource(\"5_test_helper\")\n\n"
+			+ "[node name=\"LevelCamera\"")
+	# 法术调试面板 + 高度窗口右列避让（同一锚点一次完成）
+	var h_anchor := "[node name=\"DebugHeightOverlay\" type=\"CanvasLayer\" parent=\".\"]\n" \
+			+ "script = ExtResource(\"3_debug_overlay\")\n" \
+			+ "character_path = NodePath(\"../Character\")"
+	assert(out.contains(h_anchor))
+	out = out.replace(h_anchor,
+			"[node name=\"DebugOverlay\" type=\"CanvasLayer\" parent=\".\"]\n"
+			+ "layer = 10\nscript = ExtResource(\"7_spell_overlay\")\n"
+			+ "player_path = NodePath(\"../Character\")\n"
+			+ "enemy_path = NodePath(\"../Enemy\")\n\n"
+			+ h_anchor + "\npanel_position = Vector2(845, 10)\npanel_width = 300.0")
+	var k_anchor := "[node name=\"DebugKnockoutOverlay\" type=\"CanvasLayer\" parent=\".\"]\n" \
+			+ "script = ExtResource(\"6_knockout_overlay\")\n" \
+			+ "character_path = NodePath(\"../Character\")"
+	assert(out.contains(k_anchor))
+	out = out.replace(k_anchor, k_anchor
+			+ "\npanel_position = Vector2(845, 270)\npanel_width = 300.0")
+	# 帮助文本：标题与被测法术键位
+	out = out.replace("=== 2.5D 高度层 + 昼夜测试 ===",
+			"=== 法术测试: " + spell_name + "（角色底版 + slot1 注入） ===")
+	out = out.replace("1-4 法术(已学)", "1-4 法术(槽1=被测法术)")
+	return out

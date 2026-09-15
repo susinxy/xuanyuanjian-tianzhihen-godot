@@ -453,6 +453,9 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   陪练白打死，2026-09-15 迁入编排器根治）：场景就绪把
   场上所有 AI 档行为置 `active=false` 待命，**Enter** 开始/暂停（可反复，便于
   "摆位→再战"式复测）。它是 `active` 原语的第一个驱动者，测试台专属、正式关卡不挂。
+  **底版统一（2026-09-15）**：角色/法术测试场景共用 `QuiverRunTestSceneBuilder.base_scene_text()`
+  唯一模板，法术差异全部经 `add_spell_test_kit()` 注入（改 Run Test 布局=只改底版一处；
+  数据窗口在法术场景被挤到右列 x=845 避让法术面板）。
   键位避让备忘：1-4=法术（InputMap spell_1..4），5-8=昼夜相位调试（原 1-4，2026-09 让位），O=光照覆盖，T=阴影区域，L=软边，J/Space/WASD=战斗，Enter=AI 发令台。
 - **正式验证角色（内容资产，进 git）**：`characters/enemies/spar_enemy/`（AI 档，
   默认小抄：歇→追→三连段；Run Test 玩家场景的常驻陪练——删除它会改变测试场景编排，

@@ -10,7 +10,7 @@
 | 模板创建 | 纯模板复制+token（单一权威） | **已改同款**：删除全部内嵌字符串（spell_creator 600→266 行），动画六件套物化进 `spells/_template/resources/animations/` 原样复制 | ✅ 同构 |
 | 轮廓转换 | Body+Attack 两模式 | Attack 模式（同 widget 复用，仅隐藏 Body 按钮）；**体检门槛已参数化**（按皮肤类型分线：角色 attack*/air_attack* ↔ 法术 active*，期望方法轨名随线切换） | ✅ 字节级同源 |
 | PNG 缩放/账本 | 在用（chen master+账本） | 同源工具可用未启用（挂账 T4） | ✅ |
-| Run Test 场景 | compose 统一编排 | 同 compose；**补齐高度层/击倒两数据窗口**；`tools/test_scene_parity` 功能对等清单强制（必备件双方齐、单侧件显式豁免登记，新部件漏登记=红灯） | ✅ |
+| Run Test 场景 | **底版统一（同日追加）**：完整场景模板从角色插件迁入 `QuiverRunTestSceneBuilder.base_scene_text()` 为唯一真相；法术测试场景 = 底版 + `add_spell_test_kit()`（helper 节点/法术面板/数据窗口右列避让/帮助文本标注）；两份模板各写一份的历史终结，`test_scene_parity` 升级为「法术侧=角色侧节点超集+ 套件独有件在位」断言 | ✅ 结构性根治 |
 
 ## 二、六颗雷处置
 

@@ -74,78 +74,7 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 		push_error("[SpellTest] Spell definition not found: %s" % spell_definition_path)
 		return
 	
-	var test_scene_template = """[gd_scene load_steps=12 format=3]
-
-[ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
-[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
-[ext_resource type="Script" path="" id="5_test_helper"]
-[ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
-[ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
-[ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_height_overlay"]
-[ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="4_knock_overlay"]
-
-[sub_resource type="RectangleShape2D" id="ground_shape"]
-size = Vector2(8000, 200)
-
-[node name="TestSpellStage" type="Node2D"]
-
-[node name="Background" type="CanvasLayer" parent="."]
-script = ExtResource("9_debug_bg")
-top_color = Color(0.04, 0.04, 0.05, 1)
-bottom_color = Color(0.16, 0.16, 0.18, 1)
-
-[node name="Ground" type="StaticBody2D" parent="."]
-position = Vector2(2000, 600)
-collision_layer = 16384
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
-shape = SubResource("ground_shape")
-
-[node name="Character" parent="." instance=ExtResource("1_character")]
-position = Vector2(200, 480)
-
-[node name="TestSpellHelper" type="Node" parent="Character"]
-
-[node name="LevelCamera" parent="Character" instance=ExtResource("2_camera")]
-offset = Vector2(0, -80)
-zoom = Vector2(0.85, 0.85)
-limit_left = 0
-limit_top = -500
-limit_right = 6000
-limit_bottom = 1000
-
-[node name="DebugLabel" type="Label" parent="."]
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 600.0
-offset_bottom = 200.0
-text = "=== 法术测试 ===
-
-角色: {{CHAR_NAME}}
-法术: {{SPELL_NAME}}
-
-操作:
-  WASD - 移动
-  Space - 跳跃
-  J - 攻击
-  1 - 施放法术
-
-按 ESC 退出测试"
-
-[node name="DebugOverlay" type="CanvasLayer" parent="."]
-layer = 10
-script = ExtResource("7_debug_overlay")
-player_path = NodePath("../Character")
-enemy_path = NodePath("../Enemy")
-
-[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
-script = ExtResource("3_height_overlay")
-character_path = NodePath("../Character")
-
-[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
-script = ExtResource("4_knock_overlay")
-character_path = NodePath("../Character")
-"""
+	# 测试场景 = 角色底版 + 法术套件（单一底版，见 QuiverRunTestSceneBuilder）
 	
 	var helper_script_content = """extends Node
 
@@ -183,27 +112,15 @@ func _teach():
 		DirAccess.make_dir_recursive_absolute("res://test_scenes")
 	var helper_written := _write_if_changed(helper_script_path, helper_script_content)
 	
-	# Replace tokens in test scene
-	var test_scene_content = test_scene_template\
-		.replace("{{CHAR_PATH}}", character_scene_path)\
-		.replace("{{CHAR_NAME}}", char_name)
-	# 单壳编排：注入默认对手 spar_enemy（存在时），旧 enemy 块保险剥离
+	# 装配：角色底版 → 法术套件（helper+面板+右列避让） → 统一编排 compose
+	var test_scene_content := QuiverRunTestSceneBuilder.base_scene_text()\
+			.replace("{{CHAR_PATH}}", character_scene_path)\
+			.replace("{{CHAR_NAME}}", char_name)
+	test_scene_content = QuiverRunTestSceneBuilder.add_spell_test_kit(
+			test_scene_content, spell_name, helper_script_path)
 	var subject_mode := QuiverRunTestSceneBuilder.scene_behavior_mode(character_scene_path)
 	test_scene_content = QuiverRunTestSceneBuilder.compose(
-			test_scene_content, character_scene_path, subject_mode)\
-		.replace("{{SPELL_NAME}}", spell_name)
-	
-	# Update the helper script ext_resource path
-	test_scene_content = test_scene_content.replace(
-		'[ext_resource type="Script" path="" id="5_test_helper"]',
-		'[ext_resource type="Script" path="' + helper_script_path + '" id="5_test_helper"]'
-	)
-	
-	# Attach the script to TestSpellHelper node
-	test_scene_content = test_scene_content.replace(
-		'[node name="TestSpellHelper" type="Node" parent="Character"]',
-		'[node name="TestSpellHelper" type="Node" parent="Character"]\nscript = ExtResource("5_test_helper")'
-	)
+			test_scene_content, character_scene_path, subject_mode)
 	var scene_written := _write_if_changed(test_scene_path, test_scene_content)
 	if helper_written == false and scene_written == false:
 		EditorInterface.play_custom_scene(test_scene_path)

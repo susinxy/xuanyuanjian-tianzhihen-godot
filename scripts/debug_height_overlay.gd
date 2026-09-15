@@ -4,6 +4,9 @@ extends CanvasLayer
 ## 注意：不要用节点对象引用型导出——文本形式赋 NodePath 时引擎不会
 ## 转换成节点引用（实测恒为 null，2026-09-15 复盘），一律 NodePath + get_node。
 @export var character_path: NodePath = NodePath("../Character")
+## 面板落位与宽度（导出：法术测试场景把窗口挤到右列避让法术大面板，2026-09-15）
+@export var panel_position := Vector2(10, 10)
+@export var panel_width := 350.0
 
 ## 运行时解析结果（_ready 填充；解析不到则走自动兜底）
 var character: CharacterBody2D
@@ -49,8 +52,8 @@ func _auto_find_character() -> void:
 
 func _create_panel() -> void:
 	_panel = Panel.new()
-	_panel.position = Vector2(10, 10)
-	_panel.size = Vector2(350, 480)
+	_panel.position = panel_position
+	_panel.size = Vector2(panel_width, 480)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.7)
 	style.border_color = Color(0.5, 0.8, 1.0, 0.8)
@@ -194,7 +197,6 @@ func _auto_resize_panel() -> void:
 	var line_height: float = font_size * 1.6
 	var padding: float = 20.0
 	var required_height: float = line_count * line_height + padding * 2.0
-	var panel_width := 350.0
 	_panel.size = Vector2(panel_width, required_height)
 	_label.size = Vector2(panel_width - padding * 2.0, required_height - padding * 2.0)
 

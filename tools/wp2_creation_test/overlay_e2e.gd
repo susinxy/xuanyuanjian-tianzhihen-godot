@@ -7,25 +7,16 @@ extends Node
 ## 一直靠"自动找第一个角色"兜底——表现为"测怪物却显示 chen"。
 ## 运行：godot --headless --path . res://tools/wp2_creation_test/overlay_e2e.tscn
 
-const PLUGIN := "res://addons/quiver.beat_em_up/custom_inspectors/create_new_character/inspector_plugin.gd"
 const SUBJECT := "res://characters/enemies/spar_enemy/spar_enemy.tscn"
 
 
 func _ready() -> void:
 	var fails := 0
 	
-	var rx := RegEx.new()
-	rx.compile("(?s)var test_scene_template = \"\"\"(.*?)\"\"\"")
-	var mm := rx.search(FileAccess.get_file_as_string(PLUGIN))
-	var gen := ""
-	if mm != null:
-		gen = mm.get_string(1)
-		gen = gen.replace("{{CHAR_NAME}}", "spar_enemy")
-		gen = gen.replace("{{CHAR_PATH}}", "res://characters/playable/chen/chen.tscn")
-		gen = QuiverRunTestSceneBuilder.compose(gen, SUBJECT, 1)
-	else:
-		print("  FAIL: 模板提取失败")
-		fails += 1
+	var gen := QuiverRunTestSceneBuilder.base_scene_text()
+	gen = gen.replace("{{CHAR_NAME}}", "spar_enemy")
+	gen = gen.replace("{{CHAR_PATH}}", "res://characters/playable/chen/chen.tscn")
+	gen = QuiverRunTestSceneBuilder.compose(gen, SUBJECT, 1)
 	
 	var uf := FileAccess.open("user://overlay_e2e.tscn", FileAccess.WRITE)
 	uf.store_string(gen)

@@ -152,19 +152,15 @@ func _configure_animation_properties() -> void:
 	if not is_inside_tree():
 		await ready
 	
-	if not animation.has_meta(META_MIRRORED_NAME):
+	# 只读面板：缺元数据时仅在输入框给出"建议目标"，**不再向资源写 meta**——
+	# 查看资源即改资源会导致旧内存回写把删过的错误标签复活（2026-09-15 事故）
+	if animation.has_meta(META_MIRRORED_NAME):
+		_line_edit.text = animation.get_meta(META_MIRRORED_NAME)
+	else:
 		var file_name := animation.resource_path.get_file()
 		var extension := ".%s"%[animation.resource_path.get_extension()]
-		var anim_name := file_name.replace(extension, "")
-		var mirrored_name := _get_mirrored_name(anim_name) + extension
-		animation.set_meta(META_MIRRORED_NAME, mirrored_name)
-	
-	_line_edit.text = animation.get_meta(META_MIRRORED_NAME)
-	
-	if not animation.has_meta(META_OVERWRITE):
-		animation.set_meta(META_OVERWRITE, _check_box.button_pressed)
-	
-	_check_box.button_pressed = animation.get_meta(META_OVERWRITE)
+		_line_edit.text = _get_mirrored_name(file_name.replace(extension, "")) + extension
+	_check_box.button_pressed = bool(animation.get_meta(META_OVERWRITE)) if animation.has_meta(META_OVERWRITE) else false
 
 
 func _get_mirrored_name(anim_name: String) -> String:
