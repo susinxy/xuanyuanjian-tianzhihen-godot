@@ -96,7 +96,6 @@ func _on_character_test_requested(char_name: String, pkg: String = "playable") -
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
 [ext_resource type="Script" path="res://scripts/day_night/scene_time_data.gd" id="12_scene_time_data"]
 [ext_resource type="Script" path="res://scripts/shadow_region.gd" id="13_shadow_region"]
-[ext_resource type="Script" path="res://scripts/debug_ghost_probe.gd" id="14_ghost_probe"]
 
 [sub_resource type="CapsuleShape2D" id="short_wall_shape"]
 radius = 20.0
@@ -243,9 +242,7 @@ L → 开/关软边(P2)
 T → 开/关阴影区域(绿框)
 走出绿框边界: 阴影被裁剪 / 出界无影
 
-观察: 角色阴影方向平滑过渡, 灯笼 DUSK/NIGHT 点亮
-
-[GHOST-PROBE] 诊断输出：如出现幽灵请全选控制台并搜该前缀复制上报"
+观察: 角色阴影方向平滑过渡, 灯笼 DUSK/NIGHT 点亮"
 
 [node name="CanvasModulate" type="CanvasModulate" parent="."]
 
@@ -292,9 +289,6 @@ script = ExtResource("13_shadow_region")
 position = Vector2(50, 400)
 size = Vector2(900, 300)
 debug_preview = true
-
-[node name="GhostProbe" type="Node" parent="."]
-script = ExtResource("14_ghost_probe")
 """
 	
 	# 被测角色是玩家档（behavior_mode=0）时：它是主角，敌人位保留旧 enemy 占位
