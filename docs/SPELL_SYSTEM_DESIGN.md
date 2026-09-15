@@ -124,12 +124,19 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
 
 ### 2.5 阵营系统
 
-**决策：继承施放者所有 group**
+**决策：继承施放者所有 group**（2026-09-15 契约修复后才真正成立）
 
 - 法术被施放时继承施放者的所有 group（包括 `area2d:` faction group）
 - 法术的 HitBox 与施放者同阵营，不会伤害施放者及其队友
 - 通过 `QuiverHurtBox.are_factions_equal()` 自动过滤（只检查 `area2d:` 前缀）
-- 复制所有 group 比只复制 `area2d:` 前缀更简单，且无副作用（`are_factions_equal()` 只关心 faction group）
+- **实现要点**（旧版三个静默失效点，实测复盘）：
+  1. 阵营组挂在角色各战斗 Area2D（皮肤内）上，**CharacterBody2D 根节点没有**——
+     只复制 `caster.get_groups()` 拿不到 `area2d:`；须扫描施法者后代
+     （`find_children("*", "", true)`；`get_children(true)` 的参数是"含内部节点"不是递归！）
+  2. 给 hitbox 运行时加阵营组必须走 `hitbox.add_faction_group()`：typed 调用会绕过
+     `add_to_group` 的脚本 override，缓存不刷新（阵营检查读缓存）→ 法术自伤
+  3. 复制时机在 `spell.cast()`（add_child 之后的同一同步调用内），早于首次
+     物理查询刷出 area_entered，缓存竞态安全
 
 ### 2.6 轮廓转换工具
 
@@ -284,6 +291,10 @@ extends Resource
 ## 冷却时间（秒，0 = 无 CD）
 ## 施放后需要等待此时间才能再次施放
 @export var cooldown: float = 0.0
+
+## 施法时长（秒）：施法者以循环动画"spell"施法，锁满此时长后才释放法术体；
+## 0 = 无施法动作瞬发（旧行为，向后兼容）。动画缺失时仍锁满时长（节奏一致）
+@export var caster_cast_time: float = 0.0
 
 ## 允许施放的动作状态列表（白名单，为空时不做白名单检查）
 @export var allowed_states: Array[StringName] = []

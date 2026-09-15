@@ -85,6 +85,23 @@
   headless 实测逼近 450→90px 并打出伤害）与 `street_vendor`（被动站桩）入库
 - headless 断言 71 项全绿（17+30+6+13+5）；详见 `docs/PLUGIN_ARCHITECTURE.md` 5.0
 
+### 法术键权与施法动作（2026-09-15）✅
+
+- **键权修复**：光照调试相位键 1-4→5-8，数字键 1-4 只属法术；法术测试助手
+  重构为"注入脚本"（只教给被测角色，单消费者），并留引擎级双消费者回归锁
+- **施法动作系统**：`SpellDefinition.caster_cast_time`（循环动画锁时长、到点出手、
+  0=瞬发向后兼容）+ 游戏层自定义状态 `QuiverActionCast`（攻击同款骨架无连段，
+  chen/模板均已挂，新角色出生即有）+ 法力起手扣、打断不退还 + 空中拒施
+- **契约测试顺带挖出并修复三个存量静默 bug**：
+  1. 状态白/黑名单拿全路径比短名（死亡免施禁令从未生效）→ 改任意段匹配
+  2. 法术从未真正继承施法者阵营（根节点无 area2d 组 + typed 调用绕过
+     add_to_group override 双重原因）→ 后代扫描 + 插件公开
+     `add_faction_group()`；表现为法术贴身自伤施法者
+  3. 出手方向/体型读取硬走 `get_node("Skin")` 路径（chen 实名 ChenSkin）→
+     恒默认右 → 改 `_skin` 公开引用，并升级四向出手（上/下/左/右同攻击）
+- 详见 docs/SPELL_CAST_PLAN.md、docs/SPELL_SYSTEM_DESIGN.md 阵营修订、PLUGIN_CHANGES.md
+- **遗留**：cast 美术帧未产出（机制已即插即用，缺失期降级为无动画锁时长）
+
 ## 后续开发路线
 
 1. ~~重新建立 chen 角色~~ ✅ 已完成

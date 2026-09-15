@@ -48,13 +48,24 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	if caster.get("attributes") != null:
 		caster_attributes = caster.attributes
 	
+	# 阵营身份必须完整跟随施法者：法术体的 hitbox 若无施法者的 area2d: 阵营组，
+	# 施法者自己的 HurtBox 会把贴身生成的法术当敌人打（实测 2026-09-15 契约测试）。
+	# 注意阵营组挂在角色各战斗 Area2D（皮肤内）上，CharacterBody2D 根节点未必有，
+	# 因此除复制根组外，还要扫描后代 Area2D 收集 area2d: 前缀组。
+	var faction_groups := _collect_caster_faction_groups(caster)
+	
 	for group in caster.get_groups():
+		add_to_group(group)
+	for group in faction_groups:
 		add_to_group(group)
 	
 	if _skin:
 		for hitbox in _skin.hitboxes:
 			for group in caster.get_groups():
 				hitbox.add_to_group(group)
+			for group in faction_groups:
+				# 必须走显式刷新入口：typed 调用绕过 add_to_group 的脚本 override
+				hitbox.add_faction_group(group)
 			hitbox.character_attributes = caster_attributes
 	
 	if _skin:
@@ -70,6 +81,22 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	
 	if _skin and _skin._is_valid_state(&"active"):
 		_skin.transition_to(&"active")
+
+## 扫描施法者后代中的 Area2D，收集其 area2d: 前缀阵营组（去重）。
+## 注意：Node.get_children(true) 的参数是"含内部节点"而非递归（Godot 4 陷阱），
+## 递归遍历一律用 find_children("*", "", true)。
+static func _collect_caster_faction_groups(caster: Node) -> Array[String]:
+	var seen: Array[String] = []
+	for node in caster.find_children("*", "", true):
+		var area := node as Area2D
+		if area == null:
+			continue
+		for g in area.get_groups():
+			var gs := String(g)
+			if gs.begins_with("area2d:") and not seen.has(gs):
+				seen.append(gs)
+	return seen
+
 
 func _physics_process(delta: float) -> void:
 	if state != SpellState.ACTIVE:
@@ -139,8 +166,10 @@ func _on_hit(hurtbox: QuiverHurtBox) -> void:
 func get_spawn_offset(direction: Vector2) -> Vector2:
 	var char_height: float = 160.0
 	var char_width: float = 40.0
-	if caster and caster.get_node_or_null("Skin"):
-		var skin = caster.get_node_or_null("Skin")
+	# 修复：旧实现硬走 get_node("Skin") 路径，角色皮肤实名各异（如 ChenSkin），
+	# 取不到时静默用兜底尺寸（2026-09-15 契约测试牵出）。改读 QuiverCharacter._skin。
+	var skin = caster.get("_skin") if caster != null else null
+	if skin != null:
 		if skin.get("physical_height") != null:
 			char_height = skin.physical_height
 		if skin.get("physical_width") != null:
@@ -148,6 +177,11 @@ func get_spawn_offset(direction: Vector2) -> Vector2:
 	
 	var x_offset := (char_width * 0.5 + 30.0) * direction.x
 	var y_offset := -char_height * 0.6
+	# 四向出手：纵向再按方向抬升/压低出手点
+	if direction.y < 0.0:
+		y_offset -= char_height * 0.4
+	elif direction.y > 0.0:
+		y_offset += char_height * 0.2
 	return Vector2(x_offset, y_offset)
 
 func _on_ready() -> void:

@@ -45,7 +45,18 @@ func _ready() -> void:
 	_refresh_faction_cache()
 
 
+## 运行时加入阵营组并刷新缓存。**外部动态加 faction 组一律走本方法。**
+## 引擎陷阱（2026-09-15 实测）：GDScript 对"已知静态类型变量"的方法调用直连
+## Node 原生 add_to_group 绑定，**绕过**下方脚本层 override——只有 Variant
+## 动态调用才会进 override。依赖 override 刷新缓存会让 typed 调用点静默失效
+## （法术继承施法者阵营时踩中），故公开此显式刷新入口。
+func add_faction_group(group: StringName) -> void:
+	add_to_group(group)
+	_refresh_faction_cache()
+
+
 ## 重写 add_to_group：捕获运行时的 faction group 变更
+## （仅对 Variant 动态调用生效；typed 调用请改用 [method add_faction_group]）
 func add_to_group(group: StringName, persistent: bool = false) -> void:
 	super(group, persistent)
 	if str(group).begins_with(QuiverHurtBox.FACTION_PREFIX):

@@ -377,8 +377,9 @@ QuiverCharacter
   `channel.prune_stale_edges()` → `behavior.pre_physics(delta)`。父节点先于子节点
   执行，行为脚本写入的值在本物理帧内即可被状态机读到，不依赖场景树节点顺序。
 - **根脚本键**（法术 spell_1..4）：改在角色根脚本 `_physics_process` 轮询
-  `channel.just_pressed("spell_X")`（chen.gd / 模板 / 法术 Run Test helper 同）。
-  角色相关脚本不再有任何 `_unhandled_input` OS 听众。
+  `channel.just_pressed("spell_X")`（chen.gd / 模板同）。角色相关脚本不再有任何
+  `_unhandled_input` OS 听众。法术 Run Test 的注入脚本**不再轮询**（边沿读一次
+  即消费、父先子后必抢不过），只负责 `host.learn_spell()` 教给被测角色。
 - **运行时交接**：`QuiverCharacter.switch_behavior(mode)` 换挂行为（通道保留、
   旧操控者状态清零）。这是"剧情附身/队友接管"的接口位。
 - **行为总开关 `QuiverBehavior.active`（产品级原语）**：false 时该类行为停止一切
@@ -705,6 +706,23 @@ func physics_process(delta: float) -> void:
 
 硬直动画播放后返回 idle。支持两种硬直类型（HIGH 和 MID），通过 `_skin_state_high` / `_skin_state_mid` 配置。
 
+### 5.10 Cast 施法状态（游戏层自定义示范 `_beat_em_up/action_states/quiver_action_cast.gd`）
+
+"攻击的同款骨架去掉连段"：`QuiverCharacterAction` 子类，挂在角色场景
+`StateMachine/Ground` 下（chen.tscn 与模板 `__NAME__.tscn` 均已挂，`_skin_state=&"spell"`）。
+
+- **与攻击的差异**：施法动画是**循环**动画（永不自然播完），由
+  `SpellDefinition.caster_cast_time` 计时收尾；到点调用 SpellManager 投递的
+  `release` Callable 让法术体上场，再转 `_path_next_state`（默认 Ground/Move/Idle）。
+- **承诺制**：法力/冷却由 SpellManager 在**起手瞬间**扣除；咏唱中被打断
+  （Ground 现成 hurt/knockout 信号链）法术作废、不退还。
+- **输入窗口**：enter 关闭（`input_window_open=false`，攻击键无法把施法切走），
+  exit 重开；`transition_to` 程序转换不受窗口影响，打断照常。
+- **降级**：皮肤无 `spell` 动画槽时不播动画但**仍锁满时长**（节奏一致），
+  每个皮肤一次性 push_warning；美术补帧即自动生效（见 docs/SPELL_CAST_PLAN.md 阶段 2）。
+- **闸口**（SpellManager 侧）：咏唱中拒绝再起手；空中（Air 子树）拒绝起手；
+  `caster_cast_time=0` 或未挂 Cast 节点的角色维持旧瞬发行为（向后兼容）。
+
 ---
 
 ## 6. AI 状态机系统 (`characters/ai/`)
@@ -834,6 +852,11 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 **阵营过滤机制**（`area2d:` group）:
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
 - 缓存机制：`_faction_dict: Dictionary` 只缓存 `area2d:` 前缀的 group，使用 Dictionary 实现 O(1) 查找
+- **运行时动态加阵营组必须走 `add_faction_group(group)`**（HitBox/HurtBox 公开）：
+  引擎陷阱（2026-09-15 实测）——GDScript 对静态类型变量调用 Node 内建方法时直连
+  原生绑定，**绕过**脚本层的 `add_to_group` override，只靠 override 刷新缓存会让
+  typed 调用点静默失效（法术继承施法者阵营时踩中，表现为法术自伤施法者）。
+  类内自调用与 Variant 动态调用仍会触发 override，但外部一律只用 `add_faction_group`。
 - `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
 - 重写 `add_to_group()`/`remove_from_group()`，捕获运行时的 group 变更
 - 静态函数 `are_factions_equal(hit_box, hurt_box)`：两侧都使用 Dictionary 缓存，自动选择小集合遍历，回退到实时构建 Dictionary

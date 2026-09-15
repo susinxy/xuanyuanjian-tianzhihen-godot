@@ -255,6 +255,12 @@ func _is_valid_state(anim_state: StringName) -> bool:
 		push_error("Skin: %s | %s is not a valid animation state."%[name, anim_state])
 	return value
 
+
+## 公开只读查询：皮肤动画树里是否存在某个动画状态（无副作用、不报错）。
+## 供施法等动作状态做"动画缺失降级"判断；校验+报错通道仍用 _is_valid_state。
+func has_anim_state(anim_state: StringName) -> bool:
+	return anim_state in _animation_list
+
 ### -----------------------------------------------------------------------------------------------
 
 ###################################################################################################
