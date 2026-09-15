@@ -655,6 +655,10 @@ func _on_delete_pressed() -> void:
 	confirm_dialog.title = "Delete Character"
 	confirm_dialog.dialog_text = "确定删除角色 %s？此操作不可逆。" % char_data.name
 	confirm_dialog.confirmed.connect(_on_delete_confirmed.bind(char_data))
+	# 确认/取消两条路径都要销毁弹窗节点，否则每次点删除泄漏一个 ConfirmationDialog
+	# （对齐法术侧写法；queue_free 幂等，双信号不会二次释放）
+	confirm_dialog.confirmed.connect(confirm_dialog.queue_free)
+	confirm_dialog.canceled.connect(confirm_dialog.queue_free)
 	add_child(confirm_dialog)
 	confirm_dialog.popup_centered()
 

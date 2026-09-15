@@ -43,7 +43,7 @@ clip_text = true
 
 [node name="CheckBox" type="CheckBox" parent="OverwriteLine"]
 layout_mode = 2
-button_pressed = true
+button_pressed = false
 text = "Overwrite"
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]

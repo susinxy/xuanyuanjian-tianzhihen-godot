@@ -74,13 +74,15 @@ func _on_spell_test_requested(char_name: String, spell_name: String) -> void:
 		push_error("[SpellTest] Spell definition not found: %s" % spell_definition_path)
 		return
 	
-	var test_scene_template = """[gd_scene load_steps=10 format=3]
+	var test_scene_template = """[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="Script" path="" id="5_test_helper"]
 [ext_resource type="Script" path="res://scripts/debug_spell_test_overlay.gd" id="7_debug_overlay"]
 [ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
+[ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_height_overlay"]
+[ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="4_knock_overlay"]
 
 [sub_resource type="RectangleShape2D" id="ground_shape"]
 size = Vector2(8000, 200)
@@ -135,6 +137,14 @@ layer = 10
 script = ExtResource("7_debug_overlay")
 player_path = NodePath("../Character")
 enemy_path = NodePath("../Enemy")
+
+[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_height_overlay")
+character_path = NodePath("../Character")
+
+[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("4_knock_overlay")
+character_path = NodePath("../Character")
 """
 	
 	var helper_script_content = """extends Node

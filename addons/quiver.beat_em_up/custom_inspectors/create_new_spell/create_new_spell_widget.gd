@@ -316,6 +316,10 @@ func _refresh_spell_list() -> void:
 		_delete_dropdown.add_item(spell)
 		_test_spell_dropdown.add_item(spell)
 	
+	# OptionButton 在首个 add_item 时会自动选中 index 0，必须填充完后强制取消，
+	# 否则用户没选也有"当前项"，测试按钮会误点亮（对齐角色侧做法，2026-09-15 审计 L6）
+	_delete_dropdown.selected = -1
+	_test_spell_dropdown.selected = -1
 	_delete_btn.disabled = true
 	_delete_path_label.text = ""
 	_update_test_btn_state()
@@ -341,6 +345,7 @@ func _refresh_character_list() -> void:
 	for char_name in characters:
 		_test_char_dropdown.add_item(char_name)
 	
+	_test_char_dropdown.selected = -1
 	_update_test_btn_state()
 
 

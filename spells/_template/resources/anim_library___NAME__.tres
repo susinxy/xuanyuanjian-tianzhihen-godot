@@ -1,10 +1,14 @@
-[gd_resource type="AnimationLibrary" load_steps=3 format=3]
+[gd_resource type="AnimationLibrary" load_steps=5 format=3]
 
-[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_right.tres" id="1_ar"]
-[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_left.tres" id="2_al"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_right.tres" id="1_right"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_left.tres" id="2_left"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_up.tres" id="3_up"]
+[ext_resource type="Animation" path="res://spells/__NAME__/resources/animations/active_down.tres" id="4_down"]
 
 [resource]
 _data = {
-"active_left": ExtResource("2_al"),
-"active_right": ExtResource("1_ar")
+"active_down": ExtResource("4_down"),
+"active_left": ExtResource("2_left"),
+"active_right": ExtResource("1_right"),
+"active_up": ExtResource("3_up")
 }

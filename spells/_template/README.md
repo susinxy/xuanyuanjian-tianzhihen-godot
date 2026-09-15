@@ -56,12 +56,12 @@ spells/fire_ball/
 ├── fire_ball.gd                      # 法术主脚本
 ├── fire_ball_skin.gd                 # 法术皮肤脚本
 └── resources/
-    ├── animations/                   # 动画文件（由 Inspector 工具自动生成）
+    ├── animations/                   # 动画文件（模板真实文件，创建时原样复制——单权威）
     │   ├── animation_tree_root.tres
-    │   ├── active_right.tres
+    │   ├── active_right.tres         # 左右为合法镜像对（带 mirrored_name 元数据）
     │   ├── active_left.tres
-    │   ├── ending_right.tres
-    │   ├── ending_left.tres
+    │   ├── active_up.tres            # 上下为 right 的占位复制（**无**镜像元数据，
+    │   ├── active_down.tres          #   真帧同名覆盖；勿点镜像工具对 up/down）
     │   └── RESET.tres
     ├── attacks/                      # 攻击数据
     │   └── fire_ball_attack_data.tres
@@ -217,14 +217,17 @@ attack_heights = [100.0]  # 攻击高度偏移（相对于法术位置）
 
 ### 动画状态机结构
 
-法术的 AnimationTree 包含以下状态：
+法术的 AnimationTree 包含以下状态（2026-09-15 四向升级后现状）：
 
 ```
 AnimationNodeBlendTree (tree_root)
-└── state_machine (AnimationNodeStateMachine)
-    ├── active      → BlendSpace1D (active_left @ blend=-1, active_right @ blend=+1)
-    └── ending      → BlendSpace1D (ending_left @ blend=-1, ending_right @ blend=+1)
+└── StateMachine (AnimationNodeStateMachine)
+    └── active      → BlendSpace2D 四正点：
+                      right(1,0) / up(0,-1) / left(-1,0) / down(0,1)
 ```
+
+方向由 SpellBase.cast 传入（四正量化，同角色攻击）；上/下动画现为占位复制，
+美术真帧放 spells/<name>/resources/sprites/ 后走轮廓转换同名覆盖。
 
 ### 动画播放流程
 

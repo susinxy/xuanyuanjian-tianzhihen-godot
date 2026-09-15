@@ -18,6 +18,11 @@ const ERROR_FILE_EXISTS = (
 		"Target file already exists and overwriet is turned off.\n"
 		+ "Turn on Overwrite, or change the name of the animation to be saved."
 )
+const ERROR_FAMILY_MISMATCH = (
+		"目标文件与源动画不属同一镜像族系——疑似复制带来的错误 mirrored_name 元数据，已拒绝覆盖。\n"
+		+ "（只有同一动作的 left/right 互镜才允许覆盖既有文件，例如 attack1_right ↔ attack1_left）\n"
+		+ "请取消 Overwrite 勾选，或修正 Mirrored Name。"
+)
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -59,7 +64,13 @@ func _on_button_pressed() -> void:
 	var file_name := animation.get_meta(META_MIRRORED_NAME) as String
 	var new_path := folder.path_join(file_name)
 	
-	if ResourceLoader.exists(new_path) and not animation.get_meta(META_OVERWRITE):
+	var target_exists := ResourceLoader.exists(new_path)
+	var will_overwrite := target_exists and bool(animation.get_meta(META_OVERWRITE))
+	if will_overwrite and not _is_mirror_family(animation.resource_path.get_file(), file_name):
+		# 只有同一动作的 left/right 互镜才允许覆盖既有文件，防止复制带来的错误
+		# mirrored_name（如施法动画误指 attack1_left）毁掉无关动画（2026-09-15 审计 L1/L2）
+		_changed_report = ERROR_FAMILY_MISMATCH
+	elif target_exists and not animation.get_meta(META_OVERWRITE):
 		_changed_report = ERROR_FILE_EXISTS
 	else:
 		var new_animation := animation.duplicate() as Animation
@@ -95,6 +106,18 @@ func _is_mirrorable_property(property_name: String) -> bool:
 	if property_name.ends_with(":polygon"):
 		return true
 	return false
+
+
+## 源与目标是否同属一个左右镜像族系（剥去 left/right/mirrored 后骨架须一致）
+func _is_mirror_family(src_file: String, dst_file: String) -> bool:
+	return _mirror_family(src_file) == _mirror_family(dst_file)
+
+
+func _mirror_family(file_name: String) -> String:
+	var s := file_name.get_basename().to_lower()
+	for tok in ["_mirrored", "mirrored", "_left", "_right", "left", "right"]:
+		s = s.replace(tok, "")
+	return s
 
 
 func _mirror_track_values(p_animation: Animation, track_index: int, subpath: String) -> void:

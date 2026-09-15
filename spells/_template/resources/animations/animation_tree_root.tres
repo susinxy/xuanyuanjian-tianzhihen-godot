@@ -6,29 +6,42 @@ animation = &"__CLASS__/active_right"
 [sub_resource type="AnimationNodeAnimation" id="AnimNode_active_left"]
 animation = &"__CLASS__/active_left"
 
-[sub_resource type="AnimationNodeBlendSpace1D" id="BlendSpace_active"]
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_up"]
+animation = &"__CLASS__/active_up"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_down"]
+animation = &"__CLASS__/active_down"
+
+[sub_resource type="AnimationNodeBlendSpace2D" id="BlendSpace_active"]
 blend_point_0/node = SubResource("AnimNode_active_right")
-blend_point_0/pos = 0.1
+blend_point_0/pos = Vector2(1, 0)
 blend_point_0/name = &"0"
 blend_point_1/node = SubResource("AnimNode_active_left")
-blend_point_1/pos = -0.1
+blend_point_1/pos = Vector2(-1, 0)
 blend_point_1/name = &"1"
+blend_point_2/node = SubResource("AnimNode_active_up")
+blend_point_2/pos = Vector2(0, -1)
+blend_point_2/name = &"2"
+blend_point_3/node = SubResource("AnimNode_active_down")
+blend_point_3/pos = Vector2(0, 1)
+blend_point_3/name = &"3"
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_to_active"]
-advance_mode = 2
+[sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_active"]
+advance_mode = 1
 
-[sub_resource type="AnimationNodeStateMachine" id="StateMachine_main"]
-states/Start/position = Vector2(0, 0)
+[sub_resource type="AnimationNodeStateMachine" id="StateMachine"]
+states/Start/position = Vector2(100, 100)
 states/active/node = SubResource("BlendSpace_active")
-states/active/position = Vector2(300, 0)
-transitions = ["Start", "active", SubResource("Transition_start_to_active")]
+states/active/position = Vector2(300, 100)
+transitions = ["Start", "active", SubResource("Transition_start_active")]
 
-[sub_resource type="AnimationNodeTimeScale" id="TimeScale_main"]
+[sub_resource type="AnimationNodeTimeScale" id="TimeScale"]
 
 [resource]
-nodes/output/position = Vector2(600, 0)
-nodes/state_machine/node = SubResource("StateMachine_main")
-nodes/state_machine/position = Vector2(200, 0)
-nodes/time_scale/node = SubResource("TimeScale_main")
-nodes/time_scale/position = Vector2(400, 0)
+graph_offset = Vector2(-200, -50)
+nodes/output/position = Vector2(500, 100)
+nodes/state_machine/node = SubResource("StateMachine")
+nodes/state_machine/position = Vector2(0, 100)
+nodes/time_scale/node = SubResource("TimeScale")
+nodes/time_scale/position = Vector2(250, 100)
 node_connections = [&"output", 0, &"time_scale", &"time_scale", 0, &"state_machine"]

@@ -1474,7 +1474,10 @@ func _apply_static_defaults(skin_node: Node, static_defaults: Dictionary) -> voi
 ## 属节奏/手感设计，工具无权替创作者决定；报错让烘焙结果大声可见）
 ## 检查 1：缺 end_of_skin_animation 方法轨道 → 攻击状态机唯一出口失联，攻击无法结束
 ## 检查 2：所有 :disabled 轨道全天 true → 攻击盒永不激活，打不中人
-func _validate_attack_animation_structure(anim: Animation, anim_name: String, errors: Array[String]) -> void:
+func _validate_attack_animation_structure(anim: Animation, anim_name: String, errors: Array[String], is_spell: bool = false) -> void:
+	# 状态机出口的方法轨道名分产线：角色皮肤= end_of_skin_animation，
+	# 法术皮肤= end_of_spell_animation（SpellSkinAnimTree 定义）
+	var end_method := "end_of_spell_animation" if is_spell else "end_of_skin_animation"
 	var has_end_of_anim := false
 	var disabled_track_count := 0
 	var has_open_window := false
@@ -1482,7 +1485,7 @@ func _validate_attack_animation_structure(anim: Animation, anim_name: String, er
 		match anim.track_get_type(i):
 			Animation.TYPE_METHOD:
 				for k in range(anim.track_get_key_count(i)):
-					if String(anim.method_track_get_name(i, k)) == "end_of_skin_animation":
+					if String(anim.method_track_get_name(i, k)) == end_method:
 						has_end_of_anim = true
 			Animation.TYPE_VALUE:
 				if str(anim.track_get_path(i)).ends_with(":disabled"):
@@ -1491,11 +1494,11 @@ func _validate_attack_animation_structure(anim: Animation, anim_name: String, er
 						if anim.track_get_key_value(i, k) == false:
 							has_open_window = true
 	# air_* 豁免电话检查：QuiverActionJumpAttack 出口由 _end_condition 决定，
-	# 距离档（模板/chad/chen 现行配置）不需要这通电话
+	# 距离档（模板/chad/chen 现行配置）不需要这通电话；法术线无 air_* 分支
 	if not has_end_of_anim and not anim_name.begins_with("air_"):
-		errors.append("地面攻击动画 '%s' 缺 end_of_skin_animation 方法轨道——攻击状态将无法结束（参考同角色的 attack*_right 结构）" % anim_name)
+		errors.append("攻击动画 '%s' 缺 %s 方法轨道——攻击/施法状态将无法结束" % [anim_name, end_method])
 	if disabled_track_count > 0 and not has_open_window:
-		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 attack*_right 的开合窗口）" % anim_name)
+		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 *_right 的开合窗口）" % anim_name)
 
 
 ## Attack 转换专属审计（独立于注入循环，按动画名受理）：
@@ -1509,6 +1512,10 @@ func _audit_attack_animations(
 	skin_node: Node,
 	errors: Array[String]
 ) -> void:
+	# 受理名单按产线分岔：角色线动画名以 attack/air_attack 起头，法术线为 active
+	# （2026-09-15 审计：法术此前完全不进体检门，四向开合窗口结构无保护）。
+	var is_spell_skin := skin_node is SpellSkin
+	var prefixes: Array[String] = ["active"] if is_spell_skin else ["attack", "air_attack"]
 	for lib_name in anim_player.get_animation_library_list():
 		var library := anim_player.get_animation_library(lib_name)
 		if library == null:
@@ -1520,7 +1527,12 @@ func _audit_attack_animations(
 			var sprite_anim_name := _find_sprite_anim_name(anim)
 			if sprite_anim_name.is_empty():
 				continue
-			if not (sprite_anim_name.begins_with("attack") or sprite_anim_name.begins_with("air_attack")):
+			var accepted := false
+			for p in prefixes:
+				if sprite_anim_name.begins_with(p):
+					accepted = true
+					break
+			if not accepted:
 				continue
 			var has_window := false
 			for node_info in shape_nodes:
@@ -1535,7 +1547,7 @@ func _audit_attack_animations(
 			if not has_window:
 				errors.append("攻击动画 '%s' 没有任何攻击盒开盒声明（:disabled 轨道缺少 false 键），不会为其注入攻击数据——如确为攻击动作请补开合窗口轨道" % anim_name)
 				continue
-			_validate_attack_animation_structure(anim, anim_name, errors)
+			_validate_attack_animation_structure(anim, anim_name, errors, is_spell_skin)
 
 
 ## 清理非法注入的攻击数据（面板常驻功能）——按新受理标准删除历史污染：
