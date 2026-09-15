@@ -273,7 +273,7 @@ var id := DayNightManager.apply_lighting_override(override, 3.0)  # 3 秒后自�
 | `scripts/day_night/day_night_controller.gd` | 场景内昼夜控制器 |
 | `scripts/day_night/scene_time_data.gd` | 场景时间配置资源 |
 | `scripts/day_night/lighting_override.gd` | 光照覆盖资源 |
-| `scripts/debug_day_night_input.gd` | 调试按键（1/2/3/4 切换相位，O 覆盖） |
+| `scripts/debug_day_night_input.gd` | 调试按键（5/6/7/8 切换相位，O 覆盖；1-4 让给法术） |
 | `scripts/debug_height_overlay.gd` | 高度层 + 阴影调试面板 |
 | `scripts/debug_knockout_overlay.gd` | 击飞调试面板 |
 | `scripts/debug_spell_test_overlay.gd` | 法术碰撞调试面板 |

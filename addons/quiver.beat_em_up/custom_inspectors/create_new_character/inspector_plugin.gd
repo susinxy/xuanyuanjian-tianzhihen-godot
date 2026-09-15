@@ -226,7 +226,7 @@ offset_right = 500.0
 offset_bottom = 510.0
 text = "=== 2.5D 高度层 + 昼夜测试 ===
 
-操作: WASD 移动, Space 跳跃, J 攻击
+操作: WASD 移动, Space 跳跃, J 攻击\n1-4 法术(已学) | 5-8 昼夜相位 | O 光照覆盖 | Enter 敌人进攻
 
 高度层测试:
 1. 跳跃穿过矮墙 (160px)

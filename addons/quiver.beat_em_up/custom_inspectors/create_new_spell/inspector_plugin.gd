@@ -139,22 +139,28 @@ enemy_path = NodePath("../Enemy")
 	
 	var helper_script_content = """extends Node
 
-var _spell_manager: SpellManager
-var _spell_def: SpellDefinition
+## 法术注入脚本（测试场景生成物）：唯一职责是把被测法术教给被测角色本人；
+## 按键轮询/扣蓝/冷却/施法全部由角色壳自己的既有链路统一负责。
+## 历史教训（2026-09）：私有输入通道的按键边沿"读一次即消费"，且父节点
+## （角色壳）先于子节点轮询——助手若自建管理器自听键，永远抢不到按键。
+
+var _taught := false
 
 func _ready():
-	var char_node = get_parent()
-	_spell_manager = SpellManager.new(char_node)
-	_spell_def = load("{{SPELL_DEF_PATH}}")
-	_spell_def.spell_scene = load("{{SPELL_SCENE_PATH}}")
-	_spell_manager.learn_spell(_spell_def)
+	# 子节点 _ready 早于父节点，而角色壳的法术管理器要到父 _ready 才创建
+	# → 延后一帧再教。
+	call_deferred("_teach")
 
-func _physics_process(delta):
-	_spell_manager.tick(delta)
-	# 法术键读被测角色的私有输入通道（根脚本/助手不再监听物理键盘）
+func _teach():
 	var host = get_parent()
-	if host.channel != null and host.channel.just_pressed("spell_1"):
-		_spell_manager.cast_spell_by_index(0)
+	if not host.has_method("learn_spell"):
+		push_error("[SpellTest] 宿主角色缺少 learn_spell，无法注入")
+		return
+	var spell_def: SpellDefinition = load("{{SPELL_DEF_PATH}}")
+	spell_def.spell_scene = load("{{SPELL_SCENE_PATH}}")
+	_taught = host.learn_spell(spell_def)
+	if not _taught:
+		push_error("[SpellTest] 法术注入失败（手册已满或定义加载失败）")
 """
 	
 	# 组装 helper 脚本内容与测试场景内容（生成物统一落 test_scenes/，幂等写盘：
