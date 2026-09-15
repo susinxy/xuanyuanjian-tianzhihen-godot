@@ -69,8 +69,7 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 			hitbox.character_attributes = caster_attributes
 	
 	if _skin:
-		_skin.skin_direction = SpellSkin.SkinDirection.RIGHT \
-			if direction.x >= 0 else SpellSkin.SkinDirection.LEFT
+		_skin.skin_direction = SpellManager.snap_to_four_direction(direction)
 	
 	_on_cast()
 	

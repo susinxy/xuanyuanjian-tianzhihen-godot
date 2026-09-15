@@ -1,11 +1,13 @@
 class_name SpellSkin
 extends Node2D
 
-enum SkinDirection { LEFT = -1, RIGHT = 1 }
-
-@export var skin_direction: SkinDirection = SkinDirection.RIGHT:
+## 法术体朝向：四正方向单位向量（上/下/左/右），直接作为混合空间坐标。
+## 由 SpellBase.cast 用 SpellManager.snap_to_four_direction 量化后写入；
+## 混合空间四点与角色攻击同款（(1,0)/(0,-1)/(-1,0)/(0,1)）。
+## 旧版是 LEFT/RIGHT 两态枚举——上下飞行的法术只能侧身（2026-09 契约升级）。
+@export var skin_direction: Vector2 = Vector2.RIGHT:
     set(value):
-        var has_changed := value != skin_direction
+        var has_changed := not value.is_equal_approx(skin_direction)
         skin_direction = value
         if has_changed:
             if not is_inside_tree():

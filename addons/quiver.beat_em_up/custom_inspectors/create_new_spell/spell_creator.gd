@@ -258,6 +258,13 @@ func _generate_animation_files(target_dir: String, spell_name: String, pascal_na
     # Generate active_left.tres
     if not _generate_active_animation(anim_dir, "left", true):
         return false
+    # Generate active_up.tres / active_down.tres（四向契约：占位=right 的内容，
+    # 美术出真帧后同名覆盖）
+    if not _generate_active_animation(anim_dir, "up", false):
+        return false
+    
+    if not _generate_active_animation(anim_dir, "down", false):
+        return false
     
     # Generate anim_library
     if not _generate_animation_library(target_dir, spell_name):
@@ -276,13 +283,25 @@ animation = &"{lib}/active_right"
 [sub_resource type="AnimationNodeAnimation" id="AnimNode_active_left"]
 animation = &"{lib}/active_left"
 
-[sub_resource type="AnimationNodeBlendSpace1D" id="BlendSpace_active"]
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_up"]
+animation = &"{lib}/active_up"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimNode_active_down"]
+animation = &"{lib}/active_down"
+
+[sub_resource type="AnimationNodeBlendSpace2D" id="BlendSpace_active"]
 blend_point_0/node = SubResource("AnimNode_active_right")
-blend_point_0/pos = 0.1
+blend_point_0/pos = Vector2(1, 0)
 blend_point_0/name = &"0"
 blend_point_1/node = SubResource("AnimNode_active_left")
-blend_point_1/pos = -0.1
+blend_point_1/pos = Vector2(-1, 0)
 blend_point_1/name = &"1"
+blend_point_2/node = SubResource("AnimNode_active_up")
+blend_point_2/pos = Vector2(0, -1)
+blend_point_2/name = &"2"
+blend_point_3/node = SubResource("AnimNode_active_down")
+blend_point_3/pos = Vector2(0, 1)
+blend_point_3/name = &"3"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_active"]
 advance_mode = 1
@@ -517,15 +536,19 @@ metadata/should_overwrite = true
 
 func _generate_animation_library(target_dir: String, spell_name: String) -> bool:
     var anim_dir_rel = "resources/animations"
-    var content = """[gd_resource type="AnimationLibrary" load_steps=3 format=3]
+    var content = """[gd_resource type="AnimationLibrary" load_steps=5 format=3]
 
 [ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_right.tres" id="1_right"]
 [ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_left.tres" id="2_left"]
+[ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_up.tres" id="3_up"]
+[ext_resource type="Animation" path="res://spells/{name}/{anim_dir}/active_down.tres" id="4_down"]
 
 [resource]
 _data = {
+"active_down": ExtResource("4_down"),
 "active_left": ExtResource("2_left"),
-"active_right": ExtResource("1_right")
+"active_right": ExtResource("1_right"),
+"active_up": ExtResource("3_up")
 }
 """.replace("{name}", spell_name).replace("{anim_dir}", anim_dir_rel)
     

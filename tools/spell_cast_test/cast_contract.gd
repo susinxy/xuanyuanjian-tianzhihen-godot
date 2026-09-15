@@ -139,8 +139,19 @@ func _main_flow() -> void:
 			last = b
 	_check(last != null and last.direction == Vector2.UP,
 			"四向出手：朝上施法法术体向上飞（实际=%s）" % (last.direction if last else null))
+	_check(last != null and (last.get("_skin") as SpellSkin).skin_direction == Vector2(0, -1),
+			"四向出手：法术体皮肤朝向同步量化为上（blend 坐标 0,-1）")
 	
-	# ── I：跑动中起手的降级观感——无 spell 槽时必须切待机，不得残留 run ──
+	# ── 槽位配对断言 ──
+	_check(_chen._skin.has_anim_state(&"spell"), "chen 皮肤已含 spell 动画槽")
+	var spar := (load("res://characters/enemies/spar_enemy/spar_enemy.tscn") as PackedScene).instantiate()
+	_stage.add_child(spar)
+	await _frames(2)
+	_check(not spar._skin.has_anim_state(&"spell"),
+			"spar 皮肤无 spell 槽（has_anim_state 降级门语义对照组）")
+	spar.queue_free()
+	
+	# ── I：跑动起手（run→spell 直连边）──
 	var sprite = _chen._skin.find_child("AnimatedSprite2D", true, false)
 	Input.action_press("move_right")
 	var running := false
@@ -155,6 +166,8 @@ func _main_flow() -> void:
 	Input.action_release("move_right")
 	_check(_state() == "Ground/Cast", "I 跑动中起手成功转 Cast")
 	var anim_now := String(sprite.animation)
-	_check("run" not in anim_now, "I 降级不留残影：咏唱中动画非 run（实际=%s）" % anim_now)
+	_check("run" not in anim_now, "I 咏唱中不残留跑动动画（实际=%s）" % anim_now)
+	_check(_chen._skin._playback.get_current() == &"spell",
+			"I 咏唱中动画树活动状态=spell（槽位已接）")
 	await _frames(40)
 	_check(_bodies() >= 4, "I 跑动起手同样到点出手")
