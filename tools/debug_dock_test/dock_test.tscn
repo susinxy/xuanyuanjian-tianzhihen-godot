@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/debug_dock_test/dock_test.gd" id="1_test"]
+
+[node name="DockTest" type="Node"]
+script = ExtResource("1_test")
+
+[node name="DockOpen" type="Node" parent="." groups=["debug_dock_default_open"]]

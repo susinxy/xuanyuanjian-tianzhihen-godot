@@ -1,0 +1,85 @@
+extends CanvasLayer
+
+## 全局调试坞（Autoload，2026-09-16 HUD 设计定档批 1）：
+## 一个半透明、多标签、可滚动的窗口收纳全游戏的文字型调试信息，
+## "+"唤出、Tab 循环页签；场景打组 debug_dock_default_open 即入场自开
+## （Run Test 底版注入此声明，正式场景默认关）。
+## 页签注册制：模块 add_text_tab(标题, 行生产者)——拉取式 0.15s 刷新，
+## 绝不在每帧做（窗口永不拖游戏帧率）。手绘可视化（高度/击倒仪表）
+## 按设计留在各自位置，不进本坞。
+
+const REFRESH_INTERVAL := 0.15
+const STYLE_BG := Color(0.05, 0.05, 0.08, 0.72)
+
+@export var dock_size := Vector2(560, 340)
+@export var default_open_group: StringName = &"debug_dock_default_open"
+
+@onready var _panel: PanelContainer = $Panel
+@onready var _tabs: TabContainer = $Panel/VBox/Tabs
+
+var _refresh_accum := 0.0
+
+
+func _ready() -> void:
+	layer = 90
+	visible = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = STYLE_BG
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.corner_radius_bottom_left = 6
+	sb.corner_radius_bottom_right = 6
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 8.0
+	sb.content_margin_top = 6.0
+	sb.content_margin_bottom = 8.0
+	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.custom_minimum_size = dock_size
+	_apply_scene_default.call_deferred()
+
+
+# 物理帧驱动而非 _process：headless 环境不派发 idle 帧（2026-09-16 探针实证
+# dock 与测试节点自身 _process 均 0 tick），物理心跳是全环境唯一可靠时钟。
+func _physics_process(delta: float) -> void:
+	if Input.is_action_just_pressed("debug_dock_toggle"):
+		visible = not visible
+	if visible and Input.is_action_just_pressed("debug_dock_next_tab"):
+		var n := _tabs.get_tab_count()
+		if n > 1:
+			_tabs.current_tab = (_tabs.current_tab + 1) % n
+	if visible:
+		_refresh_accum += delta
+		if _refresh_accum >= REFRESH_INTERVAL:
+			_refresh_accum = 0.0
+			_refresh_providers()
+
+
+## 注册文字页签；provider() 返回 Array[String] 或 String。
+func add_text_tab(title: String, provider: Callable) -> void:
+	var tab := preload("res://ui/debug_text_tab.gd").new()
+	tab.setup(title, provider)
+	add_tab(title, tab)
+
+
+## 注册任意控件为页签（未来非文字页用）。
+func add_tab(title: String, control: Control) -> void:
+	control.name = title
+	_tabs.add_child(control)
+
+
+func get_tab_titles() -> PackedStringArray:
+	var out := PackedStringArray()
+	for i in _tabs.get_tab_count():
+		out.append(_tabs.get_tab_title(i))
+	return out
+
+
+func _apply_scene_default() -> void:
+	if get_tree().get_nodes_in_group(default_open_group).size() > 0:
+		visible = true
+
+
+func _refresh_providers() -> void:
+	for child in _tabs.get_children():
+		if child.has_method("refresh_from_provider"):
+			child.refresh_from_provider()
