@@ -162,7 +162,10 @@ func on_hit(hurtbox: QuiverHurtBox) -> void:
 func _on_hit(hurtbox: QuiverHurtBox) -> void:
 	end()
 
-func get_spawn_offset(direction: Vector2) -> Vector2:
+## 出手点=法术自身数据（definition.release_ratio，身体比例）× 施法者实际尺寸。
+## p_definition 允许在 cast() 之前由 SpellManager 放体时直接传入（站位先于身份）。
+## 纵向朝上再抬 0.4H / 朝下再压 0.2H 为基类惯例（与出手高度数据无关）。
+func get_spawn_offset(direction: Vector2, p_definition: SpellDefinition = null) -> Vector2:
 	var char_height: float = 160.0
 	var char_width: float = 40.0
 	# 修复：旧实现硬走 get_node("Skin") 路径，角色皮肤实名各异（如 ChenSkin），
@@ -174,8 +177,10 @@ func get_spawn_offset(direction: Vector2) -> Vector2:
 		if skin.get("physical_width") != null:
 			char_width = skin.physical_width
 	
-	var x_offset := (char_width * 0.5 + 30.0) * direction.x
-	var y_offset := -char_height * 0.6
+	var def: SpellDefinition = p_definition if p_definition != null else definition
+	var ratio := def.release_ratio if def != null else Vector2(1.0, 0.6)
+	var x_offset := char_width * ratio.x * direction.x
+	var y_offset := -char_height * ratio.y
 	# 四向出手：纵向再按方向抬升/压低出手点
 	if direction.y < 0.0:
 		y_offset -= char_height * 0.4

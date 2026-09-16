@@ -15,12 +15,12 @@ _data = {
 }
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2omp8"]
-radius = 0.5
-height = 2.0
+radius = 83.558708190918
+height = 171.268798828125
 
 [node name="FireBallSkin" unique_id=154143838 instance=ExtResource("1_base")]
 script = ExtResource("8_script")
-attack_heights = [72.5, 153.0]
+attack_heights = [49.5, 157.0]
 metadata/_edit_horizontal_guides_ = [21.0]
 metadata/_edit_vertical_guides_ = [-33.0]
 
@@ -50,6 +50,7 @@ attack_data = ExtResource("6_attack")
 
 [node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=623438986]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(-0.5, -116)
+position = Vector2(-10.03946, -33.47605)
+rotation = 4.48865365982056
 shape = SubResource("CapsuleShape2D_2omp8")
 disabled = true

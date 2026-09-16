@@ -1515,7 +1515,10 @@ func _audit_attack_animations(
 	# 受理名单按产线分岔：角色线动画名以 attack/air_attack 起头，法术线为 active
 	# （2026-09-15 审计：法术此前完全不进体检门，四向开合窗口结构无保护）。
 	var is_spell_skin := skin_node is SpellSkin
-	var prefixes: Array[String] = ["active"] if is_spell_skin else ["attack", "air_attack"]
+	# 修复（2026-09-16 headless 重转抓获）：三目整体推导为无类型 Array，
+	# 赋给 Array[String] 触发运行时报错 → 本体检在角色/法术两产线均静默中断，
+	# 9-15 接门以来实为死码。类型注解降为 Array 即语义不变。
+	var prefixes: Array = ["active"] if is_spell_skin else ["attack", "air_attack"]
 	for lib_name in anim_player.get_animation_library_list():
 		var library := anim_player.get_animation_library(lib_name)
 		if library == null:
@@ -1526,6 +1529,10 @@ func _audit_attack_animations(
 				continue
 			var sprite_anim_name := _find_sprite_anim_name(anim)
 			if sprite_anim_name.is_empty():
+				continue
+			# RESET 豁免：复位动画属基础设施，其精灵帧名恒指向某循环（法弹=active、
+			# 角色=idle 语义），不是攻击动作；按帧名前缀受理会误伤（2026-09-16 定罪）。
+			if str(anim_name) == "RESET":
 				continue
 			var accepted := false
 			for p in prefixes:

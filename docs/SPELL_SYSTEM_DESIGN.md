@@ -216,10 +216,15 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
 - 与 QuiverEnemySpawner 的做法一致（敌人也添加到 `Level/Characters`）
 - `add_child` 后再设 `global_position`，Godot 正确计算 local position
 
-**偏移量设计**：
-- `get_spawn_offset(direction)` 是 SpellBase 的虚函数
-- 默认实现从施放者的 `physical_height` / `physical_width` 动态计算
-- 子类可 override 实现不同的发射位置（手掌、脚下、头顶等）
+**偏移量设计**（2026-09-16 数据化修订，本文其余代码摘录以本节为准）：
+- `get_spawn_offset(direction, p_definition)` 是 SpellBase 的虚函数；
+  SpellManager 放体时**先站位后 cast()**，故 definition 以参数显式传入
+- 默认实现：施法者 `physical_width × release_ratio.x × dir.x`、
+  `physical_height × release_ratio.y`（脚底起算，1=头顶；向上出手再抬 0.4H、
+  向下压 0.2H 为基类惯例）。`release_ratio` 是 SpellDefinition 导出字段——
+  **出手点属法术自身数据**（地刺 0、胸弹 ~0.55、天雷 1.2），默认 (1.0, 0.6)
+  与旧经验公式等值，向后兼容
+- 子类可 override 实现非线性轨迹起手等更复杂的发射位置
 
 ### 3.8 法术命中感知
 

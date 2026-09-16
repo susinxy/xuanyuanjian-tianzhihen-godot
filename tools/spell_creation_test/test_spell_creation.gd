@@ -113,7 +113,11 @@ func _scan_forced_mirror_tags() -> Array[String]:
 				var full := dir_path.path_join(f)
 				if d.current_is_dir():
 					stack.append(full)
-				elif f in ["spell.tres", "active_up.tres", "active_down.tres"]:
+				elif f in ["spell.tres"]:
+			# 2026-09-16 裁决：active_up/down 从黑名单移除——圆弹体四向共用一张图，
+			# 右→其余三向的镜像+允许覆盖是法术线合法工作流；守卫只盯真正的遗产雷
+			# （已退役拼写 spell.tres 复活）。警告：某法术若为上/下方向画了定制图，
+			# 须先在该动画上取消"允许覆盖"勾选，否则镜像链会静默碾过定制。
 					if "mirrored_name" in FileAccess.get_file_as_string(full):
 						bad.append(full)
 				f = d.get_next()

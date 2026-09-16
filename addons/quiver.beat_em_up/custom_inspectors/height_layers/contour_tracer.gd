@@ -17,7 +17,10 @@ extends RefCounted
 ## - max_size: 最大处理尺寸（超过则等比缩放）
 ## - erosion_radius: 形态学腐蚀半径（像素），用于收紧轮廓（仅影响 MABR/Capsule/Rectangle）
 ##
-## 返回: Array[PackedVector2Array]，每个元素是一个多边形（图片像素坐标）
+## 返回: Array[PackedVector2Array]，按面积降序排列（主体轮廓恒在 [0]）。
+##   契约（2026-09-16 火球针帧事故定档）：下游形状拟合（polygon/胶囊/矩形/阴影
+##   四线消费端）均只取 [0]，本函数以排序保证"取到的永远是最大块"——
+##   多分量美术（火焰、飘落碎片）扫描顺序不定时，禁止依赖返回序。
 static func trace_contours(
 	image: Image,
 	mask: Image,
@@ -91,6 +94,10 @@ static func trace_contours(
 		if simple.size() >= 3:
 			result.append(simple)
 	
+	# 6. 面积降序：主体轮廓恒在 [0]（下游四线拟合消费端全按 [0] 取用）
+	result.sort_custom(
+			func(a: PackedVector2Array, b: PackedVector2Array) -> bool:
+				return _calc_polygon_area(a) > _calc_polygon_area(b))
 	return result
 
 

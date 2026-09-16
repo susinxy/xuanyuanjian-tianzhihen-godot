@@ -1379,6 +1379,15 @@ _modify_scene_tree_node() → 场景树节点替换（CollisionPolygon2D / Colli
 _inject_all_tracks() → Animation 资源轨道注入 + emit_changed() + ResourceSaver.save()
 ```
 
+**轮廓顺序契约（2026-09-16 火球针帧事故定档）**：`trace_contours()` 返回前按
+面积**降序**排序，主体轮廓恒在 `[0]`。下游四线拟合消费端（polygon 轨道、
+MABR→胶囊/矩形、腐蚀后 MABR、阴影遮挡体）全部只取 `[0]`——多分量美术
+（火焰、飘落碎片）的扫描返回序不定，历史上"第一条≈主体"只是碰巧成立。
+防回归桩：`tools/contour_sort_test/`。同批修复：`_audit_attack_animations`
+的 `Array[String]` 三目赋值在运行期抛错致体检静默瘫痪（角色/法术两产线），
+且按帧名前缀受理会误伤 RESET（其精灵帧名恒指向循环动画）→ 类型注解降为
+`Array` + RESET 豁免。
+
 ### 15.2 ShapeType 枚举与 SHAPE_CONFIGS
 
 `AnimationTrackInjector` 定义了三种碰撞形状类型：
