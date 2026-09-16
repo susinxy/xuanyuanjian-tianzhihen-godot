@@ -305,13 +305,13 @@ func _on_cast() -> void:
 
 ### 碰撞检测不工作
 
-1. 确认 `fire_ball_skin.tscn` 的 `attack_heights` 已正确设置
+1. 确认 `__NAME___skin.tscn`（产物实名）的 `attack_heights` 由轮廓转换生成
 2. 确认 HitBox 的 `CollisionShape2D` 已启用（`disabled = false`）
 3. 确认 HurtBox 和 HitBox 不在同一 faction group
 
 ### 动画不播放
 
-1. 确认 `spriteframes_fire_ball.tres` 已正确配置动画帧
+1. 确认 `spriteframes___NAME__.tres`（产物实名）已正确配置动画帧
 2. 确认 `animation_tree_root.tres` 已正确配置状态机
 3. 确认 `_skin.transition_to(&"active")` 被正确调用
 
@@ -324,4 +324,13 @@ func _on_cast() -> void:
 
 ---
 
-**最后更新**：2026-08-22
+**最后更新**：2026-09-16（fire_ball 真帧晋升版）
+
+## 模板契约（2026-09-16 起，fire_ball 真帧晋升后）
+
+- **模板=fire_ball 快照**：刷新用 `python3 tools/sync_spell_template_from_fireball.py`（幂等：token 化、内部 uid 剥离、身份残留断言）；`sprites_master/` 不随模板传播，新法术自产母版
+- **精灵约定**：`resources/sprites/` 平铺帧组（文件名随美术管线，如 `chen_000XX.png`）；换图=同名覆盖，帧数不同时需重建 spriteframes 的单条 `active` 动画；改图后必须重跑 Attack/Body 轮廓转换
+- **判定几何是派生数据**：`attack_heights`、形状位置/半径轨道全由轮廓转换产出，禁止手改（手改胶囊+旧扫描序=针帧判定事故的成因；轮廓扫描已定档"面积降序，主体恒第 0 条"）
+- **镜像链**：圆弹体四向共用一张图，允许"右→左/上/下镜像+允许覆盖"；一旦为上/下方向画**定制**图，必须先在面板取消该动画的"允许覆盖"，否则镜像重生成会静默碾过定制
+- **出手点=法术自身数据**：definition 的 `release_ratio`（x=身宽倍数、y=身高倍数，0 脚底 1 头顶）；模板演示值 (1.0, 0.55)=胸部火球；贴地类填 0，头顶落雷类 >1
+

@@ -105,6 +105,9 @@
   行为盖戳只认该类 → 真键盘法术键自单壳改造起从未生效（AGENTS 记两条陷阱：
   未处理流事件形态；headless 测试必须含 OS 注入全链路断言）。修复后
   helper_e2e 新增 `_os_key_full_chain` 回归锁
+- 法术模板晋升（2026-09-16）：fire_ball 真帧快照经契约体检进 spells/_template；
+  随附三层修复（出手点 release_ratio 数据化、轮廓面积降序契约、体检复活）与
+  法术侧 sync 工具 tools/sync_spell_template_from_fireball.py（详见 fix 8fa600d 与模板 README 契约段）
 - 阶段 2.5 两段式（同日）：起手=角色资产必完整播（尾帧信标）、引导=法术计时；
   chen 真帧美术完成并经 F5 验收，已 sync 进模板；总线机制复核维持通用通道（单听众结构性保证，专用信号否决留档）
 - 发令台迁入 `QuiverRunTestSceneBuilder.compose()` 统一注入（法术测试场景

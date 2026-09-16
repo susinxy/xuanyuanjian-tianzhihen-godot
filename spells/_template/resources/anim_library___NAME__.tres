@@ -7,8 +7,8 @@
 
 [resource]
 _data = {
-"active_down": ExtResource("4_down"),
 "active_left": ExtResource("2_left"),
-"active_right": ExtResource("1_right"),
-"active_up": ExtResource("3_up")
+"active_down": ExtResource("4_down"),
+"active_up": ExtResource("3_up"),
+"active_right": ExtResource("1_right")
 }

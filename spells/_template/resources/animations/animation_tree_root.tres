@@ -27,7 +27,6 @@ blend_point_3/pos = Vector2(0, 1)
 blend_point_3/name = &"3"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="Transition_start_active"]
-advance_mode = 1
 
 [sub_resource type="AnimationNodeStateMachine" id="StateMachine"]
 states/Start/position = Vector2(100, 100)

@@ -37,7 +37,6 @@ func _initialize():
 		"resources/animations/active_left.tres",
 		"resources/animations/active_up.tres",
 		"resources/animations/active_down.tres",
-		"resources/sprites/placeholder.png",
 	]
 	for rel in required:
 		_check(FileAccess.file_exists(DIR.path_join(rel)), "产物存在 %s" % rel)
@@ -62,12 +61,46 @@ func _initialize():
 	for side in ["right", "left", "up", "down"]:
 		_check("active_%s" % side in lib, "动画库含 active_%s 条目" % side)
 	
-	# ── 镜像元数据纪律（L1/L2 回归锁）：up/down 必须无标签，right↔left 成对 ──
-	var up := FileAccess.get_file_as_string(DIR + "/resources/animations/active_up.tres")
-	var down := FileAccess.get_file_as_string(DIR + "/resources/animations/active_down.tres")
-	_check("mirrored_name" not in up and "mirrored_name" not in down, "up/down 无镜像覆盖标签")
+	# ── 镜像元数据纪律（2026-09-16 用户裁决改版）：圆弹体四向镜像链合法，
+	# 守卫从"up/down 禁标签"改为"标签指向必须成对存在"（悬空标签=真危险形态）。
+	var mirror_ok := true
+	var anim_dir := DirAccess.open(DIR + "/resources/animations")
+	for side in ["right", "left", "up", "down"]:
+		var txt := FileAccess.get_file_as_string(
+				DIR + "/resources/animations/active_%s.tres" % side)
+		var key_pos := txt.find("mirrored_name = \"")
+		if key_pos < 0:
+			continue
+		var start := key_pos + 17
+		var end := txt.find("\"", start)
+		var target := txt.substr(start, end - start) if end > start else ""
+		if target.is_empty() or not anim_dir.file_exists(target):
+			mirror_ok = false
+	_check(mirror_ok, "镜像标签指向的目标动画文件均存在（无悬空覆盖链）")
 	var right := FileAccess.get_file_as_string(DIR + "/resources/animations/active_right.tres")
-	_check("active_left.tres" in right, "right 指向 left 的合法镜像对保留")
+	_check("active_left.tres" in right, "right↔left 合法镜像对保留")
+	
+	# ── 弹体帧组完整性（模板晋升后契约：sprites/ 平铺帧 + spriteframes 引用零断链） ──
+	var spr_dir := DirAccess.open(DIR + "/resources/sprites")
+	var frame_n := 0
+	if spr_dir != null:
+		for fn in spr_dir.get_files():
+			if str(fn).ends_with(".png"):
+				frame_n += 1
+	_check(frame_n > 0, "产物 sprites/ 帧目录非空（%d 帧）" % frame_n)
+	var sf := FileAccess.get_file_as_string(DIR + "/resources/spriteframes_tmp_spell_check.tres")
+	var broken := 0
+	var idx := 0
+	while true:
+		var hit := sf.find("res://spells/tmp_spell_check/resources/sprites/", idx)
+		if hit < 0:
+			break
+		var tail := sf.substr(hit)
+		var path := tail.left(tail.find("\""))
+		if not FileAccess.file_exists(path):
+			broken += 1
+		idx = hit + 1
+	_check(broken == 0, "spriteframes 引用的弹体帧全部存在（断链 %d）" % broken)
 	
 	# ── 皮肤场景路径替换 ──
 	var skin_tscn := FileAccess.get_file_as_string(DIR + "/tmp_spell_check_skin.tscn")
