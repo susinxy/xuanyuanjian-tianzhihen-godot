@@ -7,4 +7,4 @@ script = ExtResource("1_script")
 spell_id = &"__NAME__"
 display_name = "__DISPLAY_NAME__"
 caster_cast_time = 0.8
-release_ratio = Vector2(1, 0.55)
+release_ratio = Vector2(1, 0.34)

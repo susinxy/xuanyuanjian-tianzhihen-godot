@@ -94,7 +94,7 @@ func _spawn_spell_now(slot: SpellSlot) -> void:
 
     var spawn_parent := _character.get_parent()
     spawn_parent.add_child(spell)
-    spell.global_position = _character.global_position + spell.get_spawn_offset(dir, slot.definition)
+    spell.global_position = _character.global_position + spell.get_spawn_offset(dir, _character, slot.definition)
     spell.cast(_character, slot.definition, dir)
 
 func _current_state_path() -> String:

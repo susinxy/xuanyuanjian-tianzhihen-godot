@@ -222,8 +222,12 @@ QuiverCharacter (CharacterBody2D)      SpellBase (Area2D)
 - 默认实现：施法者 `physical_width × release_ratio.x × dir.x`、
   `physical_height × release_ratio.y`（脚底起算，1=头顶；向上出手再抬 0.4H、
   向下压 0.2H 为基类惯例）。`release_ratio` 是 SpellDefinition 导出字段——
-  **出手点属法术自身数据**（地刺 0、胸弹 ~0.55、天雷 1.2），默认 (1.0, 0.6)
+  **出手点属法术自身数据**（地刺 0、chest火球按美术量定、天雷 >1），默认 (1.0, 0.6)
   与旧经验公式等值，向后兼容
+- 施法者体型读自 caster（放体时**显式传参**——站位先于 cast()，身份未挂；
+  2026-09-16 底账测试抓获漏传致恒走 40×160 兜底、换算从未生效）；数值按弹体美术的
+  **火焰视觉中心偏移**定档：fire_ball 火焰盘心在自身原点上方 33px（轮廓转换实测），
+  要火球心落在胸部（0.5H）则 release_ratio.y = 0.5 - 33/213 ≈ 0.34
 - 子类可 override 实现非线性轨迹起手等更复杂的发射位置
 
 ### 3.8 法术命中感知

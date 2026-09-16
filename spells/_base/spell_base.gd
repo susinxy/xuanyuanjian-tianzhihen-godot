@@ -78,12 +78,16 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	spell_cast.emit()
 	spell_activated.emit()
 	
-	if _skin and _skin._is_valid_state(&"active"):
+	if _skin and _skin.has_anim_state(&"active"):
 		_skin.transition_to(&"active")
 
 ## 扫描施法者后代中的 Area2D，收集其 area2d: 前缀阵营组（去重）。
 ## 注意：Node.get_children(true) 的参数是"含内部节点"而非递归（Godot 4 陷阱），
 ## 递归遍历一律用 find_children("*", "", true)。
+## 排除 area2d:wall（2026-09-16 法术打不中敌人定罪）：wall 是受击盒的弹墙行为
+## 旗标，不是阵营身份——抄进法术攻击盒后，所有带 wall 受击盒的目标（即一切角色）
+## 都与法术"同阵营"而被免伤；近战 hitbox 从不带 wall 所以互殴无恙。
+## 施法者自保不依赖 wall：双方共享 area2d:<角色名> 即已放行拦截。
 static func _collect_caster_faction_groups(caster: Node) -> Array[String]:
 	var seen: Array[String] = []
 	for node in caster.find_children("*", "", true):
@@ -92,7 +96,7 @@ static func _collect_caster_faction_groups(caster: Node) -> Array[String]:
 			continue
 		for g in area.get_groups():
 			var gs := String(g)
-			if gs.begins_with("area2d:") and not seen.has(gs):
+			if gs.begins_with("area2d:") and gs != "area2d:wall" and not seen.has(gs):
 				seen.append(gs)
 	return seen
 
@@ -141,7 +145,7 @@ func end() -> void:
 	spell_ending.emit()
 	_on_ending()
 	
-	if _skin and _skin._is_valid_state(&"ending"):
+	if _skin and _skin.has_anim_state(&"ending"):
 		_skin.transition_to(&"ending")
 	else:
 		destroy()
@@ -163,14 +167,18 @@ func _on_hit(hurtbox: QuiverHurtBox) -> void:
 	end()
 
 ## 出手点=法术自身数据（definition.release_ratio，身体比例）× 施法者实际尺寸。
-## p_definition 允许在 cast() 之前由 SpellManager 放体时直接传入（站位先于身份）。
+## p_caster / p_definition 允许在 cast() 之前由 SpellManager 放体时直接传入（站位先于
+## 身份）——2026-09-16 底账测试抓获：漏传 caster 时读成员恒 null，静默落回 40×160
+## 兜底尺寸，正确体型换算从未生效（"出手偏高"的另一半真凶）。
 ## 纵向朝上再抬 0.4H / 朝下再压 0.2H 为基类惯例（与出手高度数据无关）。
-func get_spawn_offset(direction: Vector2, p_definition: SpellDefinition = null) -> Vector2:
+func get_spawn_offset(direction: Vector2, p_caster: Node = null,
+		p_definition: SpellDefinition = null) -> Vector2:
 	var char_height: float = 160.0
 	var char_width: float = 40.0
 	# 修复：旧实现硬走 get_node("Skin") 路径，角色皮肤实名各异（如 ChenSkin），
 	# 取不到时静默用兜底尺寸（2026-09-15 契约测试牵出）。改读 QuiverCharacter._skin。
-	var skin = caster.get("_skin") if caster != null else null
+	var who: Node = p_caster if p_caster != null else caster
+	var skin = who.get("_skin") if who != null else null
 	if skin != null:
 		if skin.get("physical_height") != null:
 			char_height = skin.physical_height
