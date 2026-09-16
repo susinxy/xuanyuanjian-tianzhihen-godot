@@ -455,6 +455,9 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   "摆位→再战"式复测）。它是 `active` 原语的第一个驱动者，测试台专属、正式关卡不挂。
   **底版统一（2026-09-15）**：角色/法术测试场景共用 `QuiverRunTestSceneBuilder.base_scene_text()`
   唯一模板，法术差异全部经 `add_spell_test_kit()` 注入（改 Run Test 布局=只改底版一处；
+  2026-09-16 批2/批3 追加：底版统一注入 `DebugDockOpen`（调试坞入场自开声明组节点）
+  与 `GameHUD`（正式 HUD 实例，跟 players 组）；kit 不再注入文字诊断面板（已迁 DebugDock[诊断]页），
+  kit 的 load_steps 增量由 +2 改 +1；详见 docs/HUD_DESIGN.md）
   数据窗口在法术场景被挤到右列 x=845 避让法术面板）。
   键位避让备忘：1-4=法术（InputMap spell_1..4），5-8=昼夜相位调试（原 1-4，2026-09 让位），O=光照覆盖，T=阴影区域，L=软边，J/Space/WASD=战斗，Enter=AI 发令台。
 - **正式验证角色（内容资产，进 git）**：`characters/enemies/spar_enemy/`（AI 档，
