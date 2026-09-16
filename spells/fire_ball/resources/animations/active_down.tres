@@ -91,3 +91,5 @@ tracks/6/keys = {
 "update": 1,
 "values": [true]
 }
+metadata/mirrored_name = "active_left.tres"
+metadata/should_overwrite = true

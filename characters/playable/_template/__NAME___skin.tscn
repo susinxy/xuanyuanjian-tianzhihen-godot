@@ -95,6 +95,7 @@ monitorable = false
 script = ExtResource("5_k0gpy")
 
 [node name="HurtShape" type="CollisionShape2D" parent="AnimatedSprite2D/HurtBox" index="0" unique_id=1102742199]
+visible = false
 modulate = Color(0, 0.0666667, 0.701961, 1)
 position = Vector2(-5.226866, -0.326548)
 rotation = 3.1900983
