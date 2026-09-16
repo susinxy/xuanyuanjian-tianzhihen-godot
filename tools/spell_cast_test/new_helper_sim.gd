@@ -18,7 +18,7 @@ func _teach() -> void:
 	if not host.has_method("learn_spell"):
 		push_error("宿主不支持 learn_spell")
 		return
-	# 测试吃确定性数据：复制定义并强制瞬发，不依赖磁盘 .tres 的手调数值
+	# 测试吃确定性数据：复制定义并强制零引导，不依赖磁盘 .tres 的手调数值
 	# （fire_ball 的施法时长是内容参数，用户随时可改——2026-09-15 它被调成
 	# 0.8 后本 runner 的 3 帧等待就扑空了）
 	var spell_def: SpellDefinition = (load(DEF_PATH) as SpellDefinition).duplicate(true)

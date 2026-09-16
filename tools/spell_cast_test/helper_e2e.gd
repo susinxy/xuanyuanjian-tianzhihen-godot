@@ -75,7 +75,8 @@ func _new_structure_cast() -> void:
 	_check(ctx.helper.taught == true, "新形态：法术已教给角色本人")
 	var before := _spell_bodies(ctx.stage)
 	ctx.chen.channel.press("spell_1")
-	for _i in 3:
+	# 零引导仍含起手段（0.333s≈21 帧），等待必须跨过（2026-09-16 语义定档）
+	for _i in 30:
 		await get_tree().physics_frame
 	_check(_spell_bodies(ctx.stage) > before, "新形态：注入 spell_1 后法术体真实上场")
 	ctx.stage.queue_free()
@@ -98,7 +99,7 @@ func _os_key_full_chain() -> void:
 	ev2.physical_keycode = KEY_1
 	ev2.pressed = false
 	Input.parse_input_event(ev2)
-	await _frames(4)
+	await _frames(30)
 	_check(_spell_bodies(ctx.stage) >= 1, "OS 真按键 spell_1 全链路施法成功")
 	_check(not _first_body(ctx.stage).is_in_group("players"),
 			"法术体不混入阵营包组（防查询污染）")

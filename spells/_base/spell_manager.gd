@@ -69,15 +69,17 @@ func cast_spell(slot: SpellSlot) -> void:
     _character.attributes.mana_current -= slot.definition.mana_cost
     slot.start_cooldown()
 
-    # caster_cast_time 语义=引导段时长（起手段由角色动画自带）
+    # caster_cast_time 语义=引导段时长（起手段由角色动画自带，恒完整播放）。
+    # 0 = 无引导段：起手播完（尾帧信标）立即出手——2026-09-16 清扫旧 >0 旁路
+    # （两段式设计前遗留，曾让 0 跳过整个施法动作，与定档契约冲突）。
+    # 仅"角色未挂 Cast 状态"才走降级路径（告警+直接放体），与数值无关。
     var cast_time := slot.definition.caster_cast_time
-    if cast_time > 0.0:
-        if _has_cast_state():
-            var release := Callable(self, "_spawn_spell_now").bind(slot)
-            _character.state_machine.transition_to(
-                    CAST_STATE_PATH, {cast_time = cast_time, release = release})
-            return
-        _warn_missing_cast_state(slot.definition)
+    if _has_cast_state():
+        var release := Callable(self, "_spawn_spell_now").bind(slot)
+        _character.state_machine.transition_to(
+                CAST_STATE_PATH, {cast_time = cast_time, release = release})
+        return
+    _warn_missing_cast_state(slot.definition)
 
     _spawn_spell_now(slot)
 
@@ -139,7 +141,7 @@ func _warn_missing_cast_state(spell_def: SpellDefinition) -> void:
     if _warned_no_cast_state.has(key):
         return
     _warned_no_cast_state[key] = true
-    push_warning("法术 %s 配置了施法时长，但角色 %s 未挂 Ground/Cast 施法状态，已按瞬发处理" % [
+    push_warning("角色 %s 未挂 Ground/Cast 施法状态，法术 %s 降级为直接放体（跳过施法动作）" % [
             spell_def.spell_id, _character.name])
 
 func dismiss_all_summons() -> void:

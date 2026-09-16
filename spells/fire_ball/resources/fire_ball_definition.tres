@@ -6,5 +6,4 @@
 script = ExtResource("1_script")
 spell_id = &"fire_ball"
 display_name = "火球术"
-caster_cast_time = 0.8
 release_ratio = Vector2(1, 0.34)

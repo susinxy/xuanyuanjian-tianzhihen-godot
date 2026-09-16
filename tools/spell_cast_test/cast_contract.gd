@@ -8,7 +8,7 @@ extends Node
 ##  E 受击打断：法术作废、法力不退还
 ##  F 输入窗口：咏唱中关、结束后开
 ##  G chen 与模板场景均已挂 Cast 状态（角色改动必须进模板）
-##  H caster_cast_time=0 维持旧瞬发行为（向后兼容）
+##  H caster_cast_time=0 = 无引导段，起手照播、播完立即出手（2026-09-16 语义定档）
 ## 运行：godot --headless --path . res://tools/spell_cast_test/cast_contract.tscn
 
 const CHEN := "res://characters/playable/chen/chen.tscn"
@@ -92,7 +92,7 @@ func _main_flow() -> void:
 	var def_a := _make_def(0.5, 10.0)
 	_check(_chen.learn_spell(def_a), "slot0 学会 0.5s 施法版火球")
 	var def_h := _make_def(0.0, 0.0)
-	_check(_chen.learn_spell(def_h), "slot1 学会瞬发版火球（兼容旧行为）")
+	_check(_chen.learn_spell(def_h), "slot1 学会零引导版火球")
 	
 	# ── A/B/C/F：起手 → 锁定 → 到点释放 ──
 	var mana0 := _chen.attributes.mana_current
@@ -133,16 +133,21 @@ func _main_flow() -> void:
 	_check(is_equal_approx(_chen.attributes.mana_current, mana_pre), "E 打断不退还法力")
 	_check(_state() != "Ground/Cast", "E 已离开咏唱态")
 	
-	# ── H：cast_time=0 瞬发旧行为 ──
+	# ── H：cast_time=0 = 无引导段（起手是角色身份，恒完整播）──
 	_chen.channel.press("spell_2")
 	await _frames(2)
-	_check(_bodies() == 3, "H 施法时长 0 定义 = 瞬发（向后兼容）")
-	_check(_state() == "Ground/Move/Idle", "H 瞬发不进入咏唱态（实际=%s）" % _state())
+	_check(_state() == "Ground/Cast" and _bodies() == 2,
+			"H 零引导仍转入 Cast 播起手，未提前放体")
+	_check(_chen._skin._playback.get_current_node() == &"spell_start",
+			"H 零引导期活动态=spell_start")
+	await _frames(30)
+	_check(_bodies() == 3, "H 起手播完（0.333s）当帧出手")
+	_check(_state() == "Ground/Move/Idle", "H 施毕归 Idle（实际=%s）" % _state())
 	
 	# ── 四向：朝上出手，法术体方向=上（旧 Skin 路径 bug 修复锁） ──
 	_chen._skin.skin_direction = Vector2.UP
 	_chen.channel.press("spell_2")
-	await _frames(2)
+	await _frames(30)
 	var last: SpellBase = null
 	for b in _stage.get_children():
 		if b is SpellBase:
