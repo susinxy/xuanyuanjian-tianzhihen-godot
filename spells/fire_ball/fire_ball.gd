@@ -37,13 +37,6 @@ func _on_active(delta: float) -> void:
 func _on_ending() -> void:
 	pass
 
-func _on_hit(hurtbox: QuiverHurtBox) -> void:
-	# 命中后播放爆炸动画（如果存在），否则直接销毁
-	if _skin and _skin.has_anim_state(&"hit"):
-		_skin.transition_to(&"hit")
-	else:
-		destroy()
-
 func _on_skin_animation_finished() -> void:
 	pass
 

@@ -9,7 +9,12 @@ var caster_attributes: QuiverAttributes = null
 var direction: Vector2 = Vector2.RIGHT
 var state: SpellState = SpellState.INACTIVE
 var _elapsed_time: float = 0.0
-var _cached_hitbox_height_bits: int = -1
+## 攻击盒当前实际写上的高度层位（判定门合流后的落点缓存，变化才写）
+var _applied_hitbox_bits: int = -1
+## 淡入/淡出倒计时（_physics_process 驱动；alpha 与判定门同源于这两个数）
+var _fade_in_left: float = 0.0
+var _fade_out_left: float = 0.0
+var _fading_out: bool = false
 
 @export_node_path("SpellSkin") var _path_skin := ^"Skin"
 
@@ -83,6 +88,11 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	
 	if _skin and _skin.has_anim_state(&"active"):
 		_skin.transition_to(&"active")
+	
+	# 淡入起算：亮度从 0、判定门关闭（层写入由 _update_hitbox_layers 合流）
+	if definition.fade_in_time > 0.0:
+		_fade_in_left = definition.fade_in_time
+		modulate.a = 0.0
 
 ## 扫描施法者后代中的 Area2D，收集其 area2d: 前缀阵营组（去重）。
 ## 注意：Node.get_children(true) 的参数是"含内部节点"而非递归（Godot 4 陷阱），
@@ -105,18 +115,27 @@ static func _collect_caster_faction_groups(caster: Node) -> Array[String]:
 
 
 func _physics_process(delta: float) -> void:
-	if state != SpellState.ACTIVE:
-		return
-	
-	_elapsed_time += delta
-	
-	if definition and definition.max_lifetime > 0.0 and _elapsed_time >= definition.max_lifetime:
-		spell_timeout.emit()
-		end()
-		return
-	
-	_update_hitbox_layers()
-	_on_active(delta)
+	match state:
+		SpellState.ACTIVE:
+			if _fade_in_left > 0.0:
+				_fade_in_left = maxf(0.0, _fade_in_left - delta)
+				modulate.a = 1.0 - _fade_in_left / definition.fade_in_time
+			_elapsed_time += delta
+			if definition.max_lifetime > 0.0 and _elapsed_time >= definition.max_lifetime:
+				spell_timeout.emit()
+				end()
+				return
+			_update_hitbox_layers()
+			_on_active(delta)
+		SpellState.ENDING:
+			# 系统淡出（原地静止：不调 _on_active）；美术 ending 路径由信标自行销毁
+			if _fading_out:
+				_fade_out_left = maxf(0.0, _fade_out_left - delta)
+				modulate.a = _fade_out_left / definition.fade_out_time
+				if _fade_out_left <= 0.0:
+					destroy()
+		_:
+			pass
 
 func _update_hitbox_layers() -> void:
 	if _skin == null or caster == null:
@@ -134,10 +153,19 @@ func _update_hitbox_layers() -> void:
 			var layer := QuiverCharacter.height_to_layer(absolute_h, height_defs)
 			target_bits |= (1 << (layer - 1))
 	
-	if target_bits != _cached_hitbox_height_bits:
-		_cached_hitbox_height_bits = target_bits
+	# 判定门：淡入未完或已离 ACTIVE（ENDING/DEAD）→ 层写 0，攻击盒物理隐形
+	var gate_open: bool = _fade_in_left <= 0.0 and state == SpellState.ACTIVE
+	var want_bits: int = target_bits if gate_open else 0
+	if want_bits != _applied_hitbox_bits:
+		_applied_hitbox_bits = want_bits
 		for hitbox in _skin.hitboxes:
-			hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | target_bits
+			if want_bits == 0:
+				# 判定门关闭：写全 0——残位泄漏定罪（逐帧 trace f24-f48）：
+				# 只清高度位会留下场景默认 bit1（players 层），而受击盒掩码含基础位，
+				# 淡入/淡出中的攻击盒仍会被重新发现=门形同虚设。门关=物理隐形=零位。
+				hitbox.collision_layer = 0
+			else:
+				hitbox.collision_layer = (hitbox.collision_layer & ~all_mask) | want_bits
 			hitbox.collision_mask = (hitbox.collision_mask & ~all_mask) | all_mask
 
 func end() -> void:
@@ -151,7 +179,16 @@ func end() -> void:
 	if _skin and _skin.has_anim_state(&"ending"):
 		_skin.transition_to(&"ending")
 	else:
-		destroy()
+		var fo: float = definition.fade_out_time if definition else 0.0
+		if fo > 0.0:
+			_fading_out = true
+			# 从当前亮度线性起算：淡入中途被打断也不闪跳
+			_fade_out_left = fo * clampf(modulate.a, 0.0, 1.0)
+			_update_hitbox_layers()  # state 已 ENDING：判定门立即关闭
+			if _fade_out_left <= 0.0:
+				destroy()
+		else:
+			destroy()
 
 func destroy() -> void:
 	if state == SpellState.DEAD:

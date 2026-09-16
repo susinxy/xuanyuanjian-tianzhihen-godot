@@ -1,14 +1,16 @@
 extends Node
 
-## 弹体命中集成测试（真 Run Test 场景复现，2026-09-16 定罪版）：
-##   直接载入统一底版生成的 _test_spell_fire_ball.tscn（自带 chen+默认对手 spar_enemy+
-##   helper 教真定义 0.8s 吟唱），私有通道按 spell_1，与 Windows F5 一字不差；
-##   断言 Enemy 血量在弹体寿命窗口内下降。
-## 教训固化：协程中途报错=静默假绿（AGENTS 明文），本 runner 设完成旗汇总前必查；
-##   断言失败自动打印双方阵营字典/矩形/开关四元现场证据。
+## 弹体命中集成测试（真 Run Test 场景复现 + 淡入淡出系统断言，2026-09-16 定档版）：
+##   一、真实吟唱链路：上场→淡入门→命中→ENDING 淡出→真删，全程逐帧采样判定门；
+##   二、双实例隔离：两发弹体各自的命中/消亡/回执事件必须各归各身；
+##   三、僵尸回执：死体不得二次宣告。
+## 教训固化：协程内报错=静默跳段（AGENTS 明文），本 runner 设完成旗汇总前必查；
+##   事件帧号一律用循环内状态采样记录，不用 lambda 捕获局部变量（值拷贝陷阱）。
 ## 运行：godot --headless --path . res://tools/spell_hit_test/projectile_hit.tscn
 
 const RUN_TEST := "res://test_scenes/_test_spell_fire_ball.tscn"
+const FADE_IN_F := 8    # 0.12s ≈ 7 物理帧 + 1 容差
+const FADE_OUT_F := 15  # 0.20s ≈ 12 物理帧 + 3 容差
 
 var _fails := 0
 var _finished := false
@@ -42,10 +44,23 @@ func _find_spell(root: Node) -> SpellBase:
 	return null
 
 
+func _hitbox(spell: SpellBase) -> Area2D:
+	if spell != null and is_instance_valid(spell) and spell._skin.hitboxes.size() > 0:
+		return spell._skin.hitboxes[0]
+	return null
+
+
+func _layer_bits(spell: SpellBase) -> int:
+	var hb := _hitbox(spell)
+	if hb == null:
+		return -1
+	return hb.collision_layer & QuiverCharacter.get_all_height_layers_mask()
+
+
 func _main_flow() -> void:
 	var stage := (load(RUN_TEST) as PackedScene).instantiate()
 	add_child(stage)
-	await _frames(5)  # helper call_deferred 教法术 + 角色落地
+	await _frames(5)
 
 	var chen := stage.get_node_or_null("Character") as QuiverCharacter
 	var enemy := stage.get_node_or_null("Enemy")
@@ -55,17 +70,22 @@ func _main_flow() -> void:
 		return
 	_check(chen._spell_manager != null, "角色法术管理器就位")
 
+	var hp_prev: float = enemy.attributes.health_current
+	var hp_dropped := false
 	chen.channel.press("spell_1")
-	# 事件流追踪（不定时点查岗：咏唱期间陪练可能贴身，点零距离命中会让弹体
-	# 出生即灭——那是正确战斗行为，测试必须按事件序列判定而非固定帧号）
+	# 事件流追踪（点零距离贴身会让弹体出生即命中，固定帧号查岗会扑错——按事件序列）
 	var spell: SpellBase = null
 	var seen := false
 	var seen_frame := -1
-	var hit_frame := -1
+	var hit_frame := -1      # 弹体视角：自己的状态离开 ACTIVE 的帧
 	var gone_frame := -1
-	var hp_prev: float = enemy.attributes.health_current
+	var viol_in := 0         # 淡入窗内层位非零的帧数
+	var gate_open_frame := -1
+	var viol_out := 0        # 离 ACTIVE 后层位非零的帧数
 	for i in 340:
 		await get_tree().physics_frame
+		if enemy.attributes.health_current < hp_prev:
+			hp_dropped = true
 		if not seen:
 			var found := _find_spell(stage)
 			if found != null:
@@ -74,32 +94,44 @@ func _main_flow() -> void:
 				seen_frame = i
 		else:
 			if is_instance_valid(spell):
-				if hit_frame < 0 and enemy.attributes.health_current < hp_prev:
+				if hit_frame < 0 and spell.state != SpellBase.SpellState.ACTIVE:
 					hit_frame = i
 			elif gone_frame < 0:
 				gone_frame = i
+		if seen and spell != null and is_instance_valid(spell):
+			var bits := _layer_bits(spell)
+			# 违例=物理事实判定：淡入未完（亮度<1）或已离场（非 ACTIVE）而层非零。
+			# 门与亮度同源一个倒计时，此断言即"同呼吸"证明，不用帧数窗口模拟。
+			if bits != 0 and gate_open_frame < 0:
+				gate_open_frame = i
+			if bits != 0:
+				if hit_frame < 0 and spell.modulate.a < 0.999:
+					viol_in += 1
+				elif hit_frame >= 0:
+					viol_out += 1
 		if seen and hit_frame >= 0 and gone_frame >= 0:
 			break
 	_check(seen, "弹体已上场（吟唱走完释放）")
-	_check(hit_frame >= 0, "spar_enemy 血量下降（弹体真实命中）")
-	if not seen:
-		_dump_evidence(chen, enemy, null)
-	elif hit_frame < 0:
-		_dump_evidence(chen, enemy, spell)
-	else:
-		# 命中通知链闭合断言（2026-09-16 定罪）：敌人 hurtbox 沿 hit_box.owner
-		# 反射调 on_hit——链路修复前通知静默丢弃，弹体穿体飞到 5s 超时（300 帧）
-		# 才灭；修复后必须在掉血数帧内消亡（超时灭与命中灭以帧距判别）。
-		_check(gone_frame >= 0 and gone_frame - hit_frame <= 3,
-				"命中即灭：掉血后 ≤3 帧弹体消亡（掉血帧=%d 消亡帧=%d）" % [hit_frame, gone_frame])
+	_check(hp_dropped, "spar_enemy 血量下降（弹体真实命中）")
+	_check(hit_frame >= 0, "弹体进入 ENDING（命中回执→淡出）")
+	_check(gone_frame >= 0, "弹体淡出完毕后真删")
+	_check(viol_in == 0,
+			"淡入期攻击盒层恒 0（无出生帧判定，违规 %d 帧）" % viol_in)
+	_check(hit_frame >= 0 and gate_open_frame > 0,
+			"淡入结束判定门开启（第 %d 帧，命中=%d）" % [gate_open_frame, hit_frame])
+	_check(hit_frame < 0 or hit_frame >= gate_open_frame,
+			"公平性：首次命中不早于门开（命中=%d 门开=%d）" % [hit_frame, gate_open_frame])
+	_check(viol_out == 0, "淡出期攻击盒层恒 0（残壳不补刀，违规 %d 帧）" % viol_out)
+	if hit_frame >= 0:
+		_check(gone_frame >= 0 and gone_frame - hit_frame <= FADE_OUT_F,
+				"淡出时长吻合（ENDING@%d 真删@%d ≤%d 帧）" % [hit_frame, gone_frame, FADE_OUT_F])
 	await _dual_instance_isolation(stage, chen, enemy)
+	await _zombie_receipt_guard(stage, chen, enemy)
 	_finished = true
 
 
-## 双实例隔离（2026-09-16 用户锁定要求：多发法术的通知/生命必须实例私有）。
-## 直接构造两发弹体（不同起点、同泳道）飞向同一敌人：两次掉血事件与两次
-## 弹体消亡事件必须按时间严格配对——若通知跨实例串线（两发都响应第一击、
-## 或某发收到别人的回执），配对当场破裂。
+## 双实例隔离（用户锁定要求）：两发弹体同屏，各自的上场/门/命中/消亡事件
+## 全部按弹体个体采样配对——任何跨实例串线（替死、抢门、补刀）当场破裂。
 func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node) -> void:
 	var scene: PackedScene = load("res://spells/fire_ball/fire_ball.tscn")
 	var spell_def: SpellDefinition = load("res://spells/fire_ball/resources/fire_ball_definition.tres")
@@ -113,45 +145,51 @@ func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node)
 	var emits := [0, 0]
 	for k in range(2):
 		balls[k].spell_hit.connect(func(_tb): emits[k] += 1)
-	var drops: Array[int] = []
+	var hits := [-1, -1]
 	var gones := [-1, -1]
-	var prev: float = enemy.attributes.health_current
-	for i in 160:
+	var viols_in := [0, 0]
+	var opens := [-1, -1]
+	for i in 200:
 		await get_tree().physics_frame
-		var now: float = enemy.attributes.health_current
-		if now < prev:
-			drops.append(i)
-		prev = now
-		for k in range(balls.size()):
-			if gones[k] < 0 and not is_instance_valid(balls[k]):
+		for k in range(2):
+			if gones[k] >= 0:
+				continue
+			if not is_instance_valid(balls[k]):
 				gones[k] = i
-		if drops.size() >= 2 and gones[0] >= 0 and gones[1] >= 0:
+				continue
+			var bb := balls[k] as SpellBase
+			if hits[k] < 0 and bb.state != SpellBase.SpellState.ACTIVE:
+				hits[k] = i
+			var bits := _layer_bits(bb)
+			if bits != 0:
+				if hits[k] < 0 and bb.modulate.a < 0.999:
+					viols_in[k] += 1
+				elif hits[k] >= 0:
+					viols_in[k] += 100
+		if gones[0] >= 0 and gones[1] >= 0:
 			break
-	_check(drops.size() == 2, "双弹双命中：两次掉血事件（帧 %s）" % [str(drops)])
-	_check(gones[0] >= 0 and gones[1] >= 0,
-			"两发弹体各自消亡（帧 %s）" % [str(gones)])
-	if drops.size() == 2 and gones[0] >= 0 and gones[1] >= 0:
-		var gs := gones.duplicate()
-		gs.sort()
-		var paired := true
-		for j in 2:
-			if gs[j] < drops[j] or gs[j] - drops[j] > 3:
-				paired = false
-		_check(paired, "消亡与掉血严格一对一配对（通知实例私有，零串线）")
+	_check(hits[0] >= 0 and hits[1] >= 0,
+			"双弹各自命中离场（ENDING 帧 %s）" % [str(hits)])
+	_check(gones[0] >= 0 and gones[1] >= 0, "双弹各自淡出真删（帧 %s）" % [str(gones)])
+	if hits[0] >= 0 and gones[0] >= 0 and hits[1] >= 0 and gones[1] >= 0:
+		var ok := true
+		for k in range(2):
+			if gones[k] - hits[k] > FADE_OUT_F or viols_in[k] != 0:
+				ok = false
+		_check(ok, "每弹独立淡入无判定/淡出时长吻合（viol=%s）" % [str(viols_in)])
 	_check(emits[0] == 1 and emits[1] == 1,
 			"每发弹体对外 spell_hit 恰好一次（实际 %s）" % [str(emits)])
-	await _zombie_receipt_guard(stage, chen, enemy)
 
 
-## 僵尸回执守卫（2026-09-16 on_hit 状态守卫入网）：模拟多敌同帧重叠时，
-## 后续回执在首击 destroy() 之后到达同一弹体——死体不得再对外宣告"我被命中"。
-## 直接同帧连调两次 on_hit，不经物理编排（确定性，专测守卫本身）。
+## 僵尸回执守卫：多敌同帧重叠时后续回执落在已离场弹体上——
+## 不得二次 emit、不得改状态。淡入中途被打中（alpha≈0）→ 淡出余量为 0
+## → 瞬时 DEAD，属正确分支，ENDING/DEAD 皆为合法终态。
 func _zombie_receipt_guard(stage: Node2D, chen: QuiverCharacter, enemy: Node) -> void:
 	var scene: PackedScene = load("res://spells/fire_ball/fire_ball.tscn")
 	var spell_def: SpellDefinition = load("res://spells/fire_ball/resources/fire_ball_definition.tres")
 	var b := scene.instantiate() as SpellBase
 	stage.add_child(b)
-	b.global_position = Vector2(3000.0, 363.0)  # 远离战场，排除物理命中干扰
+	b.global_position = Vector2(3000.0, 363.0)
 	b.cast(chen, spell_def, Vector2.RIGHT)
 	var emits := [0]
 	b.spell_hit.connect(func(_tb): emits[0] += 1)
@@ -159,30 +197,8 @@ func _zombie_receipt_guard(stage: Node2D, chen: QuiverCharacter, enemy: Node) ->
 	b.on_hit(hb)
 	b.on_hit(hb)
 	_check(emits[0] == 1,
-			"僵尸回执：已死弹体第二张回执不再 emit（实际 %d 次）" % emits[0])
-	_check(b.state == SpellBase.SpellState.DEAD, "僵尸回执：状态恒 DEAD（幂等销毁）")
-	b.queue_free()
-
-
-func _dump_evidence(chen: QuiverCharacter, enemy: Node, spell: SpellBase) -> void:
-	print("  ── [现场取证] ──")
-	if spell == null:
-		print("   弹体不存在，吟唱/放体链路先查 cast_contract")
-		return
-	var hb: Area2D = null
-	for node in spell.find_children("*", "QuiverHitBox", true):
-		hb = node
-		break
-	if hb != null:
-		print("   法术 hitbox 阵营=%s layer=%d mask=%d disabled=%s 全局位置=%s" % [
-				hb._faction_dict.keys(), hb.collision_layer, hb.collision_mask,
-				str(hb.get_child(0).disabled) if hb.get_child_count() > 0 else "n/a",
-				str(hb.global_position)])
-	var hurt := enemy.find_child("HurtBox", true, false) as Area2D
-	if hurt != null:
-		print("   敌人 hurtbox 阵营=%s layer=%d mask=%d" % [
-				hurt._faction_dict.keys(), hurt.collision_layer, hurt.collision_mask])
-	print("   弹体全局位置=%s 速度方向=%s" % [str(spell.global_position), str(spell.direction)])
-	var chen_hb := chen.find_child("HurtBox", true, false) as Area2D
-	if chen_hb != null:
-		print("   施法者 chen hurtbox 阵营=%s（wall 从这张脸上被抄走）" % chen_hb._faction_dict.keys())
+			"僵尸回执：已离场弹体第二张回执不再 emit（实际 %d 次）" % emits[0])
+	_check(b.state == SpellBase.SpellState.ENDING or b.state == SpellBase.SpellState.DEAD,
+			"僵尸回执：状态已离 ACTIVE（实际 %d）" % b.state)
+	b.destroy()
+	_check(b.state == SpellBase.SpellState.DEAD, "销毁幂等：二次 destroy 不改写 DEAD")

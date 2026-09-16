@@ -55,7 +55,7 @@ func _file_checks() -> void:
 func _bodies() -> int:
 	var n := 0
 	for c in _stage.get_children():
-		if c is SpellBase:
+		if c is SpellBase and (c as SpellBase).state == SpellBase.SpellState.ACTIVE:
 			n += 1
 	return n
 
