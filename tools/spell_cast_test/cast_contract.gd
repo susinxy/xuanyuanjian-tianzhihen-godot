@@ -77,6 +77,7 @@ func _make_def(cast_time: float, mana_cost: float) -> SpellDefinition:
 	var def := (load(FIRE_DEF) as SpellDefinition).duplicate(true)
 	def.caster_cast_time = cast_time
 	def.mana_cost = mana_cost
+	def.cooldown = 0.0
 	def.spell_scene = load(FIRE_SCENE)
 	return def
 

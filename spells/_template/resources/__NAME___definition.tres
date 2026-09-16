@@ -6,4 +6,8 @@
 script = ExtResource("1_script")
 spell_id = &"__NAME__"
 display_name = "__DISPLAY_NAME__"
+cooldown = 3.0
+caster_cast_time = 0.5
 release_ratio = Vector2(1, 0.34)
+fade_in_time = 0.3
+fade_out_time = 0.35

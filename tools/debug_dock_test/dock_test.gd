@@ -77,7 +77,7 @@ func _flow() -> void:
 	var titles: PackedStringArray = dock.get_tab_titles()
 	_check(titles.has("探针") and titles.has("第二页"),
 			"两个页签注册成功（%s）" % [str(titles)])
-	_check(titles.has_all(["角色", "弹体", "诊断", "系统"]),
+	_check(["角色", "弹体", "诊断", "系统"].all(func(t): return titles.has(t)),
 			"内容层四页签自动注册在位（%s）" % [str(titles)])
 	await _frames(20)
 	var tabs := _tabs_ctrl(dock)

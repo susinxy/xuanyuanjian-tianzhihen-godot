@@ -9,14 +9,17 @@ extends Node
 ## 运行：godot --headless --path . res://tools/spell_hit_test/projectile_hit.tscn
 
 const RUN_TEST := "res://test_scenes/_test_spell_fire_ball.tscn"
-const FADE_IN_F := 8    # 0.12s ≈ 7 物理帧 + 1 容差
-const FADE_OUT_F := 15  # 0.20s ≈ 12 物理帧 + 3 容差
+var _fade_in_f := 10    # 淡入帧窗：从磁盘定义派生（用户手感参数随时可调，测试
+var _fade_out_f := 25   # 不得假设默认值——9/15 纪律执行化；+受击定格余量）
 
 var _fails := 0
 var _finished := false
 
 
 func _ready() -> void:
+	var def: SpellDefinition = load("res://spells/fire_ball/resources/fire_ball_definition.tres")
+	_fade_in_f = int(ceil(def.fade_in_time * 60.0)) + 2
+	_fade_out_f = int(ceil(def.fade_out_time * 60.0)) + 12
 	await _main_flow()
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ projectile-hit: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -123,8 +126,8 @@ func _main_flow() -> void:
 			"公平性：首次命中不早于门开（命中=%d 门开=%d）" % [hit_frame, gate_open_frame])
 	_check(viol_out == 0, "淡出期攻击盒层恒 0（残壳不补刀，违规 %d 帧）" % viol_out)
 	if hit_frame >= 0:
-		_check(gone_frame >= 0 and gone_frame - hit_frame <= FADE_OUT_F,
-				"淡出时长吻合（ENDING@%d 真删@%d ≤%d 帧）" % [hit_frame, gone_frame, FADE_OUT_F])
+		_check(gone_frame >= 0 and gone_frame - hit_frame <= _fade_out_f,
+				"淡出时长吻合（ENDING@%d 真删@%d ≤%d 帧）" % [hit_frame, gone_frame, _fade_out_f])
 	await _dual_instance_isolation(stage, chen, enemy)
 	await _zombie_receipt_guard(stage, chen, enemy)
 	_finished = true
@@ -174,7 +177,7 @@ func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node)
 	if hits[0] >= 0 and gones[0] >= 0 and hits[1] >= 0 and gones[1] >= 0:
 		var ok := true
 		for k in range(2):
-			if gones[k] - hits[k] > FADE_OUT_F or viols_in[k] != 0:
+			if gones[k] - hits[k] > _fade_out_f or viols_in[k] != 0:
 				ok = false
 		_check(ok, "每弹独立淡入无判定/淡出时长吻合（viol=%s）" % [str(viols_in)])
 	_check(emits[0] == 1 and emits[1] == 1,

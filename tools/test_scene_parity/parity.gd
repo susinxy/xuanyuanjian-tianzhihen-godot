@@ -54,7 +54,7 @@ func _initialize():
 			and spell_text.contains("panel_position = Vector2(845, 270)"),
 			"两数据窗口右列避让（845 列）")
 	_check(spell_text.contains("=== 法术测试: fire_ball"), "帮助文本标注被测法术")
-	_check(spell_text.contains("[gd_scene load_steps=22"), "load_steps 已随套件 +2")
+	_check(spell_text.contains("[gd_scene load_steps=21"), "load_steps 已随套件 +1（诊断面板迁入 DebugDock）")
 	_check(spell_text.contains(HELPER), "helper 脚本 ext 路径注入")
 	
 	# 角色侧不得被套件污染（回归锁）

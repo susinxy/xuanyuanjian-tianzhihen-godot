@@ -60,8 +60,8 @@ static func ensure_conductor(content: String) -> String:
 	if insert_at == -1:
 		insert_at = content.find("[node")
 	content = content.left(insert_at) + ext_line + "\n\n" + content.substr(insert_at)
-	return content + "\n[node name=\"AIConductor\" type=\"Node\" parent=\".\"]\nscript = ExtResource(\"14_conductor\")\n"
-		+ "\n[node name=\"DebugDockOpen\" type=\"Node\" parent=\".\" groups=[\"debug_dock_default_open\"]]\n"
+	return content + ("\n[node name=\"AIConductor\" type=\"Node\" parent=\".\"]\nscript = ExtResource(\"14_conductor\")\n"
+			+ "\n[node name=\"DebugDockOpen\" type=\"Node\" parent=\".\" groups=[\"debug_dock_default_open\"]]\n")
 
 
 ## 剥离旧 enemy（魔法替身）引用块：ext、专属 hack 脚本、节点与属性覆盖
