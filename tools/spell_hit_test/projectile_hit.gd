@@ -55,34 +55,86 @@ func _main_flow() -> void:
 		return
 	_check(chen._spell_manager != null, "角色法术管理器就位")
 
-	var hp0: float = enemy.attributes.health_current
 	chen.channel.press("spell_1")
-	await _frames(70)  # 真定义：起手 0.333s + 引导 0.8s ≈ 1.15s，给 100 帧冗余内的余量
-
-	var spell := _find_spell(stage)
-	_check(spell != null, "弹体已上场（吟唱走完释放）")
-	if spell == null:
-		_dump_evidence(chen, enemy, null)
-		_finished = true
-		return
-	print("   [底账] chen.global=%s chen.ground_level=%.0f 弹体.global=%s enemy.global=%s" % [
-			str(chen.global_position), chen.attributes.ground_level,
-			str(spell.global_position), str(enemy.global_position)])
-
-	var hit := false
-	for _i in 260:
+	# 事件流追踪（不定时点查岗：咏唱期间陪练可能贴身，点零距离命中会让弹体
+	# 出生即灭——那是正确战斗行为，测试必须按事件序列判定而非固定帧号）
+	var spell: SpellBase = null
+	var seen := false
+	var seen_frame := -1
+	var hit_frame := -1
+	var gone_frame := -1
+	var hp_prev: float = enemy.attributes.health_current
+	for i in 340:
 		await get_tree().physics_frame
-		if not is_instance_valid(spell):
-			break  # 命中即消（end→destroy）
-		if enemy.attributes.health_current < hp0:
-			hit = true
+		if not seen:
+			var found := _find_spell(stage)
+			if found != null:
+				spell = found
+				seen = true
+				seen_frame = i
+		else:
+			if is_instance_valid(spell):
+				if hit_frame < 0 and enemy.attributes.health_current < hp_prev:
+					hit_frame = i
+			elif gone_frame < 0:
+				gone_frame = i
+		if seen and hit_frame >= 0 and gone_frame >= 0:
 			break
-	if not hit:
-		hit = enemy.attributes.health_current < hp0
-	_check(hit, "spar_enemy 血量在飞行窗口内下降（弹体真实命中）")
-	if not hit:
+	_check(seen, "弹体已上场（吟唱走完释放）")
+	_check(hit_frame >= 0, "spar_enemy 血量下降（弹体真实命中）")
+	if not seen:
+		_dump_evidence(chen, enemy, null)
+	elif hit_frame < 0:
 		_dump_evidence(chen, enemy, spell)
+	else:
+		# 命中通知链闭合断言（2026-09-16 定罪）：敌人 hurtbox 沿 hit_box.owner
+		# 反射调 on_hit——链路修复前通知静默丢弃，弹体穿体飞到 5s 超时（300 帧）
+		# 才灭；修复后必须在掉血数帧内消亡（超时灭与命中灭以帧距判别）。
+		_check(gone_frame >= 0 and gone_frame - hit_frame <= 3,
+				"命中即灭：掉血后 ≤3 帧弹体消亡（掉血帧=%d 消亡帧=%d）" % [hit_frame, gone_frame])
+	await _dual_instance_isolation(stage, chen, enemy)
 	_finished = true
+
+
+## 双实例隔离（2026-09-16 用户锁定要求：多发法术的通知/生命必须实例私有）。
+## 直接构造两发弹体（不同起点、同泳道）飞向同一敌人：两次掉血事件与两次
+## 弹体消亡事件必须按时间严格配对——若通知跨实例串线（两发都响应第一击、
+## 或某发收到别人的回执），配对当场破裂。
+func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node) -> void:
+	var scene: PackedScene = load("res://spells/fire_ball/fire_ball.tscn")
+	var spell_def: SpellDefinition = load("res://spells/fire_ball/resources/fire_ball_definition.tres")
+	var balls: Array = []
+	for x in [258.0, 358.0]:
+		var b := scene.instantiate() as SpellBase
+		stage.add_child(b)
+		b.global_position = Vector2(x, 363.0)
+		b.cast(chen, spell_def, Vector2.RIGHT)
+		balls.append(b)
+	var drops: Array[int] = []
+	var gones := [-1, -1]
+	var prev: float = enemy.attributes.health_current
+	for i in 160:
+		await get_tree().physics_frame
+		var now: float = enemy.attributes.health_current
+		if now < prev:
+			drops.append(i)
+		prev = now
+		for k in range(balls.size()):
+			if gones[k] < 0 and not is_instance_valid(balls[k]):
+				gones[k] = i
+		if drops.size() >= 2 and gones[0] >= 0 and gones[1] >= 0:
+			break
+	_check(drops.size() == 2, "双弹双命中：两次掉血事件（帧 %s）" % [str(drops)])
+	_check(gones[0] >= 0 and gones[1] >= 0,
+			"两发弹体各自消亡（帧 %s）" % [str(gones)])
+	if drops.size() == 2 and gones[0] >= 0 and gones[1] >= 0:
+		var gs := gones.duplicate()
+		gs.sort()
+		var paired := true
+		for j in 2:
+			if gs[j] < drops[j] or gs[j] - drops[j] > 3:
+				paired = false
+		_check(paired, "消亡与掉血严格一对一配对（通知实例私有，零串线）")
 
 
 func _dump_evidence(chen: QuiverCharacter, enemy: Node, spell: SpellBase) -> void:

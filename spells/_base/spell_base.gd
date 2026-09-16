@@ -33,6 +33,7 @@ func _ready() -> void:
 		_skin.spell_effect_triggered.connect(_on_skin_effect_triggered)
 		_skin.spell_spawn_requested.connect(_on_skin_spawn_requested)
 		_skin.spell_ended.connect(_on_skin_spell_ended)
+		_skin.spell_hit_detected.connect(_on_skin_hit_detected)
 	
 	set_physics_process(false)
 	_on_ready()
@@ -233,3 +234,8 @@ func _on_skin_spawn_requested(marker_name: String) -> void:
 
 func _on_skin_spell_ended() -> void:
 	end()
+
+
+## 皮肤转发的命中回执（on_hit 反射链落地）→ 汇入本法术的标准命中处理入口。
+func _on_skin_hit_detected(target_hurtbox: QuiverHurtBox) -> void:
+	on_hit(target_hurtbox)

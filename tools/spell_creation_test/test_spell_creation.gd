@@ -102,6 +102,16 @@ func _initialize():
 		idx = hit + 1
 	_check(broken == 0, "spriteframes 引用的弹体帧全部存在（断链 %d）" % broken)
 	
+	# ── 循环法术动画无结束信标（2026-09-16 定罪：信标只属一次性动画；
+	#    循环方法轨道=每圈误触发一次的死线，工具已循环感知强制） ──
+	var beacon_free := true
+	for side in ["right", "left", "up", "down"]:
+		var atxt := FileAccess.get_file_as_string(
+				DIR + "/resources/animations/active_%s.tres" % side)
+		if '"type": "method"' in atxt:
+			beacon_free = false
+	_check(beacon_free, "循环 active 动画均无结束信标轨道")
+	
 	# ── 皮肤场景路径替换 ──
 	var skin_tscn := FileAccess.get_file_as_string(DIR + "/tmp_spell_check_skin.tscn")
 	_check("res://spells/tmp_spell_check/resources" in skin_tscn and "__NAME__" not in skin_tscn,

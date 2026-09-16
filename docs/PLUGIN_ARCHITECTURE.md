@@ -1388,6 +1388,13 @@ MABR→胶囊/矩形、腐蚀后 MABR、阴影遮挡体）全部只取 `[0]`—�
 且按帧名前缀受理会误伤 RESET（其精灵帧名恒指向循环动画）→ 类型注解降为
 `Array` + RESET 豁免。
 
+**信标循环感知（2026-09-16 火球死线信标定档）**：`_validate_attack_animation_structure`
+按 `anim.loop_mode` 分岔——**非循环**攻击/active 动画必须带结束信标（状态机唯一出口，
+角色 `end_of_skin_animation` / 法术 `end_of_spell_animation`）；**循环动画禁止携带**
+信标（方法轨道按时刻触发，循环每掠过一圈响一次，对"一次性结束"语义是每圈误触发源；
+循环法弹的生死由命中/超时两个战斗事件决定）。工具只报错不自动删（节奏属创作者），
+fire_ball 的存量死线由 `tools/reconvert_fireball/` 的摘除步骤一次性清偿。
+
 ### 15.2 ShapeType 枚举与 SHAPE_CONFIGS
 
 `AnimationTrackInjector` 定义了三种碰撞形状类型：

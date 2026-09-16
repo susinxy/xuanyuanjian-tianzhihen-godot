@@ -1472,7 +1472,11 @@ func _apply_static_defaults(skin_node: Node, static_defaults: Dictionary) -> voi
 
 ## Attack 动画结构体检（发现即报，不自动修——方法轨道时刻与 disabled 窗口
 ## 属节奏/手感设计，工具无权替创作者决定；报错让烘焙结果大声可见）
-## 检查 1：缺 end_of_skin_animation 方法轨道 → 攻击状态机唯一出口失联，攻击无法结束
+## 检查 1（循环感知，2026-09-16 火球信标定罪改版）：
+##   非循环攻击/active 动画：必须带结束信标方法轨道（状态机唯一出口）
+##   循环动画：禁止带结束信标——方法轨道按时刻触发，循环每掠过一圈响一次，
+##     对"一次性结束"语义是每秒一次的误触发源（飞行的法弹没有"动画结束"，
+##     其生命由命中/超时两个战斗事件决定）
 ## 检查 2：所有 :disabled 轨道全天 true → 攻击盒永不激活，打不中人
 func _validate_attack_animation_structure(anim: Animation, anim_name: String, errors: Array[String], is_spell: bool = false) -> void:
 	# 状态机出口的方法轨道名分产线：角色皮肤= end_of_skin_animation，
@@ -1495,7 +1499,12 @@ func _validate_attack_animation_structure(anim: Animation, anim_name: String, er
 							has_open_window = true
 	# air_* 豁免电话检查：QuiverActionJumpAttack 出口由 _end_condition 决定，
 	# 距离档（模板/chad/chen 现行配置）不需要这通电话；法术线无 air_* 分支
-	if not has_end_of_anim and not anim_name.begins_with("air_"):
+	var is_looping: bool = anim.loop_mode != Animation.LOOP_NONE
+	if is_looping:
+		if has_end_of_anim:
+			errors.append(("循环动画 '%s' 携带 %s 方法轨道——每圈循环都会误发一次结束信号，"
+					+ "循环动画的结束由战斗事件（命中/超时）决定，请删除该轨道") % [anim_name, end_method])
+	elif not has_end_of_anim and not anim_name.begins_with("air_"):
 		errors.append("攻击动画 '%s' 缺 %s 方法轨道——攻击/施法状态将无法结束" % [anim_name, end_method])
 	if disabled_track_count > 0 and not has_open_window:
 		errors.append("攻击动画 '%s' 所有攻击盒 disabled 恒为 true——攻击判定永不激活（参考 *_right 的开合窗口）" % anim_name)

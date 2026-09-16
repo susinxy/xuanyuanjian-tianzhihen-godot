@@ -15,12 +15,12 @@ _data = {
 }
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2omp8"]
-radius = 83.558708190918
-height = 171.268798828125
+radius = 27.90395
+height = 58.887474
 
 [node name="__CLASS__Skin" unique_id=154143838 instance=ExtResource("1_base")]
 script = ExtResource("8_script")
-attack_heights = [49.5, 157.0]
+attack_heights = [52.5]
 metadata/_edit_horizontal_guides_ = [21.0]
 metadata/_edit_vertical_guides_ = [-33.0]
 
@@ -37,7 +37,7 @@ parameters/state_machine/active/blend_position = 1.0
 parameters/time_scale/scale = 1.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." index="2" unique_id=1080043567]
-position = Vector2(0, -80)
+position = Vector2(0, -12)
 sprite_frames = ExtResource("4_sprites")
 animation = &"active"
 
@@ -50,7 +50,7 @@ attack_data = ExtResource("6_attack")
 
 [node name="Attack1Shape" type="CollisionShape2D" parent="Attacks/Attack1" index="0" unique_id=623438986]
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(-10.03946, -33.47605)
-rotation = 4.48865365982056
+position = Vector2(0.8928071, 1.7094495)
+rotation = -0.5984189
 shape = SubResource("CapsuleShape2D_2omp8")
 disabled = true

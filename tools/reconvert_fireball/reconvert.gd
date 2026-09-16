@@ -33,6 +33,36 @@ func _ready() -> void:
 	print("STATIC Attack1:position=", (skin.get_node_or_null("Attacks/Attack1") as Node2D).position)
 	print("STATIC attack_heights=", skin.attack_heights)
 	
+	# 循环信标摘除（2026-09-16 定罪）：飞行动画上的 end_of_spell_animation 是
+	# 每圈误响的死线，删除并保存（injector 不写方法轨道，摘除是永久的）。
+	var aplayer := skin.get_node("AnimationPlayer") as AnimationPlayer
+	var stripped := 0
+	for lib_name in aplayer.get_animation_library_list():
+		var lib := aplayer.get_animation_library(lib_name)
+		if lib == null:
+			continue
+		for anim_name in lib.get_animation_list():
+			var anim := lib.get_animation(anim_name)
+			if anim == null or not String(anim_name).begins_with("active"):
+				continue
+			if anim.loop_mode == Animation.LOOP_NONE:
+				continue
+			var doomed: Array[int] = []
+			for ti in range(anim.get_track_count()):
+				if anim.track_get_type(ti) != Animation.TYPE_METHOD:
+					continue
+				for k in range(anim.track_get_key_count(ti)):
+					if String(anim.method_track_get_name(ti, k)) == "end_of_spell_animation":
+						doomed.append(ti)
+						break
+			for ti in doomed:
+				anim.remove_track(ti)
+				stripped += 1
+			if not doomed.is_empty():
+				var err := ResourceSaver.save(anim, anim.resource_path)
+				print("摘除 %s 信标 %d 条 保存=%s" % [anim_name, doomed.size(), err])
+	print("════════ 信标摘除完成（本次共 %d 条）" % stripped)
+	
 	# 针帧复检（库名不假设，遍历找 active_right）
 	var player := skin.get_node("AnimationPlayer") as AnimationPlayer
 	var anim: Animation = null
