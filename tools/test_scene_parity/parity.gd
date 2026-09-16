@@ -14,9 +14,10 @@ const HELPER := "res://test_scenes/_test_spell_helper_x.gd"
 
 const REQUIRED_BOTH := ["Character", "LevelCamera", "Background", "Ground",
 		"DebugHeightOverlay", "DebugKnockoutOverlay", "AIConductor", "Enemy",
+		"DebugDockOpen",
 		"DebugLabel", "DayNightController", "DebugDayNightInput",
 		"ShadowRegion", "ShortWall", "TallWall", "Platform"]
-const KIT_ONLY := ["TestSpellHelper", "DebugOverlay"]
+const KIT_ONLY := ["TestSpellHelper"]
 
 var _fail := 0
 

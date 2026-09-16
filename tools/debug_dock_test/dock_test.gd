@@ -77,11 +77,16 @@ func _flow() -> void:
 	var titles: PackedStringArray = dock.get_tab_titles()
 	_check(titles.has("探针") and titles.has("第二页"),
 			"两个页签注册成功（%s）" % [str(titles)])
+	_check(titles.has_all(["角色", "弹体", "诊断", "系统"]),
+			"内容层四页签自动注册在位（%s）" % [str(titles)])
 	await _frames(20)
 	var tabs := _tabs_ctrl(dock)
 	var probe_tab := tabs.get_node("探针")
 	var rich := probe_tab.get_child(0) as RichTextLabel
 	_check(rich != null and "探针行一 42" in rich.text, "0.15s 拉取刷新把 provider 内容送达")
+	var sys_tab := tabs.get_node("系统")
+	var sys_rich: RichTextLabel = sys_tab.get_child(0)
+	_check("FPS" in sys_rich.text, "系统页 provider 送达（FPS 行）")
 
 	# Tab 键循环（窗口此刻可见）
 	var start_tab := tabs.current_tab

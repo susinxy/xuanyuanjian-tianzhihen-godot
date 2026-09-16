@@ -61,6 +61,7 @@ static func ensure_conductor(content: String) -> String:
 		insert_at = content.find("[node")
 	content = content.left(insert_at) + ext_line + "\n\n" + content.substr(insert_at)
 	return content + "\n[node name=\"AIConductor\" type=\"Node\" parent=\".\"]\nscript = ExtResource(\"14_conductor\")\n"
+		+ "\n[node name=\"DebugDockOpen\" type=\"Node\" parent=\".\" groups=[\"debug_dock_default_open\"]]\n"
 
 
 ## 剥离旧 enemy（魔法替身）引用块：ext、专属 hack 脚本、节点与属性覆盖
@@ -327,18 +328,17 @@ debug_preview = true
 static func add_spell_test_kit(content: String, spell_name: String, helper_script_path: String) -> String:
 	var out := content
 	# ext 区追加（插到首个 sub_resource/node 之前，与 inject_actor 同规则）
-	var ext_lines := "[ext_resource type=\"Script\" path=\"res://scripts/debug_spell_test_overlay.gd\" id=\"7_spell_overlay\"]\n"
-	ext_lines += "[ext_resource type=\"Script\" path=\"" + helper_script_path + "\" id=\"5_test_helper\"]\n\n"
+	var ext_lines := "[ext_resource type=\"Script\" path=\"" + helper_script_path + "\" id=\"5_test_helper\"]\n\n"
 	var insert_at := out.find("[sub_resource")
 	if insert_at == -1:
 		insert_at = out.find("[node")
 	out = out.left(insert_at) + ext_lines + out.substr(insert_at)
-	# load_steps 同步 +2
+	# load_steps 同步 +1（helper；旧法术诊断面板已迁入 DebugDock，不再注入）
 	var rx := RegEx.new()
 	rx.compile("(?m)^\\[gd_scene load_steps=(\\d+)")
 	var m := rx.search(out)
 	if m != null:
-		out = out.replace(m.get_string(0), "[gd_scene load_steps=%d" % (int(m.get_string(1)) + 2))
+		out = out.replace(m.get_string(0), "[gd_scene load_steps=%d" % (int(m.get_string(1)) + 1))
 	# helper 节点：插到被测角色（Character）块尾、LevelCamera 之前
 	var anchor := "position = Vector2(200, 480)\n\n[node name=\"LevelCamera\""
 	assert(out.contains(anchor))
@@ -353,11 +353,7 @@ static func add_spell_test_kit(content: String, spell_name: String, helper_scrip
 			+ "character_path = NodePath(\"../Character\")"
 	assert(out.contains(h_anchor))
 	out = out.replace(h_anchor,
-			"[node name=\"DebugOverlay\" type=\"CanvasLayer\" parent=\".\"]\n"
-			+ "layer = 10\nscript = ExtResource(\"7_spell_overlay\")\n"
-			+ "player_path = NodePath(\"../Character\")\n"
-			+ "enemy_path = NodePath(\"../Enemy\")\n\n"
-			+ h_anchor + "\npanel_position = Vector2(845, 10)\npanel_width = 300.0")
+			h_anchor + "\npanel_position = Vector2(845, 10)\npanel_width = 300.0")
 	var k_anchor := "[node name=\"DebugKnockoutOverlay\" type=\"CanvasLayer\" parent=\".\"]\n" \
 			+ "script = ExtResource(\"6_knockout_overlay\")\n" \
 			+ "character_path = NodePath(\"../Character\")"
