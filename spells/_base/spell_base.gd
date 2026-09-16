@@ -33,7 +33,6 @@ func _ready() -> void:
 		_skin.spell_effect_triggered.connect(_on_skin_effect_triggered)
 		_skin.spell_spawn_requested.connect(_on_skin_spawn_requested)
 		_skin.spell_ended.connect(_on_skin_spell_ended)
-		_skin.spell_hit_detected.connect(_on_skin_hit_detected)
 	
 	set_physics_process(false)
 	_on_ready()
@@ -68,6 +67,9 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 				# 必须走显式刷新入口：typed 调用绕过 add_to_group 的脚本 override
 				hitbox.add_faction_group(group)
 			hitbox.character_attributes = caster_attributes
+			# 命中回执注入（Callable 一等公民，绑定点类型可查；契约见
+			# QuiverHitBox.on_target_hit 注释——同步调用，严禁延迟化）
+			hitbox.on_target_hit = Callable(self, "on_hit")
 	
 	if _skin:
 		_skin.skin_direction = SpellManager.snap_to_four_direction(direction)
@@ -161,6 +163,10 @@ func destroy() -> void:
 	queue_free()
 
 func on_hit(hurtbox: QuiverHurtBox) -> void:
+	# 状态守卫（2026-09-16 僵尸回执定罪）：多敌同帧重叠时，后续回执在首击
+	# destroy() 之后到达；非 ACTIVE 弹体不得再对外宣告"我被命中"。
+	if state != SpellState.ACTIVE:
+		return
 	spell_hit.emit(hurtbox)
 	_on_hit(hurtbox)
 
@@ -235,7 +241,3 @@ func _on_skin_spawn_requested(marker_name: String) -> void:
 func _on_skin_spell_ended() -> void:
 	end()
 
-
-## 皮肤转发的命中回执（on_hit 反射链落地）→ 汇入本法术的标准命中处理入口。
-func _on_skin_hit_detected(target_hurtbox: QuiverHurtBox) -> void:
-	on_hit(target_hurtbox)

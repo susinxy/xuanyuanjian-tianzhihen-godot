@@ -110,6 +110,9 @@ func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node)
 		b.global_position = Vector2(x, 363.0)
 		b.cast(chen, spell_def, Vector2.RIGHT)
 		balls.append(b)
+	var emits := [0, 0]
+	for k in range(2):
+		balls[k].spell_hit.connect(func(_tb): emits[k] += 1)
 	var drops: Array[int] = []
 	var gones := [-1, -1]
 	var prev: float = enemy.attributes.health_current
@@ -135,6 +138,30 @@ func _dual_instance_isolation(stage: Node2D, chen: QuiverCharacter, enemy: Node)
 			if gs[j] < drops[j] or gs[j] - drops[j] > 3:
 				paired = false
 		_check(paired, "消亡与掉血严格一对一配对（通知实例私有，零串线）")
+	_check(emits[0] == 1 and emits[1] == 1,
+			"每发弹体对外 spell_hit 恰好一次（实际 %s）" % [str(emits)])
+	await _zombie_receipt_guard(stage, chen, enemy)
+
+
+## 僵尸回执守卫（2026-09-16 on_hit 状态守卫入网）：模拟多敌同帧重叠时，
+## 后续回执在首击 destroy() 之后到达同一弹体——死体不得再对外宣告"我被命中"。
+## 直接同帧连调两次 on_hit，不经物理编排（确定性，专测守卫本身）。
+func _zombie_receipt_guard(stage: Node2D, chen: QuiverCharacter, enemy: Node) -> void:
+	var scene: PackedScene = load("res://spells/fire_ball/fire_ball.tscn")
+	var spell_def: SpellDefinition = load("res://spells/fire_ball/resources/fire_ball_definition.tres")
+	var b := scene.instantiate() as SpellBase
+	stage.add_child(b)
+	b.global_position = Vector2(3000.0, 363.0)  # 远离战场，排除物理命中干扰
+	b.cast(chen, spell_def, Vector2.RIGHT)
+	var emits := [0]
+	b.spell_hit.connect(func(_tb): emits[0] += 1)
+	var hb := enemy.find_child("HurtBox", true, false) as QuiverHurtBox
+	b.on_hit(hb)
+	b.on_hit(hb)
+	_check(emits[0] == 1,
+			"僵尸回执：已死弹体第二张回执不再 emit（实际 %d 次）" % emits[0])
+	_check(b.state == SpellBase.SpellState.DEAD, "僵尸回执：状态恒 DEAD（幂等销毁）")
+	b.queue_free()
 
 
 func _dump_evidence(chen: QuiverCharacter, enemy: Node, spell: SpellBase) -> void:

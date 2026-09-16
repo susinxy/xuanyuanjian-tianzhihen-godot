@@ -170,10 +170,12 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		)
 		CombatSystem.apply_knockback(knockback, character_attributes)
 		
-		# 通知法术命中
-		var owner = hit_box.owner
-		if owner and owner.has_method("on_hit"):
-			owner.on_hit(self)
+		# 命中回执：走攻击盒自带的注入式回调（QuiverHitBox.on_target_hit 注释含
+		# 完整决策史）。旧实现 `hit_box.owner.has_method("on_hit")` 反射已废除：
+		# owner 只跨一道场景边界，弹体攻击盒的 owner 是皮肤非弹体，通知从诞生
+		# 即静默丢弃（2026-09-16 用户 F5 定罪：弹体扣血后穿体飞到超时）。
+		if hit_box.on_target_hit.is_valid():
+			hit_box.on_target_hit.call(self)
 
 
 func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void: 

@@ -30,10 +30,6 @@ signal spell_hitbox_deactivated
 signal spell_effect_triggered
 signal spell_spawn_requested(marker_name: String)
 signal spell_ended
-## 命中回执转发：敌人 hurtbox 沿 hit_box.owner 上调 on_hit()，owner 是皮肤场景根
-## （实例边界）而非弹体本体，皮肤在此把通知转发给真正的主人 SpellBase。
-## 2026-09-16 定罪：本方法缺席=通知静默丢弃、弹体扣血后穿体继续飞（命中即灭断言红）。
-signal spell_hit_detected(target_hurtbox: QuiverHurtBox)
 
 func _ready() -> void:
 	_populate_animation_list()
@@ -57,11 +53,6 @@ func _in_editor_ready() -> void:
 func end_of_spell_animation(_animation_name := "") -> void:
 	spell_animation_finished.emit()
 
-
-## 命中通知着陆点（见 spell_hit_detected 注释）。方法名被
-## QuiverHurtBox._handle_hit_box 按 owner 反射调用，签名不可改。
-func on_hit(target_hurtbox: QuiverHurtBox) -> void:
-	spell_hit_detected.emit(target_hurtbox)
 
 func spell_hit_active() -> void:
 	spell_hitbox_activated.emit()

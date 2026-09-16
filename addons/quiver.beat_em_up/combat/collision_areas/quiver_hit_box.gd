@@ -25,6 +25,18 @@ var character_attributes: QuiverAttributes = null
 			attack_data = QuiverAttackData.new()
 		return attack_data
 
+## 命中回执回调（2026-09-16 调研定档，取代 owner+has_method 字符串反射）：
+## 谁持有这个攻击盒、想知道"打中人了"，就在自己的装配时机把
+## Callable(自己, "方法") 注入这里；QuiverHurtBox._handle_hit_box 在结算完
+## 目标侧伤害后同步 call(目标受击盒)。留空=不通知（近战角色的现状，零影响）。
+## 契约：必须同步调用（本帧内送达，queue_free 是帧末才真删，后续受击者收到
+## 已死对象回执是安全的）；严禁改成 call_deferred/延迟信号——延迟窗口会撞上
+## 帧末真删除（使用已释放实例崩溃）。
+## 弃用反射的定罪史：owner 只认一道场景边界（弹体攻击盒挂在皮肤内，owner=
+## 皮肤而非弹体本体），字符串方法名无类型检查、失配静默跳过——命中通知链
+## 因此"从诞生即断"且测试全绿漏过（2026-09-16 用户 F5 定罪）。
+var on_target_hit: Callable = Callable()
+
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 ## 阵营 group 缓存（Dictionary 格式，key 为 faction name，value 为 true）

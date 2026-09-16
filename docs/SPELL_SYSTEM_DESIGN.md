@@ -2325,11 +2325,15 @@ spell_4={
   法术动画（未来的 hit 爆炸/ending 收势——"演出完毕"回执，销毁时机的唯一可靠信源；
   auto_advance 已实测不可用）。循环飞行的 `active` **禁止**携带（每圈误响一次的死线；
   弹体的生死=命中/超时两个战斗事件，动画时间无权宣告）。转换体检已循环感知强制。
-- **命中通知链（同日定罪修复）**：敌人 HurtBox 命中后沿 `hit_box.owner` 反射调
-  `on_hit()`——owner 是皮肤场景根（实例边界）而非弹体本体，故 `SpellSkin.on_hit()`
-  存在且转发 `spell_hit_detected` 信号 → `SpellBase` 汇入自身 `on_hit()` → 子类
-  `_on_hit` 虚函数（爆炸或自毁）。此链修复前**从诞生即断**（皮肤无该方法、通知静默
-  丢弃、弹体扣血后穿体飞到超时）；防回归=projectile_hit 的"命中即灭 ≤3 帧"断言。
+- **命中通知链（2026-09-16 定罪+调研定档，Callable 注入版）**：敌人 HurtBox 结算
+  伤害后同步执行 `hit_box.on_target_hit.call(受击盒)`——该回调由弹体在 `cast()`
+  时注入（`Callable(self, "on_hit")`，绑定点类型可查、实例私有、零字符串零反射）。
+  定罪史：此前用 `hit_box.owner.has_method("on_hit")` 反射，owner 只跨一道场景
+  边界（攻击盒的 owner=皮肤非弹体），通知从诞生即静默丢弃、弹体扣血后穿体飞；
+  中间版本（皮肤 on_hit→spell_hit_detected 中继）系该落点错误的补丁，调研后
+  随 Callable 化一并拆除。守卫：`on_hit()` 顶部 `state != ACTIVE` 即返回
+  （多敌同帧重叠时第二张回执不得让死体再 emit——僵尸回执断言入网）。
+  本链必须保持同步（帧内送达 + queue_free 帧末真删，两回执间对象恒有效）。
 - **多实例隔离（实测坐实，非推定）**：法术信标/通知每一环都是实例私有——每次
   放体 `instantiate()` 全新节点树、AnimationPlayer 按各自 root_node 解析调用目标、
   Godot 信号连接表存在发射者对象内部、`_ready` 只连自己的皮肤、对象亡连接亡。

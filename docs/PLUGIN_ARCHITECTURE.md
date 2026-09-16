@@ -840,6 +840,19 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - 重写 `add_to_group()` / `remove_from_group()`，捕获运行时 group 变更并刷新缓存
 - 供 `QuiverHurtBox.are_factions_equal()` 使用
 
+**命中回执注入 `var on_target_hit: Callable`**（2026-09-16 调研定档新增）:
+- 持有者（如法术本体）在装配时机注入 `Callable(自己, "on_hit")`；受击盒结算完
+  伤害后**同步** `call(目标受击盒)`。留空=不通知（近战角色现状，零影响）
+- 契约：必须同步送达，**严禁**改 `call_deferred`/延迟信号（帧末真删除，延迟窗
+  口会撞上已释放对象）
+- 决策记录：旧式 `hit_box.owner.has_method("on_hit")` 反射被废除——`owner` 只认
+  一道场景边界（弹体攻击盒的 owner 是皮肤非弹体本体），字符串方法名无类型检查
+  且失配静默跳过，导致法术命中通知"从诞生即断"全程无报错（GDQuest 正典的
+  duck-typing 前提是"组件直挂被通知者场景根"，皮肤嵌套令前提失效）。
+  Godot 4 决策表对应项："节点需外部行为 → 依赖注入"；Callable 一等公民、
+  绑定点编辑器可查错。防回归：`tools/spell_hit_test/`（命中即灭/双弹配对/
+  僵尸回执三组断言）。
+
 ### 7.3 QuiverHurtBox（受击判定框）
 
 **文件**: `combat/collision_areas/quiver_hurt_box.gd`
@@ -862,6 +875,8 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 2. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
 3. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
 4. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
+5. 命中回执：`hit_box.on_target_hit.is_valid()` 时同步 `call(self)`
+   （见 7.2 注入契约；旧 owner 反射已废除）
 
 **阵营过滤机制**（`area2d:` group）:
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
