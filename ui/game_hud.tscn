@@ -1,0 +1,44 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/game_hud.gd" id="1_hud"]
+
+[node name="GameHUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="Frame" type="PanelContainer" parent="."]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 16.0
+offset_bottom = 16.0
+
+[node name="Row" type="HBoxContainer" parent="Frame"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Portrait" type="TextureRect" parent="Frame/Row"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Info" type="VBoxContainer" parent="Frame/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Name" type="Label" parent="Frame/Row/Info"]
+layout_mode = 2
+
+[node name="Hp" type="ProgressBar" parent="Frame/Row/Info"]
+custom_minimum_size = Vector2(240, 14)
+layout_mode = 2
+show_percentage = false
+
+[node name="Mp" type="ProgressBar" parent="Frame/Row/Info"]
+custom_minimum_size = Vector2(240, 10)
+layout_mode = 2
+show_percentage = false
+
+[node name="Slots" type="HBoxContainer" parent="Frame/Row/Info"]
+layout_mode = 2
+theme_override_constants/separation = 6

@@ -47,11 +47,24 @@ static func compose(content: String, subject_path: String, subject_mode: int) ->
 		out = out.replace("character_path = NodePath(\"../Character\")", \
 				"character_path = NodePath(\"../Subject\")")
 	out = ensure_conductor(out)
+	out = ensure_game_hud(out)
 	return out
 
 
 ## 发令台（Enter 控制 AI 待命/进攻）统一注入：所有 Run Test 场景共用同一编排，
 ## 场景种类不再各自硬编码（曾漏掉法术测试场景导致被测角色被陪练白打死）。
+## 正式 HUD 统一注入：跟随 players 组自动锁定被操作角色（角色切换系统零改动跟手）。
+static func ensure_game_hud(content: String) -> String:
+	if content.contains("ui/game_hud.tscn"):
+		return content
+	var ext_line := "[ext_resource type=\"PackedScene\" path=\"res://ui/game_hud.tscn\" id=\"15_hud\"]"
+	var insert_at := content.find("[sub_resource")
+	if insert_at == -1:
+		insert_at = content.find("[node")
+	content = content.left(insert_at) + ext_line + "\n\n" + content.substr(insert_at)
+	return content + "\n[node name=\"GameHUD\" parent=\".\" instance=ExtResource(\"15_hud\")]\n"
+
+
 static func ensure_conductor(content: String) -> String:
 	if content.contains("test_scene_ai_conductor.gd"):
 		return content
