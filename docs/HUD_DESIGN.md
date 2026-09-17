@@ -42,10 +42,13 @@ spells/ 的布局语法一致；未来 main_menu/pause/对话框皮肤同一户�
   小字，高 26px 整条可抓、悬停整条提亮、光标"可移动"型（枚举写进脚本，
   编译即验证）；位置存 `user://debug_dock.cfg` 跨启动记忆，越界自动夹回
   视口，无档时默认左下角；页签区保持纯点选职责。可见性断言只认几何
-  页签内标签 `mouse_filter=IGNORE` 让滚轮穿透到 ScrollContainer
-  （RichTextLabel 默认截鼠但自身 scroll_active=false 不滚=两头皆哑，
-  2026-09-16 滚轮失灵案）
   （标题条 size.y>=24 入 dock_test，延续"锚点/属性不算数"纪律）。
+  页签滚动三契约（2026-09-16 滚轮悬案定案，dock-wheel 回归套锁死）：
+  ①标签 `mouse_filter=IGNORE` 不吞事件；②**`fit_content=true` 是真凶级
+  契约**——false 时 RichTextLabel 自报最小高 0，容器判零溢出，滚动条
+  不出现+滚轮无范围（曾误诊为穿透问题）；③`scroll_active=false` 让容器
+  做滚动。取证沉淀：headless 投真实滚轮用 `Window.push_input`，坐标必须
+  过 `get_screen_transform()` 换算，否则指针飞出 pick 域（首版取证套现场）。
 - 键位：`debug_dock_toggle`（主键盘 =/小键盘 + 双绑）显隐；
   `debug_dock_next_tab`（Tab）仅窗口打开时消费。
 - **默认开=场景声明制**：场景内任意节点挂组 `debug_dock_default_open` → 入场

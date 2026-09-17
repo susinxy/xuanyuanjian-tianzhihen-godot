@@ -99,8 +99,8 @@ func _flow() -> void:
 		if ch is RichTextLabel:
 			wheel_label = ch
 	_check(wheel_label != null
-			and wheel_label.mouse_filter == Control.MOUSE_FILTER_IGNORE,
-			"页签标签鼠标穿透（滚轮可达滚动容器，filter=%d）"
+			and wheel_label.mouse_filter != Control.MOUSE_FILTER_STOP,
+			"页签标签不得 STOP 吞事件（当前 filter=%d）"
 			% (wheel_label.mouse_filter if wheel_label else -1))
 	_check(sys_rich.get_theme_color("default_color").v > 0.5,
 			"字色浅色 override 在位（防黑纸黑字回归）")
