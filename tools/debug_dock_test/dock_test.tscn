@@ -6,3 +6,7 @@
 script = ExtResource("1_test")
 
 [node name="DockOpen" type="Node" parent="." groups=["debug_dock_default_open"]]
+
+[node name="DebugLabel" type="Label" parent="."]
+text = "测试说明第一行
+第二行按键提示"

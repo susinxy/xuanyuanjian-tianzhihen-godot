@@ -230,6 +230,8 @@ func _wire_attributes(a: QuiverAttributes) -> void:
 
 ## [帮助]：场景操作说明牌（节点仍在底版、visible=false 不占画面）由本页读出。
 ## 场景各自改写说明文字的既有机制（kit 标题/键位替换）零改动。
+## 引擎陷阱（2026-09-16 实机定罪）：String.split() 返回 PackedStringArray，
+## 与 Array[String] 是两种类型——必须逐行搬运，直返在刷新期每 0.15s 报一次。
 func _provide_help() -> Array[String]:
 	var scene := get_tree().current_scene
 	if scene == null:
@@ -237,7 +239,10 @@ func _provide_help() -> Array[String]:
 	var lbl := scene.find_child("DebugLabel", true, false) as Label
 	if lbl == null or lbl.text.strip_edges().is_empty():
 		return ["（本场景无操作说明牌）"]
-	return lbl.text.split("\n")
+	var out: Array[String] = []
+	for line in lbl.text.split("\n"):
+		out.append(str(line))
+	return out
 
 
 func _provide_system() -> Array[String]:

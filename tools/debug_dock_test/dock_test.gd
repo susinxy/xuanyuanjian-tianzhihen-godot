@@ -95,6 +95,10 @@ func _flow() -> void:
 			"页签与文本头寸撑开（%d/%d，防宽度塌陷回归）" % [sys_tab.size.x, sys_rich.size.x])
 	_check(sys_rich.get_theme_color("default_color").v > 0.5,
 			"字色浅色 override 在位（防黑纸黑字回归）")
+	var help_tab := tabs.get_node("帮助")
+	var help_rich: RichTextLabel = help_tab.get_child(0)
+	_check("测试说明第一行" in help_rich.text and "第二行按键提示" in help_rich.text,
+			"帮助页读出说明牌多行内容（split 类型陷阱回归锁）")
 
 	# Tab 键循环（窗口此刻可见）
 	var start_tab := tabs.current_tab
