@@ -338,3 +338,10 @@ func _on_cast() -> void:
 - **信标只属一次性动画**：未来的爆炸（hit）/收势（ending）动画在尾帧挂 `end_of_spell_animation` 作为「演出完毕即销毁」的信源；循环飞行的 active **禁止**挂信标（方法轨道按时刻触发，循环每圈误响一次），转换体检已强制此规则
 - **出手点=法术自身数据**：definition 的 `release_ratio`（x=身宽倍数、y=身高倍数，0 脚底 1 头顶）；模板演示值 (1.0, 0.55)=胸部火球；贴地类填 0，头顶落雷类 >1
 
+
+
+## HUD 图标约定
+- 槽位图标优先级：`definition.icon`（提供即所用）→ 派生（right 向动画首帧，
+  SpriteFrames 直取或经 AnimationPlayer 帧号轨回溯）→ 数字占位。
+- 提供图标的约定落点：`resources/icons/<spell_name>.png`（与法术同目录移动/
+  删除；导入后拖进 definition 检查器的 icon 字段即可，不拖则自动派生）。

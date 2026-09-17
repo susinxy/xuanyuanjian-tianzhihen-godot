@@ -114,3 +114,14 @@ headless 测试驱动的逻辑，一律 `_physics_process`。
   （HUD 已给 Frame 预留显隐总开关位）。
 - CharacterManager 换人：HUD 侧零改动（组语义），坞[角色]页天然全员列表。
 - HUD 正式美术（九宫格边框/字体/头像框）：随美术替换批，接口不变。
+
+
+## 法术槽图标（2026-09-17 追加批）
+- 三级链：`definition.icon`（美术提供即优先，约定文件
+  `spells/<name>/resources/icons/<name>.png` 拖入字段）→ 派生（SpriteFrames
+  的 `*right` 动画第 0 帧；四向产线经 AnimationPlayer 库动画的 `:frame`
+  帧号轨首键回溯到 `active` 帧序列；再退任一动画第 0 帧）→ null（纯数字）。
+- 呈现：图标铺槽（KEEP_ASPECT_CENTERED 自适应 56px 非方图不拉伸），键位数字
+  退右下 11 号角标，显示名进 tooltip；冷却遮罩锚点语义不变。
+- 解析器 `ui/spell_icon_resolver.gd`：按定义缓存，HUD 零逐帧开销；引用走
+  preload（class_name 全局登记 headless 不可见的教训沿用）。

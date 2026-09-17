@@ -20,6 +20,21 @@ func _ready() -> void:
 	get_tree().quit(0 if _fails == 0 else 1)
 
 
+## 解析器三链单元段：①icon 提供即优先 ②派生链非空 ③无链可派生 null 不崩
+func _resolver_cases() -> void:
+	var Resolver := load("res://ui/spell_icon_resolver.gd")
+	var bare: SpellDefinition = (load(FIRE_DEF) as SpellDefinition).duplicate(true)
+	bare.icon = null
+	bare.spell_scene = load(FIRE_SCENE)
+	_check(Resolver.icon_for(bare) != null, "resolver：②派生链非空")
+	var fake := SpellDefinition.new()
+	fake.icon = load("res://spells/fire_ball/resources/sprites/chen_00001.png")
+	_check(Resolver.icon_for(fake) == fake.icon, "resolver：①icon 提供即优先")
+	var junk := SpellDefinition.new()
+	junk.spell_scene = null
+	_check(Resolver.icon_for(junk) == null, "resolver：③无链可派生 null 不崩")
+
+
 func _check(ok: bool, label: String) -> void:
 	if not ok:
 		_fails += 1
@@ -64,12 +79,16 @@ func _flow() -> void:
 	def.spell_scene = load(FIRE_SCENE)
 	_check(chen.learn_spell(def), "学会冷却 5s 版火球")
 	await _frames(2)
-	var slot0_label: Label = (slots_row.get_child(0) as Panel).get_child(0)
-	_check(slot0_label.text == "火球术", "已学名进槽位（%s）" % slot0_label.text)
+	var slot0: Panel = slots_row.get_child(0)
+	var slot0_icon: TextureRect = slot0.get_child(0)
+	var slot0_label: Label = slot0.get_child(1)
+	_check(slot0_icon.texture != null, "无 icon 定义→派生 right 动画首帧上屏")
+	_check(slot0_label.text == "1", "槽内键位角标数字（%s）" % slot0_label.text)
+	_check(slot0.tooltip_text == "火球术", "显示名进 tooltip（%s）" % slot0.tooltip_text)
 
 	chen.channel.press("spell_1")
 	await _frames(80)
-	var cover: ColorRect = (slots_row.get_child(0) as Panel).get_child(1)
+	var cover: ColorRect = (slots_row.get_child(0) as Panel).get_child(2)
 	# 断言落几何（尺寸）不落锚点属性：锚点被改而矩形不动曾是隐身事故本故
 	_check(cover.size.y > 25 and cover.size.y <= 57,
 			"冷却遮罩真实下压（遮罩高 %.0f/槽 56）" % cover.size.y)
@@ -77,4 +96,5 @@ func _flow() -> void:
 	chen.queue_free()
 	await _frames(4)
 	_check(not frame.visible, "players 组清空 → HUD 自隐")
+	_resolver_cases()
 	_finished = true

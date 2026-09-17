@@ -9,8 +9,11 @@ extends CanvasLayer
 const SLOT_COUNT := 4
 const SLOT_SIZE := 56.0
 
+const SpellIconResolver := preload("res://ui/spell_icon_resolver.gd")
+
 var _bound: QuiverCharacter = null
 var _slot_panels: Array[Panel] = []
+var _slot_icons: Array[TextureRect] = []
 var _slot_labels: Array[Label] = []
 var _slot_covers: Array[ColorRect] = []
 
@@ -31,6 +34,12 @@ func _ready() -> void:
 	for i in SLOT_COUNT:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
+		var icon := TextureRect.new()
+		icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon)
 		var label := Label.new()
 		label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
 		label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -47,6 +56,7 @@ func _ready() -> void:
 		slot.add_child(cover)
 		_slots_row.add_child(slot)
 		_slot_panels.append(slot)
+		_slot_icons.append(icon)
 		_slot_labels.append(label)
 		_slot_covers.append(cover)
 
@@ -80,14 +90,26 @@ func _refresh_slots() -> void:
 	var slots: Array = sm._slots if sm != null and "_slots" in sm else []
 	for i in SLOT_COUNT:
 		if i >= slots.size() or slots[i].definition == null or slots[i].is_empty():
+			_slot_icons[i].texture = null
+			_slot_panels[i].tooltip_text = ""
 			_slot_labels[i].text = str(i + 1)
+			_slot_labels[i].horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_slot_labels[i].vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			_slot_labels[i].remove_theme_font_size_override("font_size")
 			_slot_covers[i].set_anchor(SIDE_BOTTOM, 0.0, true)
 			continue
 		var defn: SpellDefinition = slots[i].definition
 		var frac := 0.0
 		if defn.cooldown > 0.0:
 			frac = clampf(slots[i].cooldown_remaining / defn.cooldown, 0.0, 1.0)
-		_slot_labels[i].text = defn.display_name.strip_edges()
+		# 图标为主：有 icon 用 icon，无则派生 right 动画首帧（resolver 三级链+缓存）；
+		# 名字进 tooltip，键位数字退居右下角小角标
+		_slot_icons[i].texture = SpellIconResolver.icon_for(defn)
+		_slot_panels[i].tooltip_text = defn.display_name.strip_edges()
+		_slot_labels[i].text = str(i + 1)
+		_slot_labels[i].horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_slot_labels[i].vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		_slot_labels[i].add_theme_font_size_override("font_size", 11)
 		# keep_offsets=true 才会让矩形底边真正跟随锚点（默认 false=引擎反向修
 		# offset 保持视觉不动——冷却遮罩隐身事故根因，2026-09-16 探针实锤）
 		_slot_covers[i].set_anchor(SIDE_BOTTOM, frac, true)
