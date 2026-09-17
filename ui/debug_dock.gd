@@ -16,8 +16,13 @@ const STYLE_BG := Color(0.05, 0.05, 0.08, 0.72)
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _tabs: TabContainer = $Panel/VBox/Tabs
+@onready var _title: Control = $Panel/VBox/Title
 
 var _refresh_accum := 0.0
+## 拖拽态与位置持久化（user:// 存一次位置，跨启动记忆）
+var _dragging := false
+var _grab := Vector2.ZERO
+const CFG_PATH := "user://debug_dock.cfg"
 
 
 func _ready() -> void:
@@ -35,6 +40,9 @@ func _ready() -> void:
 	sb.content_margin_bottom = 8.0
 	_panel.add_theme_stylebox_override("panel", sb)
 	_panel.custom_minimum_size = dock_size
+	_panel.reset_size()
+	_place_default_or_saved()
+	_title.gui_input.connect(_on_title_gui)
 	_apply_scene_default.call_deferred()
 	_selfcheck_content.call_deferred()
 
@@ -96,3 +104,40 @@ func _refresh_providers() -> void:
 	for child in _tabs.get_children():
 		if child.has_method("refresh_from_provider"):
 			child.refresh_from_provider()
+
+
+## 摆放：有档读档并夹回视口；无档默认左下角
+func _place_default_or_saved() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	var pos := Vector2(16, maxf(16.0, vs.y - _panel.size.y - 16))
+	var cf := ConfigFile.new()
+	if cf.load(CFG_PATH) == OK:
+		pos = Vector2(cf.get_value("dock", "x", pos.x), cf.get_value("dock", "y", pos.y))
+	_move_to(pos)
+
+
+func _move_to(p: Vector2) -> void:
+	var vs := get_viewport().get_visible_rect().size
+	_panel.position = Vector2(
+			clampf(p.x, 0.0, maxf(0.0, vs.x - _panel.size.x)),
+			clampf(p.y, 0.0, maxf(0.0, vs.y - _panel.size.y)))
+
+
+func _save_layout() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("dock", "x", _panel.position.x)
+	cf.set_value("dock", "y", _panel.position.y)
+	cf.save(CFG_PATH)
+
+
+func _on_title_gui(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_dragging = true
+			_grab = _panel.get_global_mouse_position() - _panel.position
+		else:
+			if _dragging:
+				_save_layout()
+			_dragging = false
+	elif event is InputEventMouseMotion and _dragging:
+		_move_to(_panel.get_global_mouse_position() - _grab)

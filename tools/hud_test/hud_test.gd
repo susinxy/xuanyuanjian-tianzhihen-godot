@@ -70,7 +70,9 @@ func _flow() -> void:
 	chen.channel.press("spell_1")
 	await _frames(80)
 	var cover: ColorRect = (slots_row.get_child(0) as Panel).get_child(1)
-	_check(cover.anchor_bottom > 0.5, "冷却遮罩按剩余比例下压（%.2f）" % cover.anchor_bottom)
+	# 断言落几何（尺寸）不落锚点属性：锚点被改而矩形不动曾是隐身事故本故
+	_check(cover.size.y > 25 and cover.size.y <= 57,
+			"冷却遮罩真实下压（遮罩高 %.0f/槽 56）" % cover.size.y)
 
 	chen.queue_free()
 	await _frames(4)

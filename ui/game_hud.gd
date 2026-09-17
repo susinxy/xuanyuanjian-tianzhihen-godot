@@ -42,7 +42,7 @@ func _ready() -> void:
 		cover.set_anchor(SIDE_LEFT, 0.0)
 		cover.set_anchor(SIDE_RIGHT, 1.0)
 		cover.set_anchor(SIDE_TOP, 0.0)
-		cover.set_anchor(SIDE_BOTTOM, 0.0)
+		cover.set_anchor(SIDE_BOTTOM, 0.0, true)
 		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(cover)
 		_slots_row.add_child(slot)
@@ -78,11 +78,13 @@ func _refresh_slots() -> void:
 	for i in SLOT_COUNT:
 		if i >= slots.size() or slots[i].definition == null or slots[i].is_empty():
 			_slot_labels[i].text = str(i + 1)
-			_slot_covers[i].set_anchor(SIDE_BOTTOM, 0.0)
+			_slot_covers[i].set_anchor(SIDE_BOTTOM, 0.0, true)
 			continue
 		var defn: SpellDefinition = slots[i].definition
 		var frac := 0.0
 		if defn.cooldown > 0.0:
 			frac = clampf(slots[i].cooldown_remaining / defn.cooldown, 0.0, 1.0)
 		_slot_labels[i].text = defn.display_name.strip_edges()
-		_slot_covers[i].set_anchor(SIDE_BOTTOM, frac)
+		# keep_offsets=true 才会让矩形底边真正跟随锚点（默认 false=引擎反向修
+		# offset 保持视觉不动——冷却遮罩隐身事故根因，2026-09-16 探针实锤）
+		_slot_covers[i].set_anchor(SIDE_BOTTOM, frac, true)

@@ -113,4 +113,20 @@ func _flow() -> void:
 	await _frames(3)
 	_check(tabs.current_tab == (start_tab + 1) % tabs.get_tab_count(),
 			"Tab 键循环页签（%d→%d / %d 页）" % [start_tab, tabs.current_tab, tabs.get_tab_count()])
+
+	# 拖拽摆放三件套：自由落位 / 视口夹取 / 存档记忆（标题条 gui_input 走同一内部接口）
+	var panel := dock.get_node("Panel")
+	dock._save_layout()  # 先固化当前布局再实验
+	dock._move_to(Vector2(300, 200))
+	_check(panel.position == Vector2(300, 200), "任意落位（300,200）")
+	dock._move_to(Vector2(99999, 99999))
+	var vs := get_tree().root.get_visible_rect().size
+	_check(absf(panel.position.x - (vs.x - panel.size.x)) < 1.5
+			and absf(panel.position.y - (vs.y - panel.size.y)) < 1.5,
+			"越界夹取贴右下不丢窗")
+	dock._move_to(Vector2(777, 421))
+	dock._save_layout()
+	dock._place_default_or_saved()
+	_check(panel.position == Vector2(777, 421), "跨调用读回记忆位（777,421）")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://debug_dock.cfg"))
 	_finished = true

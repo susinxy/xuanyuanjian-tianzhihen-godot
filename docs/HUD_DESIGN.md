@@ -37,7 +37,9 @@ spells/ 的布局语法一致；未来 main_menu/pause/对话框皮肤同一户�
 ## 三、DebugDock 规格
 
 - 形态：CanvasLayer(layer 90) → PanelContainer 半透明圆角（rgba 0.05,0.05,0.08,
-  0.72），停靠左下（导出 size 可调），TabContainer 页签，页内滚动。
+  0.72），TabContainer 页签，页内纵向滚动；**自由拖拽摆放**：按住顶部标题条
+  拖动，位置存 `user://debug_dock.cfg` 跨启动记忆，越界自动夹回视口；
+  无档时默认左下角。
 - 键位：`debug_dock_toggle`（主键盘 =/小键盘 + 双绑）显隐；
   `debug_dock_next_tab`（Tab）仅窗口打开时消费。
 - **默认开=场景声明制**：场景内任意节点挂组 `debug_dock_default_open` → 入场
@@ -79,6 +81,11 @@ headless 测试驱动的逻辑，一律 `_physics_process`。
 
 ## 五、测试与数据脆性纪律
 
+- 锚点语义陷阱（探针实锤）：`Control.set_anchor(dir, v)` 默认 keep_offsets=false=
+  **保持视觉矩形不动**（引擎反向修 offset）；要矩形真跟随锚点必须显式
+  `set_anchor(dir, v, true)`——HUD 冷却遮罩"属性在变、画面不动"即栽在此。
+  由此定档：**用户可见性断言只认几何（size/position/rect/颜色），锚点等
+  中间属性不算数**。
 - 显示级断言上限：headless 读不到像素，但能读**布局头寸**——TabContainer
   非当前页签不经排版（尺寸恒 0 属引擎本性），量宽度前必须先切到该页；
   TextTab 撑开宽度 >50px 与字色 override 双断言锁死"黑纸黑字/宽度塌陷"两类回归。

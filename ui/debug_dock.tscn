@@ -6,17 +6,22 @@
 script = ExtResource("1_dock")
 
 [node name="Panel" type="PanelContainer" parent="."]
-anchor_top = 1.0
-anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -356.0
+offset_top = 16.0
 offset_right = 576.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 0
+offset_bottom = 356.0
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
+
+[node name="Title" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+
+[node name="Hint" type="Label" parent="Panel/VBox/Title"]
+modulate = Color(0.8, 0.82, 0.88, 1)
+text = "调试坞 — 按住此处拖动 · + 开关 · Tab 翻页"
+theme_override_font_sizes/font_size = 11
 
 [node name="Tabs" type="TabContainer" parent="Panel/VBox"]
 layout_mode = 2
