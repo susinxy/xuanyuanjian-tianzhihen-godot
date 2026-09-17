@@ -9,34 +9,28 @@ var _blend_positions := []
 @onready var _animation_tree := get_node(_path_animation_tree) as AnimationTree
 @onready var _playback := _animation_tree.get(_path_playback) as AnimationNodeStateMachinePlayback
 
+## 脑（游戏状态机）最近一次指挥的目的地。自回访的同步判据基于它：
+## "脑改主意"才是新播放请求；同目的地的每帧重登记（mid_air 等腾空产线
+## 惯例）是幂等声明，绝不允许扰动身体——rising/falling 尾帧保持正是设计意图。
+var _brain_destination := &""
+
+
 func transition_to(anim_state: StringName) -> void:
-	if _is_valid_state(anim_state):
-		if String(_playback.get_current_node()) == String(anim_state):
-			# 自回访（2026-09-17 两案合并定档）：
-			#  · 攻击末帧冻结案——动画已播完钉死末尾：travel 到自己引擎不倒带
-			#    → 无推进区间 → 末帧信标永不再响 → 攻击态孤儿。此时必须
-			#    start() 强制重入倒带（seek/current_position 参数写入全静默
-			#    无效，复现台逐一裁决过）。
-			#  · 腾空动画逐帧倒带案——mid_air 等产线按"每帧幂等登记同一
-			#    目的地"惯例调用；动画仍在推进时倒带=首帧钉死抽搐。此时
-			#    维持旧 no-op 语义。判据=current_position 已钉在 current_length。
-			if _state_playback_finished(anim_state):
-				_playback.start(anim_state)
-		else:
-			_playback.travel(anim_state)
-
-
-## 状态节点"已播完钉死末尾"判据（复现台实证 current_position/current_length
-## 参数可读；读不到时按未完成处理——宁维持 no-op 不误倒带）
-func _state_playback_finished(anim_state: StringName) -> bool:
-	var state_root := _path_playback.trim_suffix("playback").path_join(String(anim_state))
-	var pos = _animation_tree.get(state_root.path_join("current_position"))
-	var length = _animation_tree.get(state_root.path_join("current_length"))
-	if pos == null or length == null:
-		return false
-	var pos_f := float(pos)
-	var len_f := float(length)
-	return len_f > 0.0 and (pos_f >= len_f or is_equal_approx(pos_f, len_f))
+	if not _is_valid_state(anim_state):
+		return
+	var is_new_intent := anim_state != _brain_destination
+	_brain_destination = anim_state
+	if String(_playback.get_current_node()) == String(anim_state):
+		# 自回访（2026-09-17 三案终定档，判据=脑的意图而非身体的时钟）：
+		#  · 攻击末帧冻结案——脑同栈背靠背 idle→attack1 而身体从未离开、
+		#    动画已钉死末尾：新意图+身体在原地=不同步，start() 重入倒带
+		#    完成同步（seek/current_position 参数写入全静默无效，复现台裁决）。
+		#  · 腾空倒带回归案——同目的地幂等重登记一律 no-op：rising/falling
+		#    播完停尾帧是悬停姿势的设计意图（H6 双断言锁死两面）。
+		if is_new_intent:
+			_playback.start(anim_state)
+	else:
+		_playback.travel(anim_state)
 
 func end_of_spell_animation(_animation_name := "") -> void:
 	if not _playback.get_travel_path().is_empty():

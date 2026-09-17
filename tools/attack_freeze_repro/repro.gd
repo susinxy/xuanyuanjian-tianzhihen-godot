@@ -51,6 +51,7 @@ func _ready() -> void:
 	await _scenario_same_tick_double()
 	await _scenario_pause_at_tail()
 	await _scenario_idempotent_reentry()
+	await _scenario_endframe_hold()
 	_finish()
 
 
@@ -117,10 +118,9 @@ func _scenario_pause_at_tail() -> void:
 			"恢复后信标=%s pos=%s current=%s" % ["响" if ok else "未响", _pos(), _node()])
 
 
-## H5 播中幂等自回访不得倒带（2026-09-17 start() 修复的回归案）：
-## mid_air 等产线按"每帧幂等登记同一目的地"惯例写；自回访无条件 start()
-## 会把这种登记变成逐帧倒带，腾空动画钉死首帧。修复后语义=仅"已播完钉死
-## 末尾"的自回访才倒带（H1 保真），播中自回访维持 no-op。
+## H5 播中幂等自回访不得倒带：mid_air 等产线按"每帧幂等登记同一目的地"
+## 惯例写；无差别倒带版 start() 把腾空动画钉死首帧（回归案）。
+## 终版判据=脑意图：同目的地登记恒 no-op（播中/播完皆然），新意图才倒带。
 func _scenario_idempotent_reentry() -> void:
 	await get_tree().physics_frame
 	await _harden()
@@ -134,6 +134,35 @@ func _scenario_idempotent_reentry() -> void:
 	_record(pos_after >= pos_before and pos_after > 0.001,
 			"H5 播中幂等自回访不倒带",
 			"pos %.4f -> %.4f（被倒带则跌回 ~0.017）" % [pos_before, pos_after])
+
+
+## H6 尾帧保持=设计意图（双断言锁死判据两面）：
+##  rising 播完钉死尾帧后，同目的地幂等登记不得倒带（悬停姿势保持）；
+##  脑改主意（idle→rising，模拟二次起跳）才算新播放意图 → 重入倒带。
+func _scenario_endframe_hold() -> void:
+	await get_tree().physics_frame
+	await _harden()
+	var pos_key := "parameters/state_machine/rising/current_position"
+	var len_key := "parameters/state_machine/rising/current_length"
+	_skin.transition_to("rising")
+	for i in 30:
+		await get_tree().physics_frame
+	var clamped := float(_tree.get(pos_key))
+	var hold_ok := clamped >= float(_tree.get(len_key)) - 0.001
+	_skin.transition_to("rising")  # 幂等重登记（mid_air 惯例）
+	for i in 3:
+		await get_tree().physics_frame
+	var after := float(_tree.get(pos_key))
+	hold_ok = hold_ok and after >= clamped - 0.001
+	# 新意图：改主意再回 rising → 必须重入倒带
+	_skin.transition_to("idle")
+	_skin.transition_to("rising")
+	for i in 2:
+		await get_tree().physics_frame
+	var restarted := float(_tree.get(pos_key))
+	_record(hold_ok and restarted < clamped - 0.05,
+			"H6 尾帧保持(幂等)与倒带(新意图)两面",
+			"钉死=%.3f 幂等后=%.3f 新意图后=%.3f" % [clamped, after, restarted])
 
 
 ## ---- 工具 ----

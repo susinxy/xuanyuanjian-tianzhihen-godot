@@ -209,16 +209,16 @@ QuiverBaseCharacter (CharacterBody2D)
 
 **子类 `QuiverCharacterSkinAnimTree`**:
 - 属性: `_path_animation_tree`（默认 "AnimationTree"）, `_path_playback`（默认 "parameters/StateMachine/playback"）
-- `transition_to(anim_state)`: 验证状态存在；**自回访（目标==当前节点）仅当
-  该节点动画"已播完钉死末尾"（current_position≥current_length）时走
-  `_playback.start()` 强制重入倒带，动画仍在推进时维持 no-op**。两案定档：
-  已播完的节点被 travel 到自己引擎不倒带→无推进区间→末帧信标永不再响→攻击态
-  孤儿卡死末帧（2026-09-16 冻结案，start 修复；seek/position 参数写入均静默无效）；
-  而 mid_air 每帧幂等登记同一目的地是上游惯例，无差别倒带会把腾空动画钉死首帧
-  （2026-09-17 回归案，H5 场景红→绿；副产品：超长滞空 rising/falling 现在会
-  自然循环重播而非冻在尾帧）。判据参数读不到时按 no-op 处理（宁不漏不倒带错）。
-  法术皮肤 `SpellSkinAnimTree` 同案同修；`tools/attack_freeze_repro/` 四场景
-  （对照/H1/H3/H5）双锁两案。
+- `transition_to(anim_state)`: 验证状态存在；皮肤跟踪 `_brain_destination`
+  （脑最近一次指挥的目的地），**自回访（身体当前节点==新目的地）仅在"脑改了
+  主意"时走 `_playback.start()` 重入倒带，同目的地的每帧幂等登记一律 no-op**。
+  判据是脑的意图而非身体的时钟。三案定档（`tools/attack_freeze_repro/` 五场景
+  锁死）：①攻击末帧冻结——脑同栈 idle→attack1 身体从未离开、动画钉死末尾，
+  新意图+原地=不同步→start 重播（travel 到自己引擎不倒带；seek/position 参数
+  写入静默无效）；②腾空倒带回归——无差别倒带会把 mid_air 幂等登记变成逐帧
+  重播（首帧抽搐）；③**rising/falling 播完停尾帧=悬停姿势的设计意图**，
+  幂等登记永扰动（H6 双断言：钉死后幂等=0.200 保持、新意图=倒带重播）。
+  法术皮肤 `SpellSkinAnimTree` 同构同修。
 - `end_of_skin_animation()`: **吞信标守卫**——`get_travel_path()` 非空（转换
   挂起中）时静默丢弃本次信标（上游作者注释自陈"不记得为什么"， Combo 链
   上用于防止被替换动画的尾帧信标误结束新状态）。攻击边全 AT_INSTANT 时
