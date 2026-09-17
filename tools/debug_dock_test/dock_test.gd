@@ -95,6 +95,10 @@ func _flow() -> void:
 			"页签与文本头寸撑开（%d/%d，防宽度塌陷回归）" % [sys_tab.size.x, sys_rich.size.x])
 	_check(sys_rich.get_theme_color("default_color").v > 0.5,
 			"字色浅色 override 在位（防黑纸黑字回归）")
+	var title := dock.get_node("Panel/VBox/Title") as Control
+	_check(title.size.y >= 24, "拖拽把手条几何高度足够（%d px）" % title.size.y)
+	_check(title.mouse_default_cursor_shape == Control.CURSOR_MOVE,
+			"把手光标=可移动型（说真话）")
 	var help_tab := tabs.get_node("帮助")
 	var help_rich: RichTextLabel = help_tab.get_child(0)
 	_check("测试说明第一行" in help_rich.text and "第二行按键提示" in help_rich.text,

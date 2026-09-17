@@ -42,6 +42,7 @@ func _ready() -> void:
 	_panel.custom_minimum_size = dock_size
 	_panel.reset_size()
 	_place_default_or_saved()
+	_style_title()
 	_title.gui_input.connect(_on_title_gui)
 	_apply_scene_default.call_deferred()
 	_selfcheck_content.call_deferred()
@@ -141,3 +142,29 @@ func _on_title_gui(event: InputEvent) -> void:
 			_dragging = false
 	elif event is InputEventMouseMotion and _dragging:
 		_move_to(_panel.get_global_mouse_position() - _grab)
+
+
+## 把手带样式（2026-09-16 可发现性定档）：亮于坞身的横带+下缘分隔线，
+## 悬停整条提亮——"一眼看出这里能抓"；光标 CURSOR_MOVE 说真话
+## （旧值 2 是可点击小手，反馈在撒谎）。
+func _style_title() -> void:
+	_title.add_theme_stylebox_override("panel", _make_title_band(false))
+	_title.mouse_default_cursor_shape = Control.CURSOR_MOVE
+	_title.mouse_entered.connect(
+			func(): _title.add_theme_stylebox_override(
+					"panel", _make_title_band(true)))
+	_title.mouse_exited.connect(
+			func(): _title.add_theme_stylebox_override(
+					"panel", _make_title_band(false)))
+
+
+func _make_title_band(hover: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.25, 0.28, 0.40, 0.97) if hover else Color(0.16, 0.18, 0.26, 0.95)
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.border_width_bottom = 1
+	sb.border_color = Color(0.5, 0.56, 0.85, 0.9)
+	sb.content_margin_left = 6.0
+	sb.content_margin_right = 6.0
+	return sb

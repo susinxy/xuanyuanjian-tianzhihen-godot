@@ -37,9 +37,12 @@ spells/ 的布局语法一致；未来 main_menu/pause/对话框皮肤同一户�
 ## 三、DebugDock 规格
 
 - 形态：CanvasLayer(layer 90) → PanelContainer 半透明圆角（rgba 0.05,0.05,0.08,
-  0.72），TabContainer 页签，页内纵向滚动；**自由拖拽摆放**：按住顶部标题条
-  拖动，位置存 `user://debug_dock.cfg` 跨启动记忆，越界自动夹回视口；
-  无档时默认左下角。
+  0.72），TabContainer 页签，页内纵向滚动；**自由拖拽摆放**：顶部为醒目
+  把手带——亮于坞身的横带+下缘分隔线+`⣿⣿⣿` 点阵+13px 亮白标题+右靠键位
+  小字，高 26px 整条可抓、悬停整条提亮、光标"可移动"型（枚举写进脚本，
+  编译即验证）；位置存 `user://debug_dock.cfg` 跨启动记忆，越界自动夹回
+  视口，无档时默认左下角；页签区保持纯点选职责。可见性断言只认几何
+  （标题条 size.y>=24 入 dock_test，延续"锚点/属性不算数"纪律）。
 - 键位：`debug_dock_toggle`（主键盘 =/小键盘 + 双绑）显隐；
   `debug_dock_next_tab`（Tab）仅窗口打开时消费。
 - **默认开=场景声明制**：场景内任意节点挂组 `debug_dock_default_open` → 入场
