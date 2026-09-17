@@ -3,7 +3,7 @@ extends EditorInspectorPlugin
 ## Inspector plugin for spell management (create and delete spells)
 ## 
 ## This plugin activates when the user selects a SpellTemplate node,
-## which is located at spells/_template/spell_template.tscn
+## which is located at templates/spell/spell_template.tscn
 ##
 ## Provides a widget with:
 ## - Create spell form (name, class name, display name)

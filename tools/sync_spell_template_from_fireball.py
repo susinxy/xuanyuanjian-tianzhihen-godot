@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 fire_ball 一键刷新 spells/_template（可反复重跑，模板永远等于 fire_ball 最新状态）。
+"""从 fire_ball 一键刷新 templates/spell（可反复重跑，模板永远等于 fire_ball 最新状态）。
 
 法术版 sync_template_from_chen：复制 → 占位命名 → 身份 token 化 → 内部引用去 uid
 → 残留断言。创建器(spell_creator.gd)零改动。
@@ -11,7 +11,7 @@ import os, re, shutil, sys
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(REPO, "spells/fire_ball")
-DST = os.path.join(REPO, "spells/_template")
+DST = os.path.join(REPO, "templates/spell")
 KEEP_IN_DST = {"spell_template.tscn", "spell_template.gd", "spell_template.gd.uid", "README.md"}
 
 FILE_TOKENS = [

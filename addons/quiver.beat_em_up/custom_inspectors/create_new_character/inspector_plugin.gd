@@ -3,7 +3,7 @@ extends EditorInspectorPlugin
 ## Inspector plugin for character management (create and delete characters)
 ## 
 ## This plugin activates when the user selects a CharacterTemplate node,
-## which is located at characters/playable/_template/character_template.tscn
+## which is located at templates/character/character_template.tscn
 ##
 ## Provides a widget with:
 ## - Create character form (name, class name, display name)

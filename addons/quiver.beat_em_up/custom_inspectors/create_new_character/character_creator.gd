@@ -11,7 +11,7 @@ class_name CharacterCreator
 
 #--- constants ------------------------------------------------------------------------------------
 
-const TEMPLATE_DIR = "res://characters/playable/_template/"
+const TEMPLATE_DIR = "res://templates/character/"
 const CHARACTERS_ROOT = "res://characters/"
 const BODY_GROUP_PLAYERS = "players"
 

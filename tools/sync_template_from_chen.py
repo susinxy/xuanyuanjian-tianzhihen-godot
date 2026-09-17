@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 chen 一键刷新 _template（可反复重跑，模板永远等于 chen 最新状态）。
+"""从 chen 一键刷新 templates/character（可反复重跑，模板永远等于 chen 最新状态）。
 
 做法 = 复制 chen → 换成占位命名 → 身份字符串占位符化 → 内部引用去 uid
      → 残留断言。创建器(character_creator.gd)零改动。
@@ -10,7 +10,7 @@ import os, re, shutil, sys, filecmp
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(REPO, "characters/playable/chen")
-DST = os.path.join(REPO, "characters/playable/_template")
+DST = os.path.join(REPO, "templates/character")
 KEEP_IN_DST = {"character_template.tscn", "character_template.gd", "character_template.gd.uid",
                "README.md", "create_character.sh",
                "__NAME___ai.gd", "__NAME___ai.gd.uid"}  # 默认策略小抄：模板自带，非 chen 来源

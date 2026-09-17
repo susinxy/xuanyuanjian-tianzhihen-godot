@@ -14,7 +14,7 @@ extends Node
 const CHEN := "res://characters/playable/chen/chen.tscn"
 const FIRE_DEF := "res://spells/fire_ball/resources/fire_ball_definition.tres"
 const FIRE_SCENE := "res://spells/fire_ball/fire_ball.tscn"
-const TEMPLATE_TSCN := "res://characters/playable/_template/__NAME__.tscn"
+const TEMPLATE_TSCN := "res://templates/character/__NAME__.tscn"
 
 var _fails := 0
 var _finished := false

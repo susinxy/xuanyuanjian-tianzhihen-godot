@@ -6,4 +6,4 @@ class_name SpellTemplate
 ## This node serves only as a trigger point for the Inspector plugin.
 ## When selected in the editor, the Spell Creator widget appears in Inspector.
 ##
-## Usage: Open spells/_template/spell_template.tscn and select the root node.
+## Usage: Open templates/spell/spell_template.tscn and select the root node.

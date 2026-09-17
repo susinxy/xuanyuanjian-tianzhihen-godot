@@ -17,7 +17,7 @@ signal character_test_requested(char_name: String, pkg: String)
 const CHARACTERS_ROOT = "res://characters/"
 ## 阵营包目录（列表扫描与重名检查共用）
 const PKG_DIRS = ["playable", "enemies", "allies", "neutrals"]
-const TEMPLATE_DIR = "res://characters/playable/_template/"
+const TEMPLATE_DIR = "res://templates/character/"
 
 #--- public variables - order: export > normal var & onready --------------------------------------
 

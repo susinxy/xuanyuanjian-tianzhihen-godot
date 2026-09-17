@@ -6,4 +6,4 @@ class_name CharacterTemplate
 ## This node serves only as a trigger point for the Inspector plugin.
 ## When selected in the editor, the Character Creator widget appears in Inspector.
 ##
-## Usage: Open characters/playable/_template/character_template.tscn and select the root node.
+## Usage: Open templates/character/character_template.tscn and select the root node.

@@ -289,7 +289,7 @@ func _on_cast() -> void:
 
 1. 检查 Godot 控制台输出错误信息
 2. 确认 `spells/` 目录存在且可写
-3. 确认模板文件完整（`_template/` 目录下应有所有必需文件）
+3. 确认模板文件完整（`templates/spell/` 下应有所有必需文件）
 
 ### Inspector 没有显示
 

@@ -2,7 +2,7 @@
 extends RefCounted
 class_name SpellCreator
 
-const TEMPLATE_DIR = "res://spells/_template/"
+const TEMPLATE_DIR = "res://templates/spell/"
 const SPELL_DIR = "res://spells/"
 
 const TOKEN_NAME = "__NAME__"
@@ -17,7 +17,7 @@ const EXCLUDED_FILES = [
 ]
 
 ## 法术创建器：纯"模板复制+改名+token 替换"（2026-09-15 单权威化改造）。
-## 动画树/动画文件/动画库与角色产线同构——真相全部物化在 spells/_template/，
+## 动画树/动画文件/动画库与角色产线同构——真相全部物化在 templates/spell/，
 ## 不再有代码内嵌字符串（历史上双作者已漂移：模板停在双向、内嵌串升级了四向）。
 func create_spell(spell_name: String, pascal_name: String, display_name: String) -> bool:
     var target_dir = SPELL_DIR.path_join(spell_name)
