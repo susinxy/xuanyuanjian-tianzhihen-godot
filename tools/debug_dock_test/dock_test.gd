@@ -93,6 +93,15 @@ func _flow() -> void:
 	await _frames(5)
 	_check(sys_tab.size.x > 50 and sys_rich.size.x > 50,
 			"页签与文本头寸撑开（%d/%d，防宽度塌陷回归）" % [sys_tab.size.x, sys_rich.size.x])
+	var scroll_tab := tabs.get_current_tab_control()
+	var wheel_label: RichTextLabel = null
+	for ch in scroll_tab.get_children():
+		if ch is RichTextLabel:
+			wheel_label = ch
+	_check(wheel_label != null
+			and wheel_label.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"页签标签鼠标穿透（滚轮可达滚动容器，filter=%d）"
+			% (wheel_label.mouse_filter if wheel_label else -1))
 	_check(sys_rich.get_theme_color("default_color").v > 0.5,
 			"字色浅色 override 在位（防黑纸黑字回归）")
 	var title := dock.get_node("Panel/VBox/Title") as Control

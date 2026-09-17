@@ -20,6 +20,10 @@ func setup(_title: String, provider: Callable) -> void:
 	_label.bbcode_enabled = true
 	_label.focus_mode = Control.FOCUS_NONE
 	_label.scroll_active = false
+	# 滚轮穿透（2026-09-16 定档）：RichTextLabel 默认接收鼠标，滚轮被它
+	# 截获而自身 scroll_active=false 不滚——外层 ScrollContainer 永远收不到，
+	# 两头皆哑。只读信息面板无选中需求，标签必须 IGNORE 让事件穿透。
+	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_label.add_theme_color_override("default_color", Color(0.92, 0.94, 1.0))
