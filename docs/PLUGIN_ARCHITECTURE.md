@@ -1296,7 +1296,7 @@ func _parse_begin(object: Object) -> void:
 | `states_dropdown/` | `QuiverActionAttack` 等需要选择其他状态的脚本 | 提供状态下拉列表 |
 | `ai_states_dropdown/` | AI 状态脚本 | 提供 AI 状态下拉列表 |
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
-| **`create_new_character/`** | **`CharacterTemplate` 节点**（`characters/playable/_template/character_template.tscn`） | **创建/删除角色** |
+| **`create_new_character/`** | **`CharacterTemplate` 节点**（`templates/character/character_template.tscn`） | **创建/删除角色** |
 | **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）+ PNG 缩放与备份工具** |
 
 ### Height Layers Inspector（新增）
@@ -1705,7 +1705,7 @@ VBoxContainer (this widget)
 ### Character Creator Inspector（新增）
 
 **触发方式**：
-1. 打开 `characters/playable/_template/character_template.tscn`
+1. 打开 `templates/character/character_template.tscn`
 2. 选中根节点 `CharacterTemplate`
 3. Inspector 面板显示 "Create New Character"、"Delete Character" 和 "**Test Character**" 区域
 
@@ -1782,7 +1782,7 @@ Godot 为每个 `.tscn` 文件生成唯一的 `uid://` 标识符（如 `uid://ab
 
 ```
 WARNING: UID duplicate detected between 
-  res://characters/playable/_template/character_template.tscn 
+  res://templates/character/character_template.tscn 
   and res://characters/playable/yu_xiaoxue/yu_xiaoxue.tscn
 ```
 
