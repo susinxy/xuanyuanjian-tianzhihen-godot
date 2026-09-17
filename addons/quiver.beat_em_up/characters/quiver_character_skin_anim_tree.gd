@@ -71,7 +71,15 @@ func _notification(what: int) -> void:
 ## Main public method for the skin, it will check if the parameter is valid and transition to it.
 func transition_to(anim_state: StringName) -> void:
 	if _is_valid_state(anim_state):
-		_playback.travel(anim_state)
+		# 自回访必须走 start 而非 travel（2026-09-16 攻击末帧冻结悬案根修，
+		# attack_freeze_repro 复现台红案实证）：动画播完钉死末尾的节点被
+		# travel 到自己时引擎不倒带——无推进区间 => 末帧信标永不再响 =>
+		# 攻击态孤儿、角色卡死末帧。start() 即时重入并倒带（seek/
+		# current_position 参数写入全为静默无效，复现台逐一裁决过）。
+		if String(_playback.get_current_node()) == String(anim_state):
+			_playback.start(anim_state)
+		else:
+			_playback.travel(anim_state)
 
 
 func end_of_skin_animation(_animation_name := "") -> void:

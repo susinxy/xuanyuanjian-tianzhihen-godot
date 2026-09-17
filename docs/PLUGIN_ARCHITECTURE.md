@@ -209,7 +209,16 @@ QuiverBaseCharacter (CharacterBody2D)
 
 **子类 `QuiverCharacterSkinAnimTree`**:
 - 属性: `_path_animation_tree`（默认 "AnimationTree"）, `_path_playback`（默认 "parameters/StateMachine/playback"）
-- `transition_to(anim_state)`: 验证状态存在 → `_playback.travel(anim_state)`
+- `transition_to(anim_state)`: 验证状态存在；**自回访（目标==当前节点）走
+  `_playback.start()` 而非 `travel()`**——已播完钉死末尾的节点被 travel 到自己
+  时引擎**不倒带**（无推进区间 → 末帧 `end_of_skin_animation` 信标永不再响 →
+  攻击态孤儿卡死末帧）。start() 即时重入并倒带，2026-09-16 攻击冻结悬案由
+  `tools/attack_freeze_repro/` 复现台红→绿实证；seek/current_position 参数写入
+  均为静默无效（同场裁决）。法术皮肤 `SpellSkinAnimTree` 同案同修。
+- `end_of_skin_animation()`: **吞信标守卫**——`get_travel_path()` 非空（转换
+  挂起中）时静默丢弃本次信标（上游作者注释自陈"不记得为什么"， Combo 链
+  上用于防止被替换动画的尾帧信标误结束新状态）。攻击边全 AT_INSTANT 时
+  平时 path 恒空，该守卫仅在转换挂起瞬间开窗；勿在守卫外再加重试消费。
 - `_populate_animation_list()`: 递归遍历 AnimationTree 所有 AnimationNode，构建可用状态列表 `_animation_list`
 - `_update_blend_directions()`: 把所有 `*_blend_position` 参数设为 `skin_direction`（-1 或 +1），驱动 BlendSpace1D 的 left/right 混合
 

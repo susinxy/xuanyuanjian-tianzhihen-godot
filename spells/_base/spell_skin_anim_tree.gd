@@ -11,7 +11,12 @@ var _blend_positions := []
 
 func transition_to(anim_state: StringName) -> void:
 	if _is_valid_state(anim_state):
-		_playback.travel(anim_state)
+		# 自回访走 start——与 QuiverCharacterSkinAnimTree 同案同修
+		# （连发同法术的竞态同理；见该文件 2026-09-16 定档注释）。
+		if String(_playback.get_current_node()) == String(anim_state):
+			_playback.start(anim_state)
+		else:
+			_playback.travel(anim_state)
 
 func end_of_spell_animation(_animation_name := "") -> void:
 	if not _playback.get_travel_path().is_empty():
