@@ -2392,6 +2392,9 @@ animations = [{
 "texture": ExtResource("335_vfjy5")
 }, {
 "duration": 1.0,
+"texture": ExtResource("337_bu3b8")
+}, {
+"duration": 1.0,
 "texture": ExtResource("336_m3s8n")
 }],
 "loop": 1,
@@ -2399,9 +2402,6 @@ animations = [{
 "speed": 5.0
 }, {
 "frames": [{
-"duration": 1.0,
-"texture": ExtResource("337_bu3b8")
-}, {
 "duration": 1.0,
 "texture": ExtResource("338_7uqkl")
 }, {
