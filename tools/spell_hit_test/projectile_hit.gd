@@ -61,6 +61,10 @@ func _layer_bits(spell: SpellBase) -> int:
 
 
 func _main_flow() -> void:
+	# 自愈（2026-09-17）：test_scenes 是编辑器生成物，外部角色被删会留悬空
+	# 引用场景（实例：陪练 test 角色删除→本套整场解析失败）。读前一律过
+	# 编辑器同一 ensure 入口重建，幂等零写盘。
+	QuiverRunTestSceneBuilder.ensure_spell_run_test("fire_ball", "chen")
 	var stage := (load(RUN_TEST) as PackedScene).instantiate()
 	add_child(stage)
 	await _frames(5)

@@ -122,6 +122,78 @@ static func inject_actor(
 ## tokens：{{CHAR_PATH}}（主角场景）、{{CHAR_NAME}}（显示名）。
 ## 法术侧差异一律走 add_spell_test_kit()，禁止复制第二份底版（历史上两份模板
 ## 漂移出"发令台漏装/数据窗口缺席"等多起事故）。
+## 法术 Run Test 场景统一生成入口（2026-09-17 自愈改造）：编辑器插件与
+## headless 测试共用——测试不再依赖 Windows 遗留生成物，读前先 ensure。
+## 返回 {"path": 场景路径, "changed": 是否写盘}
+static func ensure_spell_run_test(spell_name: String, char_name: String = "chen") -> Dictionary:
+	var test_scene_path := "res://test_scenes/_test_spell_" + spell_name + ".tscn"
+	var character_scene_path := "res://characters/playable/" + char_name + "/" + char_name + ".tscn"
+	var spell_definition_path := "res://spells/" + spell_name + "/resources/" + spell_name + "_definition.tres"
+	var spell_scene_path := "res://spells/" + spell_name + "/" + spell_name + ".tscn"
+	var helper_script_path := "res://test_scenes/_test_spell_helper_" + spell_name + ".gd"
+	if not DirAccess.dir_exists_absolute("res://test_scenes"):
+		DirAccess.make_dir_recursive_absolute("res://test_scenes")
+	var helper_written := write_if_changed(helper_script_path, spell_helper_text(spell_name, spell_definition_path, spell_scene_path))
+	var test_scene_content := base_scene_text() \
+			.replace("{{CHAR_PATH}}", character_scene_path) \
+			.replace("{{CHAR_NAME}}", char_name)
+	test_scene_content = add_spell_test_kit(test_scene_content, spell_name, helper_script_path)
+	var subject_mode := scene_behavior_mode(character_scene_path)
+	test_scene_content = compose(test_scene_content, character_scene_path, subject_mode)
+	var scene_written := write_if_changed(test_scene_path, test_scene_content)
+	return {"path": test_scene_path, "changed": helper_written or scene_written}
+
+
+static func spell_helper_text(spell_name: String, spell_definition_path: String, spell_scene_path: String) -> String:
+	var content := HELPER_SCRIPT_TEMPLATE \
+			.replace("{{SPELL_DEF_PATH}}", spell_definition_path) \
+			.replace("{{SPELL_SCENE_PATH}}", spell_scene_path)
+	return content
+
+
+const HELPER_SCRIPT_TEMPLATE := """extends Node
+
+## 法术注入脚本（测试场景生成物）：唯一职责是把被测法术教给被测角色本人；
+## 按键轮询/扣蓝/冷却/施法全部由角色壳自己的既有链路统一负责。
+## 历史教训（2026-09）：私有输入通道的按键边沿"读一次即消费"，且父节点
+## （角色壳）先于子节点轮询——助手若自建管理器自听键，永远抢不到按键。
+
+var _taught := false
+
+func _ready():
+	# 子节点 _ready 早于父节点，而角色壳的法术管理器要到父 _ready 才创建
+	# → 延后一帧再教。
+	call_deferred("_teach")
+
+func _teach():
+	var host = get_parent()
+	if not host.has_method("learn_spell"):
+		push_error("[SpellTest] 宿主角色缺少 learn_spell，无法注入")
+		return
+	var spell_def: SpellDefinition = load("{{SPELL_DEF_PATH}}")
+	spell_def.spell_scene = load("{{SPELL_SCENE_PATH}}")
+	_taught = host.learn_spell(spell_def)
+	if not _taught:
+		push_error("[SpellTest] 法术注入失败（手册已满或定义加载失败）")
+"""
+
+
+static func write_if_changed(path: String, text: String) -> bool:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f != null:
+		var old := f.get_as_text()
+		f.close()
+		if old == text:
+			return false
+	var w := FileAccess.open(path, FileAccess.WRITE)
+	if w == null:
+		push_error("无法写出生成物: %s" % path)
+		return false
+	w.store_string(text)
+	w.close()
+	return true
+
+
 static func base_scene_text() -> String:
 	return """[gd_scene load_steps=19 format=3]
 

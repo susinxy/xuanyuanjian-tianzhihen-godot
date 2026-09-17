@@ -32,13 +32,10 @@ func _check(ok: bool, label: String) -> void:
 
 func _string_checks() -> void:
 	var src := FileAccess.get_file_as_string(SPELL_PLUGIN)
-	var rx := RegEx.new()
-	rx.compile("(?s)var helper_script_content = \"\"\"(.*?)\"\"\"")
-	var m := rx.search(src)
-	if m == null:
-		_check(false, "助手模板提取失败")
-		return
-	var t: String = m.get_string(1)
+	# 模板已迁入 QuiverRunTestSceneBuilder（2026-09-17 自愈改造）——
+	# 直接读常量本体而非抠插件源码文本：验的就是运行时真正使用的那份
+	var t: String = QuiverRunTestSceneBuilder.HELPER_SCRIPT_TEMPLATE
+	_check(not t.is_empty() and t.contains("_teach"), "助手模板可取（builder 常量）")
 	_check(not t.contains("SpellManager.new("), "助手模板不再自建法术管理器")
 	_check(t.contains("host.learn_spell(") and not t.contains("_spell_manager"),
 			"助手模板为教给宿主形态（host.learn_spell，无自有管理器）")
