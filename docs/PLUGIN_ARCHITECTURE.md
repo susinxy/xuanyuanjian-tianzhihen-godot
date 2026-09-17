@@ -209,12 +209,16 @@ QuiverBaseCharacter (CharacterBody2D)
 
 **子类 `QuiverCharacterSkinAnimTree`**:
 - 属性: `_path_animation_tree`（默认 "AnimationTree"）, `_path_playback`（默认 "parameters/StateMachine/playback"）
-- `transition_to(anim_state)`: 验证状态存在；**自回访（目标==当前节点）走
-  `_playback.start()` 而非 `travel()`**——已播完钉死末尾的节点被 travel 到自己
-  时引擎**不倒带**（无推进区间 → 末帧 `end_of_skin_animation` 信标永不再响 →
-  攻击态孤儿卡死末帧）。start() 即时重入并倒带，2026-09-16 攻击冻结悬案由
-  `tools/attack_freeze_repro/` 复现台红→绿实证；seek/current_position 参数写入
-  均为静默无效（同场裁决）。法术皮肤 `SpellSkinAnimTree` 同案同修。
+- `transition_to(anim_state)`: 验证状态存在；**自回访（目标==当前节点）仅当
+  该节点动画"已播完钉死末尾"（current_position≥current_length）时走
+  `_playback.start()` 强制重入倒带，动画仍在推进时维持 no-op**。两案定档：
+  已播完的节点被 travel 到自己引擎不倒带→无推进区间→末帧信标永不再响→攻击态
+  孤儿卡死末帧（2026-09-16 冻结案，start 修复；seek/position 参数写入均静默无效）；
+  而 mid_air 每帧幂等登记同一目的地是上游惯例，无差别倒带会把腾空动画钉死首帧
+  （2026-09-17 回归案，H5 场景红→绿；副产品：超长滞空 rising/falling 现在会
+  自然循环重播而非冻在尾帧）。判据参数读不到时按 no-op 处理（宁不漏不倒带错）。
+  法术皮肤 `SpellSkinAnimTree` 同案同修；`tools/attack_freeze_repro/` 四场景
+  （对照/H1/H3/H5）双锁两案。
 - `end_of_skin_animation()`: **吞信标守卫**——`get_travel_path()` 非空（转换
   挂起中）时静默丢弃本次信标（上游作者注释自陈"不记得为什么"， Combo 链
   上用于防止被替换动画的尾帧信标误结束新状态）。攻击边全 AT_INSTANT 时

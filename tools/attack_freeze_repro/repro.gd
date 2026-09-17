@@ -50,6 +50,7 @@ func _ready() -> void:
 	await _scenario_control()
 	await _scenario_same_tick_double()
 	await _scenario_pause_at_tail()
+	await _scenario_idempotent_reentry()
 	_finish()
 
 
@@ -114,6 +115,25 @@ func _scenario_pause_at_tail() -> void:
 	var ok := await _wait_beacon()
 	_record(ok, "H3 末段停摆3帧（HitFreeze 型）",
 			"恢复后信标=%s pos=%s current=%s" % ["响" if ok else "未响", _pos(), _node()])
+
+
+## H5 播中幂等自回访不得倒带（2026-09-17 start() 修复的回归案）：
+## mid_air 等产线按"每帧幂等登记同一目的地"惯例写；自回访无条件 start()
+## 会把这种登记变成逐帧倒带，腾空动画钉死首帧。修复后语义=仅"已播完钉死
+## 末尾"的自回访才倒带（H1 保真），播中自回访维持 no-op。
+func _scenario_idempotent_reentry() -> void:
+	await get_tree().physics_frame
+	await _harden()
+	_beacons = 0
+	_skin.transition_to("attack1")
+	await _wait(3)
+	var pos_before := float(_tree.get(_pos_key))
+	_skin.transition_to("attack1")  # 播中幂等重登记
+	await get_tree().physics_frame
+	var pos_after := float(_tree.get(_pos_key))
+	_record(pos_after >= pos_before and pos_after > 0.001,
+			"H5 播中幂等自回访不倒带",
+			"pos %.4f -> %.4f（被倒带则跌回 ~0.017）" % [pos_before, pos_after])
 
 
 ## ---- 工具 ----
