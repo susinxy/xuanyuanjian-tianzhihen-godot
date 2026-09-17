@@ -99,6 +99,11 @@ func _create_phase() -> void:
 		_check(FileAccess.file_exists(sp.trim_suffix(".tscn") + ".gd"), "%s 根脚本存在" % spec.name)
 		_check(FileAccess.file_exists("res://characters/%s/%s/resources/%s_attributes.tres" % [
 				spec.pkg, spec.name, spec.name]), "%s 属性资源存在" % spec.name)
+		var attrs_text := FileAccess.get_file_as_string("res://characters/%s/%s/resources/%s_attributes.tres" % [
+				spec.pkg, spec.name, spec.name])
+		_check(attrs_text.contains('display_name = "%s"' % spec.display) \
+				and not attrs_text.contains("陈靖仇"),
+				"%s 显示名=表单填写值（占位符链闭环）" % spec.name)
 		var tree_txt := FileAccess.get_file_as_string("res://characters/%s/%s/resources/animations/animation_tree_root.tres" % [
 				spec.pkg, spec.name])
 		_check(tree_txt.contains("blend_spell_start") and tree_txt.contains("blend_spelling"),

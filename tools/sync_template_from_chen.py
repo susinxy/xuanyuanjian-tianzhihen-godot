@@ -57,7 +57,8 @@ def tokenize(text: str) -> str:
     text = text.replace('&"Chen/', '&"__CLASS__/')                  #    AnimTree 引用
     # 5) 阵营新体系：皮肤不存阵营数据（根节点唯一存放点），
     #    根节点的 area2d:player 占位由 inject_behavior_tokens 处理
-    text = text.replace('"陈靖仇"', '"__DISPLAY_NAME__"')            # 6) 显示名
+    # 6) 显示名：容忍前导空白（"  陈靖仇" 脏空格曾同时穿透占位与残留断言）
+    text = re.sub(r'"\s*陈靖仇"', '"__DISPLAY_NAME__"', text)
     # 7) 去文件头 uid（uid 属性在方括号内部任意位置）
     text = re.sub(r'^\[(gd_scene|gd_resource)\b([^\]]*)\]',
                   lambda m: "[" + m.group(1) + re.sub(r'\s+uid="uid://[^"]*"', "", m.group(2)) + "]",
@@ -150,7 +151,7 @@ for root, _, files in os.walk(DST):
         if re.search(r"node name=\"Chen\"", s): problems.append(f"{relp}: 残留节点名 Chen")
         if "Chen/" in s or "ChenSkin" in s: problems.append(f"{relp}: 残留 Chen 类引用")
         if "area2d:chen" in s: problems.append(f"{relp}: 残留 area2d:chen")
-        if '"陈靖仇"' in s: problems.append(f"{relp}: 残留显示名")
+        if re.search(r'"\s*陈靖仇"', s): problems.append(f"{relp}: 残留显示名")
         # 内部引用不允许再有 uid
         for m in re.finditer(r'\[ext_resource [^\]]*\]', s):
             if "playable/__NAME__/" in m.group(0) and "uid=" in m.group(0):

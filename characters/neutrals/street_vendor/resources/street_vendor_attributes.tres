@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_1ikth")
-display_name = "  陈靖仇"
+display_name = "流浪货郎"
 profile_texture = ExtResource("2_g3jjg")
 life_bar_gradient = ExtResource("1_4dxsn")
 health_max = 101
