@@ -6,7 +6,7 @@
 [ext_resource type="SpriteFrames" uid="uid://c56wwlv0aalec" path="res://spells/fire_ball/resources/spriteframes_fire_ball.tres" id="4_sprites"]
 [ext_resource type="Script" uid="uid://c417jlrjfa4ed" path="res://addons/quiver.beat_em_up/combat/collision_areas/quiver_hit_box.gd" id="5_hitbox"]
 [ext_resource type="Resource" path="res://spells/fire_ball/resources/attacks/fire_ball_attack_data.tres" id="6_attack"]
-[ext_resource type="Animation" uid="uid://ds6d602ofo6sd" path="res://spells/fire_ball/resources/animations/RESET.tres" id="7_reset"]
+[ext_resource type="Animation" uid="uid://moho54vm3elk" path="res://spells/fire_ball/resources/animations/RESET.tres" id="7_reset"]
 [ext_resource type="Script" uid="uid://bthgowkoejo76" path="res://spells/fire_ball/fire_ball_skin.gd" id="8_script"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_reset"]

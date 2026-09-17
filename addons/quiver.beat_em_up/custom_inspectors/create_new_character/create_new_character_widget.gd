@@ -656,8 +656,7 @@ func _on_create_completed(success: bool, char_name: String, display_name: String
 		_class_name_edit.text = ""
 		_display_name_edit.text = ""
 		_control_option.select(0)
-		_faction_option.select(0)
-		_apply_control_linkage()
+		_apply_control_linkage()  # 阵营标签默认值随控制方式一并复位
 		_move_speed_spin.value = 600
 		_walk_speed_spin.value = 300
 		_health_max_spin.value = 100
