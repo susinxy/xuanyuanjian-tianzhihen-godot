@@ -123,12 +123,11 @@ static func inject_actor(
 ## 法术侧差异一律走 add_spell_test_kit()，禁止复制第二份底版（历史上两份模板
 ## 漂移出"发令台漏装/数据窗口缺席"等多起事故）。
 static func base_scene_text() -> String:
-	return """[gd_scene load_steps=20 format=3]
+	return """[gd_scene load_steps=19 format=3]
 
 [ext_resource type="PackedScene" path="{{CHAR_PATH}}" id="1_character"]
 [ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/debug_height_overlay.gd" id="3_debug_overlay"]
-[ext_resource type="Script" path="res://scripts/debug_knockout_overlay.gd" id="6_knockout_overlay"]
 [ext_resource type="Script" path="res://scripts/debug_background.gd" id="9_debug_bg"]
 [ext_resource type="Script" path="res://scripts/day_night/day_night_controller.gd" id="10_day_night_ctrl"]
 [ext_resource type="Script" path="res://scripts/debug_day_night_input.gd" id="11_debug_dn_input"]
@@ -257,6 +256,7 @@ text = "悬空平台"
 horizontal_alignment = 1
 
 [node name="DebugLabel" type="Label" parent="."]
+visible = false
 offset_left = 10.0
 offset_top = 270.0
 offset_right = 500.0
@@ -320,10 +320,6 @@ script = ExtResource("11_debug_dn_input")
 script = ExtResource("3_debug_overlay")
 character_path = NodePath("../Character")
 
-[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]
-script = ExtResource("6_knockout_overlay")
-character_path = NodePath("../Character")
-
 [node name="ShadowRegion" type="ReferenceRect" parent="."]
 script = ExtResource("13_shadow_region")
 position = Vector2(50, 400)
@@ -360,19 +356,8 @@ static func add_spell_test_kit(content: String, spell_name: String, helper_scrip
 			+ "[node name=\"TestSpellHelper\" type=\"Node\" parent=\"Character\"]\n"
 			+ "script = ExtResource(\"5_test_helper\")\n\n"
 			+ "[node name=\"LevelCamera\"")
-	# 法术调试面板 + 高度窗口右列避让（同一锚点一次完成）
-	var h_anchor := "[node name=\"DebugHeightOverlay\" type=\"CanvasLayer\" parent=\".\"]\n" \
-			+ "script = ExtResource(\"3_debug_overlay\")\n" \
-			+ "character_path = NodePath(\"../Character\")"
-	assert(out.contains(h_anchor))
-	out = out.replace(h_anchor,
-			h_anchor + "\npanel_position = Vector2(845, 10)\npanel_width = 300.0")
-	var k_anchor := "[node name=\"DebugKnockoutOverlay\" type=\"CanvasLayer\" parent=\".\"]\n" \
-			+ "script = ExtResource(\"6_knockout_overlay\")\n" \
-			+ "character_path = NodePath(\"../Character\")"
-	assert(out.contains(k_anchor))
-	out = out.replace(k_anchor, k_anchor
-			+ "\npanel_position = Vector2(845, 270)\npanel_width = 300.0")
+	# （旧文字诊断面板与右列避让已废：文字入 DebugDock 拉取制，
+	# 高度层竖条按视口坐标自排，不再需要面板参数）
 	# 帮助文本：标题与被测法术键位
 	out = out.replace("=== 2.5D 高度层 + 昼夜测试 ===",
 			"=== 法术测试: " + spell_name + "（角色底版 + slot1 注入） ===")

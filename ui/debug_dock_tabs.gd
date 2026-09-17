@@ -18,6 +18,9 @@ func _ready() -> void:
 	dock.add_text_tab("角色", _provide_characters)
 	dock.add_text_tab("弹体", _provide_spells)
 	dock.add_text_tab("诊断", _provide_collision)
+	dock.add_text_tab("高度层", _provide_height)
+	dock.add_text_tab("击飞", _provide_knockout)
+	dock.add_text_tab("帮助", _provide_help)
 	dock.add_text_tab("系统", _provide_system)
 
 
@@ -161,6 +164,80 @@ func _provide_collision() -> Array[String]:
 					_height_layer_names(hb.collision_layer),
 					_factions_of(hb), " ".join(shapes)])
 	return out
+
+
+## [高度层]：旧高度层面板的文字部分移植（图形竖条按设计留在原地）。
+func _provide_height() -> Array[String]:
+	var out: Array[String] = []
+	for ch in _all_chars():
+		var skin = ch.get("_skin")
+		if skin == null:
+			continue
+		var bh: float = skin.base_height
+		var ph: float = skin.physical_height
+		out.append("【%s】占位区间 [%.0f, %.0f]" % [
+				ch.attributes.display_name.strip_edges(), bh, bh + ph])
+		out.append("  physical_height %.0f  attack_heights %s" % [ph, str(skin.attack_heights)])
+		out.append("  高度层[%s]  位置 %s  skin.y %.1f" % [
+				_height_layer_names(ch.collision_layer),
+				str((ch as Node2D).global_position), skin.position.y])
+	return out
+
+
+## [击飞]：旧击倒面板整体移植（纯文字面板退役）。快照采集器保留原信号监听
+## 语义（knockout_requested 瞬间存值），挂接幂等、按属性实例去重。
+var _knock_snapshots: Dictionary = {}
+var _wired_attributes: Dictionary = {}
+
+
+func _provide_knockout() -> Array[String]:
+	var out: Array[String] = []
+	for ch in _all_chars():
+		var a: QuiverAttributes = ch.attributes
+		if a == null:
+			continue
+		_wire_attributes(a)
+		var st := "-"
+		if "state_machine" in ch and ch.state_machine != null:
+			st = str(ch.state_machine.state_name)
+		out.append("【%s】击退 %d/600  重量 %.1f  该飞=%s" % [
+				a.display_name.strip_edges(), a.knockback_amount,
+				a.knockback_weight, str(a.should_knockout())])
+		out.append("  无敌=%s 霸体=%s HP %.0f/%.0f 状态=%s" % [
+				str(a.is_invulnerable), str(a.has_superarmor),
+				a.health_current, a.health_max, st])
+		var snap: Dictionary = _knock_snapshots.get(a.get_instance_id(), {})
+		if not snap.is_empty():
+			out.append("  [击飞记录] %d × %.1f  launch=%s  计算速度=%s" % [
+					snap.knockback_amount, snap.knockback_weight,
+					str(snap.launch_vector), str(snap.computed_velocity)])
+	return out
+
+
+func _wire_attributes(a: QuiverAttributes) -> void:
+	var id := a.get_instance_id()
+	if _wired_attributes.has(id):
+		return
+	_wired_attributes[id] = a
+	a.knockout_requested.connect(
+			func(kb: QuiverKnockbackData):
+				_knock_snapshots[id] = {
+						"knockback_amount": a.knockback_amount,
+						"knockback_weight": a.knockback_weight,
+						"launch_vector": kb.launch_vector,
+						"computed_velocity": kb.launch_vector * a.knockback_amount * a.knockback_weight})
+
+
+## [帮助]：场景操作说明牌（节点仍在底版、visible=false 不占画面）由本页读出。
+## 场景各自改写说明文字的既有机制（kit 标题/键位替换）零改动。
+func _provide_help() -> Array[String]:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return ["（无在场场景）"]
+	var lbl := scene.find_child("DebugLabel", true, false) as Label
+	if lbl == null or lbl.text.strip_edges().is_empty():
+		return ["（本场景无操作说明牌）"]
+	return lbl.text.split("\n")
 
 
 func _provide_system() -> Array[String]:

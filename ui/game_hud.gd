@@ -26,10 +26,13 @@ func _ready() -> void:
 	layer = 5
 	_hp.self_modulate = Color(1.0, 0.38, 0.32)
 	_mp.self_modulate = Color(0.38, 0.62, 1.0)
+	# 默认主题黑字压暗色 Panel=隐形（与调试坞同案的预防修复）
+	_name_label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
 	for i in SLOT_COUNT:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
 		var label := Label.new()
+		label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
 		label.set_anchors_preset(Control.PRESET_FULL_RECT)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

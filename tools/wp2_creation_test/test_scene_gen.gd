@@ -45,7 +45,6 @@ behavior_mode = 1
 		'[node name="DebugHeightOverlay" type="CanvasLayer" parent="."]',
 		'character_path = NodePath("../Character")',
 		"",
-		'[node name="DebugKnockoutOverlay" type="CanvasLayer" parent="."]',
 		'character_path = NodePath("../Character")',
 		"",
 	])

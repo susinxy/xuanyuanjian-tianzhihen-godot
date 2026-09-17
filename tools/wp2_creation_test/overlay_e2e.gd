@@ -28,15 +28,12 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	
 	var ovh: Node = stage.get_node("DebugHeightOverlay")
-	var ovk: Node = stage.get_node("DebugKnockoutOverlay")
 	var okh: bool = ovh.character != null and String(ovh.character.name) == "Subject"
-	var okk: bool = ovk.character != null and String(ovk.character.name) == "Subject"
-	_check(okh, "高度窗口真正显示被测者")
-	_check(okk, "击倒窗口真正显示被测者")
+	_check(okh, "高度竖条真正跟随被测者")
 	if not okh:
 		fails += 1
-	if not okk:
-		fails += 1
+	_check(stage.get_node("DebugLabel").visible == false,
+			"操作说明牌已隐身（文字进 Dock[帮助]页）")
 	
 	print("════════ overlay-e2e: %s ════════" % ("PASS" if fails == 0 else "FAIL"))
 	stage.queue_free()

@@ -1,78 +1,43 @@
 extends CanvasLayer
 
+## 高度层图形仪表（2026-09-16 HUD 定档瘦身后）：只画屏幕右缘的竖条
+## （角色占高区间/层格/基准线）。文字信息全部迁往 DebugDock[高度层]页——
+## 旧文字区用 _process 刷新，headless 不派发 idle 帧从不出活，已随 Dock 拉取制根治。
+##
 ## 要显示哪个角色的数据：存路径、运行时解析（_ready 里 get_node）。
 ## 注意：不要用节点对象引用型导出——文本形式赋 NodePath 时引擎不会
 ## 转换成节点引用（实测恒为 null，2026-09-15 复盘），一律 NodePath + get_node。
 @export var character_path: NodePath = NodePath("../Character")
-## 面板落位与宽度（导出：法术测试场景把窗口挤到右列避让法术大面板，2026-09-15）
-@export var panel_position := Vector2(10, 10)
-@export var panel_width := 350.0
 
-## 运行时解析结果（_ready 填充；解析不到则走自动兜底）
+## 运行时解析结果（_ready 填充；解析不到则竖条静默不画）
 var character: CharacterBody2D
 
 var _skin: QuiverCharacterSkin
-var _panel: Panel
-var _label: Label
 var _draw_control: Control
-var _error_message: String = ""
+
 
 func _ready() -> void:
-	_create_panel()
-	
 	if not character_path.is_empty():
 		character = get_node_or_null(character_path)
-	
-	if not character:
+	if character == null:
 		_auto_find_character()
-	
-	if not character:
-		_error_message = "❌ character: null (NodePath 未正确设置，且自动查找失败)"
+	if character == null:
 		return
-	
 	_find_skin()
-	
-	if not _skin:
-		_error_message = "❌ skin: 未找到 QuiverCharacterSkin"
-		return
-	
-	_error_message = ""
-
-
-func _auto_find_character() -> void:
-	var parent := get_parent()
-	if not parent:
-		return
-	
-	for child in parent.get_children():
-		if child is CharacterBody2D:
-			character = child
-			return
-
-
-func _create_panel() -> void:
-	_panel = Panel.new()
-	_panel.position = panel_position
-	_panel.size = Vector2(panel_width, 480)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0.7)
-	style.border_color = Color(0.5, 0.8, 1.0, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(4)
-	_panel.add_theme_stylebox_override("panel", style)
-	add_child(_panel)
-	
-	_label = Label.new()
-	_label.position = Vector2(10, 10)
-	_label.size = Vector2(330, 460)
-	_label.add_theme_font_size_override("font_size", 12)
-	_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
-	_panel.add_child(_label)
-	
 	_draw_control = Control.new()
 	_draw_control.size = get_viewport().get_visible_rect().size
 	_draw_control.draw.connect(_on_draw)
 	add_child(_draw_control)
+
+
+func _auto_find_character() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	for child in parent.get_children():
+		if child is CharacterBody2D:
+			character = child
+			return
 
 
 func _find_skin() -> void:
@@ -82,123 +47,13 @@ func _find_skin() -> void:
 			return
 
 
-func _process(_delta: float) -> void:
-	if not _panel or not _label:
-		return
-	
-	if _error_message != "":
-		_label.text = "=== 高度层调试信息 ===\n" + _error_message
-		return
-	
-	if not character or not _skin:
-		return
-	
-	var viewport_size := get_viewport().get_visible_rect().size
-	if _draw_control.size != viewport_size:
-		_draw_control.size = viewport_size
-	
-	var bh := _skin.base_height
-	var ph := _skin.physical_height
-	var ah := _skin.attack_heights
-	var cl := character.collision_layer
-	var pos := character.global_position
-	
-	var layers_str := ""
-	for i in range(QuiverCharacter.HEIGHT_LAYER_FIRST, QuiverCharacter.HEIGHT_LAYER_LAST + 1):
-		if cl & (1 << (i - 1)):
-			layers_str += str(i) + " "
-	if layers_str.is_empty():
-		layers_str = "无"
-	
-	var occupied_str := "[%.0f, %.0f]" % [bh, bh + ph]
-	
-	var fps := Engine.get_frames_per_second()
-	_label.text = "FPS: %d\n\n" % fps
-	_label.text += "=== 高度层调试信息 ===\n"
-	_label.text += "base_height: %.1f px\n" % bh
-	_label.text += "physical_height: %.1f px\n" % ph
-	_label.text += "occupied: %s\n" % occupied_str
-	_label.text += "attack_heights: %s\n" % str(ah)
-	_label.text += "高度层: %s\n" % layers_str
-	_label.text += "位置: (%.0f, %.0f)\n" % [pos.x, pos.y]
-	_label.text += "skin.position.y: %.1f\n" % _skin.position.y
-	
-	var anim_sprite := _skin.get_node("AnimatedSprite2D") as AnimatedSprite2D
-	var sr := character.get_node("ShadowRenderer") as Sprite2D
-	if anim_sprite and sr:
-		var tex := anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
-		var sprite_w: float = tex.get_size().x if tex else 0.0
-		var sprite_h: float = tex.get_size().y if tex else 0.0
-		var sprite_pos := anim_sprite.position
-		var shadow_size_val = sr.get_instance_shader_parameter("shadow_size")
-		var shadow_max_dist_val = sr.get_instance_shader_parameter("shadow_max_dist")
-		var top_off_val = sr.get_instance_shader_parameter("shadow_top_offset")
-		var bot_off_val = sr.get_instance_shader_parameter("shadow_bottom_offset")
-		
-		if shadow_size_val and shadow_max_dist_val and top_off_val and bot_off_val:
-			var shadow_size: Vector2 = shadow_size_val
-			var shadow_max_dist: float = shadow_max_dist_val
-			var top_off: Vector2 = top_off_val
-			var bot_off: Vector2 = bot_off_val
-			var ratio: float = shadow_size.y / sprite_h if sprite_h > 0 else 0.0
-			
-			var elevation: float = 45.0
-			var azimuth: float = -45.0
-			if sr.has_method("get_current_elevation"):
-				elevation = sr.get_current_elevation()
-			if sr.has_method("get_current_azimuth"):
-				azimuth = sr.get_current_azimuth()
-			
-			var shader_angle := fmod(azimuth + 180.0, 360.0)
-			var ang_rad := shader_angle * PI / 180.0
-			var shadow_dir := -Vector2(sin(ang_rad), cos(ang_rad))
-			
-			var effective_height := sprite_h + bh
-			var tan_elev := tan(deg_to_rad(max(elevation, 5.0)))
-			var shadow_len := effective_height / tan_elev
-			shadow_len = clamp(shadow_len, 30.0, 600.0)
-			var full_h: float = shadow_size.y
-			
-			var v0 := Vector2(-0.5, -0.5) * shadow_size + top_off
-			var v1 := Vector2(-0.5, 0.5) * shadow_size + bot_off
-			var v2 := Vector2(0.5, 0.5) * shadow_size + bot_off
-			var v3 := Vector2(0.5, -0.5) * shadow_size + top_off
-			_label.text += "\n=== 阴影调试 ===\n"
-			_label.text += "精灵图: %.0f×%.0f px\n" % [sprite_w, sprite_h]
-			_label.text += "AnimSprite.pos: (%.0f, %.0f)\n" % [sprite_pos.x, sprite_pos.y]
-			_label.text += "elevation: %.1f°\n" % elevation
-			_label.text += "azimuth: %.1f°\n" % azimuth
-			_label.text += "shadow_dir: (%.3f, %.3f)\n" % [shadow_dir.x, shadow_dir.y]
-			_label.text += "jump_height: %.1f\n" % bh
-			_label.text += "effective_height: %.1f\n" % effective_height
-			_label.text += "shadow_len: %.1f\n" % shadow_len
-			_label.text += "shadow_size: (%.0f, %.0f)\n" % [shadow_size.x, shadow_size.y]
-			_label.text += "full_h: %.1f\n" % full_h
-			_label.text += "top_off: (%.1f, %.1f)\n" % [top_off.x, top_off.y]
-			_label.text += "bot_off: (%.1f, %.1f)\n" % [bot_off.x, bot_off.y]
-			_label.text += "shadow_max_dist: %.1f\n" % shadow_max_dist
-			_label.text += "阴影/身高比: %.2f\n" % ratio
-			_label.text += "v0(top-left):  (%.1f, %.1f)\n" % [v0.x, v0.y]
-			_label.text += "v1(bot-left):  (%.1f, %.1f)\n" % [v1.x, v1.y]
-			_label.text += "v2(bot-right): (%.1f, %.1f)\n" % [v2.x, v2.y]
-			_label.text += "v3(top-right): (%.1f, %.1f)" % [v3.x, v3.y]
-		else:
-			_label.text += "\n=== 阴影调试 ===\n"
-			_label.text += "等待 shader 初始化...\n"
-	
-	_draw_control.queue_redraw()
-	_auto_resize_panel()
-
-func _auto_resize_panel() -> void:
-	if not _panel or not _label:
-		return
-	var line_count: int = _label.text.count("\n") + 1
-	var font_size: int = 12
-	var line_height: float = font_size * 1.6
-	var padding: float = 20.0
-	var required_height: float = line_count * line_height + padding * 2.0
-	_panel.size = Vector2(panel_width, required_height)
-	_label.size = Vector2(panel_width - padding * 2.0, required_height - padding * 2.0)
+func _physics_process(_delta: float) -> void:
+	# 物理心跳（_process 在 headless 不派发——Dock 同批定档）；竖条逐帧跟手
+	if _draw_control != null:
+		var viewport_size := get_viewport().get_visible_rect().size
+		if _draw_control.size != viewport_size:
+			_draw_control.size = viewport_size
+		_draw_control.queue_redraw()
 
 
 func _on_draw() -> void:

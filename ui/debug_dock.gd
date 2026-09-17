@@ -36,6 +36,7 @@ func _ready() -> void:
 	_panel.add_theme_stylebox_override("panel", sb)
 	_panel.custom_minimum_size = dock_size
 	_apply_scene_default.call_deferred()
+	_selfcheck_content.call_deferred()
 
 
 # 物理帧驱动而非 _process：headless 环境不派发 idle 帧（2026-09-16 探针实证
@@ -77,6 +78,18 @@ func get_tab_titles() -> PackedStringArray:
 func _apply_scene_default() -> void:
 	if get_tree().get_nodes_in_group(default_open_group).size() > 0:
 		visible = true
+
+
+## 零页签自诊断（2026-09-16 排查成本反哺）：内容层 autoload 缺席/配置漂移时，
+## 窗口不再沉默摆空——自己报告病因，用户不必拿人眼跨三台机器对文件。
+func _selfcheck_content() -> void:
+	await get_tree().physics_frame
+	if _tabs.get_tab_count() == 0:
+		add_text_tab("⚠装载", func() -> Array[String]: return [
+			"没有注册任何页签：内容层 DebugDockTabs 未装载。",
+			"① 检查 project.godot [autoload] 是否有 DebugDockTabs 行；",
+			"② 该文件被外部改动过则必须重启 Windows 编辑器（编辑器会用内存旧版回写覆盖）；",
+			"③ Syncthing 同步是否已把 ui/debug_dock_tabs.gd 送达本机。"])
 
 
 func _refresh_providers() -> void:

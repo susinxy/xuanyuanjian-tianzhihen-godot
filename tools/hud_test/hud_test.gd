@@ -52,6 +52,7 @@ func _flow() -> void:
 
 	_check(frame.visible and name_l.text == "陈靖仇", "跟随 players 组：名字上屏（%s）" % name_l.text)
 	_check(portrait.texture != null, "头像自 attributes.profile_texture 上屏")
+	_check(name_l.get_theme_color("font_color").v > 0.5, "HUD 名字浅色 override 在位")
 
 	chen.attributes.health_current = 57.0
 	await _frames(2)

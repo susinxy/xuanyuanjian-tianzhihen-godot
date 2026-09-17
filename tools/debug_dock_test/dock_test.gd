@@ -77,8 +77,9 @@ func _flow() -> void:
 	var titles: PackedStringArray = dock.get_tab_titles()
 	_check(titles.has("探针") and titles.has("第二页"),
 			"两个页签注册成功（%s）" % [str(titles)])
-	_check(["角色", "弹体", "诊断", "系统"].all(func(t): return titles.has(t)),
-			"内容层四页签自动注册在位（%s）" % [str(titles)])
+	_check(["角色", "弹体", "诊断", "高度层", "击飞", "帮助", "系统"]
+			.all(func(t): return titles.has(t)),
+			"内容层七页签自动注册在位（%s）" % [str(titles)])
 	await _frames(20)
 	var tabs := _tabs_ctrl(dock)
 	var probe_tab := tabs.get_node("探针")
@@ -87,6 +88,13 @@ func _flow() -> void:
 	var sys_tab := tabs.get_node("系统")
 	var sys_rich: RichTextLabel = sys_tab.get_child(0)
 	_check("FPS" in sys_rich.text, "系统页 provider 送达（FPS 行）")
+	# 非当前页签不经排版（尺寸恒 0 是 TabContainer 本性）——切过去量
+	tabs.current_tab = titles.find("系统")
+	await _frames(5)
+	_check(sys_tab.size.x > 50 and sys_rich.size.x > 50,
+			"页签与文本头寸撑开（%d/%d，防宽度塌陷回归）" % [sys_tab.size.x, sys_rich.size.x])
+	_check(sys_rich.get_theme_color("default_color").v > 0.5,
+			"字色浅色 override 在位（防黑纸黑字回归）")
 
 	# Tab 键循环（窗口此刻可见）
 	var start_tab := tabs.current_tab
