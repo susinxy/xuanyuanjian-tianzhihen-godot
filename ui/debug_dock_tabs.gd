@@ -7,7 +7,7 @@ extends Node
 ## _process 刷新，在 headless 永不派发 idle 帧的环境下从不出活（2026-09-16
 ## 探针实证），迁入拉取制后测试可达。
 
-const FACTION_GROUPS := ["players", "enemies", "allies", "neutrals"]
+const ROSTER_GROUP := "quiver_characters"  # 角色名册组（阵营新体系下按名册枚举）
 
 
 func _ready() -> void:
@@ -25,12 +25,11 @@ func _ready() -> void:
 
 
 func _all_chars() -> Array:
-	var seen: Array = []
-	for g in FACTION_GROUPS:
-		for n in get_tree().get_nodes_in_group(g):
-			if n is CharacterBody2D and not seen.has(n):
-				seen.append(n)
-	return seen
+	var out: Array = []
+	for n in get_tree().get_nodes_in_group(ROSTER_GROUP):
+		if n is CharacterBody2D:
+			out.append(n)
+	return out
 
 
 func _all_spells() -> Array:

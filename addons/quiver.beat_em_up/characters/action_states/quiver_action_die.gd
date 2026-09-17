@@ -60,7 +60,7 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
-	if _character.is_in_group("players"):
+	if _character.is_in_group("area2d:player"):
 		# This was activated in the knockout launch state the player died.
 		Engine.time_scale = 1.0
 		Events.player_died.emit()

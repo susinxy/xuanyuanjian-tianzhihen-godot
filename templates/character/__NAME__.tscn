@@ -28,7 +28,7 @@
 radius = 20.0
 height = 69.999954
 
-[node name="__CLASS__" unique_id=222398885 groups=["__BODY_GROUP__"] instance=ExtResource("1_aj842")]
+[node name="__CLASS__" unique_id=222398885 groups=["area2d:__FACTION__"] instance=ExtResource("1_aj842")]
 behavior_mode = __BEHAVIOR_MODE__
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")

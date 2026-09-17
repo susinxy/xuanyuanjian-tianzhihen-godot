@@ -90,7 +90,7 @@ position = Vector2(5, -54)
 sprite_frames = ExtResource("4_l5bf7")
 animation = &"idle_right"
 
-[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:__NAME__", "area2d:wall"]]
+[node name="HurtBox" type="Area2D" parent="AnimatedSprite2D" index="0" unique_id=1732780373 groups=["area2d:wall"]]
 monitorable = false
 script = ExtResource("5_k0gpy")
 
@@ -108,7 +108,7 @@ sdf_collision = false
 
 [node name="Attacks" type="Node2D" parent="." index="3" unique_id=1233932930]
 
-[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354 groups=["area2d:__NAME__"]]
+[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=227514354]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(0, -50)
@@ -123,7 +123,7 @@ rotation = 2.586099
 shape = SubResource("CapsuleShape2D_ib3s2")
 disabled = true
 
-[node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773 groups=["area2d:__NAME__"]]
+[node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(16, -50)
@@ -138,7 +138,7 @@ rotation = 2.5313714
 shape = SubResource("CapsuleShape2D_vltho")
 disabled = true
 
-[node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653 groups=["area2d:__NAME__"]]
+[node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(16, -50)
@@ -153,7 +153,7 @@ rotation = -1.3125441
 shape = SubResource("CapsuleShape2D_wl2ac")
 disabled = true
 
-[node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328 groups=["area2d:__NAME__"]]
+[node name="AttackAir" type="Area2D" parent="Attacks" index="3" unique_id=488723328]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 position = Vector2(-10, -110)

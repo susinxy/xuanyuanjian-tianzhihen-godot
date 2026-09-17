@@ -27,7 +27,7 @@
 radius = 20.0
 height = 69.999954
 
-[node name="SparEnemy" unique_id=222398885 groups=["enemies"] instance=ExtResource("1_aj842")]
+[node name="SparEnemy" unique_id=222398885 groups=["area2d:spar_enemy"] instance=ExtResource("1_aj842")]
 behavior_mode = 1
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")

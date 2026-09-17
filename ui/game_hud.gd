@@ -69,7 +69,10 @@ func _process(_delta: float) -> void:
 
 
 func _current_player() -> QuiverCharacter:
-	return get_tree().get_first_node_in_group("players") as QuiverCharacter
+	for n in get_tree().get_nodes_in_group("area2d:player"):
+		if n is QuiverCharacter:
+			return n
+	return null
 
 
 func _refresh_slots() -> void:

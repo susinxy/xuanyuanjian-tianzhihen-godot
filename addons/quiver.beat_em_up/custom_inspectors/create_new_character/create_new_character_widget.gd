@@ -27,7 +27,9 @@ var _char_name_edit: LineEdit
 var _class_name_edit: LineEdit
 var _display_name_edit: LineEdit
 var _control_option: OptionButton
-var _faction_option: OptionButton
+var _faction_edit: LineEdit
+var _faction_pick: OptionButton
+var _faction_insert: Button
 var _move_speed_spin: SpinBox
 var _walk_speed_spin: SpinBox
 var _health_max_spin: SpinBox
@@ -143,28 +145,32 @@ func _build_ui() -> void:
 	hbox_control.add_child(_control_option)
 	add_child(hbox_control)
 	
-	# Faction dropdown
+	# 阵营标签（area2d 单一存放点体系：只写根节点 groups=["area2d:<标签>"]，
+	# 战斗盒由角色 _ready 运行时下发；逗号分隔可多标签）
 	var hbox_faction := HBoxContainer.new()
 	var label_faction := Label.new()
-	label_faction.text = "阵营:"
+	label_faction.text = "阵营标签:"
 	label_faction.custom_minimum_size.x = 120
 	hbox_faction.add_child(label_faction)
-	_faction_option = OptionButton.new()
-	_faction_option.add_item("players", 0)
-	_faction_option.add_item("enemies", 1)
-	_faction_option.add_item("allies", 2)
-	_faction_option.add_item("neutrals", 3)
-	_faction_option.select(0)
-	_faction_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox_faction.add_child(_faction_option)
+	_faction_edit = LineEdit.new()
+	_faction_edit.placeholder_text = "player 或 player,team_two（逗号分隔）"
+	_faction_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_faction_edit.text_changed.connect(func(_t): _validate_all_inputs())
+	hbox_faction.add_child(_faction_edit)
+	_faction_pick = OptionButton.new()
+	_populate_faction_pick()
+	hbox_faction.add_child(_faction_pick)
+	_faction_insert = Button.new()
+	_faction_insert.text = "插入"
+	_faction_insert.pressed.connect(_on_faction_insert_pressed)
+	hbox_faction.add_child(_faction_insert)
 	add_child(hbox_faction)
 	var faction_hint := Label.new()
 	faction_hint.text = (
-		"控制方式联动阵营与输出目录：\n"
-		+"玩家操控 → characters/playable/（阵营固定 players）\n"
-		+"AI 自动战斗 → characters/enemies/（阵营固定 enemies；挂默认策略小抄：歇→追→三连段）\n"
-		+"被动站立 → 阵营任选（站桩/路人/活道具：不自主行动，受击/死亡反应完好）\n"
-		+"players 阵营死亡触发慢动作+游戏结束事件；非 players 阵营死亡直接消失"
+		"阵营=area2d 共享标签：同标签互免伤害，不同标签互相可打。\n"
+		+"默认随控制方式：玩家→player、AI→enemy、被动→角色名（可改可多选）。\n"
+		+"持 player 标签者=玩家身份（HUD 跟随/入战/索敌/死亡游戏结束都认它）。\n"
+		+"输出目录由控制方式决定；额外标签可出生后进编辑器自由补挂。"
 	)
 	faction_hint.add_theme_color_override("font_color", Color.GRAY)
 	faction_hint.add_theme_font_size_override("font_size", 12)
@@ -429,17 +435,57 @@ func _on_control_mode_selected(_index: int) -> void:
 	_validate_all_inputs()
 
 
-## 控制方式 → 阵营锁定联动（与 CharacterCreator.resolve_layout 的约束保持一致）
+## 控制方式 → 阵营标签默认值联动（不再锁死：目录归属与标签解耦）
 func _apply_control_linkage() -> void:
 	match _control_option.selected:
-		0:  # 玩家操控
-			_faction_option.select(0)
-			_faction_option.disabled = true
-		1:  # AI 自动战斗（v1 仅敌人阵营）
-			_faction_option.select(1)
-			_faction_option.disabled = true
-		_:  # 被动站立：阵营四选自由
-			_faction_option.disabled = false
+		0:
+			_faction_edit.text = "player"
+		1:
+			_faction_edit.text = "enemy"
+		_:
+			var name := _char_name_edit.text
+			_faction_edit.text = name if CharacterCreator._validate_snake_static(name) else "neutral"
+
+
+## 扫描全项目根节点上已有的 area2d 阵营标签，填进"插入"下拉
+func _populate_faction_pick() -> void:
+	_faction_pick.clear()
+	var seen: Array[String] = []
+	var regex := RegEx.create_from_string('"area2d:([a-z0-9_]+)"')
+	for pkg in PKG_DIRS:
+		var dir := DirAccess.open(CHARACTERS_ROOT.path_join(pkg))
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		var folder := dir.get_next()
+		while not folder.is_empty():
+			if folder != "." and folder != ".." and dir.current_is_dir():
+				var main_path := CHARACTERS_ROOT.path_join(pkg).path_join(folder) 						.path_join(folder + ".tscn")
+				if FileAccess.file_exists(main_path):
+					var text := FileAccess.get_file_as_string(main_path)
+					for line in text.split("\n"):
+						if line.contains("groups=") and not line.contains("parent="):
+							for m in regex.search_all(line):
+								var tag := m.get_string(1)
+								if tag != "wall" and tag != "__FACTION__" and not seen.has(tag):
+									seen.append(tag)
+							break
+			folder = dir.get_next()
+	for tag in seen:
+		_faction_pick.add_item(tag)
+	if _faction_pick.item_count > 0:
+		_faction_pick.selected = 0
+
+
+func _on_faction_insert_pressed() -> void:
+	if _faction_pick.selected < 0:
+		return
+	var tag: String = _faction_pick.get_item_text(_faction_pick.selected)
+	var parts := CharacterCreator.parse_faction_tags(_faction_edit.text)
+	if parts.has(tag):
+		return
+	parts.append(tag)
+	_faction_edit.text = ", ".join(parts)
 
 
 func _validate_snake_case(text: String) -> bool:
@@ -505,6 +551,12 @@ func _validate_all_inputs() -> bool:
 		_status_label.add_theme_color_override("font_color", Color.RED)
 		return false
 	
+	# Validate faction tags
+	if CharacterCreator.parse_faction_tags(_faction_edit.text.strip_edges()).is_empty():
+		_status_label.text = "Status: ❌ 阵营标签需至少一个 snake_case 词（逗号分隔）"
+		_status_label.add_theme_color_override("font_color", Color.RED)
+		return false
+	
 	# Validate Display name
 	if display_name.is_empty():
 		_status_label.text = "Status: ❌ Display name cannot be empty"
@@ -563,7 +615,7 @@ func _on_create_pressed() -> void:
 		"char_name": _char_name_edit.text,
 		"pascal_name": _class_name_edit.text,
 		"display_name": _display_name_edit.text,
-		"faction": _faction_option.get_item_text(_faction_option.selected),
+		"faction_tags": _faction_edit.text.strip_edges(),
 		"move_speed": _move_speed_spin.value,
 		"walk_speed": _walk_speed_spin.value,
 		"health_max": int(_health_max_spin.value),
@@ -582,7 +634,7 @@ func _create_character_async(params: Dictionary) -> void:
 		params.char_name,
 		params.pascal_name,
 		params.display_name,
-		params.faction,
+		params.faction_tags,
 		params.move_speed,
 		params.walk_speed,
 		params.health_max,

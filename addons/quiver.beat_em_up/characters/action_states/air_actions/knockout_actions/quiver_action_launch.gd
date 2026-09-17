@@ -108,7 +108,7 @@ func _disconnect_signals() -> void:
 
 
 func _should_slow_motion() -> bool:
-	var is_player := _character.is_in_group("players")
+	var is_player := _character.is_in_group("area2d:player")
 	var is_normal_time := Engine.time_scale == 1.0 
 	var is_dead := _attributes.health_current <= 0
 	return is_player and is_dead and is_normal_time
@@ -159,7 +159,7 @@ func _get_custom_properties() -> Dictionary:
 #		},
 	}
 	
-	if is_instance_valid(_character) and _character.is_in_group("players"):
+	if is_instance_valid(_character) and _character.is_in_group("area2d:player"):
 		custom_properties["_death_slowdown_speed"] = {
 			default_value = 0.2,
 			type = TYPE_FLOAT,

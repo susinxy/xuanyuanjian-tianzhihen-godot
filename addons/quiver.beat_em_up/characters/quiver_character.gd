@@ -177,12 +177,40 @@ func _ready() -> void:
 	channel = QuiverInputChannel.new()
 	_attach_behavior()
 
+	# 阵营下发：根节点的 area2d:* 标签是唯一存放点，运行时挂到全部战斗盒
+	# （皮肤场景不再存阵营数据——与高度层同款"运行时统一下发"模式）
+	_distribute_factions()
+	add_to_group("quiver_characters")  # 调试名册（坞用），非阵营语义
+
+
+## 阵营下发（2026-09-17 单一存放点定档）：查敌我豁免的代码只认盒上的
+## area2d: 组，而那份数据如今只存于根节点（表单"阵营标签"字段写入）。
+## 经 add_faction_group 公开入口挂到受击盒与全部攻击盒——typed 直调
+## add_to_group 会绕过脚本覆写导致缓存冻结（AGENTS 在案的陷阱，法术线同源）。
+func _distribute_factions() -> void:
+	var tags: Array[String] = []
+	for g in get_groups():
+		var gs := String(g)
+		if gs.begins_with("area2d:") and gs != "area2d:wall":
+			tags.append(gs)
+	if tags.is_empty():
+		return
+	if _hurtbox != null:
+		for tag in tags:
+			_hurtbox.add_faction_group(StringName(tag))
+	for hb in _hitboxes:
+		if hb != null:
+			for tag in tags:
+				hb.add_faction_group(StringName(tag))
+
 
 func _get_configuration_warnings() -> PackedStringArray:
 	const INVALID_SKIN = "_path_skin must point to a valid QuiverCharacterSkin Node." 
 	const INVALID_COLLISION = \
 			"_path_collision must point to a valid CollisionShape2D or CollisionPolygon2D Node."
 	const INVALID_ATTRIBUTES = "attributes must have a valid CharacterAttributes resource."
+	const NO_FACTION_TAG = \
+			"根节点缺少 area2d:<阵营标签> 组——阵营是免伤的唯一通道，无标签的角色会打到自己。"
 	var warnings := PackedStringArray()
 	
 	if _attributes == null:
@@ -196,7 +224,17 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if _path_collision.is_empty() or _collision == null:
 		@warning_ignore("return_value_discarded")
 		warnings.append(INVALID_COLLISION)
-	
+
+	# 阵营是免伤的唯一通道（判定层无 owner 自查）：根节点无标签=会打到自己
+	var has_faction := false
+	for g in get_groups():
+		if String(g).begins_with("area2d:") and String(g) != "area2d:wall":
+			has_faction = true
+			break
+	if not has_faction:
+		@warning_ignore("return_value_discarded")
+		warnings.append(NO_FACTION_TAG)
+
 	return warnings
 
 

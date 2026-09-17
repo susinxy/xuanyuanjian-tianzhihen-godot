@@ -7,7 +7,7 @@
 
 Inspector 面板：打开 `character_template.tscn` → 填英文名/类名/显示名 → 选**控制方式**与**阵营** → Create。
 占位符：`__NAME__`（snake）、`__CLASS__`（Pascal）、`__DISPLAY_NAME__`、`__PKG__`（阵营包目录）、
-`__BODY_GROUP__`（根节点 body group）、`__BEHAVIOR_MODE__`（行为档）。
+`__FACTION__`（根节点阵营标签 area2d:<标签>，唯一存放点）、`__BEHAVIOR_MODE__`（行为档）。
 
 | 控制方式 | 阵营 | 输出目录 | behavior_mode | 出生即有何行为 |
 |---|---|---|---|---|

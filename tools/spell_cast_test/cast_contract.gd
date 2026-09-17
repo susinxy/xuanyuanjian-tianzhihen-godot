@@ -68,7 +68,7 @@ func _spell_has_caster_faction() -> bool:
 	for b in _stage.get_children():
 		if b is SpellBase:
 			for node in b.find_children("*", "", true):
-				if node.is_in_group("area2d:chen"):
+				if node.is_in_group("area2d:player"):
 					return true
 	return false
 

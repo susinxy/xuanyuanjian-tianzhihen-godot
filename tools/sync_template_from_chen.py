@@ -55,7 +55,8 @@ def tokenize(text: str) -> str:
     text = re.sub(r'node name="Chen"(\s|])', r'node name="__CLASS__"\1', text)
     text = text.replace("libraries/Chen", "libraries/__CLASS__")   # 4) 动画库键
     text = text.replace('&"Chen/', '&"__CLASS__/')                  #    AnimTree 引用
-    text = text.replace("area2d:chen", "area2d:__NAME__")           # 5) 阵营组
+    # 5) 阵营新体系：皮肤不存阵营数据（根节点唯一存放点），
+    #    根节点的 area2d:player 占位由 inject_behavior_tokens 处理
     text = text.replace('"陈靖仇"', '"__DISPLAY_NAME__"')            # 6) 显示名
     # 7) 去文件头 uid（uid 属性在方括号内部任意位置）
     text = re.sub(r'^\[(gd_scene|gd_resource)\b([^\]]*)\]',
@@ -73,12 +74,12 @@ def tokenize(text: str) -> str:
 
 # ---------- 2.5 主场景专属注入（单壳行为档位，chen 快照本身没有） ----------
 def inject_behavior_tokens(text: str, path: str) -> str:
-    """仅对 __NAME__.tscn：根节点组占位 + behavior_mode 属性行。"""
+    """仅对 __NAME__.tscn：根节点阵营标签占位 + behavior_mode 属性行。"""
     if not path.endswith("__NAME__.tscn"):
         return text
-    n1 = text.count('groups=["players"]')
-    assert n1 == 1, f"主 tscn 根节点 groups=[\"players\"] 出现 {n1} 次（应为 1）"
-    text = text.replace('groups=["players"]', 'groups=["__BODY_GROUP__"]')
+    n1 = text.count('groups=["area2d:player"]')
+    assert n1 == 1, f"主 tscn 根节点 groups=[\"area2d:player\"] 出现 {n1} 次（应为 1）"
+    text = text.replace('groups=["area2d:player"]', 'groups=["area2d:__FACTION__"]')
     root = re.search(r'\[node name="__CLASS__"[^\n]*instance=ExtResource\("[^"]*"\)\]\n', text)
     assert root, "主 tscn 未找到根节点行（name=__CLASS__ + instance）"
     if "behavior_mode = __BEHAVIOR_MODE__" in text:
@@ -88,9 +89,16 @@ def inject_behavior_tokens(text: str, path: str) -> str:
 
 # ---------- 0. 源头守卫：chen 的 faction group 声明必须完好（防编辑器手滑扩散） ----------
 src_skin = open(os.path.join(SRC, "chen_skin.tscn"), encoding="utf-8").read()
-if src_skin.count("area2d:chen") != 5:
-    print(f"  ✗ chen_skin.tscn 阵营组声明异常：area2d:chen 出现 {src_skin.count('area2d:chen')} 次（应为 5）")
-    print("    疑似编辑器保存误删 groups，先修复 characters/playable/chen/chen_skin.tscn 再同步")
+src_main = open(os.path.join(SRC, "chen.tscn"), encoding="utf-8").read()
+# 阵营单一存放点守卫（2026-09-17）：皮肤不得残留阵营数据（wall 能力标记除外），
+# 根节点必须恰有一枚 area2d 标签——编辑器保存吞组事故的老卫兵换岗到新形态
+bad = re.findall(r'groups=\["area2d:(?!wall)[^"]+"\][^]]*', src_skin)
+bad = [b for b in re.findall(r'"area2d:[^"]+"', src_skin) if b != '"area2d:wall"']
+if bad:
+    print(f"  ✗ chen_skin.tscn 残留阵营组数据 {bad}（皮肤应零阵营，运行时由根节点下发）")
+    sys.exit(1)
+if src_main.count('groups=["area2d:player"]') != 1:
+    print("  ✗ chen.tscn 根节点阵营标签异常（应恰一处 groups=[\"area2d:player\"]），先修复再同步")
     sys.exit(1)
 
 # ---------- 1. 复制 ----------
@@ -162,15 +170,17 @@ if problems:
 # ---------- 4. 单壳行为档正向断言（防同步工具回退丢注入） ----------
 main = open(os.path.join(DST, "__NAME__.tscn"), encoding="utf-8").read()
 for needle, label in [
-    ('groups=["__BODY_GROUP__"]', "根节点阵营组占位"),
+    ('groups=["area2d:__FACTION__"]', "根节点阵营组占位"),
     ("behavior_mode = __BEHAVIOR_MODE__", "行为档属性行"),
     ("characters/__PKG__/__NAME__/", "阵营包目录占位"),
 ]:
     if needle not in main:
         print(f"  ✗ 主 tscn 缺注入: {label}"); sys.exit(1)
 tpl_skin = open(os.path.join(DST, "__NAME___skin.tscn"), encoding="utf-8").read()
-if tpl_skin.count("area2d:__NAME__") != 5:
-    print(f"  ✗ 模板阵营组注入异常：area2d:__NAME__ 出现 {tpl_skin.count('area2d:__NAME__')} 次（应为 5）"); sys.exit(1)
+# 阵营单一存放点：皮肤只许携带 wall 能力标记，任何 area2d 阵营数据都是回退
+skin_tags = [t for t in re.findall(r'"area2d:[^"]*"', tpl_skin) if t != '"area2d:wall"']
+if skin_tags:
+    print(f"  ✗ 模板皮肤残留阵营组数据 {skin_tags}（皮肤应零阵营，运行时由根节点下发）"); sys.exit(1)
 if not os.path.exists(os.path.join(DST, "__NAME___ai.gd")):
     print("  ✗ 缺默认策略小抄 __NAME___ai.gd"); sys.exit(1)
 

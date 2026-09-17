@@ -101,7 +101,7 @@ func _os_key_full_chain() -> void:
 	Input.parse_input_event(ev2)
 	await _frames(30)
 	_check(_spell_bodies(ctx.stage) >= 1, "OS 真按键 spell_1 全链路施法成功")
-	_check(not _first_body(ctx.stage).is_in_group("players"),
+	_check(not _first_body(ctx.stage).is_in_group("area2d:player"),
 			"法术体不混入阵营包组（防查询污染）")
 	ctx.stage.queue_free()
 

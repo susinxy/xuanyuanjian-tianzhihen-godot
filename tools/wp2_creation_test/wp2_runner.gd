@@ -7,11 +7,11 @@ extends Node
 ## 验证：三档位创建、阵营包目录、行为档写入、小抄约定加载、AI 追打、被动站桩。
 
 const TMP_CHARS := [
-	{"name": "tmp_wp_player", "pkg": "playable", "mode": 0, "faction": "players",
+	{"name": "tmp_wp_player", "pkg": "playable", "mode": 0, "tags": "player, tmp_team",
 	"pascal": "TmpWpPlayer", "display": "临时玩家"},
-	{"name": "tmp_wp_enemy", "pkg": "enemies", "mode": 1, "faction": "enemies",
+	{"name": "tmp_wp_enemy", "pkg": "enemies", "mode": 1, "tags": "enemy",
 	"pascal": "TmpWpEnemy", "display": "临时敌人"},
-	{"name": "tmp_wp_vendor", "pkg": "neutrals", "mode": 2, "faction": "neutrals",
+	{"name": "tmp_wp_vendor", "pkg": "neutrals", "mode": 2, "tags": "tmp_wp_vendor",
 	"pascal": "TmpWpVendor", "display": "临时小贩"},
 ]
 
@@ -71,7 +71,7 @@ func _create_phase() -> void:
 	var creator := CharacterCreator.new()
 	for spec in TMP_CHARS:
 		var ok := creator.create_character(
-				spec.name, spec.pascal, spec.display, spec.faction,
+				spec.name, spec.pascal, spec.display, spec.tags,
 				600.0, 300.0, 100, 0.6, 0, spec.mode)
 		_check(ok, "创建 %s 返回成功" % spec.name)
 	
@@ -81,8 +81,14 @@ func _create_phase() -> void:
 		_check(FileAccess.file_exists(sp), "%s 主场景在阵营包 %s/ 下" % [spec.name, spec.pkg])
 		var text := FileAccess.get_file_as_string(sp)
 		_check(text.contains("behavior_mode = %d" % spec.mode), "%s 行为档=%d" % [spec.name, spec.mode])
-		_check(text.contains('groups=["%s"]' % spec.faction), \
-				"%s 根节点 body group=%s" % [spec.name, spec.faction])
+		var first_tag := String(spec.tags).split(",")[0].strip_edges()
+		_check(text.contains('groups=["area2d:%s"' % first_tag), \
+				"%s 根节点首阵营标签=area2d:%s" % [spec.name, first_tag])
+		_check(not text.contains('groups=["area2d:player"]') or spec.name == "tmp_wp_player", \
+				"%s 无标签串台" % spec.name)
+		if spec.tags.contains(","):
+			_check(text.contains('"area2d:tmp_team"'), \
+					"%s 多标签展开到位（player, tmp_team 并列）" % spec.name)
 		var ai_path := sp.trim_suffix(".tscn") + "_ai.gd"
 		_check(FileAccess.file_exists(ai_path), "%s 默认小抄存在" % spec.name)
 		_check(not text.contains("__"), "%s 主场景无占位符残留" % spec.name)
@@ -111,6 +117,33 @@ func _verify_phase() -> void:
 	vendor.position = Vector2(400, 500)
 	add_child(vendor)
 	await _tick(6)
+	
+	await _tick(2)
+	# 阵营下发核心断言：配对必须取【攻击盒×受击盒】的游戏真实形态——
+	# 两只受击盒互比会因共享 area2d:wall 能力标记而假判同阵营（wall 污染
+	# 老案的另一面；攻击盒从不挂 wall，玩法链路天然无此歧义）。
+	var tagged := 0
+	var chen_hurt: Area2D = null
+	var chen_hit: Area2D = null
+	for a2 in chen.find_children("*", "Area2D", true):
+		if a2.is_in_group("area2d:player"):
+			tagged += 1
+			if a2 is QuiverHurtBox and chen_hurt == null:
+				chen_hurt = a2
+			if a2 is QuiverHitBox and chen_hit == null:
+				chen_hit = a2
+	_check(tagged >= 5, "chen 根标签运行时下发到全部战斗盒（命中 %d 只）" % tagged)
+	_check(chen_hurt != null and chen_hit != null, "chen 受击/攻击盒分类取到")
+	var enemy_hit: Area2D = null
+	for a3 in enemy.find_children("*", "Area2D", true):
+		if a3 is QuiverHitBox and a3.is_in_group("area2d:enemy"):
+			enemy_hit = a3
+	_check(enemy_hit != null, "enemy 攻击盒标签下发到位")
+	if chen_hurt != null and chen_hit != null and enemy_hit != null:
+		_check(not QuiverHurtBox.are_factions_equal(enemy_hit, chen_hurt),
+				"enemy 拳 × player 身 = 敌对可打（交集空）")
+		_check(QuiverHurtBox.are_factions_equal(chen_hit, chen_hurt),
+				"自己的拳 × 自己的身 = 同标签互免（打不到自己）")
 	
 	var enemy_script: Script = enemy.behavior.get_script() if enemy.behavior != null else null
 	_check(enemy_script != null \

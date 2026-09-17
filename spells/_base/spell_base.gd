@@ -62,9 +62,9 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 	# 一切按组查询角色的逻辑（调试面板把火球当角色赋值直接崩、
 	# 未来 AI 索敌同理）。阵营过滤只比对 area2d: 前缀，语义完备。
 	var faction_groups := _collect_caster_faction_groups(caster)
-	
-	for group in faction_groups:
-		add_to_group(group)
+	# 阵营组只挂战斗盒，法术体根节点保持阵营中立：新体系下 area2d:player
+	# 同时是玩家身份暗号（检测器/AI/HUD 按组查本体），法术体混入即查询污染
+	# （2026-09-15"阵营包组不混入"老洞在单点阵营时代的回归）。
 	
 	if _skin:
 		for hitbox in _skin.hitboxes:
@@ -101,16 +101,15 @@ func cast(p_caster: Node, p_definition: SpellDefinition, p_direction: Vector2) -
 ## 旗标，不是阵营身份——抄进法术攻击盒后，所有带 wall 受击盒的目标（即一切角色）
 ## 都与法术"同阵营"而被免伤；近战 hitbox 从不带 wall 所以互殴无恙。
 ## 施法者自保不依赖 wall：双方共享 area2d:<角色名> 即已放行拦截。
+## 阵营单一存放点（2026-09-17）：施法者的阵营标签就在其根节点组上，直读即可
+## ——旧写法翻遍施法者子树从盒上捡组，是"阵营多点存储"时代的考古动作。
+## wall 是受击盒的弹墙能力标记、从不上根节点，过滤仅防呆。
 static func _collect_caster_faction_groups(caster: Node) -> Array[String]:
 	var seen: Array[String] = []
-	for node in caster.find_children("*", "", true):
-		var area := node as Area2D
-		if area == null:
-			continue
-		for g in area.get_groups():
-			var gs := String(g)
-			if gs.begins_with("area2d:") and gs != "area2d:wall" and not seen.has(gs):
-				seen.append(gs)
+	for g in caster.get_groups():
+		var gs := String(g)
+		if gs.begins_with("area2d:") and gs != "area2d:wall" and not seen.has(gs):
+			seen.append(gs)
 	return seen
 
 

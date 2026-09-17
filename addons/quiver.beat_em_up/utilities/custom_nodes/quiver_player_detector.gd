@@ -94,7 +94,8 @@ func _get_configuration_warnings() -> PackedStringArray:
 ### Private Methods -------------------------------------------------------------------------------
 
 func _on_body_entered(body: QuiverCharacter) -> void:
-	if body != null and body.is_in_group("players"):
+	# 阵营新体系：玩家身份=根节点持有 area2d:player 标签（创建表单的阵营字段供给）
+	if body != null and body.is_in_group("area2d:player"):
 		call_deferred("emit_signal", "player_detected")
 		if is_one_shot:
 			queue_free()

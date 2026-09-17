@@ -41,7 +41,7 @@ position = Vector2(0, -12)
 sprite_frames = ExtResource("4_sprites")
 animation = &"active"
 
-[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=1703451244 groups=["area2d:fire_ball"]]
+[node name="Attack1" type="Area2D" parent="Attacks" index="0" unique_id=1703451244]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
 monitoring = false

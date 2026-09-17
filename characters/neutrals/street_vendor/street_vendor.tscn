@@ -27,7 +27,7 @@
 radius = 20.0
 height = 69.999954
 
-[node name="StreetVendor" unique_id=222398885 groups=["neutrals"] instance=ExtResource("1_aj842")]
+[node name="StreetVendor" unique_id=222398885 groups=["area2d:street_vendor"] instance=ExtResource("1_aj842")]
 behavior_mode = 2
 script = ExtResource("2_dwyxr")
 _attributes = ExtResource("3_ylsip")

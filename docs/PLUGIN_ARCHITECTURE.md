@@ -439,8 +439,8 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
 #### 5.0.1 生产线接线（WP2，2026-09-14）
 
 - **模板 token 扩展**（`tools/sync_template_from_chen.py` 注入 + `character_creator.gd` 替换）：
-  `__PKG__`（阵营包目录 playable/enemies/allies/neutrals）、`__BODY_GROUP__`（根节点 body
-  group）、`__BEHAVIOR_MODE__`（主场景根属性行）。主 tscn 注入由同步脚本做正向断言保护。
+  `__PKG__`（阵营包目录 playable/enemies/allies/neutrals）、`area2d:__FACTION__`（根节点阵营
+  标签唯一存放点）、`__BEHAVIOR_MODE__`（主场景根属性行）。主 tscn 注入由同步脚本做正向断言保护。
 - **默认策略小抄**：模板自带 `__NAME___ai.gd`（`class_name __CLASS__AI`，QuiverBehaviorAI
   子类：歇→追→Combo 跟进三段→受击定身 0.8s），sync 工具 KEEP_IN_DST 豁免。玩家档角色
   该文件闲置无害。
@@ -448,7 +448,8 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   自动加载同目录 `<场景文件名>_ai.gd`（FileAccess 判定，不依赖导入扫描）——创建器因此
   只需替换一个整数 token，无需 ext_resource 手术。
 - **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
-  目录/组/档位（AI 档 v1 仅敌人阵营，友方 AI 索敌参数化留切片设计会）；
+  目录/档位（阵营标签与目录解耦：玩家→playable+player、AI→enemies+enemy、
+  被动→neutrals+自名，标签可自由改/多选；索敌按 area2d:player 组查询）；
   `CharacterDeleter.delete_character(name, pkg)`。面板新增"控制方式"下拉与阵营联动。
 - **Run Test 生成**：纯逻辑抽出为 `QuiverRunTestSceneBuilder`（RefCounted 静态类，
   headless 可测）`compose()` 统一编排：读 behavior_mode → 玩家档=被测者当主角、
@@ -896,7 +897,15 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 5. 命中回执：`hit_box.on_target_hit.is_valid()` 时同步 `call(self)`
    （见 7.2 注入契约；旧 owner 反射已废除）
 
-**阵营过滤机制**（`area2d:` group）:
+**阵营过滤机制**（`area2d:` group；2026-09-17 单一存放点体系）:
+- **数据只存角色根节点**（`groups=["area2d:<标签>", …]`，创建表单写入）；
+  `QuiverCharacter._ready → _distribute_factions()` 运行时经 `add_faction_group`
+  下发到 HurtBox/HitBox——皮肤场景不存阵营数据；配置警告：根无标签=会自伤
+- 身份查询（HUD/AI/检测器）也按 `area2d:player` 组，但**必须过滤
+  `is QuiverCharacter`**——组里同时有下发后的战斗盒
+- **法术体根节点保持阵营中立**：`add_to_group` 只挂战斗盒，混入身份组=查询污染
+- 两只 HurtBox 互比会因共享 `area2d:wall` 假判同阵营——判定永远取
+  "攻击盒×受击盒"的真实配对，wall 从不上攻击盒故玩法无歧义（测试断言亦须如此取样）
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
 - 缓存机制：`_faction_dict: Dictionary` 只缓存 `area2d:` 前缀的 group，使用 Dictionary 实现 O(1) 查找
 - **运行时动态加阵营组必须走 `add_faction_group(group)`**（HitBox/HurtBox 公开）：
@@ -979,7 +988,7 @@ Player HitBox (高度层 = 攻击高度层, monitorable=true, 携带 attack_data
 HurtBox._on_area_entered()
   ↓
 are_factions_equal() 检查：
-  Player HitBox groups: ["area2d:chen_jingchou"]
+  Player HitBox groups: ["area2d:player"]  ← 运行时自根节点下发
   Enemy HurtBox groups: ["area2d:enemy", "area2d:wall"]
   无交集 → 不同阵营 → 继续处理
   ↓
