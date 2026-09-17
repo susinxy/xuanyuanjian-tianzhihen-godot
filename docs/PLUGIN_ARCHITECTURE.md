@@ -219,6 +219,8 @@ QuiverBaseCharacter (CharacterBody2D)
   挂起中）时静默丢弃本次信标（上游作者注释自陈"不记得为什么"， Combo 链
   上用于防止被替换动画的尾帧信标误结束新状态）。攻击边全 AT_INSTANT 时
   平时 path 恒空，该守卫仅在转换挂起瞬间开窗；勿在守卫外再加重试消费。
+  **架构评估完整记录（守卫/名牌/边锁/看门狗三案推演与知情搁置）见
+  `docs/ATTACK_BEACON_DESIGN_NOTES.md`。**
 - `_populate_animation_list()`: 递归遍历 AnimationTree 所有 AnimationNode，构建可用状态列表 `_animation_list`
 - `_update_blend_directions()`: 把所有 `*_blend_position` 参数设为 `skin_direction`（-1 或 +1），驱动 BlendSpace1D 的 left/right 混合
 
