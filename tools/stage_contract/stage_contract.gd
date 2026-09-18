@@ -12,8 +12,8 @@ const DEATH := "res://ui/menus/death_screen.tscn"
 
 ## A 段断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：流内 34 + 全序列 1 = 35
-const EXPECTED_ASSERTS := 35
+## 计数在"跑满"这条自身计入前比对：流内 35 + 全序列 1 = 36
+const EXPECTED_ASSERTS := 36
 
 var _fails := 0
 var _finished := false
@@ -53,6 +53,7 @@ func _flow() -> void:
 	await _a3_esc_chain()
 	_a4_entries()
 	_a5_death_rebuild()
+	_a6_latest_checkpoint()
 	_finished = true
 
 
@@ -152,3 +153,14 @@ func _a5_death_rebuild() -> void:
 	_death.close_screen()
 	GameEvents.reset_session()
 	_check(GameEvents.get_checkpoints().is_empty(), "A5 收尾清会话（测试自洁）")
+
+
+## A6 回跳取序（T2 裁决）：注册表旧→新，最新在尾——pause"回本地点入口"与
+## death 可见首条（A5 锁）同源于 cps.back()；不按压，只核对目标读径
+func _a6_latest_checkpoint() -> void:
+	GameEvents.add_checkpoint(&"probe_old", "res://tools/stage_contract/_fake_old.tscn")
+	GameEvents.add_checkpoint(&"probe_new", "res://tools/stage_contract/_fake_new.tscn")
+	var latest: Dictionary = _pause._latest_checkpoint()
+	_check(latest.scene_path == "res://tools/stage_contract/_fake_new.tscn",
+			"A6 pause 跳转目标=注册表尾部（最新）")
+	GameEvents.reset_session()

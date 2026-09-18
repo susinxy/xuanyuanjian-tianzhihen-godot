@@ -47,7 +47,7 @@ func unpause_now() -> void:
 	get_tree().paused = false
 
 
-## T1 add_checkpoint 为"摘旧追新+append"：数组尾部=最新访问，取逆得"新→旧"渲染序
+## 注册表旧→新，最新在尾（摘旧追新+append）：取逆渲染得可见序"新→旧"
 func _rebuild_entries() -> void:
 	for child in _entries.get_children():
 		child.free()

@@ -50,6 +50,8 @@ func close_menu() -> void:
 	if not visible:
 		return
 	visible = false
+	# 占位批不得预置 length=0 动画：引擎载入钳到 0.001 骗过下方守卫，
+	# 无 method track 则解冻信标永响（2026-09-18 探针实证，只留空动画库）
 	if _anim.has_animation("close") and _anim.get_animation("close").length > 0.0:
 		_anim.play("close")
 		# 动画末尾 method track 应调用 unpause_now()；无动画则立即执行
@@ -65,14 +67,20 @@ func unpause_now() -> void:
 	get_tree().paused = false
 
 
-func _jump_latest_checkpoint() -> void:
+## 注册表旧→新，最新在尾（brief 原文 cps[0] 系计划笔误，T2 裁决修正）
+func _latest_checkpoint() -> Dictionary:
 	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	return {} if cps.is_empty() else cps.back()
+
+
+func _jump_latest_checkpoint() -> void:
 	unpause_now()
-	if cps.is_empty():
+	var cp := _latest_checkpoint()
+	if cp.is_empty():
 		_goto_title()
 		return
-	GameEvents.pending_jump_stage = cps[0].scene_path
-	ScreenTransitions.transition_to_scene(cps[0].scene_path)
+	GameEvents.pending_jump_stage = cp.scene_path
+	ScreenTransitions.transition_to_scene(cp.scene_path)
 
 
 func _goto_title() -> void:
