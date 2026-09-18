@@ -8,7 +8,22 @@ extends Node
 
 const TMP_CHARS := [
 	{"name": "tmp_wp_player", "pkg": "playable", "mode": 0, "tags": "player, tmp_team",
-	"pascal": "TmpWpPlayer", "display": "临时玩家"},
+	"pascal": "TmpWpPlayer", "display": "临时玩家",
+	# 特征出生值（面板=唯一真相批）：非默认值逐行落盘核对，专杀静默空转
+	"stats": {"health_max": 77.0, "mana_max": 33.0, "knockout_resistance_max": 900.0,
+		"move_speed": 501.0, "walk_speed": 201.0, "air_control": 0.42,
+		"jump_force": -1500.0, "knockback_weight": 2.5, "hit_lane_offset": 7.0,
+		"can_be_grabbed": false, "is_invulnerable": false, "has_superarmor": false},
+	"attacks": [
+		{"attack_damage": 7.0, "hurt_type": 0, "knock_strength": 300.0, "launch_angle": 60.0},
+		{"attack_damage": 8.0, "hurt_type": 1, "knock_strength": 100.0, "launch_angle": 20.0},
+		{"attack_damage": 9.0, "hurt_type": 0, "knock_strength": 200.0, "launch_angle": 40.0},
+		{"attack_damage": 11.0, "hurt_type": 1, "knock_strength": 400.0, "launch_angle": 80.0}],
+	"expect_attrs": ["health_max = 77", "mana_max = 33", "knockout_resistance_max = 900",
+		"move_speed = 501", "walk_speed = 201", "air_control = 0.42",
+		"jump_force = -1500", "knockback_weight = 2.5", "hit_lane_offset = 7",
+		"can_be_grabbed = false", "is_invulnerable = false", "has_superarmor = false"],
+	"expect_punch1": ["attack_damage = 7", "hurt_type = 0", "knock_strength = 300", "launch_angle = 60"]},
 	{"name": "tmp_wp_enemy", "pkg": "enemies", "mode": 1, "tags": "enemy",
 	"pascal": "TmpWpEnemy", "display": "临时敌人"},
 	{"name": "tmp_wp_vendor", "pkg": "neutrals", "mode": 2, "tags": "tmp_wp_vendor",
@@ -72,7 +87,7 @@ func _create_phase() -> void:
 	for spec in TMP_CHARS:
 		var ok := creator.create_character(
 				spec.name, spec.pascal, spec.display, spec.tags,
-				600.0, 300.0, 100, 0.6, 0, spec.mode)
+				spec.get("stats", {}), spec.get("attacks", []), spec.mode)
 		_check(ok, "创建 %s 返回成功" % spec.name)
 	
 	print("════ 组2：文件层断言 ════")
@@ -89,6 +104,26 @@ func _create_phase() -> void:
 		if spec.tags.contains(","):
 			_check(text.contains('"area2d:tmp_team"'), \
 					"%s 多标签展开到位（player, tmp_team 并列）" % spec.name)
+		# —— 出生数值合成落盘断言（2026-09-18 面板=唯一真相批）——
+		var syn_attrs := FileAccess.get_file_as_string(
+				"res://characters/%s/%s/resources/%s_attributes.tres" % [spec.pkg, spec.name, spec.name])
+		var expect_attrs: Array = spec.get("expect_attrs", [
+				"health_max = 100", "mana_max = 100", "knockout_resistance_max = 600",
+				"move_speed = 600", "walk_speed = 300", "air_control = 0.6",
+				"jump_force = -1200", "knockback_weight = 1", "hit_lane_offset = 0",
+				"can_be_grabbed = true"])
+		for line in expect_attrs:
+			_check(syn_attrs.contains("\n" + line + "\n"),
+					"%s attributes 行: %s" % [spec.name, line])
+		for slot in ["punch1", "punch2", "punch3", "air_kick"]:
+			_check(FileAccess.file_exists(
+					"res://characters/%s/%s/resources/attacks/%s_attack_data.tres" % [spec.pkg, spec.name, slot]),
+					"%s 招式 %s 已合成" % [spec.name, slot])
+		var syn_p1 := FileAccess.get_file_as_string(
+				"res://characters/%s/%s/resources/attacks/punch1_attack_data.tres" % [spec.pkg, spec.name])
+		for line in spec.get("expect_punch1", ["attack_damage = 10", "knock_strength = 60", "hurt_type = 1", "launch_angle = 15"]):
+			_check(syn_p1.contains("\n" + line + "\n"),
+					"%s punch1 行: %s" % [spec.name, line])
 		var ai_path := sp.trim_suffix(".tscn") + "_ai.gd"
 		_check(FileAccess.file_exists(ai_path), "%s 默认小抄存在" % spec.name)
 		_check(not text.contains("__"), "%s 主场景无占位符残留" % spec.name)
@@ -99,10 +134,10 @@ func _create_phase() -> void:
 		_check(FileAccess.file_exists(sp.trim_suffix(".tscn") + ".gd"), "%s 根脚本存在" % spec.name)
 		_check(FileAccess.file_exists("res://characters/%s/%s/resources/%s_attributes.tres" % [
 				spec.pkg, spec.name, spec.name]), "%s 属性资源存在" % spec.name)
-		var attrs_text := FileAccess.get_file_as_string("res://characters/%s/%s/resources/%s_attributes.tres" % [
+		var attrs_display := FileAccess.get_file_as_string("res://characters/%s/%s/resources/%s_attributes.tres" % [
 				spec.pkg, spec.name, spec.name])
-		_check(attrs_text.contains('display_name = "%s"' % spec.display) \
-				and not attrs_text.contains("陈靖仇"),
+		_check(attrs_display.contains('display_name = "%s"' % spec.display) \
+				and not attrs_display.contains("陈靖仇"),
 				"%s 显示名=表单填写值（占位符链闭环）" % spec.name)
 		var tree_txt := FileAccess.get_file_as_string("res://characters/%s/%s/resources/animations/animation_tree_root.tres" % [
 				spec.pkg, spec.name])

@@ -21,7 +21,7 @@ func _initialize() -> void:
 			continue
 		var ok := creator.create_character(
 				spec.name, spec.pascal, spec.display, spec.faction,
-				600.0, 300.0, 100, 0.6, 0, spec.mode)
+				{}, [], spec.mode)
 		if not ok:
 			failures += 1
 			print("FAIL: 创建 ", spec.name)

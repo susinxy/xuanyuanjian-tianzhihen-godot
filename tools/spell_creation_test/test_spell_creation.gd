@@ -21,7 +21,11 @@ func _initialize():
 	).new()
 	
 	deleter.delete_spell(TMP_NAME)  # 清理历史残留，保证幂等
-	_check(creator.create_spell(TMP_NAME, TMP_PASCAL, "临时检查法术"), "创建返回成功")
+	_check(creator.create_spell(TMP_NAME, TMP_PASCAL, "临时检查法术",
+			{"cooldown": 1.5, "mana_cost": 20.0, "release_y": 0.5,
+			"disallowed_states": "Die, Knockout, Hurt"},
+			{"attack_damage": 33.0, "knock_strength": 300.0, "hurt_type": 0,
+			"launch_angle": 45.0}), "创建返回成功（特征出生值）")
 	
 	# ── 文件齐全（模板物化后全部复制而来） ──
 	var required := [
@@ -52,6 +56,44 @@ func _initialize():
 					token_free = false
 					token_hit = "%s 含 %s" % [rel, tok]
 	_check(token_free, "全部文本无占位符残留（%s）" % token_hit)
+	
+	# ── 出生数值合成生效（2026-09-18 面板=唯一真相批，文本+装载双关卡）──
+	var syn_def_txt := FileAccess.get_file_as_string(DIR.path_join("resources/tmp_spell_check_definition.tres"))
+	_check(syn_def_txt.contains("cooldown = 1.5") and syn_def_txt.contains("mana_cost = 20"),
+			"definition 特征值落盘（冷却/法力）")
+	_check(syn_def_txt.contains("max_lifetime = 5") and syn_def_txt.contains("fade_in_time = 0.3")
+			and syn_def_txt.contains("caster_cast_time = 0.5"),
+			"definition 未传字段回落默认（时限/淡入/引导）")
+	_check(syn_def_txt.contains("release_ratio = Vector2(1, 0.5)"),
+			"出手点 y 覆盖生效、x 保默认")
+	_check(syn_def_txt.contains('Array[StringName]([&"Die", &"Knockout", &"Hurt"])'),
+			"禁止状态逗号串→Array[StringName] 序列化")
+	_check(syn_def_txt.contains("spell_scene = ExtResource"), "spell_scene 回环引用在位")
+	var syn_atk_txt := FileAccess.get_file_as_string(DIR.path_join("resources/attacks/tmp_spell_check_attack_data.tres"))
+	_check(syn_atk_txt.contains("attack_damage = 33") and syn_atk_txt.contains("knock_strength = 300")
+			and syn_atk_txt.contains("hurt_type = 0") and syn_atk_txt.contains("launch_angle = 45"),
+			"attack 四字段特征值全落盘")
+	# 解析器验收：剥掉 spell_scene 两行做剥壳副本装载——headless -s 无导入产物，
+	# 经场景→皮肤→贴图链的原文件装载必报 non-existent（wp2 两阶段同因的环境约束），
+	# [resource] 段全部属性（含 Array[StringName] 序列化形态）由剥壳副本真解析。
+	var probe_path := DIR.path_join("resources/_syn_probe.tres")
+	var probe_text := syn_def_txt.replace(
+			'[ext_resource type="PackedScene" path="res://spells/tmp_spell_check/tmp_spell_check.tscn" id="2_scene"]\n', "")
+	probe_text = probe_text.replace('spell_scene = ExtResource("2_scene")\n', "")
+	var pf := FileAccess.open(probe_path, FileAccess.WRITE)
+	pf.store_string(probe_text)
+	pf.close()
+	var syn_def := load(probe_path)
+	_check(syn_def != null and syn_def.cooldown == 1.5 and syn_def.mana_cost == 20.0
+			and str(syn_def.spell_id) == "tmp_spell_check"
+			and syn_def.disallowed_states.size() == 3 and syn_def.allowed_states.is_empty()
+			and syn_def.max_lifetime == 5.0 and syn_def.fade_in_time == 0.3
+			and syn_def.release_ratio == Vector2(1, 0.5),
+			"definition 剥壳装载成功且全字段一致（解析器验收）")
+	var syn_atk := load(DIR.path_join("resources/attacks/tmp_spell_check_attack_data.tres"))
+	_check(syn_atk != null and syn_atk.knock_strength == 300.0 and syn_atk.launch_angle == 45
+			and syn_atk.attack_damage == 33.0,
+			"attack 装载成功且字段一致（launch_vector 由角度推导=%s）" % str(syn_atk.launch_vector if syn_atk != null else "?"))
 	
 	# ── 四向树与库（模板=唯一作者的内容断言） ──
 	var tree := FileAccess.get_file_as_string(DIR + "/resources/animations/animation_tree_root.tres")

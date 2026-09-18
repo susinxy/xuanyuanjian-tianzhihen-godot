@@ -24,6 +24,22 @@ const CHARACTER_DIR = "res://characters/playable/"
 var _spell_name_edit: LineEdit
 var _class_name_edit: LineEdit
 var _display_name_edit: LineEdit
+# 出生数值控件（2026-09-18 与角色线拉齐：默认表读 SpellCreator，三处同源）
+var _desc_edit: LineEdit
+var _mana_cost_spin: SpinBox
+var _lifetime_spin: SpinBox
+var _cooldown_spin: SpinBox
+var _cast_time_spin: SpinBox
+var _release_x_spin: SpinBox
+var _release_y_spin: SpinBox
+var _fade_in_spin: SpinBox
+var _fade_out_spin: SpinBox
+var _allowed_edit: LineEdit
+var _disallowed_edit: LineEdit
+var _atk_damage_spin: SpinBox
+var _atk_hurt_option: OptionButton
+var _atk_knock_spin: SpinBox
+var _atk_angle_spin: SpinBox
 var _status_label: Label
 var _create_btn: Button
 
@@ -118,6 +134,39 @@ func _build_ui() -> void:
 	add_child(hbox3)
 	
 	# Status
+	# ==== 出生数值区（面板=唯一真相批）====
+	var d: Dictionary = SpellCreator.DEFAULT_DEF_STATS
+	var da: Dictionary = SpellCreator.DEFAULT_ATTACK
+	_desc_edit = _make_line_row("描述:", "图鉴/提示文案，可留空")
+	_mana_cost_spin = _make_spin_row("法力消耗:", "施放一次扣除的 mana", 0, 9999, 10, d.mana_cost)
+	_lifetime_spin = _make_spin_row("存在时限(s):", "弹体最长存活秒数，0=不限", 0, 60, 0.5, d.max_lifetime)
+	_cooldown_spin = _make_spin_row("冷却(s):", "槽位冷却时长", 0, 60, 0.1, d.cooldown)
+	_cast_time_spin = _make_spin_row("引导(s):", "起手后按住阶段的引导时长，0=起手播完立即出手", 0, 10, 0.1, d.caster_cast_time)
+	_release_x_spin = _make_spin_row("出手点 X:", "相对身高比例（1=身高处），左右镜像自动翻", 0.1, 3, 0.01, d.release_x)
+	_release_y_spin = _make_spin_row("出手点 Y:", "0=脚下 1=头顶（fire_ball 演示值 0.34）", 0, 2, 0.01, d.release_y)
+	_fade_in_spin = _make_spin_row("淡入(s):", "出场渐显时长", 0, 2, 0.01, d.fade_in_time)
+	_fade_out_spin = _make_spin_row("淡出(s):", "消亡渐隐时长", 0, 2, 0.01, d.fade_out_time)
+	_allowed_edit = _make_line_row("允许施法状态:", "逗号分隔状态名，空=不限制")
+	_allowed_edit.text = String(d.allowed_states)
+	_disallowed_edit = _make_line_row("禁止施法状态:", "逗号分隔；默认 Die,Knockout（倒地/击飞中禁放）")
+	_disallowed_edit.text = String(d.disallowed_states)
+	var atk_header := Label.new()
+	atk_header.text = "⚔ 弹体命中数据"
+	atk_header.add_theme_font_size_override("font_size", 14)
+	add_child(atk_header)
+	var atk_row := HBoxContainer.new()
+	atk_row.add_child(_row_label("伤害/击退/部位/角度:"))
+	_atk_damage_spin = _inline_spin(0, 999, 1, da.attack_damage, atk_row)
+	_atk_knock_spin = _inline_spin(0, 9999, 10, da.knock_strength, atk_row)
+	_atk_hurt_option = OptionButton.new()
+	_atk_hurt_option.add_item("上身")
+	_atk_hurt_option.add_item("中部")
+	_atk_hurt_option.select(int(da.hurt_type))
+	atk_row.add_child(_atk_hurt_option)
+	_atk_angle_spin = _inline_spin(0, 360, 5, da.launch_angle, atk_row)
+	add_child(atk_row)
+	_add_hint("击退值 K=统一模型击打值：0=纯伤害且空中不打断弹道；扣穿受击方额度即按其溢出量起飞")
+	
 	_status_label = Label.new()
 	_status_label.text = "Enter spell name to begin"
 	_status_label.add_theme_color_override("font_color", Color.GRAY)
@@ -281,13 +330,33 @@ func _on_create_pressed() -> void:
 	var spell_name = _spell_name_edit.text.strip_edges()
 	var pascal_name = _class_name_edit.text.strip_edges()
 	var display_name = _display_name_edit.text.strip_edges()
+	var def_stats := {
+		"description": _desc_edit.text.strip_edges(),
+		"mana_cost": _mana_cost_spin.value,
+		"max_lifetime": _lifetime_spin.value,
+		"cooldown": _cooldown_spin.value,
+		"caster_cast_time": _cast_time_spin.value,
+		"release_x": _release_x_spin.value,
+		"release_y": _release_y_spin.value,
+		"fade_in_time": _fade_in_spin.value,
+		"fade_out_time": _fade_out_spin.value,
+		"allowed_states": _allowed_edit.text.strip_edges(),
+		"disallowed_states": _disallowed_edit.text.strip_edges(),
+	}
+	var attack := {
+		"attack_damage": _atk_damage_spin.value,
+		"hurt_type": _atk_hurt_option.selected,
+		"knock_strength": _atk_knock_spin.value,
+		"launch_angle": _atk_angle_spin.value,
+	}
 	
 	var creator := SpellCreator.new()
-	if creator.create_spell(spell_name, pascal_name, display_name):
+	if creator.create_spell(spell_name, pascal_name, display_name, def_stats, attack):
 		_set_status("✓ Created: %s" % spell_name, Color.GREEN)
 		_spell_name_edit.text = ""
 		_class_name_edit.text = ""
 		_display_name_edit.text = ""
+		_reset_spell_stats()
 		_create_btn.disabled = true
 		spell_created.emit(spell_name)
 	else:
@@ -403,3 +472,75 @@ func _on_test_pressed() -> void:
 	spell_test_requested.emit(char_name, spell_name)
 
 ### -----------------------------------------------------------------------------------------------
+
+
+### -----------------------------------------------------------------------------------------------
+### 出生数值区构件（2026-09-18 与角色线拉齐批；默认表与创建器合成同源）
+### -----------------------------------------------------------------------------------------------
+
+func _row_label(text: String) -> Label:
+	var lab := Label.new()
+	lab.text = text
+	lab.custom_minimum_size.x = 150
+	return lab
+
+
+func _make_line_row(row_label: String, hint: String) -> LineEdit:
+	var hbox := HBoxContainer.new()
+	hbox.add_child(_row_label(row_label))
+	var edit := LineEdit.new()
+	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(edit)
+	add_child(hbox)
+	if not hint.is_empty():
+		_add_hint(hint)
+	return edit
+
+
+func _make_spin_row(row_label: String, hint: String, mn: float, mx: float, step: float, def: float) -> SpinBox:
+	var hbox := HBoxContainer.new()
+	hbox.add_child(_row_label(row_label))
+	var spin := _inline_spin(mn, mx, step, def, hbox)
+	add_child(hbox)
+	if not hint.is_empty():
+		_add_hint(hint)
+	return spin
+
+
+func _inline_spin(mn: float, mx: float, step: float, def: float, parent: Control) -> SpinBox:
+	var spin := SpinBox.new()
+	spin.min_value = mn
+	spin.max_value = mx
+	spin.step = step
+	spin.value = def
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(spin)
+	return spin
+
+
+func _add_hint(hint: String) -> void:
+	var h := Label.new()
+	h.text = hint
+	h.add_theme_color_override("font_color", Color.GRAY)
+	h.add_theme_font_size_override("font_size", 12)
+	add_child(h)
+
+
+func _reset_spell_stats() -> void:
+	var d: Dictionary = SpellCreator.DEFAULT_DEF_STATS
+	var da: Dictionary = SpellCreator.DEFAULT_ATTACK
+	_desc_edit.text = ""
+	_mana_cost_spin.value = d.mana_cost
+	_lifetime_spin.value = d.max_lifetime
+	_cooldown_spin.value = d.cooldown
+	_cast_time_spin.value = d.caster_cast_time
+	_release_x_spin.value = d.release_x
+	_release_y_spin.value = d.release_y
+	_fade_in_spin.value = d.fade_in_time
+	_fade_out_spin.value = d.fade_out_time
+	_allowed_edit.text = String(d.allowed_states)
+	_disallowed_edit.text = String(d.disallowed_states)
+	_atk_damage_spin.value = da.attack_damage
+	_atk_knock_spin.value = da.knock_strength
+	_atk_hurt_option.select(int(da.hurt_type))
+	_atk_angle_spin.value = da.launch_angle

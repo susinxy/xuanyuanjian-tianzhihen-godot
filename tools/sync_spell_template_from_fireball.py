@@ -36,7 +36,13 @@ def skip_rel(rel: str) -> bool:
     if "sprites_master" in parts or "png_scale_backup" in parts:
         return True
     f = parts[-1]
-    return f.endswith((".import", ".uid")) or ".backup-" in f
+    if f.endswith((".import", ".uid")) or ".backup-" in f:
+        return True
+    # 出生数值域豁免（2026-09-18 与角色线拉齐）：definition 与 attack_data
+    # 由 SpellCreator 合成，快照禁止携带
+    if f in ("fire_ball_definition.tres", "fire_ball_attack_data.tres"):
+        return True
+    return False
 
 def tokenize(text: str) -> str:
     for old, new in FILE_TOKENS:                 # 1) 文件名词
@@ -131,5 +137,12 @@ if problems:
         print("   ", x)
     sys.exit(1)
 
+# 出生数值域反向守卫（与角色线同批）：definition/attack 快照禁止回潮
+for banned in [os.path.join(DST, "resources", "__NAME___definition.tres"),
+               os.path.join(DST, "resources", "attacks", "__NAME___attack_data.tres")]:
+    if os.path.exists(banned):
+        print(f"  ✗ 模板出现创建器合成域文件: {banned}（出生数值只许由 SpellCreator 合成）")
+        sys.exit(1)
+
 print(f"复制 {copied} 个文件，占位符化 {changed} 个文本")
-print("断言通过：模板内已无任何 fire_ball 身份残留")
+print("断言通过：模板内已无任何 fire_ball 身份残留（出生数值域豁免+禁止守卫在位）")

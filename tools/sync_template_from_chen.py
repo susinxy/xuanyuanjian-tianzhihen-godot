@@ -45,6 +45,12 @@ def skip_rel(rel: str) -> bool:
         return True
     if ".backup-" in f:  # 历史烘焙备份文件（轮廓工具时代遗留），不随模板传播
         return True
+    # 出生数值域豁免（2026-09-18 面板=唯一真相批）：attributes 与四张招式
+    # tres 由 CharacterCreator 创建时合成，快照禁止携带（守卫见第 4 节）
+    if rel == os.path.join("resources", "chen_attributes.tres"):
+        return True
+    if rel.startswith("resources" + os.sep + "attacks" + os.sep):
+        return True
     return False
 
 def tokenize(text: str) -> str:
@@ -182,6 +188,12 @@ tpl_skin = open(os.path.join(DST, "__NAME___skin.tscn"), encoding="utf-8").read(
 skin_tags = [t for t in re.findall(r'"area2d:[^"]*"', tpl_skin) if t != '"area2d:wall"']
 if skin_tags:
     print(f"  ✗ 模板皮肤残留阵营组数据 {skin_tags}（皮肤应零阵营，运行时由根节点下发）"); sys.exit(1)
+# 出生数值域反向守卫：这些路径一旦回潮=有人把快照又喂回数值文件，创建值会被 sync 洗掉
+for banned in [os.path.join(DST, "resources", "__NAME___attributes.tres"),
+               os.path.join(DST, "resources", "attacks")]:
+    if os.path.exists(banned):
+        print(f"  ✗ 模板出现创建器合成域文件: {banned}（出生数值只许由 CharacterCreator 合成）")
+        sys.exit(1)
 if not os.path.exists(os.path.join(DST, "__NAME___ai.gd")):
     print("  ✗ 缺默认策略小抄 __NAME___ai.gd"); sys.exit(1)
 

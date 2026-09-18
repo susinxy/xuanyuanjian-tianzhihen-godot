@@ -63,11 +63,11 @@ spells/fire_ball/
     │   ├── active_up.tres            # 上下为 right 的占位复制（**无**镜像元数据，
     │   ├── active_down.tres          #   真帧同名覆盖；勿点镜像工具对 up/down）
     │   └── RESET.tres
-    ├── attacks/                      # 攻击数据
+    ├── attacks/                      # 攻击数据（创建时由面板数值合成落盘）
     │   └── fire_ball_attack_data.tres
     ├── sprites/                      # 占位图片素材（需要替换）
     │   └── placeholder.png
-    ├── fire_ball_definition.tres     # 法术定义 Resource
+    ├── fire_ball_definition.tres     # 法术定义 Resource（创建时由面板数值合成落盘）
     └── spriteframes_fire_ball.tres   # SpriteFrames Resource
 ```
 
@@ -88,7 +88,7 @@ spells/fire_ball/
 | 内容 | 文件 | 说明 |
 |------|------|------|
 | **法术定义** | `resources/fire_ball_definition.tres` | 名字、法力消耗、冷却时间、最大生命周期 |
-| **攻击数据** | `resources/attacks/fire_ball_attack_data.tres` | 伤害、击退强度、击退角度 |
+| **攻击数据** | `resources/attacks/fire_ball_attack_data.tres` | 伤害、击打值 K（统一模型）、弹射角度 |
 | **Sprite 动画** | `resources/sprites/active/*.png` | 法术激活时的图片资源 |
 | **Sprite 动画** | `resources/sprites/ending/*.png` | 法术结束时的图片资源 |
 | **动画文件** | `resources/animations/*.tres` | 每个动画的关键帧（由 Inspector 自动生成基础结构） |

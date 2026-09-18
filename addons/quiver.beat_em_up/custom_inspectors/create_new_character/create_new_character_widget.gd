@@ -35,7 +35,20 @@ var _walk_speed_spin: SpinBox
 var _health_max_spin: SpinBox
 var _air_control_spin: SpinBox
 var _hit_lane_offset_spin: SpinBox
+var _mana_max_spin: SpinBox
+var _resistance_spin: SpinBox
+var _jump_force_spin: SpinBox
+var _knockback_weight_spin: SpinBox
+var _grab_check: CheckBox
+var _invuln_check: CheckBox
+var _superarmor_check: CheckBox
+# 四招出生值控件（槽序与 CharacterCreator.DEFAULT_ATTACKS 对齐）
+var _atk_damage: Array[SpinBox] = []
+var _atk_hurt: Array[OptionButton] = []
+var _atk_knock: Array[SpinBox] = []
+var _atk_angle: Array[SpinBox] = []
 var _status_label: Label
+
 var _create_btn: Button
 
 var _delete_dropdown: OptionButton
@@ -275,7 +288,69 @@ func _build_ui() -> void:
 	hit_lane_hint.text = "调整攻击的Y轴判定范围（正值扩大，负值缩小）"
 	hit_lane_hint.add_theme_color_override("font_color", Color.GRAY)
 	hit_lane_hint.add_theme_font_size_override("font_size", 12)
-	add_child(hit_lane_hint)
+	# ==== 出生属性扩容区（2026-09-18 面板=唯一真相批）====
+	# 默认值统一读 CharacterCreator.DEFAULT_STATS/DEFAULT_ATTACKS——面板、
+	# 合成、复位三处同源，杜绝演示值藏进快照的旧形态。
+	_mana_max_spin = _make_spin_row("最大法力值:", "施法资源上限（mana_max）", 0, 9999, 10, CharacterCreator.DEFAULT_STATS.mana_max)
+	_resistance_spin = _make_spin_row("抗击打值 R:", "命中先扣此额度，扣穿即被击飞；初速=击打值-剩余+保底（精英调高）", 0, 99999, 50, CharacterCreator.DEFAULT_STATS.knockout_resistance_max)
+	_jump_force_spin = _make_spin_row("跳跃力:", "负数=向上（jump_force）", -5000, -100, 50, CharacterCreator.DEFAULT_STATS.jump_force)
+	_knockback_weight_spin = _make_spin_row("击飞权重:", "被击飞冲量乘数，>1 飞更远、<1 更沉", 0, 10, 0.1, CharacterCreator.DEFAULT_STATS.knockback_weight)
+	_grab_check = _make_check_row("可被抓取:", "出生 can_be_grabbed（默认开；chen 的 false 是她自己的编辑历史）", CharacterCreator.DEFAULT_STATS.can_be_grabbed)
+	_invuln_check = _make_check_row("天生无敌:", "警告：勾选=全程免伤免击退，正常由动画轨道控制", false)
+	_superarmor_check = _make_check_row("天生霸体:", "警告：勾选=受击不打断且击打值无效，同上", false)
+	var atk_header := Label.new()
+	atk_header.text = "招式出生值（刺拳1 / 刺拳2 / 刺拳3 / 空中踢）"
+	atk_header.add_theme_font_size_override("font_size", 14)
+	add_child(atk_header)
+	var atk_cols := Label.new()
+	atk_cols.text = "列序：伤害 / 击退值K / 受击部位 / 弹射角度"
+	atk_cols.add_theme_color_override("font_color", Color.GRAY)
+	atk_cols.add_theme_font_size_override("font_size", 12)
+	add_child(atk_cols)
+	var atk_names := ["刺拳1:", "刺拳2:", "刺拳3:", "空中踢:"]
+	for i in CharacterCreator.DEFAULT_ATTACKS.size():
+		var base: Dictionary = CharacterCreator.DEFAULT_ATTACKS[i]
+		var hbox := HBoxContainer.new()
+		var lab := Label.new()
+		lab.text = atk_names[i]
+		lab.custom_minimum_size.x = 120
+		hbox.add_child(lab)
+		var dmg := SpinBox.new()
+		dmg.min_value = 0
+		dmg.max_value = 999
+		dmg.step = 1
+		dmg.value = base.attack_damage
+		dmg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(dmg)
+		_atk_damage.append(dmg)
+		var knock := SpinBox.new()
+		knock.min_value = 0
+		knock.max_value = 9999
+		knock.step = 10
+		knock.value = base.knock_strength
+		knock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(knock)
+		_atk_knock.append(knock)
+		var hurt := OptionButton.new()
+		hurt.add_item("上身")
+		hurt.add_item("中部")
+		hurt.select(int(base.hurt_type))
+		hbox.add_child(hurt)
+		_atk_hurt.append(hurt)
+		var angle := SpinBox.new()
+		angle.min_value = 0
+		angle.max_value = 360
+		angle.step = 5
+		angle.value = base.launch_angle
+		angle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(angle)
+		_atk_angle.append(angle)
+		add_child(hbox)
+	var atk_hint := Label.new()
+	atk_hint.text = "击退值 K=统一模型击打值：0=纯伤害；轻拳攒不满额度只硬直，扣穿按溢出起飞"
+	atk_hint.add_theme_color_override("font_color", Color.GRAY)
+	atk_hint.add_theme_font_size_override("font_size", 12)
+	add_child(atk_hint)
 	
 	# Status label
 	_status_label = Label.new()
@@ -611,16 +686,35 @@ func _on_create_pressed() -> void:
 	await get_tree().process_frame
 	
 	# 收集参数
+	var stats := {
+		"health_max": _health_max_spin.value,
+		"mana_max": _mana_max_spin.value,
+		"knockout_resistance_max": _resistance_spin.value,
+		"move_speed": _move_speed_spin.value,
+		"walk_speed": _walk_speed_spin.value,
+		"air_control": _air_control_spin.value,
+		"jump_force": _jump_force_spin.value,
+		"knockback_weight": _knockback_weight_spin.value,
+		"hit_lane_offset": _hit_lane_offset_spin.value,
+		"can_be_grabbed": _grab_check.button_pressed,
+		"is_invulnerable": _invuln_check.button_pressed,
+		"has_superarmor": _superarmor_check.button_pressed,
+	}
+	var attacks: Array = []
+	for i in _atk_damage.size():
+		attacks.append({
+			"attack_damage": _atk_damage[i].value,
+			"hurt_type": _atk_hurt[i].selected,
+			"knock_strength": _atk_knock[i].value,
+			"launch_angle": _atk_angle[i].value,
+		})
 	var params = {
 		"char_name": _char_name_edit.text,
 		"pascal_name": _class_name_edit.text,
 		"display_name": _display_name_edit.text,
 		"faction_tags": _faction_edit.text.strip_edges(),
-		"move_speed": _move_speed_spin.value,
-		"walk_speed": _walk_speed_spin.value,
-		"health_max": int(_health_max_spin.value),
-		"air_control": _air_control_spin.value,
-		"hit_lane_offset": int(_hit_lane_offset_spin.value),
+		"stats": stats,
+		"attacks": attacks,
 		"control_mode": _control_option.selected
 	}
 	
@@ -635,11 +729,8 @@ func _create_character_async(params: Dictionary) -> void:
 		params.pascal_name,
 		params.display_name,
 		params.faction_tags,
-		params.move_speed,
-		params.walk_speed,
-		params.health_max,
-		params.air_control,
-		params.hit_lane_offset,
+		params.stats,
+		params.attacks,
 		params.control_mode
 	)
 	
@@ -657,11 +748,7 @@ func _on_create_completed(success: bool, char_name: String, display_name: String
 		_display_name_edit.text = ""
 		_control_option.select(0)
 		_apply_control_linkage()  # 阵营标签默认值随控制方式一并复位
-		_move_speed_spin.value = 600
-		_walk_speed_spin.value = 300
-		_health_max_spin.value = 100
-		_air_control_spin.value = 0.6
-		_hit_lane_offset_spin.value = 0
+		_reset_birth_stats()
 		
 		# 重置按钮（但不重新启用，因为输入框已清空）
 		_create_btn.text = "Create Character ▶"
@@ -786,3 +873,74 @@ func _on_test_pressed() -> void:
 	character_test_requested.emit(char_data.name, char_data.pkg)
 
 ### -----------------------------------------------------------------------------------------------
+
+
+### -----------------------------------------------------------------------------------------------
+### 出生数值区构件（2026-09-18 面板=唯一真相批）
+### -----------------------------------------------------------------------------------------------
+
+## SpinBox 行构造器：标签 120px 对齐既有行形态，hint 灰色小字（可空）。
+func _make_spin_row(row_label: String, hint: String, mn: float, mx: float, step: float, def: float) -> SpinBox:
+	var hbox := HBoxContainer.new()
+	var lab := Label.new()
+	lab.text = row_label
+	lab.custom_minimum_size.x = 120
+	hbox.add_child(lab)
+	var spin := SpinBox.new()
+	spin.min_value = mn
+	spin.max_value = mx
+	spin.step = step
+	spin.value = def
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(spin)
+	add_child(hbox)
+	if not hint.is_empty():
+		_add_hint(hint)
+	return spin
+
+
+## CheckBox 行构造器（返回控件本体供调用处存引用）。
+func _make_check_row(row_label: String, hint: String, def: bool) -> CheckBox:
+	var hbox := HBoxContainer.new()
+	var lab := Label.new()
+	lab.text = row_label
+	lab.custom_minimum_size.x = 120
+	hbox.add_child(lab)
+	var check := CheckBox.new()
+	check.button_pressed = def
+	hbox.add_child(check)
+	add_child(hbox)
+	if not hint.is_empty():
+		_add_hint(hint)
+	return check
+
+
+func _add_hint(hint: String) -> void:
+	var h := Label.new()
+	h.text = hint
+	h.add_theme_color_override("font_color", Color.GRAY)
+	h.add_theme_font_size_override("font_size", 12)
+	add_child(h)
+
+
+## 全部出生数值控件归一复位（默认值与创建器合成兜底同源：DEFAULT_* 两表）。
+func _reset_birth_stats() -> void:
+	var d: Dictionary = CharacterCreator.DEFAULT_STATS
+	_health_max_spin.value = d.health_max
+	_mana_max_spin.value = d.mana_max
+	_resistance_spin.value = d.knockout_resistance_max
+	_move_speed_spin.value = d.move_speed
+	_walk_speed_spin.value = d.walk_speed
+	_air_control_spin.value = d.air_control
+	_jump_force_spin.value = d.jump_force
+	_knockback_weight_spin.value = d.knockback_weight
+	_hit_lane_offset_spin.value = d.hit_lane_offset
+	_grab_check.button_pressed = d.can_be_grabbed
+	_invuln_check.button_pressed = d.is_invulnerable
+	_superarmor_check.button_pressed = d.has_superarmor
+	for i in CharacterCreator.DEFAULT_ATTACKS.size():
+		var base: Dictionary = CharacterCreator.DEFAULT_ATTACKS[i]
+		_atk_damage[i].value = base.attack_damage
+		_atk_knock[i].value = base.knock_strength
+		_atk_hurt[i].select(int(base.hurt_type))
+		_atk_angle[i].value = base.launch_angle
