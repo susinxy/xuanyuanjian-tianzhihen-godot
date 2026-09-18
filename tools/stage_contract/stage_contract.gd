@@ -515,6 +515,7 @@ func _flow_c() -> void:
 	# —— C7 真死链 → 死亡界面 → 点最新检查点（B）回跳 ——
 	var chen := _stage_chen()
 	chen.attributes.health_current = 0
+	# 玩家侧纯水平 launch 经弹地路径仍抵达 Die（与上方敌人侧教训不矛盾，实测全绿）
 	var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH, Vector2.RIGHT)
 	CombatSystem.apply_knockback(data, chen.attributes)
 	var death_ui := _cs().get_node("HudLayer/PauseLayer/DeathScreen") as Control

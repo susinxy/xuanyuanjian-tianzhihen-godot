@@ -1,7 +1,7 @@
 # 开发状态说明
 
 > **生效日期**: 2026-08-11
-> **最后更新**: 2026-09-14
+> **最后更新**: 2026-09-18
 
 ## 决策：xuanyuan-sword 正式从零开始
 
@@ -14,7 +14,7 @@
 | ~~`characters/playable/chenjianchou_new/`~~ | 已移除（工具开发期临时角色） |
 | ~~`characters/playable/enemy/`~~ | **已退役**（2026-09-14，"魔法替身"旧敌人；职责由 AI 档正式角色 `characters/enemies/spar_enemy/` 承接） |
 | `characters/enemies|allies|neutrals/` | **正式角色内容资产，进 git**（创建器按阵营输出；`spar_enemy`=Run Test 常驻陪练，勿删） |
-| `scenes/test_stage.tscn` | 无标准 stage 结构、无 FightRoom、无 HUD、使用普通 Camera2D。**不继续，重建标准 stage**（下一步） |
+| ~~`scenes/test_stage.tscn`~~ | **已随 S1 重建退役**（2026-09-18 删除）：正式地基 = `scenes/base/base_stage.*` + `scenes/stages/ref/` 参考地点 A/B |
 | `addons/quiver.beat_em_up/` | **保留**；上游快照 + 本项目独立扩展（碰撞重构、单壳行为脚本、蒙版/轮廓/缩放工具链等，权威描述见 `docs/PLUGIN_ARCHITECTURE.md`） |
 | `docs/` | **保留**，内含学习资源链接和 README |
 
@@ -133,14 +133,30 @@
 - 挂账入审计文档第三节：阵营组粒度（切片设计会议题）、法术真四向几何/缩放（美术
   排期议题）
 
+### S1 关卡骨架与流程壳（2026-09-18）✅
+
+- **地基**：`scenes/base/base_stage.tscn|gd`（四段式节点树 + 检查点注册 + 波次聚合
+  解锁机制化 + player_died→DeathScreen 转交 + R 键 debug 重开）；
+  参考地点 `scenes/stages/ref/stage_ref_a|b.tscn`（双房/单房、双生成器聚合、
+  StageExit 跨地点、终点面板）；旧 `scenes/test_stage.tscn` 删除
+- **流程壳三件**：`ui/menus/` title/pause/death（三层节点+open/close 信号+theme
+  单点的视觉替换契约，spec §4.6）；`scripts/game_events.gd` 会话检查点总线；
+  `scripts/stage_exit.gd` 出口触发件（防重入+`area2d:player` 过滤+全高度层掩码）
+- **main_scene** 已落 `res://ui/menus/title_screen.tscn`（编辑器关闭窗口期改）
+- **矩阵注册 22 项**：新增第 21 项 `tools/stage_validator`（R1-R9 机械执法，
+  装配法典见 `docs/STAGE_ASSEMBLY.md`）+ 第 22 项 `tools/stage_contract`
+  （全流程环 111 断言，A→B→死亡回跳全链路机器验证）；18 项存量套保持数
+- **验收状态**：headless 全矩阵 22/22 绿；F5 人工清单九项待 Windows 端验收
+
 ## 后续开发路线
 
 1. ~~重新建立 chen 角色~~ ✅ 已完成
 2. ~~角色体系补全（玩家+非玩家统一模板流水线）~~ ✅ 已完成（2026-09-14）
-3. 建立 `base_stage.tscn` 标准关卡场景结构（**下一步**；头脑风暴已开局，
-   遗留决策：HUD 来源 A/B/C）→ **已落定（2026-09-16）**：丙方案=游戏 HUD 场景组件 +
-   全局 DebugDock（docs/HUD_DESIGN.md），旧散装面板整合完毕
-4. **第一个可玩切片设计会**（战斗手感四选、首批敌人/兵种、掉落与法术接入……
+3. ~~建立 `base_stage.tscn` 标准关卡场景结构~~ ✅ **S1 已交付（2026-09-18）**：
+   HUD 丙方案（游戏 HUD 组件 + 全局 DebugDock，docs/HUD_DESIGN.md）随 S1 入位；
+   装配法典 `docs/STAGE_ASSEMBLY.md`，矩阵 20→22 项；F5 九项人工清单待验收
+4. **S2 对话接入竖切**（DialogicTrigger 三类挂点，细案会待开）→
+   **第一个可玩切片设计会**（战斗手感四选、首批敌人/兵种、掉落与法术接入……
    敌人 AI 深度〔黑板/仇恨/兵种资源〕从这场会自然导出，不再由工程侧预设）
 5. 按 `story/bible.md`（天之痕剧情）分阶段开发
 

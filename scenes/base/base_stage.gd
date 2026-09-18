@@ -7,7 +7,7 @@ class_name BaseStage
 ## 参考关两处以后要换的口子以 TODO 挂子项目编号。
 
 const TITLE_PATH := "res://ui/menus/title_screen.tscn"
-## 重走一遍的落点（TODO(T5)：参考地点 A 落地后此路径才存在，按钮按压守卫报错）
+## 重走一遍的落点（T5 已落地；下方存在性守卫是文件级防御，非待办口子）
 const STAGE_A_PATH := "res://scenes/stages/ref/stage_ref_a.tscn"
 ## 本骨架文件自身（_scene_path 判别"实例化根被祖先污染"用的锚点）
 const BASE_SCENE_FILE := "res://scenes/base/base_stage.tscn"
@@ -133,8 +133,8 @@ func _on_back_title() -> void:
 func _on_replay() -> void:
 	get_tree().paused = false
 	GameEvents.reset_session()
-	# TODO(T5)：stage_ref_a 落地前按压只报错不转场（测试不 smoke-click 此钮）
+	# 守卫仅作文件缺失防御（A 已由 T5 落地，正常链路走 transition）
 	if not ResourceLoader.exists(STAGE_A_PATH):
-		push_error("参考地点 A 尚未落地（T5）：%s" % STAGE_A_PATH)
+		push_error("参考地点 A 文件缺失：%s" % STAGE_A_PATH)
 		return
 	ScreenTransitions.transition_to_scene(STAGE_A_PATH)
