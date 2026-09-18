@@ -67,10 +67,14 @@ def class_in_script(text: str) -> str:
     return re.sub(r'\bclass_name FireBall\b', "class_name __CLASS__", text)
 
 # ---------- 0. 源头守卫：fire_ball 战斗组声明完好（防编辑器手滑扩散） ----------
+# 守卫随 326fece 阵营重构换岗（对齐角色 sync 的"皮肤零阵营残留"同款形态）：
+# 弹体战斗盒阵营改由 spell_base 运行时按施法者注入，皮肤场景不再携带任何
+# area2d: 标签。旧守卫（要求恰 1 枚自名标签）属重构漏网，且曾把模板快照里的
+# 死行喂给新建法术（2026-09-18 击飞统一模型批牵出）。
 src_skin = open(os.path.join(SRC, "fire_ball_skin.tscn"), encoding="utf-8").read()
-if src_skin.count("area2d:fire_ball") != 1:
-    print(f"  ✗ fire_ball_skin.tscn 阵营组异常：area2d:fire_ball 出现 {src_skin.count('area2d:fire_ball')} 次（应为 1）")
-    print("    疑似编辑器保存误删 groups，先修复 spells/fire_ball/fire_ball_skin.tscn 再同步")
+if src_skin.count("area2d:") != 0:
+    print(f"  ✗ fire_ball_skin.tscn 阵营残留：area2d: 出现 {src_skin.count('area2d:')} 次（应为 0）")
+    print("    法术皮肤应零阵营数据（运行时按施法者注入）；排查编辑器保存或手工改动")
     sys.exit(1)
 
 # ---------- 1. 复制 ----------
