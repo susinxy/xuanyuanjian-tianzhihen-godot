@@ -156,7 +156,8 @@ S1 的壳=占位视觉+完整行为；美化批整体换皮而**不重写逻辑*
    敌人场景引用必须存在（S1 全用 spar_enemy）。
 6. **检查点约定**：BaseStage 导出 `stage_id`，进地点即以 (stage_id, scene_path)
    注册检查点；回跳=重载场景（无多入口标记体系——YAGNI，需求出现再加）。
-7. **多生成器房打组** `<房名>_spawners`；base_stage 遍历组聚合，全 `is_completed`
+7. **多生成器聚合读检测器导出**（T3 已批准改良，替代旧"打组"方案）：检测器
+   `paths_enemy_spawners` 列全本房生成器，base_stage 据此聚合，全 `is_completed`
    才解锁（场景连线表达不了"与"逻辑，禁逐房手写）。
 8. 房→房推进=**after_fight_limit 扩权步行串场**（同地点内）；跨地点=StageExit。
    不设"关卡出口节点"以外的推进机制。
