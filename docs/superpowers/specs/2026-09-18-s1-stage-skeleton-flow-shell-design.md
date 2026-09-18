@@ -125,6 +125,23 @@ FightRooms/FightRoom1(QuiverFightRoom, ReferenceRect)   limit_*/zoom + after_fig
 
 回本地点入口 = 跳转检查点列表最新项（同一管道，不另设逻辑）。
 
+### 4.6 流程壳视觉替换契约（美术留白立约，用户认可）
+
+S1 的壳=占位视觉+完整行为；美化批整体换皮而**不重写逻辑**，靠三条契约：
+
+1. **一壳一场景、三层节点**：`title_screen/pause_menu/death_screen/StageEndPanel`
+   各独立 .tscn，内部固定 `BgLayer`（美术位）/`DecoLayer`（装饰位）/
+   `ContentLayer`（功能按钮位）。美化批只动前两层与第三层的 theme 引用；
+   逻辑脚本从不引用装饰节点。
+2. **动效经信号解耦**：每壳内置 AnimationPlayer（S1 挂零帧占位动画）；外部只认
+   `open()/close()` 入口与 `opened/closed` 信号（动画末帧 method-track 发信号，
+   上游"解冻放 close 动画末帧"同款）。加转场动效=换动画，逻辑零改动；
+   树解冻等时序敏感操作一律挂 `closed` 信号，禁直连按钮。
+3. **主题单点+菜单数据驱动**：三壳共用一个 `theme` Resource（字体/色板/焦点）；
+   菜单条目经 `add_entry(label, callback)` 生成，未来"设置/玩法说明"=加数据行。
+
+校验器配套可选规则：各壳场景须含三层节点名（结构完整性，警告级非红色）。
+
 ## 5. 装配规范（校验器的法律；全文入 docs/STAGE_ASSEMBLY.md）
 
 1. **相机挂玩家下**（插件无目标查找；跟随=父子变换），limit 初值给宽由 FightRoom 运行时收束。
@@ -178,6 +195,8 @@ headless `-s`：遍历 `scenes/stages/**/*.tscn` 文本+加载断言，规则对
    （tree-connectivity/knockout_contract 护栏），stage_contract 再兜一层。
 5. 参考关两处"以后要换"：StageEndPanel（剧情批换演出）、读取存档灰按钮
    （S5 点亮）——代码内注释挂 TODO 指向子项目编号。
+6. 壳的占位视觉在正式 UI 批整体替换：S1 只承诺 §4.6 契约不破（三层结构/
+   open-close 信号/theme 单点），不承诺观感。
 
 ## 9. 完成判据（三条缺一即未完工）
 
