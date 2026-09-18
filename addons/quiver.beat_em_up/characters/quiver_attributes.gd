@@ -35,13 +35,9 @@ signal grab_denied
 
 #--- constants ------------------------------------------------------------------------------------
 
-const KNOCKBACK_VALUES = {
-	CombatSystem.KnockbackStrength.NONE: 0,
-	CombatSystem.KnockbackStrength.WEAK: 60, # Doesn't launch the target, but builds up
-	CombatSystem.KnockbackStrength.MEDIUM: 600, # Should launch target
-	CombatSystem.KnockbackStrength.STRONG: 1200,
-	CombatSystem.KnockbackStrength.MASSIVE: 2400,
-}
+## 起飞保底冲量（统一模型 2026-09-18）：任何击飞的最小初速度，
+## 语义=保证击飞链状态机不踩空（绊倒也要完整走完 起飞→弹地→起身）。
+const LAUNCH_MIN_IMPULSE := 50.0
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -56,6 +52,10 @@ const KNOCKBACK_VALUES = {
 
 ## Max mana for the character (spell casting resource).
 @export_range(0, 1, 1, "or_greater") var mana_max := 100
+
+## 抗击打上限 R（统一模型）：招式击打值先从本额度扣减，扣穿即击飞；
+## 回气（回到移动/落地）时回满。每角色独立定价（小兵低、精英高）。
+@export_range(0, 0, 1, "or_greater") var knockout_resistance_max := 600.0
 
 ## Max movement speed for the character (also used as Run speed).
 @export_range(0, 1000, 1, "or_greater") var move_speed := 600
@@ -74,9 +74,9 @@ const KNOCKBACK_VALUES = {
 ## same jump height as a lighter character.
 @export_range(0, 0, 1, "or_less") var jump_force := -1200
 
-## 击飞权重，影响被击飞时的速度
-## 默认值 1.0 保持原有行为，大于 1.0 增加击飞距离，小于 1.0 减少击飞距离
-## 由 knockout 动画首帧的 speed_X 标注自动设置
+## 击飞权重（受击方体质）：起飞冲量的全局乘数，>1 飞更远、<1 飞更近。
+## 本字段为属性手填值（原『动画首帧 speed_X 标注自动设置』的说法失实，
+## 该机制从未存在，2026-09-18 注释诚实化）；动态增减走 add_modifier 通道。
 @export_range(0.0, 10.0, 0.1, "or_greater") var knockback_weight := 1.0
 
 ## If you need to make the hit lanes broader or narrower for a specifi character you can use
@@ -91,21 +91,12 @@ const KNOCKBACK_VALUES = {
 
 @export_group("Modifiers")
 ## This can be toggled on or off in animations to create invincibility frames.
-@export var is_invulnerable := false:
-	set(value):
-		var has_changed = value != is_invulnerable
-		is_invulnerable = value
-		if has_changed and is_invulnerable:
-			reset_knockback()
+@export var is_invulnerable := false
 
 ## This can be toggled on or off in animations to create animations that can't be interrupted
 ## but still should allow damage to be received.
-@export var has_superarmor := false:
-	set(value):
-		var has_changed = value != has_superarmor
-		has_superarmor = value
-		if has_changed and has_superarmor:
-			reset_knockback()
+## 霸体=击打值完全无效（统一模型 G2 归零制，见 apply_knock）。
+@export var has_superarmor := false
 
 @export var can_be_grabbed := true
 
@@ -117,11 +108,8 @@ var health_current := health_max:
 var mana_current := mana_max:
 	set=_set_mana_current
 
-## Amount of knockback character has received, will be used to calculate bounce the next time
-## it hits a wall or the ground.
-var knockback_amount := 0:
-	set(value):
-		knockback_amount = max(0, value)
+## 运行时抗击打余量 R_current（apply_knock 扣减/破线清零/refill_resistance 回满）。
+var resistance_current := 0.0
 
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
@@ -140,6 +128,7 @@ var _modifier_records: Array[Dictionary] = []
 ### Built in Engine Methods -----------------------------------------------------------------------
 
 func _init() -> void:
+	resistance_current = knockout_resistance_max
 	QuiverEditorHelper.connect_between(Events.characters_reseted, reset)
 
 
@@ -156,27 +145,37 @@ func _to_string() -> String:
 
 ### Public Methods --------------------------------------------------------------------------------
 
-func add_death_knockback() -> void:
-	if (
-			not is_alive()
-			and knockback_amount < KNOCKBACK_VALUES[CombatSystem.KnockbackStrength.MEDIUM]
-	):
-		add_knockback(CombatSystem.KnockbackStrength.MEDIUM)
+## 击飞统一结算——整套规则的唯一判定点（2026-09-18 统一模型，档位表退役）。
+## 入参为招式击打值 K，返回 {launched, impulse, swallow}，由
+## [method CombatSystem.apply_knockback] 按结果分发信号：
+## · 无敌/霸体：击打值完全无效（霸体归零制——不扣额度、不播受击）；
+## · 死亡：绕过抗击打强制起飞，冲量 = K + 保底（G4）；
+## · 空中（含弹跳阶段，is_on_air=true）：额度视作已空，冲量 = K + 保底；
+##   K≤0 的零击打值攻击不打断弹道（swallow，G5 火球穿身案）；
+## · 地面：K ≥ 余量 → 破线起飞，冲量 =（K − 余量）+ 保底，余量清空；
+##   K < 余量 → 受击硬直，余量扣减。
+func apply_knock(knock_value: float) -> Dictionary:
+	if is_invulnerable or has_superarmor:
+		return {launched = false, impulse = 0.0, swallow = false}
+	if not is_alive():
+		return {launched = true, impulse = knock_value + LAUNCH_MIN_IMPULSE, swallow = false}
+	var on_air: bool = character_node != null and character_node.is_on_air
+	if on_air:
+		if knock_value <= 0.0:
+			return {launched = false, impulse = 0.0, swallow = true}
+		return {launched = true, impulse = knock_value + LAUNCH_MIN_IMPULSE, swallow = false}
+	if knock_value >= resistance_current:
+		var impulse := knock_value - resistance_current + LAUNCH_MIN_IMPULSE
+		resistance_current = 0.0
+		return {launched = true, impulse = impulse, swallow = false}
+	resistance_current = maxf(0.0, resistance_current - knock_value)
+	return {launched = false, impulse = 0.0, swallow = false}
 
 
-func add_knockback(strength: CombatSystem.KnockbackStrength) -> void:
-	knockback_amount += KNOCKBACK_VALUES[strength]
-
-
-func reset_knockback() -> void:
-	if knockback_amount != 0:
-		knockback_amount = 0
-
-
-func should_knockout() -> bool:
-	var has_enough_knockback: bool = \
-			knockback_amount >= KNOCKBACK_VALUES[CombatSystem.KnockbackStrength.MEDIUM]
-	return not is_alive() or (not has_superarmor and has_enough_knockback)
+## 抗击打回满（回气）。额度上限的瞬时变化（法术增益走修饰器改
+## knockout_resistance_max）在下一次回满时生效，不追溯半途余量。
+func refill_resistance() -> void:
+	resistance_current = maxf(0.0, knockout_resistance_max)
 
 
 ## Returns the character's current health as percentage.
@@ -196,6 +195,7 @@ func is_alive() -> bool:
 
 func reset() -> void:
 	health_current = health_max
+	refill_resistance()
 	is_invulnerable = false
 	has_superarmor = false
 	can_be_grabbed = true

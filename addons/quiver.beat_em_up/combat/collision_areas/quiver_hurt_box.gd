@@ -164,7 +164,7 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 #		print("hit_box: %s"%[hit_box.get_path()])
 		CombatSystem.apply_damage(hit_box.attack_data, character_attributes)
 		var knockback: QuiverKnockbackData = QuiverKnockbackData.new(
-				hit_box.attack_data.knockback,
+				hit_box.attack_data.knock_strength,
 				hit_box.attack_data.hurt_type,
 				_get_treated_launch_vector(hit_box)
 		)

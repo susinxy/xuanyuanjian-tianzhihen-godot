@@ -199,17 +199,18 @@ func _provide_knockout() -> Array[String]:
 		var st := "-"
 		if "state_machine" in ch and ch.state_machine != null:
 			st = str(ch.state_machine.state_name)
-		out.append("【%s】击退 %d/600  重量 %.1f  该飞=%s" % [
-				a.display_name.strip_edges(), a.knockback_amount,
-				a.knockback_weight, str(a.should_knockout())])
+		out.append("【%s】抗击打 %.0f/%.0f  重量 %.1f  保底 +%.0f" % [
+				a.display_name.strip_edges(), a.resistance_current,
+				a.knockout_resistance_max, a.knockback_weight,
+				a.LAUNCH_MIN_IMPULSE])
 		out.append("  无敌=%s 霸体=%s HP %.0f/%.0f 状态=%s" % [
 				str(a.is_invulnerable), str(a.has_superarmor),
 				a.health_current, a.health_max, st])
 		var snap: Dictionary = _knock_snapshots.get(a.get_instance_id(), {})
 		if not snap.is_empty():
-			out.append("  [击飞记录] %d × %.1f  launch=%s  计算速度=%s" % [
-					snap.knockback_amount, snap.knockback_weight,
-					str(snap.launch_vector), str(snap.computed_velocity)])
+			out.append("  [起飞记录] K=%.0f → 冲量=%.0f×重量%.1f  初速=%s" % [
+					snap.knock_value, snap.impulse, a.knockback_weight,
+					str(snap.launch_vector * snap.impulse * a.knockback_weight)])
 	return out
 
 
@@ -221,10 +222,10 @@ func _wire_attributes(a: QuiverAttributes) -> void:
 	a.knockout_requested.connect(
 			func(kb: QuiverKnockbackData):
 				_knock_snapshots[id] = {
-						"knockback_amount": a.knockback_amount,
+						"knock_value": kb.knock_value,
+						"impulse": kb.impulse,
 						"knockback_weight": a.knockback_weight,
-						"launch_vector": kb.launch_vector,
-						"computed_velocity": kb.launch_vector * a.knockback_amount * a.knockback_weight})
+						"launch_vector": kb.launch_vector})
 
 
 ## [帮助]：场景操作说明牌（节点仍在底版、visible=false 不占画面）由本页读出。

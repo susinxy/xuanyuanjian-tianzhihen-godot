@@ -33,7 +33,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := PackedStringArray()
 	
 	if (
-			attack_data.knockback != CombatSystem.KnockbackStrength.NONE
+			attack_data.knock_strength > 0.0
 			or attack_data.launch_angle != 0
 	):
 		warnings.append(ERROR_KNOCKBACK)

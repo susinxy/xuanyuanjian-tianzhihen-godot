@@ -6,5 +6,5 @@
 script = ExtResource("1_hxbs7")
 attack_damage = 10.0
 hurt_type = 1
-knockback = 1
+knock_strength = 60.0
 launch_angle = 15

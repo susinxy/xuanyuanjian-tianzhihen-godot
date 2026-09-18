@@ -284,18 +284,21 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export var move_speed := 600            # 跑步速度（Run 状态）
 @export var walk_speed := 300            # 步行速度（Walk 状态，按住 Shift）
 @export var air_control := 0.6          # 空中操控系数 (0.0-1.0)
-@export var jump_force := -1200         # 起跳力（负数=向上，由 jump 动画 speed_X 设置）
-@export var knockback_weight := 1.0     # 击飞权重（由 knockout 动画 speed_X 设置）
+@export var knockout_resistance_max := 600.0  # 抗击打上限 R（统一模型，每角色定价）
+@export var jump_force := -1200         # 起跳力（负数=向上，属性手填）
+@export var knockback_weight := 1.0     # 击飞权重：起飞冲量乘数（属性手填；
+                                        # 旧文档"动画 speed_X 自动设置"机制不存在，2026-09-18 诚实化）
 @export var hit_lane_offset := 0        # 车道大小偏移
 
 @export_group("Modifiers")
-@export var is_invulnerable := false    # 无敌帧（setter 自动 reset_knockback）
-@export var has_superarmor := false     # 霸体（setter 自动 reset_knockback）
+@export var is_invulnerable := false    # 无敌帧（apply_knock/apply_damage 直接免疫）
+@export var has_superarmor := false     # 霸体（统一模型 G2 归零制：击打值完全无效）
 @export var can_be_grabbed := true      # 可被抓取
 
 var health_current := health_max        # 当前 HP（setter 触发 health_changed 信号）
 var mana_current := mana_max            # 当前法力值（setter 触发 mana_changed 信号）
-var knockback_amount := 0               # 累积击退量
+var resistance_current := 0.0           # 运行时抗击打余量 R_current（_init 置满，
+                                        # apply_knock 扣减/清零，refill_resistance 回满）
 var ground_level := 0.0                 # 当前地面高度（Y 坐标）
 var character_node: QuiverCharacter     # 关联的角色节点
 var grabbed_offset: Marker2D            # 被抓取时的偏移标记
@@ -321,9 +324,11 @@ signal grab_denied             # 抓取被拒绝（boss 免疫抓取）
 ### 关键方法
 
 ```gdscript
-func add_knockback(strength: CombatSystem.KnockbackStrength)
-func reset_knockback()
-func should_knockout() -> bool    # 击退量达到 MEDIUM 或已死亡
+func apply_knock(knock_value: float) -> Dictionary
+    # 击飞统一结算的唯一判定点：{launched, impulse, swallow}
+    # 六规则——无敌/霸体无效；死亡强飞 K+保底；空中额度视作空（K≤0 吞事件）；
+    # 地面 K≥余量 破线（冲量=溢出+保底 50，余量清空）否则扣量硬直
+func refill_resistance()    # 回气回满（Move.enter 与落地 _handle_landing 调用）
 func is_alive() -> bool
 func get_health_as_percentage() -> float
 func reset() -> void              # 重置所有状态（HP、无敌、霸体、可被抓取）
@@ -830,7 +835,7 @@ func _decide_next_behavior(last_state: StringName):
 
 ```gdscript
 enum HurtTypes { MID, HIGH }
-enum KnockbackStrength { NONE, WEAK, MEDIUM, STRONG, MASSIVE }
+# KnockbackStrength 五档枚举已退役（2026-09-18 统一模型，见下）
 
 func is_in_same_lane_as(defender, attacker) -> bool
 func apply_damage(attack: QuiverAttackData, target: QuiverAttributes)
@@ -839,9 +844,23 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 
 **攻击流程**:
 1. `apply_damage` → 扣血 → 触发 `HitFreeze`（命中的顿感）
-2. `apply_knockback` → 累积击退量
-3. 若击退量达到上限（≥MEDIUM 或已死亡）→ `knockout_requested` 信号
-4. 若未达到上限且无霸体 → `hurt_requested` 信号
+2. `apply_knockback` → 转交 `QuiverAttributes.apply_knock`（**唯一判定点**），按裁决分发：
+   `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默；否则 `hurt_requested`
+
+**击飞统一模型（2026-09-18 重构定档，五档计分表/阈值线全退役）**：
+- 货币：招式击打值 K（`QuiverAttackData.knock_strength`，浮点）× 角色抗击打额度 R（`knockout_resistance_max`，默认 600）
+- 地面：K ≥ 余量 → 起飞，**冲量 =（K − 余量）+ 保底 50**（`LAUNCH_MIN_IMPULSE`），余量清空；
+  K < 余量 → 硬直扣量。保底语义=破线最弱表现是"绊倒"（完整走完起飞→弹地→起身链）
+- 死亡：绕过额度强制起飞，冲量 = K + 保底；**空中**（含弹跳段 is_on_air）：额度视作已空，
+  K>0 即再起飞（连空即时，不等弹跳动画播完——旧 bounce 末尾补飞分支因此退役）；
+  K≤0 吞事件（零击打值弹体不打断弹道）
+- 霸体=击打值完全无效（G2 归零制，旧"憋霸体攒计数器"通道取消）
+- 回气：`Move.enter` 与 `_handle_landing`（落地瞬间）→ `refill_resistance()` 回满
+- 落地即停（A3 甲案）：`_handle_bounce` 显式 `velocity.x = 0`——飞行水平速度全程无
+  衰减（无人写它、落地非物理碰撞），不清零会以僵尸残值叠进下次起飞（连抽越抽越快）
+- 起飞 `_launch_charater(impulse, launch_vector)` 改收结算冲量，不再读计数器；
+  权重与封顶（2000）语义不变
+- 契约测试：`tools/knockout_contract/`（26 断言，含弹道打表观察）
 
 ### 7.2 QuiverHitBox（攻击判定框）
 
@@ -937,7 +956,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 ```gdscript
 @export var attack_damage: int          # 基础伤害
 @export var hurt_type: CombatSystem.HurtTypes     # HIGH 或 MID（硬直动画类型）
-@export var knockback: CombatSystem.KnockbackStrength  # 击退强度
+@export var knock_strength: float     # 击打值 K（连续量；0=纯伤害不碰额度）
 @export var launch_angle: float         # 发射角度（degree, 0-360）
 var launch_vector: Vector2              # 自动从角度计算
 ```
@@ -950,8 +969,9 @@ var launch_vector: Vector2              # 自动从角度计算
 **类名**: `QuiverKnockbackData`（RefCounted，瞬态数据，不持久化）
 
 ```gdscript
-var strength: CombatSystem.KnockbackStrength
-var hurt_type: CombatSystem.HurtTypes
+var knock_value := 0.0   # 输入：本击击打值 K
+var impulse := 0.0       # 输出：apply_knock 裁决的起飞冲量（未破线=0）
+var hurt_type: CombatSystem.HurtTypes   # 仅地面硬直分支消费（选动画）
 var launch_vector: Vector2
 ```
 

@@ -20,7 +20,6 @@ var _path_air_mid_air := "Air/Knockout/MidAir"
 var _path_ground_recovery := "Ground/Recovery"
 var _path_die := "Die"
 
-var _bounce_direction := Vector2.ZERO
 var _has_landed := false
 
 @onready var _knockout_state := get_parent() as QuiverActionAirKnockout
@@ -59,8 +58,6 @@ func enter(msg: = {}) -> void:
 	_knockout_state.enter(msg)
 	_skin.transition_to(_skin_state)
 	
-	if msg.has("bounce_direction"):
-		_bounce_direction = msg.bounce_direction
 
 
 func exit() -> void:
@@ -87,11 +84,12 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
+	# 旧"弹跳结束时计数器>0 则再起飞"分支已退役：统一模型中弹跳期间的任何
+	# K>0 命中在结算当场即判 launched，knockout_requested 经击飞家长监听立刻
+	# 再起飞，无需等本动画播完（时序还更准了）。
+	# _handle_landing 内部含抗击打回满（落地即满额度=起身保护窗口的起点）。
 	if not _attributes.is_alive():
 		_state_machine.transition_to(_path_die)
-	elif _attributes.knockback_amount > 0:
-		_knockout_state._launch_charater(_bounce_direction)
-		_state_machine.transition_to(_path_air_mid_air)
 	else:
 		_has_landed = true
 		_knockout_state._air_state._handle_landing(_path_ground_recovery)

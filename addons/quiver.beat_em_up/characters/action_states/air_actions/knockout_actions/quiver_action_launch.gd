@@ -60,8 +60,10 @@ func enter(msg: = {}) -> void:
 	else:
 		_skin.transition_to(_skin_state_rising)
 	
+	# 冲量来自击飞统一结算（apply_knock）；缺键=直发信号兜底路径，按保底起飞
+	var impulse: float = msg.impulse if msg.has("impulse") else QuiverAttributes.LAUNCH_MIN_IMPULSE
 	if msg.has("launch_vector"):
-		_knockout_state._launch_charater(msg.launch_vector)
+		_knockout_state._launch_charater(impulse, msg.launch_vector)
 	elif msg.has("is_wall_bounce") and msg.is_wall_bounce:
 		_character.velocity = _character.velocity.reflect(Vector2.UP)
 	else:
@@ -74,7 +76,7 @@ func enter(msg: = {}) -> void:
 				"No launch vector received on launch state. Launching to: %s"
 				%[makeshift_launch_vector]
 		)
-		_knockout_state._launch_charater(makeshift_launch_vector)
+		_knockout_state._launch_charater(impulse, makeshift_launch_vector)
 	
 	_knockout_state._launch_count += 1
 	

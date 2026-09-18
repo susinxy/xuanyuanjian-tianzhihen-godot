@@ -76,23 +76,23 @@ func exit() -> void:
 
 func _handle_bounce() -> void:
 	_character.global_position.y = _attributes.ground_level
-	var bounce_direction = Vector2(
-			_character.velocity.x,
-			_air_state._skin_velocity_y * -1
-	).normalized()
-	
+	# 落地即停（A3 甲案 2026-09-18）：飞行途中水平速度无人衰减、落地又不是
+	# 物理碰撞（垂直是皮肤假高度），不显式清零则残值会僵尸进下一次起飞
+	# （连抽越抽越快）。清零=把数值世界对齐到画面早已发生的急停。
+	_character.velocity.x = 0.0
 	_air_state._skin_velocity_y = 0.0
-	_state_machine.transition_to(_path_bounce, {bounce_direction = bounce_direction})
+	_state_machine.transition_to(_path_bounce)
 
 
-func _launch_charater(launch_vector: Vector2) -> void:
+## 起飞：消费结算冲量（统一模型——冲量由 QuiverAttributes.apply_knock 判定，
+## 经信号/状态 msg 传入，本函数不再读任何计数器）。
+func _launch_charater(impulse: float, launch_vector: Vector2) -> void:
 	var current_velocity := Vector2(_character.velocity.x, _air_state._skin_velocity_y)
-	var new_velocity = current_velocity + _attributes.knockback_amount * _attributes.knockback_weight * launch_vector
+	var new_velocity = current_velocity + impulse * _attributes.knockback_weight * launch_vector
 	new_velocity = new_velocity.limit_length(MAX_LAUNCH_SPEED)
 	
 	_character.velocity.x = new_velocity.x
 	_air_state._skin_velocity_y = new_velocity.y
-	_attributes.reset_knockback()
 
 
 func _connect_signals() -> void:
@@ -113,13 +113,16 @@ func _disconnect_signals() -> void:
 		QuiverEditorHelper.disconnect_between(_attributes.wall_bounced, _on_wall_bounced)
 
 
+## 空中受击再起飞（统一模型）：apply_knock 已保证空中 K>0 必判 launched，
+## hurt_requested 正常流不再到达这里——保留作直发信号（调试/AI 合成）兜底。
 func _on_hurt_requested(knockback: QuiverKnockbackData) -> void:
-	# This is here because ANY hit you receive on air generates a knockout.
-	_state_machine.transition_to(_path_launch, {launch_vector = knockback.launch_vector})
+	_state_machine.transition_to(_path_launch,
+		{launch_vector = knockback.launch_vector, impulse = knockback.impulse})
 
 
 func _on_knockout_requested(knockback: QuiverKnockbackData) -> void:
-	_state_machine.transition_to(_path_launch, {launch_vector = knockback.launch_vector})
+	_state_machine.transition_to(_path_launch,
+		{launch_vector = knockback.launch_vector, impulse = knockback.impulse})
 
 
 func _on_wall_bounced() -> void:

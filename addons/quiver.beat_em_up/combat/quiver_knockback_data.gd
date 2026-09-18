@@ -12,7 +12,11 @@ extends RefCounted
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
-@export var strength: CombatSystem.KnockbackStrength = CombatSystem.KnockbackStrength.NONE
+## 输入：本击击打值 K（来自 QuiverAttackData.knock_strength）
+var knock_value := 0.0
+## 输出：结算冲量（CombatSystem 经 QuiverAttributes.apply_knock 判定时写入，
+## 起飞状态消费；未破线的受击为 0）
+var impulse := 0.0
 var hurt_type: CombatSystem.HurtTypes = CombatSystem.HurtTypes.HIGH
 var launch_vector := Vector2.ZERO
 
@@ -24,11 +28,11 @@ var launch_vector := Vector2.ZERO
 ### Built in Engine Methods -----------------------------------------------------------------------
 
 func _init(
-		p_knockback: CombatSystem.KnockbackStrength, 
-		p_hurt: CombatSystem.HurtTypes, 
-		p_vector: Vector2
+	p_knock_value: float, 
+	p_hurt: CombatSystem.HurtTypes, 
+	p_vector: Vector2
 ) -> void:
-	strength = p_knockback
+	knock_value = p_knock_value
 	hurt_type = p_hurt
 	launch_vector = p_vector
 

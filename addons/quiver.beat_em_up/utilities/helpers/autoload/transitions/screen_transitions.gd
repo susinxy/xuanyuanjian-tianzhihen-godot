@@ -34,6 +34,10 @@ func _ready() -> void:
 ### Public Methods --------------------------------------------------------------------------------
 
 func transition_to_scene(path: String) -> void:
+	# A2 兜底（2026-09-18）：死亡慢动作(Engine.time_scale)的正常恢复点在 Die 状态，
+	# 若死亡流程被切换/剧情截断则全局时钟永久卡慢——换场是流程级重置点，
+	# 此处无条件恢复（幂等，正常路径下本已是 1.0）。
+	Engine.time_scale = 1.0
 	const ERROR_TRANSITION_FAILED = "Could not transition to %s | error: %s"
 	const ERROR_PACKED_SCENE = \
 			"%s is not a path to a PackedScene, it's only possible to transition between scenes"

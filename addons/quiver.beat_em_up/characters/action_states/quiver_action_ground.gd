@@ -93,8 +93,8 @@ func _on_hurt_requested(knockback: QuiverKnockbackData) -> void:
 func _on_knockout_requested(knockback: QuiverKnockbackData) -> void:
 	_state_machine.transition_to.call_deferred(
 			_path_knockout, 
-			{launch_vector = knockback.launch_vector}
-	)
+			{launch_vector = knockback.launch_vector, impulse = knockback.impulse}
+		)
 
 
 func _on_grabbed(ground_level: float) -> void:

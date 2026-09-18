@@ -81,6 +81,8 @@ func _has_reached_ground() -> bool:
 
 ## Helper function for landing.
 func _handle_landing(p_path: NodePath) -> void:
+	# 落地=回气点：抗击打回满（替代旧计数器清零语义）
+	_attributes.refill_resistance()
 	_skin.position.y = 0.0
 	_skin_velocity_y = 0.0
 	_state_machine.transition_to(p_path)

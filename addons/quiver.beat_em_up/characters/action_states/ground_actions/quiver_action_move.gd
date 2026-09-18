@@ -54,7 +54,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 func enter(msg: = {}) -> void:
 	super(msg)
 	get_parent().enter(msg)
-	_attributes.reset_knockback()
+	_attributes.refill_resistance()
 	
 	if msg.has("velocity"):
 		_character.velocity = msg.velocity
