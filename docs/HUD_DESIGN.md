@@ -116,6 +116,12 @@ headless 测试驱动的逻辑，一律 `_physics_process`。
 - HUD 正式美术（九宫格边框/字体/头像框）：随美术替换批，接口不变。
 
 
+## 槽位可变性契约（2026-09-17 加固批）
+- 格数唯一来源 = `SpellManager.slot_count()`（公开面；HUD 不复制容量常数），
+  每帧自校准：数量不符即重建（罕见事件）。学会/遗忘/CD/换人/容量变化
+  全部一帧内即时反映；HUD 对 manager 的槽位读取一律 `get_spell_slot(i)`
+  公开访问器（私有 `_slots` 鸭子访问已清零——防"内部改名→静默白屏"）。
+
 ## 法术槽图标（2026-09-17 追加批）
 - 三级链：`definition.icon`（美术提供即优先，约定文件
   `spells/<name>/resources/icons/<name>.png` 拖入字段）→ 派生（SpriteFrames

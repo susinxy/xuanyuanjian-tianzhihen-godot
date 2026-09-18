@@ -1,12 +1,13 @@
 extends CanvasLayer
 
 ## 正式 HUD（游戏层，2026-09-16 HUD 设计丙方案批 3）：
-## 左上横排——头像 | 名字 + 血/蓝条 + 4 法术槽。
+## 左上横排——头像 | 名字 + 血/蓝条 + 法术槽。
+## 槽格数以 SpellManager 公开面（slot_count）为唯一来源，每帧自校准——
+## 容量变化即时跟随；本文件不复制任何容量常数（2026-09-17 加固批）。
 ## 绑定策略：跟随 players 组首个角色——现在=被操作主角；
 ## 三期角色切换系统"换人"时组内首位易主，HUD 零改动自动跟手。
 ## 一期为克制占位样式（半透明底+纯色条），《天之痕》正式美术风格留给替换批。
 
-const SLOT_COUNT := 4
 const SLOT_SIZE := 56.0
 
 const SpellIconResolver := preload("res://ui/spell_icon_resolver.gd")
@@ -31,34 +32,6 @@ func _ready() -> void:
 	_mp.self_modulate = Color(0.38, 0.62, 1.0)
 	# 默认主题黑字压暗色 Panel=隐形（与调试坞同案的预防修复）
 	_name_label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
-	for i in SLOT_COUNT:
-		var slot := Panel.new()
-		slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
-		var icon := TextureRect.new()
-		icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(icon)
-		var label := Label.new()
-		label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
-		label.set_anchors_preset(Control.PRESET_FULL_RECT)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		slot.add_child(label)
-		var cover := ColorRect.new()
-		cover.color = Color(0, 0, 0, 0.62)
-		cover.set_anchor(SIDE_LEFT, 0.0)
-		cover.set_anchor(SIDE_RIGHT, 1.0)
-		cover.set_anchor(SIDE_TOP, 0.0)
-		cover.set_anchor(SIDE_BOTTOM, 0.0, true)
-		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(cover)
-		_slots_row.add_child(slot)
-		_slot_panels.append(slot)
-		_slot_icons.append(icon)
-		_slot_labels.append(label)
-		_slot_covers.append(cover)
 
 
 func _process(_delta: float) -> void:
@@ -75,7 +48,55 @@ func _process(_delta: float) -> void:
 		_bound = ch
 		_name_label.text = a.display_name.strip_edges()
 		_portrait.texture = a.profile_texture
+	_ensure_slot_count()
 	_refresh_slots()
+
+
+## 每帧自校准：格数与 manager 公开计数不符即重建（罕见事件——启动或容量变化；
+## 相等时一次整数比较即返回）。
+func _ensure_slot_count() -> void:
+	var sm = _bound.get("_spell_manager")
+	var want: int = sm.slot_count() if sm != null else 0
+	if want == _slot_panels.size():
+		return
+	for old in _slot_panels:
+		old.free()
+	_slot_panels.clear()
+	_slot_icons.clear()
+	_slot_labels.clear()
+	_slot_covers.clear()
+	for i in want:
+		_build_slot(i)
+
+
+func _build_slot(i: int) -> void:
+	var slot := Panel.new()
+	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
+	var icon := TextureRect.new()
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(icon)
+	var label := Label.new()
+	label.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0))
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	slot.add_child(label)
+	var cover := ColorRect.new()
+	cover.color = Color(0, 0, 0, 0.62)
+	cover.set_anchor(SIDE_LEFT, 0.0)
+	cover.set_anchor(SIDE_RIGHT, 1.0)
+	cover.set_anchor(SIDE_TOP, 0.0)
+	cover.set_anchor(SIDE_BOTTOM, 0.0, true)
+	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(cover)
+	_slots_row.add_child(slot)
+	_slot_panels.append(slot)
+	_slot_icons.append(icon)
+	_slot_labels.append(label)
+	_slot_covers.append(cover)
 
 
 func _current_player() -> QuiverCharacter:
@@ -87,9 +108,9 @@ func _current_player() -> QuiverCharacter:
 
 func _refresh_slots() -> void:
 	var sm = _bound.get("_spell_manager")
-	var slots: Array = sm._slots if sm != null and "_slots" in sm else []
-	for i in SLOT_COUNT:
-		if i >= slots.size() or slots[i].definition == null or slots[i].is_empty():
+	for i in _slot_panels.size():
+		var slot = sm.get_spell_slot(i) if sm != null else null
+		if slot == null or slot.is_empty():
 			_slot_icons[i].texture = null
 			_slot_panels[i].tooltip_text = ""
 			_slot_labels[i].text = str(i + 1)
@@ -98,10 +119,10 @@ func _refresh_slots() -> void:
 			_slot_labels[i].remove_theme_font_size_override("font_size")
 			_slot_covers[i].set_anchor(SIDE_BOTTOM, 0.0, true)
 			continue
-		var defn: SpellDefinition = slots[i].definition
+		var defn: SpellDefinition = slot.definition
 		var frac := 0.0
 		if defn.cooldown > 0.0:
-			frac = clampf(slots[i].cooldown_remaining / defn.cooldown, 0.0, 1.0)
+			frac = clampf(slot.cooldown_remaining / defn.cooldown, 0.0, 1.0)
 		# 图标为主：有 icon 用 icon，无则派生 right 动画首帧（resolver 三级链+缓存）；
 		# 名字进 tooltip，键位数字退居右下角小角标
 		_slot_icons[i].texture = SpellIconResolver.icon_for(defn)

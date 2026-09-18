@@ -93,6 +93,26 @@ func _flow() -> void:
 	_check(cover.size.y > 25 and cover.size.y <= 57,
 			"冷却遮罩真实下压（遮罩高 %.0f/槽 56）" % cover.size.y)
 
+	# —— 可变性加固断言：遗忘即时性（拉取制核心承诺）——
+	var sm = chen.get("_spell_manager")
+	sm.forget_spell(0)
+	await _frames(2)
+	var s0: Panel = slots_row.get_child(0)
+	_check((s0.get_child(0) as TextureRect).texture == null
+			and s0.tooltip_text == ""
+			and (s0.get_child(1) as Label).text == "1",
+			"遗忘一帧内：图标清/tooltip 空/回数字态")
+
+	# —— 可变性加固断言：数量双向自校准（白盒改容量模拟未来扩容）——
+	sm._slots.append(SpellSlot.new())
+	await _frames(2)
+	_check(slots_row.get_child_count() == sm.slot_count(),
+			"扩容即时跟随：HUD %d 格 = manager %d 格" % [slots_row.get_child_count(), sm.slot_count()])
+	sm._slots.pop_back()
+	await _frames(2)
+	_check(slots_row.get_child_count() == sm.slot_count(),
+			"缩容即时跟随：HUD %d 格" % slots_row.get_child_count())
+
 	chen.queue_free()
 	await _frames(4)
 	_check(not frame.visible, "players 组清空 → HUD 自隐")

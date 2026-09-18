@@ -41,6 +41,12 @@ func forget_spell(index: int) -> void:
         _slots[index].definition = null
         _slots[index].cooldown_remaining = 0.0
 
+## 槽位计数公开面（2026-09-17）：HUD 格数唯一来源——容量差异化/扩容将来
+## 只经此口，外部（含 UI）不再掏 _slots 私有数组。
+func slot_count() -> int:
+    return _slots.size()
+
+
 func get_spell_slot(index: int) -> SpellSlot:
     if index >= 0 and index < _slots.size():
         return _slots[index]
