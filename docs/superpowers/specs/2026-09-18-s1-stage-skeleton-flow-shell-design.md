@@ -44,7 +44,6 @@ ui/menus/pause_menu.tscn|gd            暂停壳（ESC）
 ui/menus/death_screen.tscn|gd          死亡结算（检查点列表）
 scripts/game_events.gd                 GameEvents autoload（项目事件总线+检查点注册表）
 scripts/stage_exit.gd                  StageExit 出口触发件（Area2D）
-scripts/stage_end_panel.gd 或内嵌于 B 场景  终点极简面板
 tools/stage_validator/validator.gd     装配校验器（矩阵第 21 项，-s headless）
 tools/stage_contract/…                 流程契约套（矩阵第 22 项，场景 runner）
 docs/STAGE_ASSEMBLY.md                 装配指南（§5 规范全文+雷区），AGENTS 挂引用
@@ -55,7 +54,8 @@ docs/STAGE_ASSEMBLY.md                 装配指南（§5 规范全文+雷区）
 ### 4.1 base_stage 节点树（继承即得）
 
 ```
-BaseLevel(Node2D, base_stage.gd)
+BaseLevel(Node2D, base_stage.gd)——导出 stage_id: StringName（每关覆写）、
+│   ends_after_last_room := false（清场=终点的地点置 true）
 ├── Background(Node2D, z_index=5)          子节点们放视差/Sprite2D/ColorRect（S1 占位）
 ├── Level(Node2D, z_index=15, y_sort)
 │   ├── Characters(Node2D, y_sort)         玩家实例（场景内摆放）+ 敌人挂入点
@@ -72,17 +72,18 @@ BaseLevel(Node2D, base_stage.gd)
     ├── GameHUD(ui/game_hud.tscn 实例)     自带 players 组跟随，无需注入
     ├── PauseLayer(Control)                PauseMenu 与 DeathScreen 的父，
     │                                      process_mode=WHEN_PAUSED
-    └── StageEndPanel(参考关终点面板, 隐藏)
+    └── StageEndPanel(内置骨架默认隐藏；ends_after_last_room 启用)
 ```
 
 ### 4.2 GameEvents（项目总线，autoload，`scripts/game_events.gd`）
 
-S1 信号面（只建 S1 消费得动的，flag API 占位声明但空装）：
+S1 信号面（只建 S1 真实消费件，其余一律不预建）：
 
 - `room_cleared(room_id: StringName)` —— 某房全部生成器聚合完成
 - `story_checkpoint(id: StringName)` —— 进地点时 base_stage 发；GameEvents 自订阅落注册表
 - `stage_exited(stage_id: StringName)` —— StageExit 触发，切场前发
-- 检查点注册表：`Array[{id, stage_path, spawn_point: NodePath}]`，新进入追加；
+- 检查点注册表：`Array[{stage_id, scene_path}]`，进入地点追加；回跳=转场重载
+  该场景（玩家自然落在场景摆放位；多入口地点是未来扩展，不预建）；
   **复位时机：返回标题画面时清空**（同会话死亡重试保留全部历史）；
   `get_checkpoints()` 供 DeathScreen 渲染。
 - S2-S5 未来信号（`flag_set`/`item_picked`/`xp_gained` 等）**不预建**——用到再加
@@ -109,8 +110,8 @@ FightRooms/FightRoom1(QuiverFightRoom, ReferenceRect)   limit_*/zoom + after_fig
 - StageExit（Area2D，玩家组判定 `area2d:player`）：`body_entered` → 防重入旗 →
   `GameEvents.stage_exited(id)` → `ScreenTransitions.transition_to_scene(next_stage_path)`
   （导出 `next_stage_path: String`）。
-- 地点 B 清场后（房 `room_cleared` → base_stage 判定"本关无出口件"）→
-  显示 StageEndPanel（两按钮：返回标题 / 重走一遍=重载 A 并清检查点）。
+- 地点 B 清场后：base_stage 见 `ends_after_last_room=true` → 显示内置
+  StageEndPanel（两按钮：返回标题 / 重走一遍=重载 A 并清检查点）。
 - 标题→地点 A：`BackgroundLoader.load_resource` 预热 + `transition_to_scene`
   （上游 main_menu 链路原样，动画 method-track 驱动**不抄**——S1 无动画，按钮直连）。
 
@@ -136,8 +137,8 @@ FightRooms/FightRoom1(QuiverFightRoom, ReferenceRect)   limit_*/zoom + after_fig
    运行时接管，上游旧制勿抄）。
 5. **波次数据形态**：`spawn_waves` 用插件自定义 Inspector 填（波=QuiverSpawnData 数组）；
    敌人场景引用必须存在（S1 全用 spar_enemy）。
-6. **检查点标记约定**：每地点至少一个 `Spawn<id>` Marker2D 于 Characters 下；
-   地点根脚本或场景备注 checkpoint_id。
+6. **检查点约定**：BaseStage 导出 `stage_id`，进地点即以 (stage_id, scene_path)
+   注册检查点；回跳=重载场景（无多入口标记体系——YAGNI，需求出现再加）。
 7. **多生成器房打组** `<房名>_spawners`；base_stage 遍历组聚合，全 `is_completed`
    才解锁（场景连线表达不了"与"逻辑，禁逐房手写）。
 8. 房→房推进=**after_fight_limit 扩权步行串场**（同地点内）；跨地点=StageExit。
@@ -147,7 +148,8 @@ FightRooms/FightRoom1(QuiverFightRoom, ReferenceRect)   limit_*/zoom + after_fig
 
 headless `-s`：遍历 `scenes/stages/**/*.tscn` 文本+加载断言，规则对 §5 逐条机械化：
  FightRoom 子树缺检测器 / 导出路径为空 / spawn_parent 用默认值 / 波次空表 /
- 敌人场景不存在 / 旧掩码违例 / 地点无 Spawn 标记 / 无出口且不可达终点 →
+ 敌人场景不存在 / 旧掩码违例 / 既无 StageExit 子树又未置 ends_after_last_room /
+ stage_id 缺省 →
  逐条打印违例+文件行线索，`RESULT: x PASS / y FAIL`。
 新装配未过校验器 = F5 免谈（流程法律）。
 
@@ -159,7 +161,7 @@ headless `-s`：遍历 `scenes/stages/**/*.tscn` 文本+加载断言，规则对
 聚合解锁（limit 扩到 after_fight 值）+ `room_cleared` 计数 → 走到 StageExit →
 `stage_exited` + 切场到 B → B 清场 → EndPanel 显示；
 死亡路径：spawn 新敌杀玩家 → `player_died` → death_screen 列表含已访检查点 →
-点击回跳 → 场景重建+玩家位于对应 Spawn 标记。
+点击回跳 → 场景重建（转场完成+玩家位于该场景摆放位+检查点保留）。
 协程 `_finished` 防跳段旗、断言标签展开值——按仓库 runner 模板。
 
 ## 8. 施工风险与对策
