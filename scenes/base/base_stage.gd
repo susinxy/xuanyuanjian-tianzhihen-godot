@@ -34,7 +34,10 @@ func _ready() -> void:
 	_collect_rooms()
 	if GameEvents.pending_jump_stage == _scene_path():
 		GameEvents.pending_jump_stage = ""  # 检查点回跳落位，一次性消费
-	# 终点面板两钮纯代码接线（tscn 零 [connection]，防编辑器双路）
+	# 终点面板两钮纯代码接线（tscn 零 [connection]，防编辑器双路）；
+	# 冻结树活性收口与 PauseLayer/death 壳同源——_show_end_panel 冻结全树，
+	# 面板继承不到 ALWAYS 则两钮 pressed 永闸=不可解软锁（评审轮1 修复，B7 锁）
+	_end_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	_end_panel.get_node("PanelBox/BackTitle").pressed.connect(_on_back_title)
 	_end_panel.get_node("PanelBox/Replay").pressed.connect(_on_replay)
 

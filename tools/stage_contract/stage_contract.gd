@@ -14,8 +14,8 @@ const FIXTURE_PROBE := "res://tools/stage_contract/fixtures/stage_probe.tscn"
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 44 + 全序列 1 = 80
-const EXPECTED_ASSERTS := 80
+## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 48 + 全序列 1 = 84
+const EXPECTED_ASSERTS := 84
 
 var _fails := 0
 var _finished := false
@@ -62,6 +62,7 @@ func _flow() -> void:
 	await _b3_aggregation()
 	await _b4_death_forward()
 	await _b5_fixture_jump()
+	await _b7_end_panel()
 	_finished = true
 
 
@@ -332,4 +333,27 @@ func _b5_fixture_jump() -> void:
 	_check(scene._end_panel.get_node("PanelBox/BackTitle") != null, "B5 实例内终点钮就位")
 	get_tree().current_scene = self
 	scene.free()
+	GameEvents.reset_session()
+
+
+## B7 终点面板冻结树活性（评审轮1 死锁修复闭环）：_show_end_panel 冻结全树，
+## 面板若继承不到 ALWAYS 则两钮 pressed 永闸=不可解软锁。三点+钮可用性断言；
+## 真转场按压归 T5 C 段（runner=current_scene 换场自毁雷，B5 注释在案）
+func _b7_end_panel() -> void:
+	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
+	_stage.stage_id = &"t_base"
+	add_child(_stage)
+	await _frames(2)
+	_stage.ends_after_last_room = true
+	_stage._show_end_panel()
+	_check(_stage._end_panel.visible, "B7 终点面板可见")
+	_check(get_tree().paused, "B7 冻结树落位")
+	_check(_stage._end_panel.process_mode == Node.PROCESS_MODE_ALWAYS,
+			"B7 面板 process_mode=ALWAYS（冻结树里钮可响应——死锁修复锁）")
+	var back := _stage._end_panel.get_node("PanelBox/BackTitle") as Button
+	_check(back != null and not back.disabled, "B7 返回标题钮就位可用")
+	get_tree().paused = false
+	_stage.queue_free()
+	_stage = null
+	await _frames(2)
 	GameEvents.reset_session()
