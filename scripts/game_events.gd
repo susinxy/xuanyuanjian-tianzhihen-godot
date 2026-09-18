@@ -11,6 +11,9 @@ signal story_checkpoint_added(stage_id: StringName)
 ## 玩家触发地点出口（切场前发；S2 对话/S5 存档挂点）
 signal stage_exited(stage_id: StringName)
 
+## 检查点回跳传渡：死亡/暂停界面置目标场景路径，重载后的地点经 BaseStage 消费一次即清空
+var pending_jump_stage: String = ""
+
 ## 会话检查点表：[{stage_id, scene_path}]，新进入追加；同 stage_id 重入时
 ## 摘旧追新（保持"新→旧"渲染顺序稳定）
 var _session_checkpoints: Array[Dictionary] = []
