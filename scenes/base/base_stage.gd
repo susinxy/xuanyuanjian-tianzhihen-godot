@@ -25,7 +25,6 @@ var _cleared_count := 0
 
 
 func _ready() -> void:
-	randomize()
 	# 计划草稿的 resource_path 系 Node 上不存在的杜撰属性（T3 探针裁决弃用）；
 	# 可转场路径的三形态解析收口在 _scene_path()
 	GameEvents.add_checkpoint(stage_id, _scene_path())
@@ -115,7 +114,7 @@ func _on_room_wave_completed(room: QuiverFightRoom) -> void:
 
 func _show_end_panel() -> void:
 	get_tree().paused = true
-	_end_panel.visible = true  # 面板两钮：返回标题/重走一遍（T5 装配时铺按钮）
+	_end_panel.visible = true  # 面板两钮（返回标题/重走一遍）已在 _ready 代码接线
 
 
 func _on_player_died() -> void:

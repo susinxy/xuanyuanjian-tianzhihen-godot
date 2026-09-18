@@ -56,7 +56,7 @@ docs/STAGE_ASSEMBLY.md                 装配指南（§5 规范全文+雷区）
 ```
 BaseLevel(Node2D, base_stage.gd)——导出 stage_id: StringName（每关覆写）、
 │   ends_after_last_room := false（清场=终点的地点置 true）
-├── Background(Node2D, z_index=5)          子节点们放视差/Sprite2D/ColorRect（S1 占位）
+├── Background(CanvasLayer)                占位批：debug_background 渐变 + 全屏 ColorRect 地面条
 ├── Level(Node2D, z_index=15, y_sort)
 │   ├── Characters(Node2D, y_sort)         玩家实例（场景内摆放）+ 敌人挂入点
 │   │   ├── <玩家>.tscn 实例
@@ -80,7 +80,8 @@ BaseLevel(Node2D, base_stage.gd)——导出 stage_id: StringName（每关覆写
 S1 信号面（只建 S1 真实消费件，其余一律不预建）：
 
 - `room_cleared(room_id: StringName)` —— 某房全部生成器聚合完成
-- `story_checkpoint(id: StringName)` —— 进地点时 base_stage 发；GameEvents 自订阅落注册表
+- `story_checkpoint_added(stage_id: StringName)` —— `add_checkpoint` 直写注册表后发射
+  （进地点=BaseStage._ready 经此腿注册，无自订阅中间层）
 - `stage_exited(stage_id: StringName)` —— StageExit 触发，切场前发
 - 检查点注册表：`Array[{stage_id, scene_path}]`，进入地点追加；回跳=转场重载
   该场景（玩家自然落在场景摆放位；多入口地点是未来扩展，不预建）；
@@ -149,9 +150,9 @@ S1 的壳=占位视觉+完整行为；美化批整体换皮而**不重写逻辑*
    `is_one_shot=true`；身份判定走 `area2d:player`（本项目已迁，勿再找 players 组）。
 3. **Spawner 必改 `path_spawn_parent`** 为 `../../../Level/Characters` 形态（默认值
    `../../Characters` 在标准层级下错误——上游埋雷，校验器红色项）。
-4. **碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 只配高度层
-   （15-24 区间按需）；**禁手配旧层 2/3/4 掩码**（屏限/顶限由 LevelCamera 高度层
-   运行时接管，上游旧制勿抄）。
+4. **碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 配高度层
+   （15-24 区间按需）；**禁旧层 3/4**（屏限/顶限归相机高度层，由 LevelCamera
+   运行时接管，上游旧制勿抄）；**障碍层 2 允许出现**（校验器 R7 只执 12 位）。
 5. **波次数据形态**：`spawn_waves` 用插件自定义 Inspector 填（波=QuiverSpawnData 数组）；
    敌人场景引用必须存在（S1 全用 spar_enemy）。
 6. **检查点约定**：BaseStage 导出 `stage_id`，进地点即以 (stage_id, scene_path)

@@ -17,9 +17,11 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 48 + C 段 27 + 全序列 1 = 111
-##（C 段实测 27：C7 同场景重载修复给 restored/consumed 拆了独立等待断言）
-const EXPECTED_ASSERTS := 111
+## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 27 + 全序列 1 = 112
+##（C 段实测 27：C7 同场景重载修复给 restored/consumed 拆了独立等待断言；
+## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
+## 断言按新契约改写，故较旧版恰 +1）
+const EXPECTED_ASSERTS := 112
 
 var _fails := 0
 var _finished := false
@@ -290,7 +292,9 @@ func _b3_aggregation() -> void:
 
 
 ## B4 死亡转交：player_died → 冻结树 + DeathScreen 开机（列表=t_base 检查点
-## +回标题）；close 解冻收口；暂停壳在死亡流程后仍可开关（导航不变量烟雾）
+## +回标题）；冻结所有权（S1 终审 I-1）：他人冻结态下 open 不得叠开暂停壳
+## （旧版"死亡开着暂停仍可开"违此契约——"继续"会无主解冻死亡世界，已按新契约
+## 改写）；close 解冻收口后暂停在无人冻结态可正常开关（导航不变量烟雾）
 func _b4_death_forward() -> void:
 	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
 	_stage.stage_id = &"t_base"
@@ -303,11 +307,14 @@ func _b4_death_forward() -> void:
 	var dc: VBoxContainer = _stage.get_node("HudLayer/PauseLayer/DeathScreen/ContentLayer")
 	_check(dc.get_child_count() == 2,
 			"B4 死亡列表=t_base+回标题（实际 %d）" % dc.get_child_count())
+	_stage._pause_menu.open_menu()
+	_check(not _stage._pause_menu.visible and get_tree().paused,
+			"B4 他人冻结态 open → 暂停壳不叠开且死亡冻结不受扰（I-1 冻结所有权）")
 	_stage._death_screen.close_screen()
 	await _frames(2)
 	_check(not get_tree().paused, "B4 close_screen 解冻收口（B 段收尾不欠冻结）")
 	_stage._pause_menu.open_menu()
-	_check(_stage._pause_menu.visible and get_tree().paused, "B4 死亡流程后暂停仍可开（烟雾）")
+	_check(_stage._pause_menu.visible and get_tree().paused, "B4 解冻后无人态暂停可开（烟雾）")
 	_stage._pause_menu.close_menu()
 	await _frames(2)
 	_check(not get_tree().paused, "B4 暂停开→关复原（末尾未冻结防线）")
@@ -487,7 +494,7 @@ func _flow_c() -> void:
 	_stage_chen().global_position = Vector2(3650, 600)
 	var jumped: bool = await _wait_until(func():
 			return _cs() != null and _cs().scene_file_path == STAGE_B, 900)
-	_check(_c_stage_exited == 1, "C5 stage_exited 恰好一次（防重入旗真验）")
+	_check(_c_stage_exited == 1, "C5 stage_exited 恰一次（持续重叠场景）")
 	_check(jumped, "C5 跨地点真转场到 B")
 	if not jumped:
 		return

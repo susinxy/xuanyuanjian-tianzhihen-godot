@@ -12,7 +12,8 @@ extends SceneTree
 ##            stage_ok 声明 none 必须全绿）
 ## 规则表（账本裁决绑定版）：
 ##   R1 根必须 instance=ExtResource(base_stage.tscn)
-##   R2 存在 stage_id = &"..." 非空
+##   R2 根节点存在 stage_id = &"..." 非空（S1 终审 M-2：限定根属性块，
+##      挂在子孙节点上的 stage_id 属污染残留，不算满足）
 ##   R3 每个 QuiverFightRoom 子树含 ≥1 检测器与 ≥1 生成器
 ##   R4 检测器 path_fight_room 非空 且 paths_enemy_spawners ≥1 条非空路径
 ##   R5 生成器 path_spawn_parent ≠ 默认 NodePath("../../Characters")
@@ -130,7 +131,7 @@ func _check_file(path: String) -> Array:
 		out.append({rule = rule, hint = hint})
 	var root: Dictionary = model.nodes[0] if not model.nodes.is_empty() else {}
 	_check_r1(model, root, add)
-	_check_r2(model, add)
+	_check_r2(root, add)
 	var rooms := _kind_nodes(model, ROOM_GD)
 	var detectors := _kind_nodes(model, DET_GD)
 	var spawners := _kind_nodes(model, SPAWN_GD)
@@ -203,12 +204,11 @@ func _check_r1(model: Dictionary, root: Dictionary, add: Callable) -> void:
 		add.call("R1", "根未实例化 base_stage.tscn")
 
 
-func _check_r2(model: Dictionary, add: Callable) -> void:
-	for n in model.nodes:
-		var v: String = n.props.get("stage_id", "")
-		if v.begins_with('&"') and v.length() > 3:
-			return
-	add.call("R2", "缺 stage_id = &\"...\" 非空行")
+func _check_r2(root: Dictionary, add: Callable) -> void:
+	var v: String = root.props.get("stage_id", "")
+	if v.begins_with('&"') and v.length() > 3:
+		return
+	add.call("R2", "根节点缺 stage_id = &\"...\" 非空行")
 
 
 func _check_r3(rooms: Array, detectors: Array, spawners: Array, add: Callable) -> void:

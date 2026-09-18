@@ -37,6 +37,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func open_menu() -> void:
+	# 冻结所有权：ESC 不得在他人冻结态上叠开暂停壳（DeathScreen/StageEndPanel
+	# 持有冻结）——否则"继续"会无主解冻死亡世界（S1 终审 I-1）
+	if get_tree().paused:
+		return
 	if visible:
 		return
 	visible = true

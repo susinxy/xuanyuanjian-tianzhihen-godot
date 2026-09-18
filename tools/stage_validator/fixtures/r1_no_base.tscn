@@ -13,13 +13,13 @@ script = ExtResource("5_sd")
 enemy_scene = ExtResource("6_enemy")
 
 [node name="StageR1" type="Node2D"]
+stage_id = &"stageok"
+
 [node name="Level" type="Node2D" parent="."]
 
 [node name="Collisions" type="Node2D" parent="Level"]
 
 [node name="FightRooms" type="Node2D" parent="."]
-
-stage_id = &"stageok"
 
 [node name="Gate" type="StaticBody2D" parent="Level/Collisions"]
 collision_layer = 16760832

@@ -13,9 +13,10 @@
       身份判定走 `area2d:player` 组（本项目已迁，勿再找 `players` 组）。
 - [ ] **3. 生成器必改 `path_spawn_parent`** 为 `../../../Level/Characters` 形态
       （上游默认值 `../../Characters` 在标准层级下是错的——校验器 R5 红色项）。
-- [ ] **4. 碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 只配
-      高度层（全段=16760832，bit15-24）；**禁手配旧层 3/4 掩码**（屏限/顶限由
-      LevelCamera 高度层运行时接管，上游旧制勿抄）。
+- [ ] **4. 碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 配
+      高度层（全段=16760832，bit15-24），**障碍层 2 允许出现**（校验器 R7
+      只执 12 位）；**禁手配旧层 3/4 掩码**（屏限/顶限归相机高度层，由
+      LevelCamera 运行时接管，上游旧制勿抄）。
 - [ ] **5. 波次数据形态**：`spawn_waves` 用插件自定义 Inspector 填
       （波=QuiverSpawnData 数组）；敌人场景引用必须盘上存在（校验器 R6）。
 - [ ] **6. 检查点约定**：覆写 BaseStage 导出 `stage_id`，进地点即以
@@ -34,9 +35,10 @@
 - [ ] **b. 检测器/出口件掩码配方**：`collision_layer=0`、
       `collision_mask=16760832`（全高度层，玩家身体动态持有）、
       `monitorable=false`。少一项检测器静默失灵（玩家组 body 进不了区域）。
-- [ ] **c. Collisions 静态件只挂高度层**：`collision_layer=16760832`、
-      `collision_mask=0`，**不带旧位 2/4/8**（障碍/屏限/顶限）——旧位会让
-      高度层过滤逻辑（`_update_collision_layers` 的掩码保留策略）产生双重身份。
+- [ ] **c. Collisions 静态件不带屏/顶旧位**：标准配方 `collision_layer=16760832`、
+      `collision_mask=0`，**不带旧位 4/8**（屏限/顶限）——二者会让高度层过滤
+      逻辑（`_update_collision_layers` 的掩码保留策略）产生双重身份；
+      障碍位 2 允许出现（校验器 R7 只执 12 位）。
 - [ ] **d. 生成器换基契约**：`QuiverEnemySpawner` 把敌人场景根 cast 为
       `QuiverEnemyCharacter`——**任何可刷敌人的脚本必须 extends 它**，否则运行期
       静默不刷。多实例敌人须在 `_ready` 里 `attributes = attributes.duplicate()`

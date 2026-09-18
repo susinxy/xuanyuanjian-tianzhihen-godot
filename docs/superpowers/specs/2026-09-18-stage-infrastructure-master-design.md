@@ -43,7 +43,8 @@ game_hud/昼夜控制器为"功能完好但从未进过正式场景"的孤儿件
 - `room_cleared(room_id)` ——房间全部波次清场
 - `flag_set(key, value)` ——剧情旗标变化（S3 定义存储，S5 消费）
 - `item_picked(item_id, count)`、`xp_gained(amount)`、`level_up(new_level)`
-- `story_checkpoint(node_id)` ——自动存档触发源（S5 唯一订阅义务方）
+- `story_checkpoint_added(stage_id)` ——`add_checkpoint` 直写注册表后发射；
+  自动存档触发源（S5 唯一订阅义务方）
 - 音频钩子约定：S6 只订阅事件，不要求任何系统主动调用它（零侵入原则）
 
 ### 2.2 目录标准
@@ -73,7 +74,8 @@ scripts/game_events.gd                           项目事件总线
 
 关键契约与装配规范：
 
-1. 节点树照上游四段式：`Background(视差) / Level(Characters|Objects|Collisions) /
+1. 节点树照上游四段式：`Background(CanvasLayer，占位批=debug_background 渐变+
+   全屏 ColorRect 地面条) / Level(Characters|Objects|Collisions) /
    Foreground / FightRooms / HudLayer`，增设 `Ambient`（CanvasModulate+光源，
    DayNightController 入场位）、`GameHUD`（实例化 ui/game_hud.tscn）、`PauseLayer`。
 2. **装配契约**（血泪雷区成文）：
