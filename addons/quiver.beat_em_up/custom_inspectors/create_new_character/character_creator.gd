@@ -39,7 +39,7 @@ const DEFAULT_STATS := {
 	"jump_force": -1200.0,
 	"knockback_weight": 1.0,
 	"hit_lane_offset": 0.0,
-	"can_be_grabbed": true,
+	"can_be_grabbed": false,
 	"is_invulnerable": false,
 	"has_superarmor": false,
 }

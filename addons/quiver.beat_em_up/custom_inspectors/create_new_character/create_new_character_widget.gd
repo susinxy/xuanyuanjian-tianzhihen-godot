@@ -295,7 +295,7 @@ func _build_ui() -> void:
 	_resistance_spin = _make_spin_row("抗击打值 R:", "命中先扣此额度，扣穿即被击飞；初速=击打值-剩余+保底（精英调高）", 0, 99999, 50, CharacterCreator.DEFAULT_STATS.knockout_resistance_max)
 	_jump_force_spin = _make_spin_row("跳跃力:", "负数=向上（jump_force）", -5000, -100, 50, CharacterCreator.DEFAULT_STATS.jump_force)
 	_knockback_weight_spin = _make_spin_row("击飞权重:", "被击飞冲量乘数，>1 飞更远、<1 更沉", 0, 10, 0.1, CharacterCreator.DEFAULT_STATS.knockback_weight)
-	_grab_check = _make_check_row("可被抓取:", "出生 can_be_grabbed（默认开；chen 的 false 是她自己的编辑历史）", CharacterCreator.DEFAULT_STATS.can_be_grabbed)
+	_grab_check = _make_check_row("可被抓取:", "出生 can_be_grabbed（默认关=不可被抓；抓取靶子如木桩/杂兵按需勾选）", CharacterCreator.DEFAULT_STATS.can_be_grabbed)
 	_invuln_check = _make_check_row("天生无敌:", "警告：勾选=全程免伤免击退，正常由动画轨道控制", false)
 	_superarmor_check = _make_check_row("天生霸体:", "警告：勾选=受击不打断且击打值无效，同上", false)
 	var atk_header := Label.new()
