@@ -1,0 +1,101 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/base/base_stage.tscn" id="1_base"]
+[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="3_cam"]
+[ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="4_spar"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="5_fr"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="6_det"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="7_sp"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="8_sd"]
+
+[sub_resource type="SegmentShape2D" id="Seg_b1"]
+a = Vector2(0, -400)
+b = Vector2(0, 700)
+
+[sub_resource type="RectangleShape2D" id="Rect_ground_b"]
+size = Vector2(2200, 200)
+
+[sub_resource type="RectangleShape2D" id="Rect_wall_b"]
+size = Vector2(40, 2600)
+
+[sub_resource type="Resource" id="SD_b1w1_a"]
+script = ExtResource("8_sd")
+enemy_scene = ExtResource("4_spar")
+spawn_mode = 1
+use_spawner_position = true
+
+[sub_resource type="Resource" id="SD_b1w1_b"]
+script = ExtResource("8_sd")
+enemy_scene = ExtResource("4_spar")
+spawn_mode = 1
+use_spawner_position = true
+
+[node name="StageRefB" instance=ExtResource("1_base")]
+stage_id = &"stage_ref_b"
+ends_after_last_room = true
+
+[node name="Chen" parent="Level/Characters" instance=ExtResource("2_chen")]
+position = Vector2(300, 600)
+
+[node name="LevelCamera" parent="Level/Characters/Chen" instance=ExtResource("3_cam")]
+limit_left = 0
+limit_top = -280
+limit_right = 2000
+limit_bottom = 1200
+
+[node name="GroundBody" type="StaticBody2D" parent="Level/Collisions"]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/GroundBody"]
+position = Vector2(1050, 700)
+shape = SubResource("Rect_ground_b")
+
+[node name="WallL" type="StaticBody2D" parent="Level/Collisions"]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallL"]
+position = Vector2(-80, 500)
+shape = SubResource("Rect_wall_b")
+
+[node name="WallR" type="StaticBody2D" parent="Level/Collisions"]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallR"]
+position = Vector2(2180, 500)
+shape = SubResource("Rect_wall_b")
+
+[node name="Room1" type="ReferenceRect" parent="FightRooms"]
+offset_left = 380.0
+offset_top = -280.0
+offset_right = 1800.0
+offset_bottom = 1200.0
+script = ExtResource("5_fr")
+limit_left = 380
+limit_top = -280
+limit_right = 1800
+limit_bottom = 1200
+zoom = 1.0
+after_fight_use_new_room = false
+after_fight_transition_duration = 0.8
+
+[node name="EnemySpawner1" type="Marker2D" parent="FightRooms/Room1"]
+position = Vector2(620, 880)
+script = ExtResource("7_sp")
+path_spawn_parent = NodePath("../../../Level/Characters")
+spawn_waves = [[SubResource("SD_b1w1_a"), SubResource("SD_b1w1_b")]]
+
+[node name="PlayerDetector" type="Area2D" parent="FightRooms/Room1"]
+position = Vector2(140, 400)
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("6_det")
+path_fight_room = NodePath("..")
+paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
+
+[node name="Shape" type="CollisionShape2D" parent="FightRooms/Room1/PlayerDetector"]
+shape = SubResource("Seg_b1")

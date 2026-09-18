@@ -3,7 +3,8 @@ extends Node
 ## stage-contract 契约套（S1 矩阵登记项）：A 段=流程壳三件套（标题/暂停/死亡）
 ## 的结构与开关契约；B 段（T3）=base_stage 父骨架结构/检查点注册/波次聚合/
 ## 死亡转场/实例化回跳语义。C 段（T5 全流程，含跳转钮按压→真实换场景）后续续加
-## ——A/B 段不按压任何跳转钮（终点面板钮同理，STAGE_A_PATH 待 T5 落地）。
+## C 段（T5）=两个真实参考地点的全流程环：换场存活 runner、锁房、波次聚合
+## 解锁、跨地点 StageExit 真转场、清场终点面板、真死链→死亡界面→检查点回跳。
 ## 运行：godot --headless --path . res://tools/stage_contract/stage_contract.tscn
 
 const TITLE := "res://ui/menus/title_screen.tscn"
@@ -11,11 +12,14 @@ const PAUSE := "res://ui/menus/pause_menu.tscn"
 const DEATH := "res://ui/menus/death_screen.tscn"
 const BASE_STAGE := "res://scenes/base/base_stage.tscn"
 const FIXTURE_PROBE := "res://tools/stage_contract/fixtures/stage_probe.tscn"
+const STAGE_A := "res://scenes/stages/ref/stage_ref_a.tscn"
+const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 48 + 全序列 1 = 84
-const EXPECTED_ASSERTS := 84
+## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 48 + C 段 27 + 全序列 1 = 111
+##（C 段实测 27：C7 同场景重载修复给 restored/consumed 拆了独立等待断言）
+const EXPECTED_ASSERTS := 111
 
 var _fails := 0
 var _finished := false
@@ -27,6 +31,8 @@ var _death: Control
 var _stage: BaseStage
 var _open_count := 0
 var _closed_count := 0
+var _c_room_cleared := 0
+var _c_stage_exited := 0
 
 
 func _ready() -> void:
@@ -63,6 +69,7 @@ func _flow() -> void:
 	await _b4_death_forward()
 	await _b5_fixture_jump()
 	await _b7_end_panel()
+	await _flow_c()
 	_finished = true
 
 
@@ -356,4 +363,183 @@ func _b7_end_panel() -> void:
 	_stage.queue_free()
 	_stage = null
 	await _frames(2)
+	GameEvents.reset_session()
+
+
+### -----------------------------------------------------------------------------------------------
+### C 段（T5）：真实地点全流程环
+### -----------------------------------------------------------------------------------------------
+
+## 轮询直到条件成立（换场含转场淡入淡出，用 process_frame；上限防挂死）
+func _wait_until(cond: Callable, cap_frames: int) -> bool:
+	for _i in cap_frames:
+		if cond.call():
+			return true
+		await get_tree().process_frame
+	return cond.call()
+
+
+func _cs() -> Node:
+	return get_tree().current_scene
+
+
+func _stage_cam() -> Camera2D:
+	return _cs().get_node("Level/Characters/Chen/LevelCamera") as Camera2D
+
+
+func _stage_chen() -> QuiverCharacter:
+	return _cs().get_node("Level/Characters/Chen") as QuiverCharacter
+
+
+## 计数目标式清场（防 flaky：死亡演出链 起飞+弹地+Die 动画总时长远超单轮帧预算，
+## 固定循环数会随机器节奏失败——按目标计数轮询，kill 与等待交替）
+func _clear_until(target: int) -> bool:
+	for _round in 40:
+		if _c_room_cleared >= target:
+			return true
+		_kill_spars()
+		var ok: bool = await _wait_until(func():
+				return _c_room_cleared >= target, 40)
+		if ok:
+			return true
+	return _c_room_cleared >= target
+
+func _kill_spars() -> void:
+	# 真死链（非数值清零浅杀）：扣血+致死最后一击强飞→弹地→Die 动画→离场。
+	# 教训入档：只设 health=0 敌人不会走死亡演出，spawner 的 tree_exited await
+	# 会挂到场景 teardown 才放行——真实击杀链路才是本契约要验的东西。
+	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if n is QuiverCharacter:
+			var body := n as QuiverCharacter
+			# 血要归零才走 die 分支；向量必须带竖直分量——纯水平 launch 会
+			# 立刻触地进 Bounce（探针尸检实证，勿再踩）
+			body.attributes.health_current = 0
+			var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH,
+					Vector2(0.866, -0.5))
+			CombatSystem.apply_knockback(data, body.attributes)
+
+
+func _flow_c() -> void:
+	GameEvents.room_cleared.connect(func(_id): _c_room_cleared += 1)
+	GameEvents.stage_exited.connect(func(_id): _c_stage_exited += 1)
+
+	# C0 存活化：把 runner 从"可被换场释放的场景根"升为 root 直属，
+	# 并让 current_scene 先指向替身（否则 change_scene_to_file 释放本 runner=自毁）
+	# 注意：remove_child 后本节点瞬间离树 get_tree()=null，树引用必须先取
+	var tree := get_tree()
+	var decoy := Node.new()
+	decoy.name = &"SceneDecoy"
+	tree.root.add_child(decoy)
+	tree.current_scene = decoy
+	get_parent().remove_child(self)
+	tree.root.add_child(self)
+
+	# —— C1 进地点 A ——
+	get_tree().change_scene_to_file(STAGE_A)
+	var arrived: bool = await _wait_until(func():
+			return _cs() != null and _cs().scene_file_path == STAGE_A, 900)
+	_check(arrived, "C1 换场进地点 A（转场链在真场景生效且 runner 存活）")
+	if not arrived:
+		return
+	await _frames(4)
+	_check(_cs().get("stage_id") == &"stage_ref_a", "C1 地点 stage_id 覆写生效")
+	_check((_cs().get_node("HudLayer/GameHUD/Frame") as Control).visible,
+			"C1 GameHUD 入场并跟手 chen")
+	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	_check(not cps.is_empty() and cps.back().stage_id == &"stage_ref_a",
+			"C1 检查点表含 stage_ref_a（真换场形态注册）")
+	_check(GameEvents.pending_jump_stage == "", "C1 pending_jump_stage 干净")
+
+	# —— C2 房1锁相机+刷怪 ——
+	var cam := _stage_cam()
+	_stage_chen().global_position = Vector2(520, 600)
+	var locked: bool = await _wait_until(func():
+			return cam.limit_right == 1500, 240)
+	_check(locked, "C2 走过检测线→相机锁定到房1边界（limit_right=1500）")
+	var bodies := 0
+	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if n is QuiverCharacter:
+			bodies += 1
+	_check(bodies == 1, "C2 波次敌人已刷出（IN_PLACE 1 只身体，实际 %d）" % bodies)
+
+	# —— C3 清房1（聚合与解锁） ——
+	var cleared1: bool = await _clear_until(1)
+	_check(cleared1, "C3 房1清场→room_cleared（全灭→解锁链在真场景走通）")
+	var expanded: bool = await _wait_until(func():
+			return cam.limit_right == 2200, 240)
+	_check(expanded, "C3 解锁扩权（after_fight_limit_right=2200）")
+
+	# —— C4 房2双生成器聚合 ——
+	_stage_chen().global_position = Vector2(1950, 600)
+	var locked2: bool = await _wait_until(func():
+			return cam.limit_right == 3000, 240)
+	# 锁定语义=相机右缘收到房框 limit_right（房2=3000）；解锁才到 after_fight 3800
+	_check(locked2, "C4 房2锁定（limit_right=3000，实际 %d）" % cam.limit_right)
+	# 循环清场：波2在第一波全灭后由 spawner 自动续刷，直到聚合计数+1
+	var agg: bool = await _clear_until(2)
+	_check(agg,
+			"C4 双生成器全清才聚合 room_cleared（单 spawner 不提前解锁）")
+	var expanded2: bool = await _wait_until(func():
+			return cam.limit_right == 3800, 240)
+	_check(expanded2, "C4 房2解锁扩权（3800，出口在界内）")
+
+	# —— C5 StageExit 跨地点真转场 ——
+	_stage_chen().global_position = Vector2(3650, 600)
+	var jumped: bool = await _wait_until(func():
+			return _cs() != null and _cs().scene_file_path == STAGE_B, 900)
+	_check(_c_stage_exited == 1, "C5 stage_exited 恰好一次（防重入旗真验）")
+	_check(jumped, "C5 跨地点真转场到 B")
+	if not jumped:
+		return
+	await _frames(4)
+	_check(GameEvents.get_checkpoints().back().stage_id == &"stage_ref_b",
+			"C5 检查点追新（尾=b）")
+
+	# —— C6 终点腿：清 B 房 → ends_after_last_room → 面板+冻结 ——
+	var cam_b := _stage_cam()
+	_stage_chen().global_position = Vector2(520, 600)
+	var locked_b: bool = await _wait_until(func():
+			return cam_b.limit_right == 1800, 240)
+	_check(locked_b, "C6 B 房锁定")
+	var b_cleared: bool = await _clear_until(3)
+	_check(b_cleared, "C6 B 清场 room_cleared")
+	var panel: Control = _cs().get_node("HudLayer/StageEndPanel")
+	var shown: bool = await _wait_until(func():
+			return panel.visible, 120)
+	_check(shown, "C6 ends_after_last_room 真链：终点面板弹出")
+	_check(get_tree().paused, "C6 终点树冻结")
+	# 为后续死亡腿恢复运转
+	get_tree().paused = false
+	panel.visible = false
+
+	# —— C7 真死链 → 死亡界面 → 点最新检查点（B）回跳 ——
+	var chen := _stage_chen()
+	chen.attributes.health_current = 0
+	var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH, Vector2.RIGHT)
+	CombatSystem.apply_knockback(data, chen.attributes)
+	var death_ui := _cs().get_node("HudLayer/PauseLayer/DeathScreen") as Control
+	var died: bool = await _wait_until(func():
+			return death_ui != null and death_ui.visible, 900)
+	_check(died, "C7 真死链走完（血0+击飞→Die 动画→player_died→死亡界面，含击飞链复用）")
+	if not died:
+		return
+	_check(get_tree().paused, "C7 死亡树冻结")
+	var entries: VBoxContainer = death_ui.get_node("ContentLayer")
+	_check(entries.get_child_count() == 3,
+			"C7 按钮=两检查点+返回标题（实际 %d）" % entries.get_child_count())
+	_check((entries.get_child(0) as Button).text == "stage_ref_b",
+			"C7 最新检查点在首位（新→旧渲染真验）")
+	var old_stage_id := _cs().get_instance_id()
+	(entries.get_child(0) as Button).pressed.emit()
+	# 同场景重载：scene_file_path 全程相同会骗轮询——盯"实例更换+pending 被新场景消费"
+	var restored: bool = await _wait_until(func():
+			return _cs() != null and _cs().get_instance_id() != old_stage_id, 900)
+	_check(restored, "C7 按压回跳 B（同场景重载真转场）")
+	var consumed: bool = await _wait_until(func():
+			return GameEvents.pending_jump_stage == "", 240)
+	await _frames(4)
+	_check(not get_tree().paused, "C7 回跳后树已解冻（unpause 前置铁律回归）")
+	_check(is_equal_approx(_stage_chen().global_position.x, 300.0),
+			"C7 玩家回出生位（场景重载语义，实际 x=%.0f）" % _stage_chen().global_position.x)
+	_check(consumed and GameEvents.pending_jump_stage == "", "C7 pending 落位即消费")
 	GameEvents.reset_session()

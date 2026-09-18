@@ -1,5 +1,5 @@
 @tool
-extends QuiverCharacter
+extends QuiverEnemyCharacter
 
 ## Write your doc string for this file here
 

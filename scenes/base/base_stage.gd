@@ -96,7 +96,13 @@ func _room_detectors(room: Node) -> Array:
 
 
 func _on_room_wave_completed(room: QuiverFightRoom) -> void:
-	var entry: Dictionary = _rooms[room.get_path()]
+	var key: NodePath = room.get_path()
+	if not _rooms.has(key):
+		# 瞬态取证：谁的表、哪个房、双方是否在树（跨实例/重连竞态诊断）
+		push_warning("ROOMKEY MISS key=%s self=%s in_tree=%s room_in_tree=%s keys=%s" % [
+				key, get_path(), str(is_inside_tree()), str(room.is_inside_tree()), str(_rooms.keys())])
+		return
+	var entry: Dictionary = _rooms[key]
 	for sp in entry.spawners:
 		if not sp.is_completed:
 			return
