@@ -326,7 +326,9 @@ signal grab_denied             # 抓取被拒绝（boss 免疫抓取）
 ```gdscript
 func apply_knock(knock_value: float) -> Dictionary
     # 击飞统一结算的唯一判定点：{launched, impulse, swallow}
-    # 六规则——无敌/霸体无效；死亡强飞 K+保底；空中额度视作空（K≤0 吞事件）；
+    # 六规则——无敌无效（判定点自守防直调者）、霸体走 swallow（2026-09-18 起
+    #   交易作废语义自含，分发器不再持有 has_superarmor 条件）；死亡强飞 K+保底；
+    #   空中额度视作空（K≤0 吞事件）；
     # 地面 K≥余量 破线（冲量=溢出+保底 50，余量清空）否则扣量硬直
 func refill_resistance()    # 回气回满（Move.enter 与落地 _handle_landing 调用）
 func is_alive() -> bool
@@ -845,7 +847,8 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 **攻击流程**:
 1. `apply_damage` → 扣血 → 触发 `HitFreeze`（命中的顿感）
 2. `apply_knockback` → 转交 `QuiverAttributes.apply_knock`（**唯一判定点**），按裁决分发：
-   `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默；否则 `hurt_requested`
+   `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默（含霸体
+   与空中零击打值）；否则 `hurt_requested`——分发器为纯三向开关，无战斗政策
 
 **击飞统一模型（2026-09-18 重构定档，五档计分表/阈值线全退役）**：
 - 货币：招式击打值 K（`QuiverAttackData.knock_strength`，浮点）× 角色抗击打额度 R（`knockout_resistance_max`，默认 600）
@@ -854,7 +857,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - 死亡：绕过额度强制起飞，冲量 = K + 保底；**空中**（含弹跳段 is_on_air）：额度视作已空，
   K>0 即再起飞（连空即时，不等弹跳动画播完——旧 bounce 末尾补飞分支因此退役）；
   K≤0 吞事件（零击打值弹体不打断弹道）
-- 霸体=击打值完全无效（G2 归零制，旧"憋霸体攒计数器"通道取消）
+- 霸体=击打值完全无效（G2 归零制，经 swallow 裁决自含表达；旧"憋霸体攒计数器"通道取消）
 - 回气：`Move.enter` 与 `_handle_landing`（落地瞬间）→ `refill_resistance()` 回满
 - 落地即停（A3 甲案）：`_handle_bounce` 显式 `velocity.x = 0`——飞行水平速度全程无
   衰减（无人写它、落地非物理碰撞），不清零会以僵尸残值叠进下次起飞（连抽越抽越快）

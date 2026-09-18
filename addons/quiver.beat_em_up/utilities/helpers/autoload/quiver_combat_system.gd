@@ -60,7 +60,8 @@ func apply_knockback(
 	if verdict.launched:
 		knockback.impulse = verdict.impulse
 		target.knockout_requested.emit(knockback)
-	elif not target.has_superarmor:
+	elif not verdict.swallow:
+		# 分发器纯三向开关（2026-09-18 霸体 elif 退役）：政策全在 apply_knock
 		target.hurt_requested.emit(knockback)
 
 ### -----------------------------------------------------------------------------------------------

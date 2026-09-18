@@ -64,8 +64,8 @@ func _flow() -> void:
 	_check(is_equal_approx(a.resistance_current, 600.0), "回气 refill → 回满 600")
 	a.has_superarmor = true
 	v = a.apply_knock(5000.0)
-	_check(not v.launched and is_equal_approx(a.resistance_current, 600.0),
-			"霸体归零制：K=5000 完全无效，额度分毫不动")
+	_check(not v.launched and v.swallow and is_equal_approx(a.resistance_current, 600.0),
+			"霸体归零制：K=5000 交易作废（swallow），额度分毫不动")
 	a.has_superarmor = false
 	a.is_invulnerable = true
 	v = a.apply_knock(700.0)

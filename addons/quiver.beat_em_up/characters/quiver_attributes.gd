@@ -155,8 +155,13 @@ func _to_string() -> String:
 ## · 地面：K ≥ 余量 → 破线起飞，冲量 =（K − 余量）+ 保底，余量清空；
 ##   K < 余量 → 受击硬直，余量扣减。
 func apply_knock(knock_value: float) -> Dictionary:
-	if is_invulnerable or has_superarmor:
+	if is_invulnerable:
+		# 无敌自守保留：绕过 CombatSystem 的直调者（测试/工具）防线
 		return {launched = false, impulse = 0.0, swallow = false}
+	if has_superarmor:
+		# 霸体=交易整体作废走 swallow（2026-09-18 毛边整理：旧形态是这里判
+		# "不起飞"+分发器 elif 再判"不播受击"，同一问题两处答案；现语义自含）
+		return {launched = false, impulse = 0.0, swallow = true}
 	if not is_alive():
 		return {launched = true, impulse = knock_value + LAUNCH_MIN_IMPULSE, swallow = false}
 	var on_air: bool = character_node != null and character_node.is_on_air
