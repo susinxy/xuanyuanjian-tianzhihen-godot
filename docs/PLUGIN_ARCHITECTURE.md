@@ -1096,7 +1096,17 @@ func setup_fight_room()       # 战斗开始 → 锁定摄像头
 func setup_after_fight_room() # 战斗结束 → 切换到战后区域
 ```
 
-内部调用 `_level_camera.delimitate_room(left, top, right, bottom, zoom, duration)`。
+内部调用 `_level_camera.delimitate_room(left, top, right, bottom, zoom, duration)`——
+该方法现**返回本次 Tween**，战斗房借此挂 `finished` 做**落位收口**（2026-09-19 契约）：
+
+- **`_clamp_players_into_room`**：过渡完成后，任何中心落在
+  `[limit+m, limit−m]`（m=60）之外的 `area2d:player` 角色钳回界内（只改位置
+  不清速度）。背景：相机隐形墙随推近 Tween 扫掠，0.8s 过渡里退到缝隙后方的
+  玩家会被落在实体墙背面（扫掠吞人 F5 案）——语义="锁房动作不许把任何人留在
+  墙外"；参考实现与回归锁见 stage_contract C2.5。
+- **`_fit_zoom`（夹紧纯函数）**：战斗 `zoom` 走属性 setter、`after_fight_zoom`
+  在 setup 时消费，两路共用同一式（zoom ≥ 主轴"房间收进视口"比）。此前 after
+  路径裸值消费不夹——after 房一旦宽过视口即把墙推出镜头=无条件出屏。
 
 ### 8.2 QuiverPlayerDetector（玩家触发器）
 
@@ -1115,7 +1125,8 @@ signal player_detected              # 玩家进入区域时发射
 - `player_detected` → `fight_room.setup_fight_room()`
 - `player_detected` → 每个 `enemy_spawner.spawn_current_wave()`
 
-**`_on_body_entered(body)`**: 若 body 在 "players" 分组 → 发射 `player_detected`。
+**`_on_body_entered(body)`**: 若 body 持 `area2d:player` 标签 → 发射
+`player_detected`（2026-09-17 阵营体系定档后不再是 "players" 组）。
 
 ### 8.3 QuiverEnemySpawner（敌人波次生成）
 
@@ -1184,13 +1195,11 @@ LevelCamera (Camera2D)
 
 `min/max` 确保墙壁不会超出相机的硬边界（limit_left/right/top/bottom）。
 
-**`one_way_collision` 方向**:
-- Left: rotation=90°，法线朝右 → 阻挡向左（出屏幕），允许向右（回屏幕）
-- Right: rotation=-90°，法线朝左 → 阻挡向右（出屏幕），允许向左（回屏幕）
-- Top: rotation=180°，法线朝下 → 阻挡向上（出屏幕），允许向下（回屏幕）
-- Bottom: rotation=0°，法线朝上 → 阻挡向下（出屏幕），允许向上（回屏幕）
+**出生帧定位铁律（`_ready` 先摆一次）**: 墙在场景文件里的默认摆位是**相对相机的旧坐标**，而相机是角色的子节点——不先定位，首物理帧 Spawn 点正压在墙体内，实体墙（见下"单向实测裁决"）的穿透弹出会把角色瞬移十几像素起步（stage_contract C7 出生位漂移 + C4/C6 清场 flaky 同源于此）。`_place_collision_limits()` 在 `_ready()` 与 `_process()` 各调一次，`_ready` 先于任何物理帧。
 
-**碰撞层**: 不使用固定 layer，由 `_setup_height_layer_collisions()` 在 `_ready()` 时设置为全高度层 bitmask（通过 `QuiverCharacter.get_all_height_layers_mask()` 获取）。角色的 collision_mask 动态包含当前高度层，因此能自动与屏幕边缘碰撞。
+**`one_way_collision` 实测裁决（2026-09-19）**: **左/右墙 one_way 已移除（实体双向）**。Godot 4.7.1 headless 实证：纵向旋转的单向墙对"从场内顶向墙面"的角色**不产生阻挡**（推进方向与法线关系判定与文档预期相反），即"隐形墙"三缺陷（mask 恒 0 互检、单向不挡、初帧压体）叠加下从未真正挡过人。上下两墙保留原配置（其"跳跃不钩顶"语义与横向出屏无关）。
+
+**碰撞层与掩码**: 不使用固定 layer，由 `_setup_height_layer_collisions()` 在 `_ready()` 时把 layer **与 mask 一并**设为全高度层 bitmask。教训：body↔body（CharacterBody↔StaticBody）碰撞要求**双方 mask/layer 互叠**，高度层重构后角色 body 的 layer 只剩高度位（bit1 players 退役），墙 mask 若停留默认 1 即恒互不可见——隐形墙形同虚设数月无感（弹墙 Area 是单侧检测照常扣血，制造"有伤害没阻挡"的迷惑现场）。
 
 **形状尺寸动态更新**:
 - `_update_collision_limits_length()`: 左右墙壁的长度 = 视口高度/zoom + collision_width；上下墙壁的长度 = 视口宽度/zoom + collision_width
@@ -1225,8 +1234,9 @@ LevelCamera (Camera2D)
 用 Tween 平滑过渡相机的 limits 和 zoom，用于战斗开始时锁定摄像机到战斗区域。
 
 ```gdscript
-func delimitate_room(p_limit_left, p_limit_top, p_limit_right, p_limit_bottom, p_zoom, p_duration):
+func delimitate_room(..., p_duration) -> Tween:
     # Tween 过渡到战斗区域边界（TRANS_QUAD + EASE_IN_OUT）
+    # 返回本次 Tween：调用方（战斗房）挂 finished 做落位收口，见 8.1
 ```
 
 **典型使用场景**: 玩家走进 FightRoom → `QuiverFightRoom.setup_fight_room()` → 调用 `delimitate_room()` → 相机平滑锁定到战斗区域。战斗结束后 `setup_after_fight_room()` 恢复或切换到新区域。

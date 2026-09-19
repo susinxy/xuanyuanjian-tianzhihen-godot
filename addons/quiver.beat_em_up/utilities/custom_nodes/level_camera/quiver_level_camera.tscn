@@ -47,7 +47,6 @@ modulate = Color(0, 0.6, 0.701961, 1)
 position = Vector2(-40, 540)
 rotation = 1.5708
 shape = SubResource("RectangleShape2D_3f0jd")
-one_way_collision = true
 
 [node name="RemoteTransform2d" type="RemoteTransform2D" parent="ScreenLimits/Left"]
 remote_path = NodePath("../../../LeftBounce/LeftBounceShape")
@@ -57,7 +56,6 @@ modulate = Color(0, 0.6, 0.701961, 1)
 position = Vector2(1960, 540)
 rotation = -1.5708
 shape = SubResource("RectangleShape2D_gvifd")
-one_way_collision = true
 
 [node name="RemoteTransform2d" type="RemoteTransform2D" parent="ScreenLimits/Right"]
 remote_path = NodePath("../../../RightBounce/RightBounceShape")

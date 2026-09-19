@@ -17,11 +17,11 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 27 + 全序列 1 = 112
-##（C 段实测 27：C7 同场景重载修复给 restored/consumed 拆了独立等待断言；
+## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 29 + 全序列 1 = 114
+##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
-const EXPECTED_ASSERTS := 112
+const EXPECTED_ASSERTS := 114
 
 var _fails := 0
 var _finished := false
@@ -469,6 +469,24 @@ func _flow_c() -> void:
 			bodies += 1
 	_check(bodies == 1, "C2 波次敌人已刷出（IN_PLACE 1 只身体，实际 %d）" % bodies)
 
+	# —— C2.5 锁房落位收口（扫掠吞人契约，2026-09-19 批）——
+	# 真实地形：chen 出生点 300 本就落在房1左墙(380)外侧，锁房过渡期间
+	# 往回退即可溜到单向墙背面走出镜头。契约=过渡完成后界外玩家自动钳回。
+	var chen2 := _stage_chen()
+	chen2.global_position = Vector2(300, 600)
+	var room1 := _cs().get_node("FightRooms/Room1") as QuiverFightRoom
+	room1.setup_fight_room()
+	var pulled: bool = await _wait_until(func():
+			return chen2.global_position.x >= 380.0, 240)
+	_check(pulled, "C2.5 锁房收口：界外玩家在过渡完成后钳回界内（x=%.0f）"
+			% chen2.global_position.x)
+	# 稳态阻挡双证：钳回后向左全速顶墙 90 帧，不得再出界
+	Input.action_press("move_left")
+	await _frames(90)
+	Input.action_release("move_left")
+	_check(chen2.global_position.x >= 380.0,
+			"C2.5 稳态顶墙不再出界（x=%.0f）" % chen2.global_position.x)
+
 	# —— C3 清房1（聚合与解锁） ——
 	var cleared1: bool = await _clear_until(1)
 	_check(cleared1, "C3 房1清场→room_cleared（全灭→解锁链在真场景走通）")
@@ -545,7 +563,6 @@ func _flow_c() -> void:
 	_check(restored, "C7 按压回跳 B（同场景重载真转场）")
 	var consumed: bool = await _wait_until(func():
 			return GameEvents.pending_jump_stage == "", 240)
-	await _frames(4)
 	_check(not get_tree().paused, "C7 回跳后树已解冻（unpause 前置铁律回归）")
 	_check(is_equal_approx(_stage_chen().global_position.x, 300.0),
 			"C7 玩家回出生位（场景重载语义，实际 x=%.0f）" % _stage_chen().global_position.x)

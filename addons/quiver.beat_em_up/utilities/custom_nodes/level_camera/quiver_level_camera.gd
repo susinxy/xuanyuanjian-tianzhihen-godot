@@ -42,10 +42,21 @@ func _ready() -> void:
 	_update_collision_limits_length()
 	get_viewport().size_changed.connect(_update_collision_limits_length)
 	_setup_height_layer_collisions()
-	pass
+	# 出生帧定位铁律：墙在场景文件里的默认摆位是相对相机的老坐标，相机又是
+	# 角色的子节点——不先定位，首物理帧 Spawn 点会正压在墙体内，实体墙
+	# （2026-09-19 去 one_way 后）的穿透弹出把角色瞬移十几像素起步
+	# （stage_contract C7 出生位漂移案实证）。_ready 先于任何物理帧执行。
+	_place_collision_limits()
 
 
 func _process(_delta: float) -> void:
+	_place_collision_limits()
+	if _tween and _tween.is_running():
+		_update_collision_limits_length()
+
+
+## 四块隐形墙贴视口边定位（原 _process 内联体，抽出供 _ready 先摆一次）。
+func _place_collision_limits() -> void:
 	for limit in _collision_limits:
 		var half_collision_width := collision_width * Vector2.ONE /2.0
 		var half_size := get_viewport_rect().size / zoom / 2.0 + half_collision_width
@@ -69,18 +80,17 @@ func _process(_delta: float) -> void:
 		
 		limit.global_position = target_position
 	
-	if _tween and _tween.is_running():
-		_update_collision_limits_length()
-
 ### -----------------------------------------------------------------------------------------------
 
 
 ### Public Methods --------------------------------------------------------------------------------
 
+## 过渡镜头六参数到目标值。返回本次 Tween，调用方可挂 finished 做落位收尾
+## （战斗房用它把"锁房期间被扫掠墙落在界外"的玩家钳回界内——扫掠吞人对策）。
 func delimitate_room(
 		p_limit_left: int, p_limit_top: int, p_limit_right: int, p_limit_bottom: int,
 		p_zoom: float, p_duration: float
-) -> void:
+) -> Tween:
 	if _tween:
 		_tween.kill()
 	_tween = create_tween().set_parallel().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
@@ -90,6 +100,7 @@ func delimitate_room(
 	_tween.tween_property(self, "limit_top", p_limit_top, p_duration)
 	_tween.tween_property(self, "limit_right", p_limit_right, p_duration)
 	_tween.tween_property(self, "limit_bottom", p_limit_bottom, p_duration)
+	return _tween
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -99,6 +110,11 @@ func delimitate_room(
 func _setup_height_layer_collisions() -> void:
 	var height_mask := QuiverCharacter.get_all_height_layers_mask()
 	$ScreenLimits.collision_layer = height_mask
+	# 墙体间（CharacterBody↔StaticBody）碰撞要求两侧 mask/layer 互叠。
+	# 高度层重构后角色 body 的 layer 只剩高度位（不再含 bit1 players），而本
+	# 节点 mask 从未配置、停在默认 1 → 互检恒零 → 相机隐形墙物理上从未挡人
+	# （2026-09-19"走出镜头"F5 案真凶；弹墙 Area 受害是单侧检测所以能扣血）。
+	$ScreenLimits.collision_mask = height_mask
 	$LeftBounce.collision_layer = height_mask
 	$RightBounce.collision_layer = height_mask
 
