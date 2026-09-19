@@ -10,6 +10,13 @@ extends Camera2D
 
 #--- constants ------------------------------------------------------------------------------------
 
+## 弹墙带领先实墙的深度（px，向场内）：带盒 = [面+20, 面+100]（带宽与墙厚同为
+## collision_width，中心+100 即外沿留 20 贴墙、内沿探入 100）。此深度保证
+## "受击盒跨入带"的 enter 事件至少早于身体撞墙 2 物理帧（触发余量 ≥65+探出量，
+## 最大弹速 2000px/s 每帧仅 33px）——镜像弹回拿到的永远是未被墙清零的完整
+## 撞击速度（2026-09-19 弹墙终案：带墙同心=输入被引擎销毁，带墙分离=各司其职）。
+const BAND_INSET := 100.0
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 @export_range(0,1,1,"or_greater") var collision_width := 80.0:
@@ -23,6 +30,11 @@ extends Camera2D
 @onready var _limit_right := $ScreenLimits/Right as CollisionShape2D
 @onready var _limit_top := $ScreenLimits/Top as CollisionShape2D
 @onready var _limit_bottom := $ScreenLimits/Bottom as CollisionShape2D
+
+@onready var _bounce_left := $LeftBounce as Area2D
+@onready var _bounce_right := $RightBounce as Area2D
+@onready var _bounce_top := $TopBounce as Area2D
+@onready var _bounce_bottom := $BottomBounce as Area2D
 
 @onready var _collision_limits: Array[CollisionShape2D] = [
 	_limit_left,
@@ -80,6 +92,14 @@ func _place_collision_limits() -> void:
 		
 		limit.global_position = target_position
 	
+	# 弹墙带"带内墙外"分离摆位：带中心=对应墙中心向场内 BAND_INSET。
+	# 旧形态经 RemoteTransform2D 把带钉死在墙心（带墙同心），撞墙清零永远
+	# 先于带的命中事件，弹墙镜像拿到的输入恒为 0——RT2D 已删，改由此处统一摆。
+	_bounce_left.global_position = _limit_left.global_position + Vector2(BAND_INSET, 0)
+	_bounce_right.global_position = _limit_right.global_position + Vector2(-BAND_INSET, 0)
+	_bounce_top.global_position = _limit_top.global_position + Vector2(0, BAND_INSET)
+	_bounce_bottom.global_position = _limit_bottom.global_position + Vector2(0, -BAND_INSET)
+	
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -117,6 +137,8 @@ func _setup_height_layer_collisions() -> void:
 	$ScreenLimits.collision_mask = height_mask
 	$LeftBounce.collision_layer = height_mask
 	$RightBounce.collision_layer = height_mask
+	$TopBounce.collision_layer = height_mask
+	$BottomBounce.collision_layer = height_mask
 
 
 func _update_collision_limits_width() -> void:

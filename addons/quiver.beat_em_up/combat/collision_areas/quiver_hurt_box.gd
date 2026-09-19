@@ -187,14 +187,10 @@ func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
 	if not character_attributes.in_knockout:
 		return
 	CombatSystem.apply_damage(wall_hit_box.attack_data, character_attributes)
-	# 反弹方向=背离墙心的一侧（身体贴墙即被实体清零速度，"反射现有速度"
-	# 拿不到可用输入——C3.5 红档实证 flip 时刻 vx=0）；大小由击飞链侧
-	# 记存的本次起飞水平动能提供。
-	var dir := 1.0
-	var body := character_attributes.character_node
-	if body != null:
-		dir = 1.0 if body.global_position.x >= wall_hit_box.global_position.x else -1.0
-	character_attributes.wall_bounced.emit(dir)
+	# 镜像轴是墙自带数据（左右墙 UP=翻水平、上下墙 RIGHT=翻竖直），判定端
+	# 不做任何几何发明；击飞链据此对"尚未被实体墙清零"的完整撞击速度做真镜像
+	# （带墙分离布局保证命中先于碰撞，见 QuiverLevelCamera.BAND_INSET）。
+	character_attributes.wall_bounced.emit(wall_hit_box.mirror_axis)
 
 
 func _handle_grab_box(grab_box: QuiverGrabBox) -> void:

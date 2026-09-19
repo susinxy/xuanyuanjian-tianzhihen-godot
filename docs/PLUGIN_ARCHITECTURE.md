@@ -315,7 +315,7 @@ signal mana_changed            # 法力值变化
 signal mana_depleted           # 法力值归零
 signal hurt_requested(knockback: QuiverKnockbackData)     # 被击中，请求硬直动画
 signal knockout_requested(knockback: QuiverKnockbackData)  # 请求击飞
-signal wall_bounced(bounce_direction)  # 撞墙反弹（携带几何方向：+1东/−1西）
+signal wall_bounced(mirror_axis: Vector2)  # 撞墙反弹（携带被撞墙的镜像轴：左右墙 UP / 上下墙 RIGHT）
 signal grab_requested(grabbed_character: QuiverAttributes)  # 请求抓取
 signal grab_released           # 释放抓取
 signal grabbed(ground_level: float)     # 被抓住
@@ -739,9 +739,9 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
   重复喊无副作用）、`exit()` 归零——弹墙结算与死亡分支泄漏的闭环全在此，详见
   7.3 墙壁反弹机制
 - 监听 `hurt_requested / knockout_requested / wall_bounced` 三信号做链内再起飞/
-  反弹（`wall_bounced(dir)` → `transition_to(Launch, {is_wall_bounce, bounce_dir})`；
-  弹回速度为**注入**——实体墙贴墙瞬间 vx 已被碰撞清零，反射现值=空转；大小取链父
-  记存的本次起飞水平速度 `_launch_speed_x`，方向由受击盒按墙心几何判定）
+  反弹（`wall_bounced(mirror_axis)` → `transition_to(Launch, {is_wall_bounce, mirror_axis})`
+  → Launch 对速度做**真镜像** `velocity.reflect(axis)`；镜像输入=完整撞击速度这一
+  时序前提由"带内墙外"几何保证（见 8.4 带墙分离摆位），不靠任何注入或记存）
 - `_handle_bounce()`：触地即 `velocity.x=0`（A3 甲案落地即停）+ 转 Bounce
 
 **皮肤侧配套（审计教训 2026-09-19）**：AnimTree 的 `knockout_ground` 节点**不是**
@@ -934,7 +934,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 
 | 进入的 Area | 方法 | 后续 |
 |---|---|---|
-| `WallHitBox` | `_handle_wall_hit_box()` | **先过 `in_knockout` 状态门**（链外静默免结算）→ 放行时 `apply_damage(墙 attack_data)` + `wall_bounced` 信号 |
+| `WallHitBox` | `_handle_wall_hit_box()` | **先过 `in_knockout` 状态门**（链外静默免结算）→ 放行时 `apply_damage(墙 attack_data)` + `wall_bounced(墙.mirror_axis)` |
 | `QuiverHitBox` | `_handle_hit_box()` | `apply_damage` + `apply_knockback` |
 | `QuiverGrabBox` | `_handle_grab_box()` | `grab_requested` 信号 |
 
@@ -977,7 +977,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - `_handle_grab_box()` 同样使用此检查
 - QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制
 
-**墙壁反弹机制**（`in_knockout` 状态门，2026-09-19 定档）:
+**墙壁反弹机制**（`in_knockout` 门 + 带墙分离 + 真镜像，2026-09-19 终案）:
 - **墙不是阵营**：角色盒子与墙盒都不挂任何 `area2d:` 组（旧 `area2d:wall`
   伪阵营机制全链退役——它因缓存失同步导致"走路贴墙掉血"F5 案，且三处溃伤在案）
 - `QuiverAttributes.in_knockout`：击飞链生命周期旗，**唯一写入者**是击飞链父
@@ -986,12 +986,16 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
   无泄漏路径；实例重建天然为假
 - `QuiverHurtBox._handle_wall_hit_box()` 进门先过这道门：链外（走路/受击/起身）
   贴相机弹墙带**静默免结算**；链内撞墙才结算 `apply_damage(墙 attack_data)` +
-  `wall_bounced.emit(dir)`（击飞状态监听 → 注入反弹速度复飞）
+  `wall_bounced.emit(墙.mirror_axis)`（击飞状态监听 → 真镜像复飞）
 - 前置条件归处理器自持（与本文件 `_can_be_attacked_by` 家族同款分工），
   `_on_area_entered` 保持纯类型路由
+- **reflect 语义真值表**（引擎源码 `2(v·n)n−v`，knockout_contract D7 断言在引擎里
+  钉死）：`reflect(UP)` 以竖轴为镜像→翻水平分量（左右墙用）；`reflect(RIGHT)` 以横轴
+  为镜像→翻竖直分量（上下墙用）。镜像轴是**墙自带数据**（WallHitBox.mirror_axis
+  导出），判定端零几何发明——上游原行 `reflect(Vector2.UP)` 对竖墙本就正确
 - 回归锁：`knockout_contract` D 段（真实 Area2D 物理重叠级：链外免伤/链内
-  扣血反弹/出链复位/旁观者零误伤/组纯度哨兵），fixture
-  `tools/knockout_contract/wall_band.tscn`
+  扣血反弹/出链复位/旁观者零误伤/组纯度哨兵/reflect 真值表(D7)/带墙分离几何锁(D8)），
+  fixture `tools/knockout_contract/wall_band.tscn`；端到端弹回：stage_contract C3.5
 
 ### 7.4 QuiverAttackData（攻击数据）
 
@@ -1164,7 +1168,9 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 
 **四个核心职责**:
 1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D（角色无法走出屏幕边缘）
-2. **墙壁反弹检测**: LeftBounce/RightBounce Area2D，通过 RemoteTransform2D 与屏幕边缘同步
+2. **墙壁反弹检测（四带环）**: Left/Right/Top/BottomBounce 四枚 WallHitBox Area2D，
+   `_place_collision_limits()` 统一摆位="带在内、墙在外"（带中心领先墙心 BAND_INSET=100px
+   向场内），命中必然早于身体撞墙 ≥2 物理帧
 3. **`delimitate_room()`**: 平滑过渡摄像头边界到指定区域（用 Tween）
 4. **高度层碰撞初始化**: `_ready()` 时调用 `QuiverCharacter.get_all_height_layers_mask()` 设置碰撞层
 
@@ -1172,17 +1178,15 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 
 ```
 LevelCamera (Camera2D)
-├── ScreenLimits (StaticBody2D, visible=false)
-│   ├── Left (CollisionShape2D, 竖直长条, one_way_collision, rotation=90°)
-│   │   └── RemoteTransform2D → LeftBounce/LeftBounceShape
-│   ├── Right (CollisionShape2D, 竖直长条, one_way_collision, rotation=-90°)
-│   │   └── RemoteTransform2D → RightBounce/RightBounceShape
-│   ├── Top (CollisionShape2D, 水平长条, one_way_collision, rotation=180°)
-│   └── Bottom (CollisionShape2D, 水平长条, one_way_collision, rotation=0°)
-├── LeftBounce (Area2D, WallHitBox, 无阵营组——墙不参与阵营系统)
-│   └── LeftBounceShape (CollisionShape2D)
-└── RightBounce (Area2D, WallHitBox, 无阵营组)
-    └── RightBounceShape (CollisionShape2D)
+├── ScreenLimits (StaticBody2D, visible=false, layer+mask=全高度层)
+│   ├── Left  (CollisionShape2D, 竖直实体墙, rotation=90°)       ← 无 one_way（4.7.1 实测纵向单向墙不挡人）
+│   ├── Right (CollisionShape2D, 竖直实体墙, rotation=-90°)      ← 同上
+│   ├── Top   (CollisionShape2D, 水平墙, one_way, rotation=180°) ← 横墙是 one_way 标准场景，保留
+│   └── Bottom(CollisionShape2D, 水平墙, one_way, rotation=0°)
+├── LeftBounce  (Area2D, WallHitBox, mirror_axis=UP,    attack_damage=5) ┐
+├── RightBounce (Area2D, WallHitBox, mirror_axis=UP,    attack_damage=5) │ 四带环：脚本摆位
+├── TopBounce   (Area2D, WallHitBox, mirror_axis=RIGHT, attack_damage=5) │ = 对应墙心向场内
+└── BottomBounce(Area2D, WallHitBox, mirror_axis=RIGHT, attack_damage=5) ┘   100px（带内墙外）
 ```
 
 #### 屏幕边缘碰撞墙（ScreenLimits）
@@ -1209,14 +1213,23 @@ LevelCamera (Camera2D)
 - 视口大小变化时自动更新（`size_changed` 信号）
 - Tween 过渡期间也持续更新
 
-#### 墙壁反弹检测（LeftBounce/RightBounce）
+#### 墙壁反弹检测（四弹墙带环，2026-09-19 终案）
 
-两个 Area2D（WallHitBox 脚本），位于屏幕左右边缘，检测角色被击飞后撞墙。
-自带 `attack_data`（`attack_damage=5`）= **击飞撞墙的扣血定价（设计保留）**。
+四枚 Area2D（WallHitBox 脚本）沿屏幕四边缘闭合成环，检测角色被击飞后撞墙。
+每枚自带 `attack_data`（`attack_damage=5`）= **击飞撞墙的扣血定价（设计保留）**，
+并自带 `mirror_axis`（左右带=UP、上下带=RIGHT）= **该面墙把速度镜像哪个分量**。
 
-**位置同步**: 通过 `RemoteTransform2D` 将 ScreenLimits/Left(Right) 的位置复制给 LeftBounce/RightBounce 的 CollisionShape2D。ScreenLimits 每帧移动 → RemoteTransform2D 自动同步 → 反弹检测始终在屏幕边缘。
+**带墙分离摆位（治本）**: 旧形态用 RemoteTransform2D 把带钉死在墙心（带墙同心），
+身体撞实体墙被引擎清零速度的那一瞬，同帧才派发带命中事件 → 镜像拿到的输入恒为 0。
+（案卷：上游模板的带在纯 one_way 假墙世界里恰好永远拿得到完整速度，其
+`reflect(Vector2.UP)` 本就正确；本仓库实体化后才暴露时序矛盾——期间曾被误诊为
+"上游恒等变换缺陷"并做过"注入记存速度"的弯路，均已由几何治本取代。）现已删 RT2D，
+由 `_place_collision_limits()` 统一摆位：**带中心 = 墙中心向场内 BAND_INSET(100px)**，
+带盒占 [面+20, 面+100]。触发余量 ≥65px+受击盒探出量，对最大弹速 2000px/s
+（33px/帧）保有 ≥2 物理帧提前量——**命中永远先于碰撞，镜像输入完整**。
+几何锁：knockout_contract D8。
 
-**碰撞层**: 同 ScreenLimits，使用全高度层 bitmask。
+**碰撞层**: 同 ScreenLimits，使用全高度层 bitmask（四带由 `_setup_height_layer_collisions()` 归置）。
 
 **反弹流程**（状态生命周期驱动，2026-09-19 改版）:
 1. 角色被击飞 → `CombatSystem` 分发 → transition 到 `Air/Knockout/Launch`
@@ -1225,13 +1238,11 @@ LevelCamera (Camera2D)
    launch/landed 动画轨道已退役删除）
 3. 角色 HurtBox 进入 LeftBounce/RightBounce 检测范围（墙挂全高度层，被动可测）
 4. `_on_area_entered()` 类型分派 → `_handle_wall_hit_box()` → `in_knockout` 门放行
-5. 结算：`apply_damage(5)` + `wall_bounced.emit()`
-6. 击飞链监听 `wall_bounced(dir)` → transition 回 Launch（`is_wall_bounce`+`bounce_dir`）
-   → **注入**背离墙面的水平速度（大小=本次起飞的记存值 `_launch_speed_x`，缺失兜底
-   600）复飞；弹跳/再受击期间旗恒开（父 enter 幂等）。
-   上游原行 `reflect(Vector2.UP)` 查档定性：对"纵向走皮肤通道"的击飞体系是恒等
-   变换（上下游同然），且实体墙修好后 flip 时刻 vx 已被清零——两重失效叠加，
-   "撞墙弹回"在原始模板里从来只演不弹（2026-09-19 A 案定档，stage_contract C3.5 锁）
+5. 结算：`apply_damage(5)` + `wall_bounced.emit(墙.mirror_axis)`
+6. 击飞链监听 → transition 回 Launch（`is_wall_bounce`+`mirror_axis`）→
+   `velocity.reflect(axis)` **真镜像**复飞（左右墙翻水平/上下墙翻竖直；幅值守恒=
+   恢复系数 1，上游原语义）；弹跳/再受击期间旗恒开（父 enter 幂等）。
+   端到端锁：stage_contract C3.5（向西击飞→触带→镜像向东→弹回场心落地）
 7. 链自然走完（Bounce 落地→Recovery 或死亡→Die）→ `Knockout.exit()` → 旗归零，
    恢复"贴墙免结算"。**空中死亡泄漏洞**（旧机制 die 分支无人关窗）由第 7 步封死。
 

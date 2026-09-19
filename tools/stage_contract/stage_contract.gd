@@ -507,7 +507,7 @@ func _flow_c() -> void:
 	var chen3 := _stage_chen()
 	chen3.global_position = Vector2(700, 600)
 	var wall_hits := {"n": 0}
-	chen3.attributes.wall_bounced.connect(func(_dir): wall_hits.n += 1)
+	chen3.attributes.wall_bounced.connect(func(_axis): wall_hits.n += 1)
 	var kb3 := QuiverKnockbackData.new(2000.0, CombatSystem.HurtTypes.HIGH,
 			Vector2(-0.866, -0.5))
 	CombatSystem.apply_knockback(kb3, chen3.attributes)
@@ -530,7 +530,7 @@ func _flow_c() -> void:
 	_check(bounced and wall_hits.n == 1,
 			"C3.5 向西击飞触带：wall_bounced 恰一次（计数 %d）" % wall_hits.n)
 	_check(chen3.velocity.x > 0.0,
-			"C3.5 触墙后反弹速度注入向东（vx=%.0f）" % chen3.velocity.x)
+			"C3.5 触墙后真镜像翻向东（vx=%.0f）" % chen3.velocity.x)
 	var settled: bool = await _wait_until(func():
 			return str(chen3.state_machine.state_name) == "Ground/Recovery", 240)
 	_check(settled and chen3.global_position.x > 520.0,

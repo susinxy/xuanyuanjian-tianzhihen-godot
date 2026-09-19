@@ -181,10 +181,21 @@ func _flow() -> void:
 ## 两条件互斥无解，只能走场景实例（场景内非根节点 owner=场景根）。
 const WALL_FIXTURE := "res://tools/knockout_contract/wall_band.tscn"
 
+const CAMERA_SCENE := "res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn"
+
 func _make_wall() -> WallHitBox:
 	var rig := (load(WALL_FIXTURE) as PackedScene).instantiate()
 	add_child(rig)
 	return rig.get_node("Wall") as WallHitBox
+
+
+## 带相对墙的"向场内领先距离"：带墙位移在指场内单位向量上的投影。
+func _band_lead(cam: Node, wall_path: String, band_path: String, inward: Vector2) -> float:
+	var w := cam.get_node_or_null(wall_path) as Node2D
+	var b := cam.get_node_or_null(band_path) as Node2D
+	if w == null or b == null:
+		return -1.0
+	return (b.global_position - w.global_position).dot(inward)
 
 
 func _find_hurtbox(ch: QuiverCharacter) -> QuiverHurtBox:
@@ -203,7 +214,7 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 			"D6 受击盒有真阵营且零 wall 残留")
 
 	var bounces := {"n": 0}
-	spar.attributes.wall_bounced.connect(func(_dir): bounces.n += 1)
+	spar.attributes.wall_bounced.connect(func(_axis): bounces.n += 1)
 	# 起身无敌帧纪律备案：Recovery 系动画带 attributes:is_invulnerable 值轨
 	# （设计=起身保护窗口，CombatSystem.apply_knockback 入口直接吞交易）。
 	# D2 的破线拳必须等回到 Idle 再发，否则被保护窗正确拦截（首跑实锤）。
@@ -263,6 +274,28 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 			"D5 链外再贴+旁观者免伤（弹计数保持 %d）" % bounces.n)
 	remove_child(rig)
 	rig.queue_free()
+
+	# D7 reflect 语义引擎真值表（2026-09-19 弹墙终案卷的永久钉）：
+	# reflect(n)=2(v·n)n−v 翻转“垂直于 n”的分量——左右竖墙配 UP 翻水平、
+	# 上下横墙配 RIGHT 翻竖直。谁再凭文档措辞推理这两行，先来看看这条断言。
+	_check(Vector2(100, -50).reflect(Vector2.UP) == Vector2(-100, -50),
+			"D7 reflect(UP)=以竖轴为镜像翻水平分量")
+	_check(Vector2(100, -50).reflect(Vector2.RIGHT) == Vector2(100, 50),
+			"D7 reflect(RIGHT)=以横轴为镜像翻竖直分量")
+
+	# D8 带墙分离几何锁：真实相机场景四带=墙心向场内 100px（带内墙外，
+	# 命中必早于撞墙 ≥2 物理帧）——带墙同心旧布局若回潮，此断言当场红。
+	var cam_rig: Node = (load(CAMERA_SCENE) as PackedScene).instantiate()
+	add_child(cam_rig)
+	await _frames(2)
+	var d_l := _band_lead(cam_rig, "ScreenLimits/Left", "LeftBounce", Vector2.RIGHT)
+	var d_r := _band_lead(cam_rig, "ScreenLimits/Right", "RightBounce", Vector2.LEFT)
+	var d_t := _band_lead(cam_rig, "ScreenLimits/Top", "TopBounce", Vector2.DOWN)
+	var d_b := _band_lead(cam_rig, "ScreenLimits/Bottom", "BottomBounce", Vector2.UP)
+	_check(d_l > 90.0 and d_r > 90.0 and d_t > 90.0 and d_b > 90.0,
+			"D8 四带均领先对应墙 ≥90px（带墙分离，%.0f/%.0f/%.0f/%.0f）"
+			% [d_l, d_r, d_t, d_b])
+	cam_rig.queue_free()
 
 
 func _get_skin(ch: QuiverCharacter) -> CanvasItem:

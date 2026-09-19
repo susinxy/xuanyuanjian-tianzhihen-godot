@@ -13,6 +13,12 @@ extends QuiverHitBox
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
+## 弹墙镜像轴（数据在墙上，判定端零发明）：reflect(n) 依引擎源码为 2(v·n)n−v，
+## 翻转**垂直于 n** 的分量——左/右竖墙配 Vector2.UP（翻水平），上/下横墙配
+## Vector2.RIGHT（翻竖直）。语义由 knockout_contract D6 真值表断言在引擎里钉死
+## （2026-09-19 弹墙终案，上游原行 reflect(Vector2.UP) 至此恢复并四边补全）。
+@export var mirror_axis: Vector2 = Vector2.UP
+
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 ### -----------------------------------------------------------------------------------------------

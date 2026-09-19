@@ -11,9 +11,6 @@ extends QuiverCharacterAction
 
 #--- constants ------------------------------------------------------------------------------------
 
-## 撞墙弹回的兜底水平速度（记存值异常缺失时用；正常路径永远被起飞值覆盖）。
-const REBOUND_FALLBACK_SPEED := 600.0
-
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 #--- private variables - order: export > normal var > onready -------------------------------------
@@ -68,19 +65,16 @@ func enter(msg: = {}) -> void:
 	if msg.has("launch_vector"):
 		_knockout_state._launch_charater(impulse, msg.launch_vector)
 	elif msg.has("is_wall_bounce") and msg.is_wall_bounce:
-		# 撞墙反弹（A 案定档 2026-09-19）。两行旧账：①上游原行 reflect(
-		# Vector2.UP) 翻的是恒≈0 的身体竖直分量，对水平飞行是恒等变换（上下游
-		# 逐字查档同判，"弹回"从来只演不弹）；②实体墙修好后贴墙瞬间速度已被
-		# 碰撞清零，"取反现有 vx"同样空转（C3.5 红档实证 flip 时刻 vx=0）。
-		# 正解=注入反弹：方向取受击盒按墙心几何判定的 bounce_dir，大小取本次
-		# 起飞的水平记存值（异常缺值按兜底常数），皮肤起落通道原样保留。
-		var rebound := _knockout_state._launch_speed_x
-		if rebound <= 0.0:
-			rebound = REBOUND_FALLBACK_SPEED
-		var dir := 1.0
-		if msg.has("bounce_dir") and msg.bounce_dir < 0.0:
-			dir = -1.0
-		_character.velocity.x = rebound * dir
+		# 撞墙真镜像弹回（2026-09-19 终刀，恢复上游语义并四边补全）。
+		# reflect(n)=2(v·n)n−v 翻转垂直于 n 的分量：左右竖墙 n=UP→翻水平、
+		# 上下横墙 n=RIGHT→翻竖直——轴由被撞的墙经信号带来（上游原行写死
+		# UP 对竖墙本就正确；当年"不弹"真因是带墙同心、实体碰撞先把输入清零，
+		# 案卷详见 PLUGIN_CHANGES 与 knockout_contract D7 引擎真值表断言）。
+		# 弹墙带"带内墙外"分离布局保证此刻 velocity 仍是完整撞击速度。
+		var axis: Vector2 = Vector2.UP
+		if msg.has("mirror_axis"):
+			axis = msg.mirror_axis
+		_character.velocity = _character.velocity.reflect(axis)
 	else:
 		assert(false, "No launch vector received on launch state.")
 		# The code above will error out in the editor, and the code below will allow the game

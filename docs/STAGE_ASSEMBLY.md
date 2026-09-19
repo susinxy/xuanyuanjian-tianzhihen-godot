@@ -58,6 +58,11 @@
       界外**（参考关 A/B 的 300<380 即如此）时，玩家首次锁房结束会被拉一把
       位置——不想要的装配就把出生点摆进首房左界之内。隐形墙三连修（mask
       双向/左右实体/_ready 初帧定位）背景见 PLUGIN_ARCHITECTURE 相机章。
+- [ ] **j. 关卡侧"伤人弹墙道具"若用 WallHitBox：带内墙外、轴匹配、带领先量**。
+      弹墙带（Area）必须摆在实体墙（StaticBody）的场内一侧且领先 ≥2 物理帧行程
+      （相机四带的 BAND_INSET=100 即此法）——带墙同心时，撞墙清零先于带命中，
+      镜像拿到恒 0 输入；`mirror_axis` 按墙面朝向配（竖墙 UP、横墙 RIGHT）。
+      参考实现=quiver_level_camera；几何锁=knockout_contract D8。
 
 ## 三、上游禁抄项（template-beat-em-up 旧制，本项目已有替代）
 

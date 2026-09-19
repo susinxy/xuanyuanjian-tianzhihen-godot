@@ -25,9 +25,9 @@ signal mana_changed
 signal mana_depleted
 signal hurt_requested(knockback: QuiverKnockbackData)
 signal knockout_requested(knockback: QuiverKnockbackData)
-## 撞墙反弹（A 案定档 2026-09-19）：携带几何反弹方向（+1=弹向东、-1=弹向西，
-## 由受击盒按"身体在墙面哪一侧"判定）——实体墙贴墙即清零速度，方向只能问几何。
-signal wall_bounced(bounce_direction: float)
+## 撞墙反弹（2026-09-19 终案）：携带被撞那面墙的镜像轴（WallHitBox.mirror_axis），
+## 击飞链据此对速度做真镜像；仅击飞链内有此事件（in_knockout 门在受击盒侧）。
+signal wall_bounced(mirror_axis: Vector2)
 signal grab_requested(grabbed_character: QuiverAttributes)
 signal grab_released
 signal grabbed(ground_level: float)
