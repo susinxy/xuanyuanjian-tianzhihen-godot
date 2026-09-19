@@ -37,6 +37,19 @@ func is_in_same_lane_as(defender: QuiverAttributes, attacker: QuiverAttributes) 
 	return value
 
 
+## 受击"列"判定（2026-09-19 车道换轴批）：纵向攻击时双方比对 x（同列容忍），
+## 窗口家族同款（lane_size±hit_lane_offset，中心由防守方给出）。x 坐标取双方
+## 碰撞盒节点的 global x：x 无跳跃漂浮（Y 才必须用 ground_level），攻击盒挂载
+## 位带 ≤16px 姿态偏置，对 60px 窗口属噪声级。
+func is_in_same_column_as(
+		defender: QuiverAttributes,
+		attacker: QuiverAttributes,
+		defender_x: float,
+		attacker_x: float
+) -> bool:
+	return defender.get_hit_lane_limits(defender_x).is_value_inside_lane(attacker_x)
+
+
 func apply_damage(attack: QuiverAttackData, target: QuiverAttributes) -> void:
 	if target.is_invulnerable:
 		return

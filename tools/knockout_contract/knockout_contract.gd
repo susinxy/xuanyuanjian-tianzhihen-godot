@@ -296,7 +296,7 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 	# 带内沿入线仅 20px、墙面外挪 35px 处拦人（线−60+…）——参数调档须连读此锁。
 	_check(d_l > 74.0 and d_r > 74.0 and d_t > 74.0 and d_b > 74.0
 			and d_l < 90.0 and d_r < 90.0 and d_t < 90.0 and d_b < 90.0,
-			"D8 带墙间距=80±定和合规（实测 %.0f/%.0f/%.0f/%.0f）"
+			"D8 带墙间距横竖两档定和合规[74,90)（实测 %.0f/%.0f/%.0f/%.0f）"
 			% [d_l, d_r, d_t, d_b])
 	cam_rig.queue_free()
 

@@ -285,7 +285,9 @@ func _build_ui() -> void:
 	hbox_hit_lane.add_child(_hit_lane_offset_spin)
 	add_child(hbox_hit_lane)
 	var hit_lane_hint := Label.new()
-	hit_lane_hint.text = "调整攻击的Y轴判定范围（正值扩大，负值缩小）"
+	hit_lane_hint.text = (
+			"调整受击车道窗口（垂直于攻击方向的轴：横攻比排/纵攻比列；正扩负缩）"
+	)
 	hit_lane_hint.add_theme_color_override("font_color", Color.GRAY)
 	hit_lane_hint.add_theme_font_size_override("font_size", 12)
 	# ==== 出生属性扩容区（2026-09-18 面板=唯一真相批）====

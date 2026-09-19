@@ -10,15 +10,18 @@ extends Camera2D
 
 #--- constants ------------------------------------------------------------------------------------
 
-## 实体墙外挪量（px）：墙面从"房界∧视口沿"取紧者再向界外挪 O——角色贴墙停住时
-## 身体中心≈线−O+半身宽（负值=越线出镜），"被拦住"的观感保留、场内空间完整还给玩法。
-const WALL_OUTSET := 60.0
+## 实体墙外挪量（px，分横竖两档）：墙面=房界∧视口沿取紧者再向界外挪 O，
+## 贴墙停位=线−O+半身半深——左右档 O=60 出界~3/4（用户 2026-09-19 F5 定档），
+## 上下档 O=30 收敛到 ~2/3（竖直向是深度轴，出界观感更抢画面，故收紧）。
+const WALL_OUTSET_LR := 60.0
+const WALL_OUTSET_TB := 30.0
 
-## 弹墙带场内探出量（px）：带盒=[线+b−80, 线+b]（内沿只入线 b）。
-## 命中提前量预算由 b 与 O 分摊（定和 ≥74）：触发余量 = b+O−受击盒内缩(8)
-## ≥ 2 物理帧 × 最大弹速步 33.3px（2000px/s÷60）。现值 20+60=80 → 余量 72px=2.2 帧。
+## 弹墙带场内探出量（px，分横竖两档）：带内沿=线+b。命中提前量预算 b+O 定和
+## ≥74（触发余量 = b+O−受击盒内缩(8) ≥ 2 物理帧 × 最大弹速步 33.3px@2000px/s÷60）：
+## 横档 20+60=80、竖档 45+30=75（竖直向弹速远低于水平，75 已含双倍余量）。
 ## 带墙同心旧案（镜像输入被墙清零）与本常数家族同源——改任一值须同步 D8 几何锁。
-const BAND_REACH := 20.0
+const BAND_REACH_LR := 20.0
+const BAND_REACH_TB := 45.0
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -72,7 +75,7 @@ func _process(_delta: float) -> void:
 
 ## 四面墙+四弹墙带统一定位（_ready 与 _process 各跑，先于任何物理帧）。
 ## 每面"线"= min/max(房界, 视口沿) 的取紧者（与旧公式同语义）；
-## 墙盒外挪 WALL_OUTSET、带盒内探 BAND_REACH——带墙肩并肩不重叠（旧 RT2D
+## 墙盒外挪 WALL_OUTSET_*、带盒内探 BAND_REACH_*（横竖两档）——带墙肩并肩不重叠（旧 RT2D
 ## 同心布局让撞墙清零永远先于带命中，镜像输入恒 0，2026-09-19 终案废除）。
 func _place_collision_limits() -> void:
 	var half_col := collision_width / 2.0
@@ -84,15 +87,15 @@ func _place_collision_limits() -> void:
 	var line_t := minf(float(limit_top), center.y - half_vis.y)
 	var line_b := maxf(float(limit_bottom), center.y + half_vis.y)
 	
-	_limit_left.global_position = Vector2(line_l - half_col - WALL_OUTSET, center.y)
-	_limit_right.global_position = Vector2(line_r + half_col + WALL_OUTSET, center.y)
-	_limit_top.global_position = Vector2(center.x, line_t - half_col - WALL_OUTSET)
-	_limit_bottom.global_position = Vector2(center.x, line_b + half_col + WALL_OUTSET)
+	_limit_left.global_position = Vector2(line_l - half_col - WALL_OUTSET_LR, center.y)
+	_limit_right.global_position = Vector2(line_r + half_col + WALL_OUTSET_LR, center.y)
+	_limit_top.global_position = Vector2(center.x, line_t - half_col - WALL_OUTSET_TB)
+	_limit_bottom.global_position = Vector2(center.x, line_b + half_col + WALL_OUTSET_TB)
 	
-	_bounce_left.global_position = Vector2(line_l + BAND_REACH - half_col, center.y)
-	_bounce_right.global_position = Vector2(line_r - BAND_REACH + half_col, center.y)
-	_bounce_top.global_position = Vector2(center.x, line_t + BAND_REACH - half_col)
-	_bounce_bottom.global_position = Vector2(center.x, line_b - BAND_REACH + half_col)
+	_bounce_left.global_position = Vector2(line_l + BAND_REACH_LR - half_col, center.y)
+	_bounce_right.global_position = Vector2(line_r - BAND_REACH_LR + half_col, center.y)
+	_bounce_top.global_position = Vector2(center.x, line_t + BAND_REACH_TB - half_col)
+	_bounce_bottom.global_position = Vector2(center.x, line_b - BAND_REACH_TB + half_col)
 	
 ### -----------------------------------------------------------------------------------------------
 

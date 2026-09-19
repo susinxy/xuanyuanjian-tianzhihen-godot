@@ -120,6 +120,12 @@ var resistance_current := 0.0
 ## 走路贴墙免结算由本旗默认 false 保证。
 var in_knockout := false
 
+## 出手方向镜像（2026-09-19 车道换轴批）：QuiverActionAttack.enter 在主轴塌缩后
+## 把皮肤 skin_direction 的快照写到这里，exit/中断清零。受击车道据此选比较轴：
+## 横攻比双方"排"（Y/ground_level），纵攻比双方"列"（X，is_in_same_column_as）。
+## 零向量=当前非已出手态（空攻/法术/抓取/待机恒零，旧 Y 语义零扰动）。
+var skin_direction := Vector2.ZERO
+
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
 
@@ -198,8 +204,11 @@ func get_health_as_percentage() -> float:
 	return value
 
 
-func get_hit_lane_limits() -> HitLaneLimits:
-	var limits = HitLaneLimits.new(hit_lane_offset, ground_level)
+## 车道窗口工厂：默认以 ground_level（"排"）为中心；纵攻换轴判定传 p_center
+## 覆盖（此时语义是"列"中心 x，见 CombatSystem.is_in_same_column_as）。
+func get_hit_lane_limits(p_center: float = INF) -> HitLaneLimits:
+	var center: float = ground_level if is_inf(p_center) else p_center
+	var limits = HitLaneLimits.new(hit_lane_offset, center)
 	return limits
 
 
@@ -214,6 +223,7 @@ func reset() -> void:
 	has_superarmor = false
 	can_be_grabbed = true
 	in_knockout = false
+	skin_direction = Vector2.ZERO
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -280,9 +290,10 @@ class HitLaneLimits:
 	var upper_limit := 0
 	var lower_limit := 0
 	
-	func _init(p_increment, p_ground_level):
-		upper_limit = p_ground_level - lane_size - p_increment
-		lower_limit = p_ground_level + lane_size + p_increment
+	## 对轴无感：p_center 传 y 即"排"窗口、传 x 即"列"窗口（车道换轴复用同一家族）
+	func _init(p_increment, p_center):
+		upper_limit = p_center - lane_size - p_increment
+		lower_limit = p_center + lane_size + p_increment
 	
 	
 	func is_value_inside_lane(y_position: float) -> bool:

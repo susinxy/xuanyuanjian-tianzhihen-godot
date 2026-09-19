@@ -354,10 +354,15 @@ func remove_modifiers_from_source(source: Node)
 class HitLaneLimits:
     var upper_limit := 0
     var lower_limit := 0
-    func is_value_inside_lane(y_position: float) -> bool
+    func is_value_inside_lane(value: float) -> bool
 ```
 
-用于判定攻击是否在同一个"车道"内（Y 轴上的同一深度平面）。`CombatSystem.is_in_same_lane_as()` 调用此方法。
+判定攻击是否落在同一个"受击车道"窗口内。窗口家族**对轴无感**（中心 ± lane_size ± hit_lane_offset）：
+横攻以双方 `ground_level` 比"排"（`CombatSystem.is_in_same_lane_as()`），纵攻换轴以双方
+碰撞盒 `global_position.x` 比"列"（`is_in_same_column_as()`，2026-09-19 车道换轴批）。
+换轴判据 = `QuiverAttributes.skin_direction` 出手镜像（皮肤同名字段的快照，
+`QuiverActionAttack.enter` 主轴塌缩后写入、`exit` 清零；空攻/法术/抓取恒零向量=旧 Y 语义）。
+`get_hit_lane_limits(p_center = INF)` 默认以 ground_level 为中心，传 x 即得列窗口。
 
 ---
 
@@ -868,7 +873,8 @@ func _decide_next_behavior(last_state: StringName):
 enum HurtTypes { MID, HIGH }
 # KnockbackStrength 五档枚举已退役（2026-09-18 统一模型，见下）
 
-func is_in_same_lane_as(defender, attacker) -> bool
+func is_in_same_lane_as(defender, attacker) -> bool      # 横攻：比"排"(Y)
+func is_in_same_column_as(defender, attacker, defender_x, attacker_x) -> bool  # 纵攻：比"列"(X)
 func apply_damage(attack: QuiverAttackData, target: QuiverAttributes)
 func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 ```
@@ -941,7 +947,8 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 **注意**: 阵营检查 `are_factions_equal()` 在 `_on_area_entered()` 入口处统一执行，同阵营直接 return，不再在各个 `_handle_*()` 方法中单独检查。
 
 **`_handle_hit_box()` 完整流程**:
-1. `_can_be_attacked_by(hit_box)` 检查：非无敌 + 同一车道
+1. `_can_be_attacked_by(attacker, hit_box)` 检查：非无敌 + 受击车道命中
+   （横攻比排/纵攻比列，选轴读 `attacker.skin_direction` 出手镜像，见 §4 车道家族）
 2. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
 3. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
 4. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
@@ -1169,12 +1176,13 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 
 **四个核心职责**:
 1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D——墙面=
-   min/max(房界, 视口沿) 取紧者再**外挪 WALL_OUTSET(60px)**：角色出界约 3/4 身位
-   被拦停（"看得见被墙挡住"的街機观感，用户 2026-09-19 定档），场内空间完整
+   min/max(房界, 视口沿) 取紧者再**外挪 WALL_OUTSET_*（横 60 / 竖 30）**：贴横墙
+   出界约 3/4 身位、贴上下墙约 2/3（深度轴出界更抢画面故收紧；用户 2026-09-19
+   两档定档），场内空间完整
 2. **墙壁反弹检测（四带环）**: Left/Right/Top/BottomBounce 四枚 WallHitBox Area2D，
-   `_place_collision_limits()` 统一摆位："带内墙外"分摊提前量——带场内沿仅探入
-   BAND_REACH(20px)，其余预算由墙外挪承担；触发余量 = b+O−8 = 72px ≥ 2 物理帧
-   @最大弹速 2000px/s，命中必先于撞墙清零，镜像输入永远完整
+   `_place_collision_limits()` 统一摆位："带内墙外"分摊提前量（BAND_REACH_LR/TB =
+   20/45）——定和 b+O 横 80 竖 75，触发余量 = b+O−8 ≥ 67px ≥ 2 物理帧@最大弹速
+   2000px/s，命中必先于撞墙清零，镜像输入永远完整
 3. **`delimitate_room()`**: 平滑过渡摄像头边界到指定区域（用 Tween）
 4. **高度层碰撞初始化**: `_ready()` 时调用 `QuiverCharacter.get_all_height_layers_mask()` 设置碰撞层
 
@@ -1228,12 +1236,12 @@ LevelCamera (Camera2D)
 （案卷：上游模板的带在纯 one_way 假墙世界里恰好永远拿得到完整速度，其
 `reflect(Vector2.UP)` 本就正确；本仓库实体化后才暴露时序矛盾——期间曾被误诊为
 "上游恒等变换缺陷"并做过"注入记存速度"的弯路，均已由几何治本取代。）现已删 RT2D，
-由 `_place_collision_limits()` 统一摆位（"线"=房界与视口沿的取紧者）：
-**墙盒外挪 WALL_OUTSET(60) → 墙面=线−60；带盒场内沿=线+20（BAND_REACH）**，
-带墙中心距恒=80。触发余量 = b+O−受击盒内缩(8) = 72px = 2.2 物理帧
-@最大弹速 2000px/s（33px/帧）——**命中永远先于碰撞，镜像输入完整**；
-角色贴墙停位=线−25（身体 3/4 出镜，被拦观感保留）。定和底线 b+O ≥ 74
-写死在常数注释，几何锁实测区间 [74, 90)：knockout_contract D8。
+由 `_place_collision_limits()` 统一摆位（"线"=房界与视口沿的取紧者），
+横竖两档：**左右墙外挪 60/带探入 20（定和 80），上下墙外挪 30/带探入 45
+（定和 75——竖直向弹速低且深度轴出界观感强，双向收紧）**。触发余量 =
+b+O−受击盒内缩(8) ≥ 67px ≥ 2 物理帧@最大弹速 2000px/s（33px/帧）——
+**命中永远先于碰撞，镜像输入完整**；贴横墙停位=线−25（3/4 出镜，定档）。
+定和底线 b+O ≥ 74 写死在常数注释，几何锁实测区间 [74, 90)：knockout_contract D8。
 
 **碰撞层**: 同 ScreenLimits，使用全高度层 bitmask（四带由 `_setup_height_layer_collisions()` 归置）。
 
@@ -1299,7 +1307,7 @@ signal player_died              # 玩家死亡
 ## 11. 项目设置 (project.godot `[quiver]` 部分)
 
 ```ini
-quiver/beat_em_up/gameplay/default_hit_lane_size = 60    # 车道大小（Y 轴像素）
+quiver/beat_em_up/gameplay/default_hit_lane_size = 60    # 车道半窗（垂直于攻向的轴：横攻Y/纵攻X）
 quiver/beat_em_up/gameplay/fall_gravity_modifier = 2.5   # 下落阶段重力倍率
 quiver/beat_em_up/debug/logging_enabled = true           # 调试日志开关
 quiver/beat_em_up/debug/disable_player_detector_on_editor = false

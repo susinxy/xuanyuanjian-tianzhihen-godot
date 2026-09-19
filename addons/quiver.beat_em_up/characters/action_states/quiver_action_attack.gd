@@ -91,6 +91,10 @@ func enter(msg: = {}) -> void:
 		_skin.skin_direction = Vector2(sign(dir.x), 0)
 	else:
 		_skin.skin_direction = Vector2(0, sign(dir.y))
+	# 出手方向镜像（车道换轴批）：把刚塌缩的轴向快照进属性资源——防守方受击
+	# 判定据此在"比排(Y)/比列(X)"间选轴；exit/中断清零。空攻/法术/抓取不走
+	# 本类（镜像恒零=旧 Y 语义零扰动）。
+	_attributes.skin_direction = _skin.skin_direction
 	
 	_skin.transition_to(_skin_state)
 
@@ -115,6 +119,8 @@ func physics_process(delta: float) -> void:
 
 
 func exit() -> void:
+	# 镜像生命周期与出手窗口严格成对（与 in_knockout 同括弧纪律）
+	_attributes.skin_direction = Vector2.ZERO
 	_auto_combo_amount = 0
 	if _movement_is_enabled:
 		_disable_movement()

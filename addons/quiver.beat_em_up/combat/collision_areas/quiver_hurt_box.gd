@@ -137,11 +137,20 @@ func _on_area_entered(area: Area2D) -> void:
 		return
 
 
-func _can_be_attacked_by(attacker: QuiverAttributes) -> bool:
+func _can_be_attacked_by(attacker: QuiverAttributes, hit_box: Area2D) -> bool:
 	var value := false
 	
 	if not character_attributes.is_invulnerable:
-		value = CombatSystem.is_in_same_lane_as(character_attributes, attacker)
+		# 车道换轴（2026-09-19）：出手镜像为纵向→比"列"（双方盒 x）；
+		# 否则（横攻/镜像零=非出手态）→现行"比排"(Y)语义一字不动
+		var mirror := attacker.skin_direction
+		if mirror != Vector2.ZERO and absf(mirror.y) > absf(mirror.x):
+			value = CombatSystem.is_in_same_column_as(
+					character_attributes, attacker,
+					global_position.x, hit_box.global_position.x
+			)
+		else:
+			value = CombatSystem.is_in_same_lane_as(character_attributes, attacker)
 	
 	return value
 
@@ -160,7 +169,7 @@ func _can_be_grabbed_by(grabber: QuiverAttributes) -> bool:
 
 
 func _handle_hit_box(hit_box: QuiverHitBox) -> void:
-	if _can_be_attacked_by(hit_box.character_attributes):
+	if _can_be_attacked_by(hit_box.character_attributes, hit_box):
 #		print("hit_box: %s"%[hit_box.get_path()])
 		CombatSystem.apply_damage(hit_box.attack_data, character_attributes)
 		var knockback: QuiverKnockbackData = QuiverKnockbackData.new(
@@ -189,7 +198,7 @@ func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
 	CombatSystem.apply_damage(wall_hit_box.attack_data, character_attributes)
 	# 镜像轴是墙自带数据（左右墙 UP=翻水平、上下墙 RIGHT=翻竖直），判定端
 	# 不做任何几何发明；击飞链据此对"尚未被实体墙清零"的完整撞击速度做真镜像
-	# （带墙分离布局保证命中先于碰撞，见 QuiverLevelCamera.WALL_OUTSET/BAND_REACH）。
+	# （带墙分离布局保证命中先于碰撞，见 QuiverLevelCamera.WALL_OUTSET_*/BAND_REACH_*）。
 	character_attributes.wall_bounced.emit(wall_hit_box.mirror_axis)
 
 
