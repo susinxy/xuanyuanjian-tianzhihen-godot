@@ -159,9 +159,10 @@ func _verify_phase() -> void:
 	await _tick(6)
 	
 	await _tick(2)
-	# 阵营下发核心断言：配对必须取【攻击盒×受击盒】的游戏真实形态——
-	# 两只受击盒互比会因共享 area2d:wall 能力标记而假判同阵营（wall 污染
-	# 老案的另一面；攻击盒从不挂 wall，玩法链路天然无此歧义）。
+	# 阵营下发核心断言：配对取【攻击盒×受击盒】的游戏真实形态。
+	# （历史备案：旧 area2d:wall 伪阵营时代两只受击盒互比会假判同阵营；
+	# 2026-09-19 弹墙改 in_knockout 状态门后 wall 组全库灭绝，该坑源头不存在，
+	# 但攻击盒×受击盒仍是玩法真实配对，取样纪律保留。）
 	var tagged := 0
 	var chen_hurt: Area2D = null
 	var chen_hit: Area2D = null

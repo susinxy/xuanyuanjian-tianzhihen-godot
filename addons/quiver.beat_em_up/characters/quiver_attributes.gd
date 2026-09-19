@@ -111,6 +111,13 @@ var mana_current := mana_max:
 ## 运行时抗击打余量 R_current（apply_knock 扣减/破线清零/refill_resistance 回满）。
 var resistance_current := 0.0
 
+## 击飞链生命周期旗（弹墙豁免门的唯一判据，2026-09-19 状态门定档）：
+## 击飞链父状态 QuiverActionAirKnockout 的 enter/exit 是唯一写入者
+## （与 _launch_count 同括弧，天然成对）；受击盒用它决定"现在撞墙是否
+## 结算弹墙"。墙不再是阵营（皮肤上的 area2d:wall 组与墙盒挂组同批退役），
+## 走路贴墙免结算由本旗默认 false 保证。
+var in_knockout := false
+
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
 
@@ -204,6 +211,7 @@ func reset() -> void:
 	is_invulnerable = false
 	has_superarmor = false
 	can_be_grabbed = true
+	in_knockout = false
 
 ### -----------------------------------------------------------------------------------------------
 

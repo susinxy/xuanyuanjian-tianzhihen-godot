@@ -5,6 +5,9 @@ extends Node
 ## 霸体归零/无敌/死亡强飞/空中 K>0/空中 K=0 吞事件）；
 ## 链路层——CombatSystem 分发、起飞速度公式、连空即时再起飞、落地即停
 ## （A3 甲案）、落地回气、弹道高度打表（B2 观察，只打印不判定）。
+## D 段（2026-09-19 弹墙状态门批）——真实 Area2D 物理重叠级契约：走路贴
+## 弹墙带免伤（用户 F5 定罪现场）、链内贴墙扣血反弹（保留设计）、链退出
+## 旗自动归零、旁观者零误伤、阵营组纯度哨兵。
 ## 运行：godot --headless --path . res://tools/knockout_contract/knockout_contract.tscn
 
 const SPAR := "res://characters/enemies/spar_enemy/spar_enemy.tscn"
@@ -166,7 +169,100 @@ func _flow() -> void:
 			spar.attributes.knockout_resistance_max),
 			"回气：落地瞬间抗击打回满（%.0f）" % spar.attributes.resistance_current)
 
+	await _section_wall(spar, dir30)
+
 	_finished = true
+
+
+## D 段：弹墙状态门（物理重叠级）。用真场景 fixture（wall_band.tscn）当
+## 相机隐形弹墙带替身（层配置同 QuiverLevelCamera：全高度层、被动可测）。
+## 引擎陷阱备案（本批实测）：代码裸建 QuiverHitBox 子类必炸——_ready 读
+## owner.get_path()，而 owner 赋值要求"已入树且为祖先"，add_child 前必 null，
+## 两条件互斥无解，只能走场景实例（场景内非根节点 owner=场景根）。
+const WALL_FIXTURE := "res://tools/knockout_contract/wall_band.tscn"
+
+func _make_wall() -> WallHitBox:
+	var rig := (load(WALL_FIXTURE) as PackedScene).instantiate()
+	add_child(rig)
+	return rig.get_node("Wall") as WallHitBox
+
+
+func _find_hurtbox(ch: QuiverCharacter) -> QuiverHurtBox:
+	for n in ch.find_children("*", "", true, false):
+		if n is QuiverHurtBox:
+			return n
+	return null
+
+
+func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
+	var hurt := _find_hurtbox(spar)
+	_check(hurt != null, "D0 spar 受击盒寻得（测试基建）")
+	# D6 组纯度哨兵：阵营真实下发、wall 永绝回潮（防"伪阵营"机制复活）
+	_check(hurt != null and hurt.is_in_group("area2d:spar_enemy")
+			and not hurt.is_in_group("area2d:wall"),
+			"D6 受击盒有真阵营且零 wall 残留")
+
+	var bounces := {"n": 0}
+	spar.attributes.wall_bounced.connect(func(): bounces.n += 1)
+	# 起身无敌帧纪律备案：Recovery 系动画带 attributes:is_invulnerable 值轨
+	# （设计=起身保护窗口，CombatSystem.apply_knockback 入口直接吞交易）。
+	# D2 的破线拳必须等回到 Idle 再发，否则被保护窗正确拦截（首跑实锤）。
+	await _wait_state(spar, "Ground/Move/Idle", 900)
+	var wall := _make_wall()
+	var rig: Node = wall.get_parent()
+	var hp0: float = spar.attributes.health_current
+
+	# D1 站外贴带：链外旗默认 false → 真 area_entered 发生了但零结算
+	rig.global_position = spar.global_position
+	await _frames(3)
+	_check(spar.attributes.health_current == hp0 and bounces.n == 0,
+			"D1 链外走路贴弹墙带免伤（hp %.0f 弹 %d）" % [
+			spar.attributes.health_current, bounces.n])
+	remove_child(rig)
+
+	# D2 真链路开链：唯一写入者在击飞链父状态 enter 置旗
+	_apply(spar, 1200.0, dir30)
+	var in_chain: bool = await _wait_state(spar, "Air/Knockout/Launch", 90)
+	_check(in_chain and spar.attributes.in_knockout,
+			"D2 开链 → in_knockout 置位（状态 %s 旗=%s）" % [
+			str(spar.state_machine.state_name), str(spar.attributes.in_knockout)])
+
+	# D3 链内贴带：扣 5 + wall_bounced 响（保留设计的物理级锁）
+	rig.global_position = spar.global_position
+	add_child(rig)
+	await _frames(3)
+	_check(is_equal_approx(spar.attributes.health_current, hp0 - 5.0)
+			and bounces.n == 1,
+			"D3 链内撞墙=扣5+反弹信号（hp %.0f 弹 %d）" % [
+			spar.attributes.health_current, bounces.n])
+	# D3 的 apply_damage 会挂 HitFreeze 慢放（真实副作用）；测试收权保帧预算
+	await _frames(2)
+	Engine.time_scale = 1.0
+
+	# D4 链自然走完退出：旗自动归零（生命周期闭环，旧机制死亡分支泄漏已封）
+	var back: bool = await _wait_state(spar, "Ground/Recovery", 1800)
+	_check(back and not spar.attributes.in_knockout,
+			"D4 链出 → 旗自动复位（状态 %s 旗=%s）" % [
+			str(spar.state_machine.state_name), str(spar.attributes.in_knockout)])
+	remove_child(rig)
+
+	# D5 链外再贴 + 旁观者零误伤：门是角色侧属性，墙上无状态可泄
+	var hp1: float = spar.attributes.health_current
+	var bystander: QuiverCharacter = (load(SPAR) as PackedScene).instantiate()
+	add_child(bystander)
+	bystander.global_position = spar.global_position + Vector2(2000, 0)
+	for _i in 12:
+		await get_tree().physics_frame
+	rig.global_position = bystander.global_position
+	add_child(rig)
+	await _frames(4)
+	_check(spar.attributes.health_current == hp1
+			and bystander.attributes.health_current
+					== bystander.attributes.health_max
+			and bounces.n == 1,
+			"D5 链外再贴+旁观者免伤（弹计数保持 %d）" % bounces.n)
+	remove_child(rig)
+	rig.queue_free()
 
 
 func _get_skin(ch: QuiverCharacter) -> CanvasItem:

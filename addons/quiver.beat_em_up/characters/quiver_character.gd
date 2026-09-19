@@ -191,7 +191,7 @@ func _distribute_factions() -> void:
 	var tags: Array[String] = []
 	for g in get_groups():
 		var gs := String(g)
-		if gs.begins_with("area2d:") and gs != "area2d:wall":
+		if gs.begins_with("area2d:"):
 			tags.append(gs)
 	if tags.is_empty():
 		return
@@ -228,7 +228,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 	# 阵营是免伤的唯一通道（判定层无 owner 自查）：根节点无标签=会打到自己
 	var has_faction := false
 	for g in get_groups():
-		if String(g).begins_with("area2d:") and String(g) != "area2d:wall":
+		if String(g).begins_with("area2d:"):
 			has_faction = true
 			break
 	if not has_faction:

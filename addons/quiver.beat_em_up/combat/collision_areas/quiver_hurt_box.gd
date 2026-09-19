@@ -178,7 +178,14 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 			hit_box.on_target_hit.call(self)
 
 
-func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void: 
+func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
+	# 弹墙豁免门（状态生命周期驱动，2026-09-19 定档）：只有击飞链内
+	# （in_knockout 由 QuiverActionAirKnockout enter/exit 唯一写入）才与
+	# 相机弹墙带结算"撞墙扣血+反弹"；走路/受击等一切其他状态贴墙静默。
+	# 前置条件归处理器自持与本文件 _can_be_attacked_by 家族同款分工，
+	# _on_area_entered 保持纯类型路由。
+	if not character_attributes.in_knockout:
+		return
 	CombatSystem.apply_damage(wall_hit_box.attack_data, character_attributes)
 	character_attributes.wall_bounced.emit()
 
@@ -198,12 +205,5 @@ func _get_treated_launch_vector(hit_box: QuiverHitBox) -> Vector2:
 func _attack_is_coming_from_right(hit_box: QuiverHitBox) -> bool:
 	return hit_box.global_position.x > global_position.x
 
-
-func _disable_wall_bounce_collisions() -> void:
-	add_to_group("area2d:wall")
-
-
-func _enable_wall_bounce_collisions() -> void:
-	remove_from_group("area2d:wall")
 
 ### -----------------------------------------------------------------------------------------------

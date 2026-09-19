@@ -68,11 +68,23 @@ func on_died() -> void:
 
 ### Private Methods -------------------------------------------------------------------------------
 
+## 重试熔断余量（帧）。无上限 defer 的教训（2026-09-19 wp2 verify 崩溃案）：
+## headless 下角色 attributes.tres 因外引 raw png 无导入产物整链加载失败 →
+## attributes 永为 null → 本函数无限自我排队 → 消息队列 OOM → SIGSEGV。
+## 资源性缺失重试救不回，到限必须报错停下，把崩溃换成可读错误。
+var _connect_retries_left := 240
+
+
 func _connect_attributes() -> void:
 	if _attributes_connected:
 		return
 	if _character == null or _character.attributes == null:
-		# 宿主还没就绪，下一帧再试
+		if _connect_retries_left <= 0:
+			push_error("AI 行为：宿主 attributes %d 帧仍未就绪——多半是宿主场景" % _connect_retries_left
+					+ "的资源链加载失败（headless 需先 --import 生成导入产物），放弃连接")
+			return
+		# 宿主还没就绪，下一帧再试（有限次）
+		_connect_retries_left -= 1
 		_connect_attributes.call_deferred()
 		return
 	_attributes_connected = true

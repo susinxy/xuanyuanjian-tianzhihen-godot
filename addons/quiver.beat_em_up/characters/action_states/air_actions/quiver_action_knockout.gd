@@ -56,6 +56,9 @@ func _get_configuration_warnings() -> PackedStringArray:
 func enter(msg: = {}) -> void:
 	super(msg)
 	_air_state.enter(msg)
+	# 弹墙豁免旗开链（唯一写入者）：子状态经家长委托模式重复喊 enter
+	# （空中被再次击飞/弹墙复飞）= 幂等重开，语义不变。
+	_attributes.in_knockout = true
 
 
 func physics_process(delta: float) -> void:
@@ -67,6 +70,10 @@ func physics_process(delta: float) -> void:
 func exit() -> void:
 	super()
 	_launch_count = 0
+	# 弹墙豁免旗收链（与 _launch_count 归零同括弧）：击飞链唯一出口是
+	# Bounce.exit 的条件喊（落地恢复/死亡两分支都经过），无泄漏路径；
+	# 空中死亡旧机制不关窗的洞由本行封死。
+	_attributes.in_knockout = false
 	_air_state.exit()
 
 ### -----------------------------------------------------------------------------------------------

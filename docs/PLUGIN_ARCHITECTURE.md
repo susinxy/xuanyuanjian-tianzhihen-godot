@@ -241,6 +241,7 @@ AnimationNodeBlendTree (tree_root)
         ├── hurt_high → BlendSpace1D
         ├── jump, rising, falling, landing    → BlendSpace1D (跳跃链)
         ├── knockout_launch/rising/falling/bounce → BlendSpace1D (击飞链)
+        ├── knockout_ground → 嵌套子状态机 { Start→knockout_landed→getting_up→End }
         └── die → BlendSpace1D
 ```
 
@@ -421,6 +422,12 @@ QuiverCharacter
 `characters/ai/`（11 块 AI 积木状态 + QuiverAiStateMachine）。它们的动机（免键盘动作
 变体、AI 专用树、受击打断接线）在通道架构下分别由"事件来源隔离 / 小抄直接驱动原树 /
 QuiverBehaviorAI.on_hurt"承接。
+
+**宿主资源等待熔断（2026-09-19 补）**：`QuiverBehaviorAI._connect_attributes`
+等宿主 `attributes` 就绪采取**有限重试**（240 帧，到限 `push_error` 放弃）。
+无上限 `call_deferred` 自我排队的旧形态在"资源链加载失败"场景（如 headless
+缺 `--import` 产物致 attributes.tres 载不进）会打爆引擎消息队列直接 SIGSEGV
+（wp2 verify 崩溃案）——配置/资源性错误必须表现为可读报错而非进程炸弹。
 
 **皮肤方向契约（2026-09-14，两阶段事故复盘后的终态）**：
 `QuiverCharacterSkin.skin_direction` 接受**任意世界方向向量**，setter 用
@@ -720,6 +727,26 @@ func physics_process(delta: float) -> void:
 
 **落地判定**: `_has_reached_ground()`: `_skin.position.y >= 0`
 
+### 5.7.1 击飞链父状态 (`quiver_action_knockout.gd`, `QuiverActionAirKnockout`)
+
+子状态 `Launch / MidAir / Bounce`（装配于 `Air/Knockout/`）：起飞→空弹按 vy 切
+rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。家长职责：
+
+- **委托枢纽**：子状态 enter 回头喊 `parent.enter`（`_launch_count` 区分首次
+  launch 动画与再起飞 rising 动画）；链唯一收口在 `Bounce.exit` 的条件喊
+  （`_has_landed` 或已死）→ `parent.exit()` 归零 `_launch_count`
+- **`in_knockout` 弹墙旗唯一写入者**：`enter()` 置真（幂等，空中再击/弹墙复飞
+  重复喊无副作用）、`exit()` 归零——弹墙结算与死亡分支泄漏的闭环全在此，详见
+  7.3 墙壁反弹机制
+- 监听 `hurt_requested / knockout_requested / wall_bounced` 三信号做链内再起飞/
+  反弹（`wall_bounced` → `transition_to(Launch, {is_wall_bounce})` 水平速度反转）
+- `_handle_bounce()`：触地即 `velocity.x=0`（A3 甲案落地即停）+ 转 Bounce
+
+**皮肤侧配套（审计教训 2026-09-19）**：AnimTree 的 `knockout_ground` 节点**不是**
+单动画而是**嵌套子状态机**（`Start→knockout_landed→getting_up→End` 自动转换，
+倒地+起身两拍）。对账"动画轨道/状态覆盖"时只查状态机装配会漏判此层（本批曾
+因此险些把在工作的 landed 轨道误判死轨道）。
+
 ### 5.8 Attack 状态 (`quiver_action_attack.gd`)
 
 **类名**: `QuiverActionAttack`（`@tool`）
@@ -905,7 +932,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 
 | 进入的 Area | 方法 | 后续 |
 |---|---|---|
-| `WallHitBox` | `_handle_wall_hit_box()` | `wall_bounced` 信号 |
+| `WallHitBox` | `_handle_wall_hit_box()` | **先过 `in_knockout` 状态门**（链外静默免结算）→ 放行时 `apply_damage(墙 attack_data)` + `wall_bounced` 信号 |
 | `QuiverHitBox` | `_handle_hit_box()` | `apply_damage` + `apply_knockback` |
 | `QuiverGrabBox` | `_handle_grab_box()` | `grab_requested` 信号 |
 
@@ -926,15 +953,20 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - 身份查询（HUD/AI/检测器）也按 `area2d:player` 组，但**必须过滤
   `is QuiverCharacter`**——组里同时有下发后的战斗盒
 - **法术体根节点保持阵营中立**：`add_to_group` 只挂战斗盒，混入身份组=查询污染
-- 两只 HurtBox 互比会因共享 `area2d:wall` 假判同阵营——判定永远取
-  "攻击盒×受击盒"的真实配对，wall 从不上攻击盒故玩法无歧义（测试断言亦须如此取样）
+- （历史坑，2026-09-19 已灭绝）旧 `area2d:wall` 伪阵营时期：两只 HurtBox 互比会
+  因共享 wall 假判同阵营，取样必须用"攻击盒×受击盒"真实配对。现墙已退出阵营
+  系统（弹墙改为 `in_knockout` 状态门，见 7.3 弹墙节），该污染源头不复存在
 - 常量 `FACTION_PREFIX = "area2d:"`（定义在 QuiverHurtBox）
 - 缓存机制：`_faction_dict: Dictionary` 只缓存 `area2d:` 前缀的 group，使用 Dictionary 实现 O(1) 查找
 - **运行时动态加阵营组必须走 `add_faction_group(group)`**（HitBox/HurtBox 公开）：
   引擎陷阱（2026-09-15 实测）——GDScript 对静态类型变量调用 Node 内建方法时直连
   原生绑定，**绕过**脚本层的 `add_to_group` override，只靠 override 刷新缓存会让
   typed 调用点静默失效（法术继承施法者阵营时踩中，表现为法术自伤施法者）。
-  类内自调用与 Variant 动态调用仍会触发 override，但外部一律只用 `add_faction_group`。
+  **脚本内裸自调用同罪**（2026-09-19 实证补案）：`WallHitBox._ready` 里
+  `add_to_group("area2d:wall")` 正是隐式 self 的 typed 直调，绕过 override 令
+  缓存恒空 → 走路贴相机弹墙带每次 -5（F5 定罪案）。经 Variant 变量调用才会
+  触发 override。规则：**触碰 `area2d:` 组只许走 `add_faction_group`**
+  （其内部"裸调用 + 显式 `_refresh_faction_cache()`"对两种派发路径都正确）。
 - `_ready()` 时初始化缓存，捕获 `.tscn` 中声明的 groups
 - 重写 `add_to_group()`/`remove_from_group()`，捕获运行时的 group 变更
 - 静态函数 `are_factions_equal(hit_box, hurt_box)`：两侧都使用 Dictionary 缓存，自动选择小集合遍历，回退到实时构建 Dictionary
@@ -943,13 +975,21 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 - `_handle_grab_box()` 同样使用此检查
 - QuiverHitBox 和 QuiverHurtBox 都实现了相同的缓存机制
 
-**墙壁反弹机制**（`area2d:wall` group）:
-- HurtBox 默认加入 `area2d:wall` group（在 .tscn 中配置）
-- WallHitBox 也加入 `area2d:wall` group（在 `quiver_wall_hit_box.gd` 的 `_ready()` 中）
-- 默认状态下，HurtBox 和 WallHitBox 同属 `area2d:wall` → `are_factions_equal()` 返回 true → 碰撞被跳过
-- 动画关键帧调用 `_enable_wall_bounce_collisions()` → `remove_from_group("area2d:wall")` → 阵营不再匹配 → 碰撞生效
-- 动画关键帧调用 `_disable_wall_bounce_collisions()` → `add_to_group("area2d:wall")` → 恢复同阵营 → 碰撞跳过
-- 这种设计让墙壁反弹完全由动画控制，无需修改碰撞层
+**墙壁反弹机制**（`in_knockout` 状态门，2026-09-19 定档）:
+- **墙不是阵营**：角色盒子与墙盒都不挂任何 `area2d:` 组（旧 `area2d:wall`
+  伪阵营机制全链退役——它因缓存失同步导致"走路贴墙掉血"F5 案，且三处溃伤在案）
+- `QuiverAttributes.in_knockout`：击飞链生命周期旗，**唯一写入者**是击飞链父
+  状态 `QuiverActionAirKnockout` 的 `enter()`（置真）/`exit()`（归零），与
+  `_launch_count` 归零同括弧；链唯一出口在 Bounce（落地恢复/死亡两分支），
+  无泄漏路径；实例重建天然为假
+- `QuiverHurtBox._handle_wall_hit_box()` 进门先过这道门：链外（走路/受击/起身）
+  贴相机弹墙带**静默免结算**；链内撞墙才结算 `apply_damage(墙 attack_data)` +
+  `wall_bounced.emit()`（击飞状态监听 → 速度反转复飞）
+- 前置条件归处理器自持（与本文件 `_can_be_attacked_by` 家族同款分工），
+  `_on_area_entered` 保持纯类型路由
+- 回归锁：`knockout_contract` D 段（真实 Area2D 物理重叠级：链外免伤/链内
+  扣血反弹/出链复位/旁观者零误伤/组纯度哨兵），fixture
+  `tools/knockout_contract/wall_band.tscn`
 
 ### 7.4 QuiverAttackData（攻击数据）
 
@@ -1012,7 +1052,7 @@ HurtBox._on_area_entered()
   ↓
 are_factions_equal() 检查：
   Player HitBox groups: ["area2d:player"]  ← 运行时自根节点下发
-  Enemy HurtBox groups: ["area2d:enemy", "area2d:wall"]
+  Enemy HurtBox groups: ["area2d:enemy"]
   无交集 → 不同阵营 → 继续处理
   ↓
 _handle_hit_box()
@@ -1126,9 +1166,9 @@ LevelCamera (Camera2D)
 │   │   └── RemoteTransform2D → RightBounce/RightBounceShape
 │   ├── Top (CollisionShape2D, 水平长条, one_way_collision, rotation=180°)
 │   └── Bottom (CollisionShape2D, 水平长条, one_way_collision, rotation=0°)
-├── LeftBounce (Area2D, WallHitBox, groups=["area2d:wall"])
+├── LeftBounce (Area2D, WallHitBox, 无阵营组——墙不参与阵营系统)
 │   └── LeftBounceShape (CollisionShape2D)
-└── RightBounce (Area2D, WallHitBox, groups=["area2d:wall"])
+└── RightBounce (Area2D, WallHitBox, 无阵营组)
     └── RightBounceShape (CollisionShape2D)
 ```
 
@@ -1161,19 +1201,24 @@ LevelCamera (Camera2D)
 #### 墙壁反弹检测（LeftBounce/RightBounce）
 
 两个 Area2D（WallHitBox 脚本），位于屏幕左右边缘，检测角色被击飞后撞墙。
+自带 `attack_data`（`attack_damage=5`）= **击飞撞墙的扣血定价（设计保留）**。
 
 **位置同步**: 通过 `RemoteTransform2D` 将 ScreenLimits/Left(Right) 的位置复制给 LeftBounce/RightBounce 的 CollisionShape2D。ScreenLimits 每帧移动 → RemoteTransform2D 自动同步 → 反弹检测始终在屏幕边缘。
 
 **碰撞层**: 同 ScreenLimits，使用全高度层 bitmask。
 
-**反弹流程**:
-1. 角色被击飞 → knockout_launch 动画播放
-2. 动画关键帧调用 `_enable_wall_bounce_collisions()` → HurtBox 移除 `area2d:wall` group
-3. 角色 HurtBox 进入 LeftBounce/RightBounce 检测范围
-4. `_on_area_entered()` → `are_factions_equal()` 返回 false（HurtBox 已无 `area2d:wall`）
-5. `_handle_wall_hit_box()` → 造成伤害 + `wall_bounced` 信号
-6. 状态机收到信号 → 角色速度反转 → 反弹
-7. knockout_landed 动画播放 → `_disable_wall_bounce_collisions()` → HurtBox 重新加入 `area2d:wall` group
+**反弹流程**（状态生命周期驱动，2026-09-19 改版）:
+1. 角色被击飞 → `CombatSystem` 分发 → transition 到 `Air/Knockout/Launch`
+2. 击飞链父状态 `QuiverActionAirKnockout.enter()` → `attributes.in_knockout = true`
+   （动画关键帧不再参与开关；旧 `_enable/_disable_wall_bounce_collisions` 方法与其
+   launch/landed 动画轨道已退役删除）
+3. 角色 HurtBox 进入 LeftBounce/RightBounce 检测范围（墙挂全高度层，被动可测）
+4. `_on_area_entered()` 类型分派 → `_handle_wall_hit_box()` → `in_knockout` 门放行
+5. 结算：`apply_damage(5)` + `wall_bounced.emit()`
+6. 击飞链监听 `wall_bounced` → transition 回 Launch（`is_wall_bounce`）→ 水平速度
+   反转复飞；弹跳/再受击期间旗恒开（父 enter 幂等）
+7. 链自然走完（Bounce 落地→Recovery 或死亡→Die）→ `Knockout.exit()` → 旗归零，
+   恢复"贴墙免结算"。**空中死亡泄漏洞**（旧机制 die 分支无人关窗）由第 7 步封死。
 
 #### `delimitate_room()` — 战斗区域锁定
 
