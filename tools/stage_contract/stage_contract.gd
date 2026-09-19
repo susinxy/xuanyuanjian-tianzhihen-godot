@@ -17,11 +17,11 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 29 + 全序列 1 = 114
+## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 32 + 全序列 1 = 117
 ##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
-const EXPECTED_ASSERTS := 114
+const EXPECTED_ASSERTS := 117
 
 var _fails := 0
 var _finished := false
@@ -493,6 +493,48 @@ func _flow_c() -> void:
 	var expanded: bool = await _wait_until(func():
 			return cam.limit_right == 2200, 240)
 	_check(expanded, "C3 解锁扩权（after_fight_limit_right=2200）")
+
+	# —— C3.5 撞墙真反弹契约（A 案批，2026-09-19）——
+	# 房1清场扩界 [380,2200] 后真击飞向西：弹墙带命中 → wall_bounced 恰一次
+	# → 水平速度翻向东 → 实际回场心落地。上游 reflect(Vector2.UP) 对"身体走
+	# 皮肤假高度通道"的击飞是恒等变换（上下游同判，查档坐实），2/3 号断言红
+	# =那行退回了 no-op。
+	# 弹道取样教训（首跑两次红档换来）：①向东飞会凌空碾过房2触发线(1950)——
+	# 半空重锁房把界/墙/带整体东移，人追不上逃逸的墙（产品行为合法，收口
+	# 钳位兜底），测试必须选"路上没有未消费检测器"的方向：房1检测器已在 C2
+	# 自毁，向西无雷；②射程要对着"起跳点到带面"量：1200 起飞+K2000 在触墙前
+	# 470px 落地、1900 东飞又踩①——勿凭感觉配对。
+	var chen3 := _stage_chen()
+	chen3.global_position = Vector2(700, 600)
+	var wall_hits := {"n": 0}
+	chen3.attributes.wall_bounced.connect(func(_dir): wall_hits.n += 1)
+	var kb3 := QuiverKnockbackData.new(2000.0, CombatSystem.HurtTypes.HIGH,
+			Vector2(-0.866, -0.5))
+	CombatSystem.apply_knockback(kb3, chen3.attributes)
+	var bounced := false
+	var cam3 := _stage_cam()
+	var rsolid: CollisionShape2D = cam3.get_node("ScreenLimits/Right")
+	var rband: CollisionShape2D = cam3.get_node("RightBounce/RightBounceShape")
+	var hurt3 := chen3.get_node("ChenSkin/AnimatedSprite2D/HurtBox")
+	for _f3 in 120:
+		await get_tree().physics_frame
+		if _f3 % 15 == 0:
+			print("[F3] f=", _f3, " x=", chen3.global_position.x, " st=", str(chen3.state_machine.state_name),
+					" solid_x=", rsolid.global_position.x, " cam_gl=", cam3.global_position,
+					" center=", cam3.get_screen_center_position(), " zoom=", cam3.zoom,
+					" lim=", [cam3.limit_left, cam3.limit_right],
+					" vp=", cam3.get_viewport_rect().size, " hits=", wall_hits.n)
+		if wall_hits.n >= 1:
+			break
+	bounced = wall_hits.n >= 1 or str(chen3.state_machine.state_name) == "Ground/Recovery"
+	_check(bounced and wall_hits.n == 1,
+			"C3.5 向西击飞触带：wall_bounced 恰一次（计数 %d）" % wall_hits.n)
+	_check(chen3.velocity.x > 0.0,
+			"C3.5 触墙后反弹速度注入向东（vx=%.0f）" % chen3.velocity.x)
+	var settled: bool = await _wait_until(func():
+			return str(chen3.state_machine.state_name) == "Ground/Recovery", 240)
+	_check(settled and chen3.global_position.x > 520.0,
+			"C3.5 真弹回场心落地（x=%.0f，已离开西侧触墙位）" % chen3.global_position.x)
 
 	# —— C4 房2双生成器聚合 ——
 	_stage_chen().global_position = Vector2(1950, 600)

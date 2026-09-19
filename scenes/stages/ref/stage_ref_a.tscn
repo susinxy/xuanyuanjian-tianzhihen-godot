@@ -1,22 +1,17 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://d2bselp6msmsc"]
 
-[ext_resource type="PackedScene" path="res://scenes/base/base_stage.tscn" id="1_base"]
-[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
-[ext_resource type="PackedScene" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="3_cam"]
+[ext_resource type="PackedScene" uid="uid://bwe268wfntwyf" path="res://scenes/base/base_stage.tscn" id="1_base"]
+[ext_resource type="PackedScene" uid="uid://cqh103kassjrt" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" uid="uid://dqfbpjbn74cn2" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="3_cam"]
 [ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="4_spar"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="5_fr"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="6_det"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="7_sp"]
-[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="8_sd"]
-[ext_resource type="Script" path="res://scripts/stage_exit.gd" id="9_exit"]
+[ext_resource type="Script" uid="uid://dmk14oyyqf13g" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="5_fr"]
+[ext_resource type="Script" uid="uid://b26vhkd8xhv34" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="6_det"]
+[ext_resource type="Script" uid="uid://c24xynhkmuk0t" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="7_sp"]
+[ext_resource type="Script" uid="uid://cty10v4sstc3c" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="8_sd"]
+[ext_resource type="Script" uid="uid://debkq7ehftipy" path="res://scripts/stage_exit.gd" id="9_exit"]
 
-[sub_resource type="SegmentShape2D" id="Seg_room1"]
-a = Vector2(0, -400)
-b = Vector2(0, 700)
-
-[sub_resource type="SegmentShape2D" id="Seg_room2"]
-a = Vector2(0, -400)
-b = Vector2(0, 700)
+[sub_resource type="RectangleShape2D" id="Rect_exitband"]
+size = Vector2(100, 700)
 
 [sub_resource type="RectangleShape2D" id="Rect_ground"]
 size = Vector2(6200, 200)
@@ -24,14 +19,15 @@ size = Vector2(6200, 200)
 [sub_resource type="RectangleShape2D" id="Rect_wall"]
 size = Vector2(40, 2600)
 
-[sub_resource type="RectangleShape2D" id="Rect_exitband"]
-size = Vector2(100, 700)
-
 [sub_resource type="Resource" id="SD_r1w1"]
 script = ExtResource("8_sd")
 enemy_scene = ExtResource("4_spar")
 spawn_mode = 1
 use_spawner_position = true
+
+[sub_resource type="SegmentShape2D" id="Seg_room1"]
+a = Vector2(0, -400)
+b = Vector2(0, 700)
 
 [sub_resource type="Resource" id="SD_r2a_w1"]
 script = ExtResource("8_sd")
@@ -51,43 +47,60 @@ enemy_scene = ExtResource("4_spar")
 spawn_mode = 1
 use_spawner_position = true
 
-[node name="StageRefA" instance=ExtResource("1_base")]
+[sub_resource type="SegmentShape2D" id="Seg_room2"]
+a = Vector2(0, -400)
+b = Vector2(0, 700)
+
+[node name="StageRefA" unique_id=796802086 instance=ExtResource("1_base")]
 stage_id = &"stage_ref_a"
 
-[node name="Chen" parent="Level/Characters" instance=ExtResource("2_chen")]
+[node name="Chen" parent="Level/Characters" parent_id_path=PackedInt32Array(1269328928) index="0" unique_id=970571559 instance=ExtResource("2_chen")]
 position = Vector2(300, 600)
 
-[node name="LevelCamera" parent="Level/Characters/Chen" instance=ExtResource("3_cam")]
-limit_left = 0
+[node name="LevelCamera" parent="Level/Characters/Chen" index="3" unique_id=859038492 instance=ExtResource("3_cam")]
 limit_top = -280
 limit_right = 6000
 limit_bottom = 1200
 
-[node name="GroundBody" type="StaticBody2D" parent="Level/Collisions"]
+[node name="StageExit" type="Area2D" parent="Level/Objects" parent_id_path=PackedInt32Array(500519273) index="0" unique_id=1329748965]
+position = Vector2(3650, 400)
+collision_layer = 0
+monitorable = false
+script = ExtResource("9_exit")
+next_stage_path = "res://scenes/stages/ref/stage_ref_b.tscn"
+
+[node name="Shape" type="CollisionShape2D" parent="Level/Objects/StageExit" index="0" unique_id=1392507453]
+position = Vector2(0, 200)
+shape = SubResource("Rect_exitband")
+
+[node name="Collisions" parent="Level" parent_id_path=PackedInt32Array(529023094) index="2" unique_id=2003800849]
+visible = true
+
+[node name="GroundBody" type="StaticBody2D" parent="Level/Collisions" index="0" unique_id=1963463109]
 collision_layer = 16760832
 collision_mask = 0
 
-[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/GroundBody"]
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/GroundBody" index="0" unique_id=282329040]
 position = Vector2(3050, 700)
 shape = SubResource("Rect_ground")
 
-[node name="WallL" type="StaticBody2D" parent="Level/Collisions"]
+[node name="WallL" type="StaticBody2D" parent="Level/Collisions" index="1" unique_id=181694255]
 collision_layer = 16760832
 collision_mask = 0
 
-[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallL"]
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallL" index="0" unique_id=1534626369]
 position = Vector2(-80, 500)
 shape = SubResource("Rect_wall")
 
-[node name="WallR" type="StaticBody2D" parent="Level/Collisions"]
+[node name="WallR" type="StaticBody2D" parent="Level/Collisions" index="2" unique_id=2102462419]
 collision_layer = 16760832
 collision_mask = 0
 
-[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallR"]
+[node name="Shape" type="CollisionShape2D" parent="Level/Collisions/WallR" index="0" unique_id=1651264962]
 position = Vector2(6180, 500)
 shape = SubResource("Rect_wall")
 
-[node name="Room1" type="ReferenceRect" parent="FightRooms"]
+[node name="Room1" type="ReferenceRect" parent="FightRooms" parent_id_path=PackedInt32Array(1295280140) index="0" unique_id=21710772]
 offset_left = 380.0
 offset_top = -280.0
 offset_right = 1500.0
@@ -97,7 +110,7 @@ limit_left = 380
 limit_top = -280
 limit_right = 1500
 limit_bottom = 1200
-zoom = 1.0
+zoom = 2.2857144
 after_fight_use_new_room = true
 after_fight_limit_left = 380
 after_fight_limit_top = -280
@@ -105,14 +118,18 @@ after_fight_limit_right = 2200
 after_fight_limit_bottom = 1200
 after_fight_zoom = 1.0
 after_fight_transition_duration = 0.8
+preview_camera = true
+preview_camera_color = Color(0.29411766, 0, 0.50980395, 1)
+preview_after_room = true
+preview_after_color = Color(0, 0.5019608, 0.5019608, 1)
 
-[node name="EnemySpawner1" type="Marker2D" parent="FightRooms/Room1"]
+[node name="EnemySpawner1" type="Marker2D" parent="FightRooms/Room1" index="0" unique_id=561415771]
 position = Vector2(620, 880)
 script = ExtResource("7_sp")
 path_spawn_parent = NodePath("../../../Level/Characters")
 spawn_waves = [[SubResource("SD_r1w1")]]
 
-[node name="PlayerDetector" type="Area2D" parent="FightRooms/Room1"]
+[node name="PlayerDetector" type="Area2D" parent="FightRooms/Room1" index="1" unique_id=1573787318]
 position = Vector2(140, 400)
 collision_layer = 0
 collision_mask = 16760832
@@ -121,10 +138,10 @@ script = ExtResource("6_det")
 path_fight_room = NodePath("..")
 paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
 
-[node name="Shape" type="CollisionShape2D" parent="FightRooms/Room1/PlayerDetector"]
+[node name="Shape" type="CollisionShape2D" parent="FightRooms/Room1/PlayerDetector" index="0" unique_id=756912834]
 shape = SubResource("Seg_room1")
 
-[node name="Room2" type="ReferenceRect" parent="FightRooms"]
+[node name="Room2" type="ReferenceRect" parent="FightRooms" parent_id_path=PackedInt32Array(1295280140) index="1" unique_id=1962500394]
 offset_left = 1800.0
 offset_top = -280.0
 offset_right = 3000.0
@@ -134,7 +151,7 @@ limit_left = 1800
 limit_top = -280
 limit_right = 3000
 limit_bottom = 1200
-zoom = 1.0
+zoom = 2.1333334
 after_fight_use_new_room = true
 after_fight_limit_left = 1800
 after_fight_limit_top = -280
@@ -142,20 +159,24 @@ after_fight_limit_right = 3800
 after_fight_limit_bottom = 1200
 after_fight_zoom = 1.0
 after_fight_transition_duration = 0.8
+preview_camera = true
+preview_camera_color = Color(0.29411766, 0, 0.50980395, 1)
+preview_after_room = true
+preview_after_color = Color(0, 0.5019608, 0.5019608, 1)
 
-[node name="EnemySpawner1" type="Marker2D" parent="FightRooms/Room2"]
+[node name="EnemySpawner1" type="Marker2D" parent="FightRooms/Room2" index="0" unique_id=123974174]
 position = Vector2(500, 880)
 script = ExtResource("7_sp")
 path_spawn_parent = NodePath("../../../Level/Characters")
 spawn_waves = [[SubResource("SD_r2a_w1")], [SubResource("SD_r2a_w2")]]
 
-[node name="EnemySpawner2" type="Marker2D" parent="FightRooms/Room2"]
+[node name="EnemySpawner2" type="Marker2D" parent="FightRooms/Room2" index="1" unique_id=867076215]
 position = Vector2(900, 880)
 script = ExtResource("7_sp")
 path_spawn_parent = NodePath("../../../Level/Characters")
 spawn_waves = [[SubResource("SD_r2b_w1")]]
 
-[node name="PlayerDetector" type="Area2D" parent="FightRooms/Room2"]
+[node name="PlayerDetector" type="Area2D" parent="FightRooms/Room2" index="2" unique_id=1656772307]
 position = Vector2(150, 400)
 collision_layer = 0
 collision_mask = 16760832
@@ -164,16 +185,5 @@ script = ExtResource("6_det")
 path_fight_room = NodePath("..")
 paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1"), NodePath("../EnemySpawner2")])
 
-[node name="Shape" type="CollisionShape2D" parent="FightRooms/Room2/PlayerDetector"]
+[node name="Shape" type="CollisionShape2D" parent="FightRooms/Room2/PlayerDetector" index="0" unique_id=2083445134]
 shape = SubResource("Seg_room2")
-
-[node name="StageExit" type="Area2D" parent="Level/Objects"]
-position = Vector2(3650, 400)
-collision_layer = 0
-monitorable = false
-script = ExtResource("9_exit")
-next_stage_path = "res://scenes/stages/ref/stage_ref_b.tscn"
-
-[node name="Shape" type="CollisionShape2D" parent="Level/Objects/StageExit"]
-position = Vector2(0, 200)
-shape = SubResource("Rect_exitband")

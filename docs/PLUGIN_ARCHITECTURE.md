@@ -315,7 +315,7 @@ signal mana_changed            # 法力值变化
 signal mana_depleted           # 法力值归零
 signal hurt_requested(knockback: QuiverKnockbackData)     # 被击中，请求硬直动画
 signal knockout_requested(knockback: QuiverKnockbackData)  # 请求击飞
-signal wall_bounced            # 撞墙反弹
+signal wall_bounced(bounce_direction)  # 撞墙反弹（携带几何方向：+1东/−1西）
 signal grab_requested(grabbed_character: QuiverAttributes)  # 请求抓取
 signal grab_released           # 释放抓取
 signal grabbed(ground_level: float)     # 被抓住
@@ -739,7 +739,9 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
   重复喊无副作用）、`exit()` 归零——弹墙结算与死亡分支泄漏的闭环全在此，详见
   7.3 墙壁反弹机制
 - 监听 `hurt_requested / knockout_requested / wall_bounced` 三信号做链内再起飞/
-  反弹（`wall_bounced` → `transition_to(Launch, {is_wall_bounce})` 水平速度反转）
+  反弹（`wall_bounced(dir)` → `transition_to(Launch, {is_wall_bounce, bounce_dir})`；
+  弹回速度为**注入**——实体墙贴墙瞬间 vx 已被碰撞清零，反射现值=空转；大小取链父
+  记存的本次起飞水平速度 `_launch_speed_x`，方向由受击盒按墙心几何判定）
 - `_handle_bounce()`：触地即 `velocity.x=0`（A3 甲案落地即停）+ 转 Bounce
 
 **皮肤侧配套（审计教训 2026-09-19）**：AnimTree 的 `knockout_ground` 节点**不是**
@@ -984,7 +986,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
   无泄漏路径；实例重建天然为假
 - `QuiverHurtBox._handle_wall_hit_box()` 进门先过这道门：链外（走路/受击/起身）
   贴相机弹墙带**静默免结算**；链内撞墙才结算 `apply_damage(墙 attack_data)` +
-  `wall_bounced.emit()`（击飞状态监听 → 速度反转复飞）
+  `wall_bounced.emit(dir)`（击飞状态监听 → 注入反弹速度复飞）
 - 前置条件归处理器自持（与本文件 `_can_be_attacked_by` 家族同款分工），
   `_on_area_entered` 保持纯类型路由
 - 回归锁：`knockout_contract` D 段（真实 Area2D 物理重叠级：链外免伤/链内
@@ -1224,8 +1226,12 @@ LevelCamera (Camera2D)
 3. 角色 HurtBox 进入 LeftBounce/RightBounce 检测范围（墙挂全高度层，被动可测）
 4. `_on_area_entered()` 类型分派 → `_handle_wall_hit_box()` → `in_knockout` 门放行
 5. 结算：`apply_damage(5)` + `wall_bounced.emit()`
-6. 击飞链监听 `wall_bounced` → transition 回 Launch（`is_wall_bounce`）→ 水平速度
-   反转复飞；弹跳/再受击期间旗恒开（父 enter 幂等）
+6. 击飞链监听 `wall_bounced(dir)` → transition 回 Launch（`is_wall_bounce`+`bounce_dir`）
+   → **注入**背离墙面的水平速度（大小=本次起飞的记存值 `_launch_speed_x`，缺失兜底
+   600）复飞；弹跳/再受击期间旗恒开（父 enter 幂等）。
+   上游原行 `reflect(Vector2.UP)` 查档定性：对"纵向走皮肤通道"的击飞体系是恒等
+   变换（上下游同然），且实体墙修好后 flip 时刻 vx 已被清零——两重失效叠加，
+   "撞墙弹回"在原始模板里从来只演不弹（2026-09-19 A 案定档，stage_contract C3.5 锁）
 7. 链自然走完（Bounce 落地→Recovery 或死亡→Die）→ `Knockout.exit()` → 旗归零，
    恢复"贴墙免结算"。**空中死亡泄漏洞**（旧机制 die 分支无人关窗）由第 7 步封死。
 

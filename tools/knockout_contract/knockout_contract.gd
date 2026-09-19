@@ -203,7 +203,7 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 			"D6 受击盒有真阵营且零 wall 残留")
 
 	var bounces := {"n": 0}
-	spar.attributes.wall_bounced.connect(func(): bounces.n += 1)
+	spar.attributes.wall_bounced.connect(func(_dir): bounces.n += 1)
 	# 起身无敌帧纪律备案：Recovery 系动画带 attributes:is_invulnerable 值轨
 	# （设计=起身保护窗口，CombatSystem.apply_knockback 入口直接吞交易）。
 	# D2 的破线拳必须等回到 Idle 再发，否则被保护窗正确拦截（首跑实锤）。

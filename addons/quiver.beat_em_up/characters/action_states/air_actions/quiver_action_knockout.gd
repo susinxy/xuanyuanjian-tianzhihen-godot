@@ -21,6 +21,9 @@ var _path_bounce := "Air/Knockout/Bounce"
 var _path_launch := "Air/Knockout/Launch"
 
 var _launch_count := 0
+## 本次起飞记录的水平速度大小（撞墙弹回的供能：贴实体墙时身体速度已被碰撞
+## 清零，反弹不能反射"现值"，只能注入这个记存值 × 几何方向，A 案定档）。
+var _launch_speed_x := 0.0
 
 @onready var _air_state := get_parent() as QuiverActionAir
 
@@ -100,6 +103,7 @@ func _launch_charater(impulse: float, launch_vector: Vector2) -> void:
 	
 	_character.velocity.x = new_velocity.x
 	_air_state._skin_velocity_y = new_velocity.y
+	_launch_speed_x = absf(new_velocity.x)
 
 
 func _connect_signals() -> void:
@@ -132,8 +136,9 @@ func _on_knockout_requested(knockback: QuiverKnockbackData) -> void:
 		{launch_vector = knockback.launch_vector, impulse = knockback.impulse})
 
 
-func _on_wall_bounced() -> void:
-	_state_machine.transition_to(_path_launch, {is_wall_bounce = true})
+func _on_wall_bounced(bounce_direction: float) -> void:
+	_state_machine.transition_to(_path_launch,
+			{is_wall_bounce = true, bounce_dir = bounce_direction})
 
 ### -----------------------------------------------------------------------------------------------
 
