@@ -1,65 +1,67 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://bwe268wfntwyf"]
 
-[ext_resource type="Script" path="res://scenes/base/base_stage.gd" id="1_base"]
-[ext_resource type="Script" path="res://scripts/debug_background.gd" id="2_dbgbg"]
+[ext_resource type="Script" uid="uid://6tqyilkv1bne" path="res://scenes/base/base_stage.gd" id="1_base"]
+[ext_resource type="Script" uid="uid://denftpkyc8rbh" path="res://scripts/debug_background.gd" id="2_dbgbg"]
 [ext_resource type="PackedScene" path="res://ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" path="res://ui/menus/pause_menu.tscn" id="4_pause"]
 [ext_resource type="PackedScene" path="res://ui/menus/death_screen.tscn" id="5_death"]
 
-[node name="BaseLevel" type="Node2D"]
+[node name="BaseLevel" type="Node2D" unique_id=1437817321]
 script = ExtResource("1_base")
 
-[node name="Background" type="CanvasLayer" parent="."]
+[node name="Background" type="CanvasLayer" parent="." unique_id=37746399]
 script = ExtResource("2_dbgbg")
 
-[node name="Ground" type="ColorRect" parent="Background"]
+[node name="Ground" type="ColorRect" parent="Background" unique_id=105111797]
 offset_right = 6000.0
 offset_bottom = 660.0
 color = Color(0.09, 0.09, 0.11, 1)
 
-[node name="Level" type="Node2D" parent="."]
+[node name="Level" type="Node2D" parent="." unique_id=529023094]
 z_index = 15
 y_sort_enabled = true
 
-[node name="Characters" type="Node2D" parent="Level"]
+[node name="Characters" type="Node2D" parent="Level" unique_id=1269328928]
 y_sort_enabled = true
 
-[node name="Objects" type="Node2D" parent="Level"]
+[node name="Objects" type="Node2D" parent="Level" unique_id=500519273]
 y_sort_enabled = true
 
-[node name="Collisions" type="Node2D" parent="Level"]
+[node name="Collisions" type="Node2D" parent="Level" unique_id=2003800849]
 visible = false
 
-[node name="Ambient" type="Node2D" parent="."]
+[node name="Ambient" type="Node2D" parent="." unique_id=1480857295]
 
-[node name="CanvasModulate" type="CanvasModulate" parent="Ambient"]
-color = Color(1, 1, 1, 1)
+[node name="CanvasModulate" type="CanvasModulate" parent="Ambient" unique_id=792746756]
 
-[node name="Foreground" type="Node2D" parent="."]
+[node name="Foreground" type="Node2D" parent="." unique_id=100813915]
 z_index = 25
 
-[node name="FightRooms" type="Node2D" parent="."]
+[node name="FightRooms" type="Node2D" parent="." unique_id=1295280140]
 z_index = 30
 
-[node name="HudLayer" type="CanvasLayer" parent="."]
+[node name="HudLayer" type="CanvasLayer" parent="." unique_id=455924525]
 layer = 2
 
-[node name="GameHUD" parent="HudLayer" instance=ExtResource("3_hud")]
+[node name="GameHUD" parent="HudLayer" unique_id=1007472979 instance=ExtResource("3_hud")]
 
-[node name="PauseLayer" type="Control" parent="HudLayer"]
+[node name="PauseLayer" type="Control" parent="HudLayer" unique_id=2053679941]
+process_mode = 3
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-process_mode = 3
 mouse_filter = 2
 
-[node name="PauseMenu" parent="HudLayer/PauseLayer" instance=ExtResource("4_pause")]
+[node name="PauseMenu" parent="HudLayer/PauseLayer" unique_id=669607580 instance=ExtResource("4_pause")]
+anchors_preset = 0
 
-[node name="DeathScreen" parent="HudLayer/PauseLayer" instance=ExtResource("5_death")]
+[node name="DeathScreen" parent="HudLayer/PauseLayer" unique_id=1640399270 instance=ExtResource("5_death")]
+anchors_preset = 0
 
-[node name="StageEndPanel" type="PanelContainer" parent="HudLayer"]
+[node name="StageEndPanel" type="PanelContainer" parent="HudLayer" unique_id=228860201]
 visible = false
 anchors_preset = 8
 anchor_left = 0.5
@@ -73,15 +75,15 @@ offset_bottom = 60.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="PanelBox" type="VBoxContainer" parent="HudLayer/StageEndPanel"]
+[node name="PanelBox" type="VBoxContainer" parent="HudLayer/StageEndPanel" unique_id=771228847]
 layout_mode = 2
 
-[node name="BackTitle" type="Button" parent="HudLayer/StageEndPanel/PanelBox"]
+[node name="BackTitle" type="Button" parent="HudLayer/StageEndPanel/PanelBox" unique_id=785640017]
 custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 text = "返回标题"
 
-[node name="Replay" type="Button" parent="HudLayer/StageEndPanel/PanelBox"]
+[node name="Replay" type="Button" parent="HudLayer/StageEndPanel/PanelBox" unique_id=592202030]
 custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 text = "重走一遍"
