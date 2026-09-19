@@ -10,12 +10,15 @@ extends Camera2D
 
 #--- constants ------------------------------------------------------------------------------------
 
-## 弹墙带领先实墙的深度（px，向场内）：带盒 = [面+20, 面+100]（带宽与墙厚同为
-## collision_width，中心+100 即外沿留 20 贴墙、内沿探入 100）。此深度保证
-## "受击盒跨入带"的 enter 事件至少早于身体撞墙 2 物理帧（触发余量 ≥65+探出量，
-## 最大弹速 2000px/s 每帧仅 33px）——镜像弹回拿到的永远是未被墙清零的完整
-## 撞击速度（2026-09-19 弹墙终案：带墙同心=输入被引擎销毁，带墙分离=各司其职）。
-const BAND_INSET := 100.0
+## 实体墙外挪量（px）：墙面从"房界∧视口沿"取紧者再向界外挪 O——角色贴墙停住时
+## 身体中心≈线−O+半身宽（负值=越线出镜），"被拦住"的观感保留、场内空间完整还给玩法。
+const WALL_OUTSET := 60.0
+
+## 弹墙带场内探出量（px）：带盒=[线+b−80, 线+b]（内沿只入线 b）。
+## 命中提前量预算由 b 与 O 分摊（定和 ≥74）：触发余量 = b+O−受击盒内缩(8)
+## ≥ 2 物理帧 × 最大弹速步 33.3px（2000px/s÷60）。现值 20+60=80 → 余量 72px=2.2 帧。
+## 带墙同心旧案（镜像输入被墙清零）与本常数家族同源——改任一值须同步 D8 几何锁。
+const BAND_REACH := 20.0
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -67,38 +70,29 @@ func _process(_delta: float) -> void:
 		_update_collision_limits_length()
 
 
-## 四块隐形墙贴视口边定位（原 _process 内联体，抽出供 _ready 先摆一次）。
+## 四面墙+四弹墙带统一定位（_ready 与 _process 各跑，先于任何物理帧）。
+## 每面"线"= min/max(房界, 视口沿) 的取紧者（与旧公式同语义）；
+## 墙盒外挪 WALL_OUTSET、带盒内探 BAND_REACH——带墙肩并肩不重叠（旧 RT2D
+## 同心布局让撞墙清零永远先于带命中，镜像输入恒 0，2026-09-19 终案废除）。
 func _place_collision_limits() -> void:
-	for limit in _collision_limits:
-		var half_collision_width := collision_width * Vector2.ONE /2.0
-		var half_size := get_viewport_rect().size / zoom / 2.0 + half_collision_width
-		var target_position := get_screen_center_position()
-		if limit == _limit_left:
-			target_position.x = minf(
-					limit_left - half_collision_width.x , target_position.x - half_size.x
-			)
-		elif limit == _limit_right:
-			target_position.x = maxf(
-					limit_right + half_collision_width.x, target_position.x + half_size.x
-			)
-		elif limit == _limit_top:
-			target_position.y = minf(
-					limit_top - half_collision_width.y, target_position.y - half_size.y
-			)
-		elif limit == _limit_bottom:
-			target_position.y = maxf(
-					limit_bottom + half_collision_width.y, target_position.y + half_size.y
-			)
-		
-		limit.global_position = target_position
+	var half_col := collision_width / 2.0
+	var half_vis := get_viewport_rect().size / zoom / 2.0
+	var center := get_screen_center_position()
 	
-	# 弹墙带"带内墙外"分离摆位：带中心=对应墙中心向场内 BAND_INSET。
-	# 旧形态经 RemoteTransform2D 把带钉死在墙心（带墙同心），撞墙清零永远
-	# 先于带的命中事件，弹墙镜像拿到的输入恒为 0——RT2D 已删，改由此处统一摆。
-	_bounce_left.global_position = _limit_left.global_position + Vector2(BAND_INSET, 0)
-	_bounce_right.global_position = _limit_right.global_position + Vector2(-BAND_INSET, 0)
-	_bounce_top.global_position = _limit_top.global_position + Vector2(0, BAND_INSET)
-	_bounce_bottom.global_position = _limit_bottom.global_position + Vector2(0, -BAND_INSET)
+	var line_l := minf(float(limit_left), center.x - half_vis.x)
+	var line_r := maxf(float(limit_right), center.x + half_vis.x)
+	var line_t := minf(float(limit_top), center.y - half_vis.y)
+	var line_b := maxf(float(limit_bottom), center.y + half_vis.y)
+	
+	_limit_left.global_position = Vector2(line_l - half_col - WALL_OUTSET, center.y)
+	_limit_right.global_position = Vector2(line_r + half_col + WALL_OUTSET, center.y)
+	_limit_top.global_position = Vector2(center.x, line_t - half_col - WALL_OUTSET)
+	_limit_bottom.global_position = Vector2(center.x, line_b + half_col + WALL_OUTSET)
+	
+	_bounce_left.global_position = Vector2(line_l + BAND_REACH - half_col, center.y)
+	_bounce_right.global_position = Vector2(line_r - BAND_REACH + half_col, center.y)
+	_bounce_top.global_position = Vector2(center.x, line_t + BAND_REACH - half_col)
+	_bounce_bottom.global_position = Vector2(center.x, line_b - BAND_REACH + half_col)
 	
 ### -----------------------------------------------------------------------------------------------
 

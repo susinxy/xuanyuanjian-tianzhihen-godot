@@ -189,7 +189,7 @@ func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:
 	CombatSystem.apply_damage(wall_hit_box.attack_data, character_attributes)
 	# 镜像轴是墙自带数据（左右墙 UP=翻水平、上下墙 RIGHT=翻竖直），判定端
 	# 不做任何几何发明；击飞链据此对"尚未被实体墙清零"的完整撞击速度做真镜像
-	# （带墙分离布局保证命中先于碰撞，见 QuiverLevelCamera.BAND_INSET）。
+	# （带墙分离布局保证命中先于碰撞，见 QuiverLevelCamera.WALL_OUTSET/BAND_REACH）。
 	character_attributes.wall_bounced.emit(wall_hit_box.mirror_axis)
 
 

@@ -476,15 +476,16 @@ func _flow_c() -> void:
 	chen2.global_position = Vector2(300, 600)
 	var room1 := _cs().get_node("FightRooms/Room1") as QuiverFightRoom
 	room1.setup_fight_room()
+	# 钳位矩形=房界−40（墙外挪 60 后合法贴墙位在 355≥340，只抓真·墙外人）
 	var pulled: bool = await _wait_until(func():
-			return chen2.global_position.x >= 380.0, 240)
+			return chen2.global_position.x >= 340.0, 240)
 	_check(pulled, "C2.5 锁房收口：界外玩家在过渡完成后钳回界内（x=%.0f）"
 			% chen2.global_position.x)
 	# 稳态阻挡双证：钳回后向左全速顶墙 90 帧，不得再出界
 	Input.action_press("move_left")
 	await _frames(90)
 	Input.action_release("move_left")
-	_check(chen2.global_position.x >= 380.0,
+	_check(chen2.global_position.x >= 340.0,
 			"C2.5 稳态顶墙不再出界（x=%.0f）" % chen2.global_position.x)
 
 	# —— C3 清房1（聚合与解锁） ——

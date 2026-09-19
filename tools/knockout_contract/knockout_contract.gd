@@ -292,8 +292,11 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 	var d_r := _band_lead(cam_rig, "ScreenLimits/Right", "RightBounce", Vector2.LEFT)
 	var d_t := _band_lead(cam_rig, "ScreenLimits/Top", "TopBounce", Vector2.DOWN)
 	var d_b := _band_lead(cam_rig, "ScreenLimits/Bottom", "BottomBounce", Vector2.UP)
-	_check(d_l > 90.0 and d_r > 90.0 and d_t > 90.0 and d_b > 90.0,
-			"D8 四带均领先对应墙 ≥90px（带墙分离，%.0f/%.0f/%.0f/%.0f）"
+	# 带心−墙心 = BAND_REACH+WALL_OUTSET = 20+60 = 80（定和下 b+O≥74 即 2 帧余量）；
+	# 带内沿入线仅 20px、墙面外挪 35px 处拦人（线−60+…）——参数调档须连读此锁。
+	_check(d_l > 74.0 and d_r > 74.0 and d_t > 74.0 and d_b > 74.0
+			and d_l < 90.0 and d_r < 90.0 and d_t < 90.0 and d_b < 90.0,
+			"D8 带墙间距=80±定和合规（实测 %.0f/%.0f/%.0f/%.0f）"
 			% [d_l, d_r, d_t, d_b])
 	cam_rig.queue_free()
 

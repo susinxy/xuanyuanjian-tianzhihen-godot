@@ -1106,7 +1106,8 @@ func setup_after_fight_room() # 战斗结束 → 切换到战后区域
 该方法现**返回本次 Tween**，战斗房借此挂 `finished` 做**落位收口**（2026-09-19 契约）：
 
 - **`_clamp_players_into_room`**：过渡完成后，任何中心落在
-  `[limit+m, limit−m]`（m=60）之外的 `area2d:player` 角色钳回界内（只改位置
+  `[limit+m, limit−m]`（**m=−40 外扩**，2026-09-19 调档随墙外挪：矩形须包含
+  合法贴墙位 线−25，只抓真被扫掠落在墙外的人）钳回（只改位置
   不清速度）。背景：相机隐形墙随推近 Tween 扫掠，0.8s 过渡里退到缝隙后方的
   玩家会被落在实体墙背面（扫掠吞人 F5 案）——语义="锁房动作不许把任何人留在
   墙外"；参考实现与回归锁见 stage_contract C2.5。
@@ -1167,10 +1168,13 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 **类名**: `QuiverLevelCamera`（继承 Camera2D）
 
 **四个核心职责**:
-1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D（角色无法走出屏幕边缘）
+1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D——墙面=
+   min/max(房界, 视口沿) 取紧者再**外挪 WALL_OUTSET(60px)**：角色出界约 3/4 身位
+   被拦停（"看得见被墙挡住"的街機观感，用户 2026-09-19 定档），场内空间完整
 2. **墙壁反弹检测（四带环）**: Left/Right/Top/BottomBounce 四枚 WallHitBox Area2D，
-   `_place_collision_limits()` 统一摆位="带在内、墙在外"（带中心领先墙心 BAND_INSET=100px
-   向场内），命中必然早于身体撞墙 ≥2 物理帧
+   `_place_collision_limits()` 统一摆位："带内墙外"分摊提前量——带场内沿仅探入
+   BAND_REACH(20px)，其余预算由墙外挪承担；触发余量 = b+O−8 = 72px ≥ 2 物理帧
+   @最大弹速 2000px/s，命中必先于撞墙清零，镜像输入永远完整
 3. **`delimitate_room()`**: 平滑过渡摄像头边界到指定区域（用 Tween）
 4. **高度层碰撞初始化**: `_ready()` 时调用 `QuiverCharacter.get_all_height_layers_mask()` 设置碰撞层
 
@@ -1186,7 +1190,7 @@ LevelCamera (Camera2D)
 ├── LeftBounce  (Area2D, WallHitBox, mirror_axis=UP,    attack_damage=5) ┐
 ├── RightBounce (Area2D, WallHitBox, mirror_axis=UP,    attack_damage=5) │ 四带环：脚本摆位
 ├── TopBounce   (Area2D, WallHitBox, mirror_axis=RIGHT, attack_damage=5) │ = 对应墙心向场内
-└── BottomBounce(Area2D, WallHitBox, mirror_axis=RIGHT, attack_damage=5) ┘   100px（带内墙外）
+└── BottomBounce(Area2D, WallHitBox, mirror_axis=RIGHT, attack_damage=5) ┘   80px（带内墙外，定和≥74）
 ```
 
 #### 屏幕边缘碰撞墙（ScreenLimits）
@@ -1224,10 +1228,12 @@ LevelCamera (Camera2D)
 （案卷：上游模板的带在纯 one_way 假墙世界里恰好永远拿得到完整速度，其
 `reflect(Vector2.UP)` 本就正确；本仓库实体化后才暴露时序矛盾——期间曾被误诊为
 "上游恒等变换缺陷"并做过"注入记存速度"的弯路，均已由几何治本取代。）现已删 RT2D，
-由 `_place_collision_limits()` 统一摆位：**带中心 = 墙中心向场内 BAND_INSET(100px)**，
-带盒占 [面+20, 面+100]。触发余量 ≥65px+受击盒探出量，对最大弹速 2000px/s
-（33px/帧）保有 ≥2 物理帧提前量——**命中永远先于碰撞，镜像输入完整**。
-几何锁：knockout_contract D8。
+由 `_place_collision_limits()` 统一摆位（"线"=房界与视口沿的取紧者）：
+**墙盒外挪 WALL_OUTSET(60) → 墙面=线−60；带盒场内沿=线+20（BAND_REACH）**，
+带墙中心距恒=80。触发余量 = b+O−受击盒内缩(8) = 72px = 2.2 物理帧
+@最大弹速 2000px/s（33px/帧）——**命中永远先于碰撞，镜像输入完整**；
+角色贴墙停位=线−25（身体 3/4 出镜，被拦观感保留）。定和底线 b+O ≥ 74
+写死在常数注释，几何锁实测区间 [74, 90)：knockout_contract D8。
 
 **碰撞层**: 同 ScreenLimits，使用全高度层 bitmask（四带由 `_setup_height_layer_collisions()` 归置）。
 
