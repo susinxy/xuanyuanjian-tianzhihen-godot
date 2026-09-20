@@ -1,8 +1,76 @@
 # 关卡装配指南（STAGE_ASSEMBLY）
 
-> S1 立法的装配法典：spec §5 八条规范 + 本计划施工期实证雷区。
-> 建真关卡前先通读本文件；**新关卡必过校验器才有 F5 资格**（流程法律）：
+> S1 立法的装配法典：**要造新地点 → 直接看第〇章食谱**；第一章八条与第二、三章
+> 是干完活后的审稿清单。**新关卡必过校验器才有 F5 资格**（流程法律）：
 > `godot --headless --path . -s tools/stage_validator/validator.gd`
+
+## 〇、新地点食谱（先照此施工，再回下文审稿）
+
+**总原则**：造一个正式地点**零新代码**——若发现"非改代码不可"，说明需求在 S1
+能力面外（如互动触发件），回设计会立项，别在场景里手写胶水。
+
+### 0.1 实例化 base_stage 即免费所得（什么都不用配）
+
+| 能力 | 提供者 | 场景侧动作 |
+|---|---|---|
+| 四段式树（Background/Level{Characters,Objects,Collisions}/Foreground/FightRooms/HudLayer+HUD+暂停/死亡壳+通关面板） | `base_stage.tscn` 骨架 | 无 |
+| 检查点自动注册（死亡/暂停菜单可回跳本地点） | `BaseStage._ready → GameEvents.add_checkpoint` | 填 `stage_id` 即生效 |
+| 波次聚合解锁（房内全部生成器 is_completed → 扩权 after_fight + 发 `room_cleared`） | BaseStage 聚合读检测器导出 | 只需填对检测器（0.3） |
+| 死亡→死亡壳、ESC→暂停壳（含冻结态防叠开） | BaseStage 转交 + 壳 ALWAYS 纪律 | 无 |
+| 通关面板（全房清且 `ends_after_last_room=true` → 返回标题/重走一遍） | `BaseStage._show_end_panel` | 填该导出 |
+| 相机边缘全家桶：四面实体墙+四弹墙带（横竖分档）+出生初帧定位+锁房收口钳位+zoom 归一 | `QuiverLevelCamera` + `QuiverFightRoom` | 挂相机+配房 |
+| 高度层碰撞、阵营免伤、击飞/受击全套语义 | `QuiverCharacter` 运行时下发 | 无 |
+| 调试重载（debug_restart 动作 → reload_prototype） | `BaseStage._unhandled_input` | 无 |
+
+### 0.2 每地点亲手做的五件事（+一条合流）
+
+1. **建文件**：新建场景→实例化 `scenes/base/base_stage.tscn` 为根→另存
+   `scenes/stages/<章节包>/stage_<名>.tscn`（最小样板=`scenes/stages/ref/stage_c.tscn`）；
+2. **根两导出**：`stage_id`（StringName 全局唯一，检查点主键）；
+   `ends_after_last_room`（true=全房清演出通关面板；false=必须摆 StageExit——R8 二选一）；
+3. **生玩家+挂相机**：`Level/Characters` 实例 chen.tscn，其下实例
+   `quiver_level_camera.tscn`（装配一条：相机必须是玩家子节点）；limits 初值给宽
+   （样板只填 top=-280/right/bottom=1200，左右界由 FightRoom 运行时收束）；
+   **出生点放第一房检测线西侧几十 px**（放线东=落地即开战；放界外=首次锁房被收口拉一把，雷区 i）；
+4. **场地几何**：`Level/Collisions` 地面板+左右实体墙 StaticBody（配方照抄样板：
+   `collision_layer=16760832`、`collision_mask=0`，雷区 c）；背景/道具摆 `Objects`/`Background`；
+5. **FightRoom 三件套×N**：字段卡见 0.3（房=ReferenceRect，**子节点坐标相对房左上角**，雷区 a）；
+6. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
+   改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
+
+### 0.3 FightRoom 三件套字段卡（逐项来源=stage_c 实测绿）
+
+**房（ReferenceRect + quiver_fight_room.gd）**
+- `offset_left/top/right/bottom` 与 `limit_left/top/right/bottom` **同值**（offset=编辑器可视、limit=运行时执法）；
+- `zoom` 锁房全览缩放——照抄样板后 F5 校手感（validator 不管）；
+- 战后扩权：`after_fight_use_new_room=true` + 四 `after_fight_limit_*`（串场活动区，通常向东扩）+ `after_fight_zoom` + `after_fight_transition_duration=0.8`；
+- `preview_camera/preview_after_room=true` 仅编辑器预览着色。
+
+**生成器（Marker2D + quiver_enemy_spawner.gd）**
+- `path_spawn_parent = NodePath("../../../Level/Characters")` —— **必改**（上游默认值是错的，R5 红）；
+- `spawn_waves = [[SD, SD, ...], [SD, ...]]` —— 外层=波序、内层=同波并发；SD 子资源形态照抄样板（`enemy_scene` 指真实存在的敌人 .tscn=R6；`spawn_mode=1`+`use_spawner_position=true`=参考默认，语义要调时查插件 Inspector 面板）；
+- `position` 是**相对房左上角**的落点（雷区 a）。
+
+**检测器（Area2D + quiver_player_detector.gd）**
+- 掩码配方三件套：`collision_layer = 0`、`collision_mask = 16760832`、`monitorable = false`（雷区 b）；
+- `path_fight_room = NodePath("..")`；`paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1"), ...])` ——列**全本房**生成器，跨房重引=R9 红；
+- `is_one_shot` 默认 true 可不写（重复触发房属未立法需求，先回设计会）；
+- 触发线用竖 SegmentShape（样板 a=(0,-400) b=(0,700)），放点在玩家必经之路。
+
+### 0.4 路线 B——复制改件（日常最快）
+
+复制 `stage_c.tscn`（最小：1 房 1 波通关收尾）或 `stage_ref_a.tscn`（两房串场+出口）→
+换文件名+根名 → **改 `stage_id` 与检查点主键**（撞键=两地点在检查点表合并，回跳错位）→
+改几何/波次/出口 → 校验器。**纪律：复制改件免的是手续、不免审稿——八条+雷区 a-j 仍须逐条过**
+（validator 只保红线，手感与布局它不管）。
+
+### 0.5 验收三件套
+
+1. 校验器：默认扫 `scenes/stages/**`，你的地点出现在 `违例 0` 里；
+2. 冒烟：`godot --headless --path . res://scenes/stages/<包>/<你的地点>.tscn` 跑 ~8 秒零 SCRIPT ERROR；
+3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、穿线开战、
+   全清→通关面板、死亡→检查点表含本地点。
+（stage_contract 的 117 断言只绑 ref A/B 两台法定样板；新地点由以上三件套+回归时顺扫的校验器保护。）
 
 ## 一、装配八条（校验器 R1-R9 的法律来源）
 
