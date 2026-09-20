@@ -363,6 +363,10 @@ class HitLaneLimits:
 换轴判据 = `QuiverAttributes.skin_direction` 出手镜像（皮肤同名字段的快照，
 `QuiverActionAttack.enter` 主轴塌缩后写入、`exit` 清零；空攻/法术/抓取恒零向量=旧 Y 语义）。
 `get_hit_lane_limits(p_center = INF)` 默认以 ground_level 为中心，传 x 即得列窗口。
+**受击朝向语义（2026-09-20 决策定档）**：纵向攻击命中**不改写**防守方面向——hurt/击飞
+动画的 left/right 选择沿用防守方上一次水平 `facing_x`（与上下跳跃动画同源机制；全项目
+facing_x 只有 locomotion/mid_air 两个写入者，受击链零触碰）。曾议"北来→强制right/
+南来→left"映射方案，已否决不实现。锁：attack_lane_contract B7/B8/B9。
 
 ---
 

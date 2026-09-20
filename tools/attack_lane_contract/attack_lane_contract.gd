@@ -6,7 +6,10 @@ extends Node
 ## 行为层——真 chen 出手（QuiverActionAttack 主轴塌缩 + attributes.skin_direction
 ## 镜像生命周期）× PASSIVE 站桩小贩（零漂移靶）四方位打点：
 ## B1 正北 120px：旧 Y 车道必拒、新 X 车道必中（用户定罪现场=本案主症状）；
-## B4 北偏东 100px：列外必拒；B5 正东同排：旧横攻语义回归；B6 东偏北 120px：排外必拒。
+## B4 北偏东 100px：列外必拒；B5 正东同排：旧横攻语义回归；B6 东偏北 120px：排外必拒；
+## B7-B9（2026-09-20 决策定档批）表现层防"乌龙"断言：命中后防守方必达 Ground/Hurt、
+## 皮肤 AnimTree 必落 hurt_high、纵攻受击全程不改写 facing_x——把"纵向受击动画方向 =
+## 防守方上一次水平朝向（与上下跳跃同源机制）"从口头共识钉成机器契约。
 ## 运行：godot --headless --path . res://tools/attack_lane_contract/attack_lane_contract.tscn
 
 const CHEN := "res://characters/playable/chen/chen.tscn"
@@ -49,6 +52,26 @@ func _watch_hit(vendor: QuiverCharacter, hp0: float, cap: int) -> bool:
 			return true
 		await get_tree().physics_frame
 	return vendor.attributes.health_current < hp0
+
+
+## 表现层记录窗：逐帧记录 掉血/入Hurt状态/hurt_high动画 三旗。转 Hurt 是
+## call_deferred、动画节点切换要真实帧提交才可见——早退式断言会出竞态假红，
+## 窗满或三旗齐才回（knockout 批"信标要 process 提交阶段才发"同款纪律）
+func _watch_visual(vendor: QuiverCharacter, hp0: float, cap: int) -> Dictionary:
+	var seen := {"hit": false, "hurt_state": false, "hurt_anim": false}
+	for _i in cap:
+		if vendor.attributes.health_current < hp0:
+			seen.hit = true
+		if str(vendor.state_machine.state_name) == "Ground/Hurt":
+			seen.hurt_state = true
+		# _playback 声明在皮肤组件子类上，走无类型局部避免基类静态检查误杀
+		var pb = vendor._skin._playback
+		if pb != null and String(pb.get_current_node()) == "hurt_high":
+			seen.hurt_anim = true
+		if seen.hit and seen.hurt_state and seen.hurt_anim:
+			return seen
+		await get_tree().physics_frame
+	return seen
 
 
 func _attack(chen: QuiverCharacter, dir: Vector2) -> void:
@@ -101,14 +124,25 @@ func _flow() -> void:
 	_check(chen.attributes.skin_direction == Vector2.ZERO,
 			"B0b 待机镜像=零向量（非出手态旧语义护城河）")
 
-	# B1/B2/B3 正北 120px（Δy 出旧排窗 2 倍）→ 纵攻必中 + 镜像生命周期
+	# B1/B2/B3/B7/B8/B9 正北 120px → 纵攻必中 + 镜像生命周期 + 表现层断言组。
+	# B9 决策锁：受击/击飞处理永不写防守方面向（动画走上一次水平朝向，同纵跳机制）
+	# ——未来若有人实现"北来→强制 right"类映射，会先撞红本条。
+	vendor._skin.facing_x = -1.0
 	_attack(chen, Vector2.UP)
 	# 精确 == 会死于 from_angle(±90°) 的 6e-17 浮点 eps（B2 首跑实锤）：用近似
 	_check(chen.attributes.skin_direction.is_equal_approx(Vector2(0, -1)),
 			"B2 出手镜像=主轴塌缩快照 (0,-1)（近似比，%s）"
 			% chen.attributes.skin_direction)
-	var hit_north: bool = await _watch_hit(vendor, vendor.attributes.health_current, 240)
-	_check(hit_north, "B1 正北 120px 上攻击中（换轴主症状；旧代码必挂）")
+	var seen := await _watch_visual(vendor, vendor.attributes.health_current, 240)
+	_check(seen.hit, "B1 正北 120px 上攻击中（换轴主症状；旧代码必挂）")
+	_check(seen.hurt_state, "B7 命中后防守方状态机必达 Ground/Hurt（防乌龙断言）")
+	_check(seen.hurt_anim, "B8 皮肤 AnimTree 当前节点必落 hurt_high（punch1 hurt_type=HIGH）")
+	if not seen.hurt_anim:
+		var pb = vendor._skin._playback
+		print("[att-lane] B8 诊断 current_node=%s" % (
+				str(pb.get_current_node()) if pb != null else "<playback 空>"))
+	_check(vendor._skin.facing_x == -1.0,
+			"B9 纵攻受击全程不改写 facing_x（方向=上次水平朝向，决策定档锁）")
 	_check(await _wait_state(chen, "Ground/Move/Idle", 600), "B3a 出手窗结束后回 Idle")
 	_check(chen.attributes.skin_direction == Vector2.ZERO,
 			"B3 出手窗出 → 镜像归零（生命周期成对）")
