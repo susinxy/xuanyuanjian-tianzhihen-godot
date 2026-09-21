@@ -24,6 +24,7 @@ extends SceneTree
 ##      值 8=layer4 顶限，合计 12）；bit2 障碍位允许出现（不检查）
 ##   R8 地点含 StageExit 子树（脚本识别）或 ends_after_last_room = true
 ##   R9 同一 spawner 路径被 ≥2 个不同房的检测器引用（跨房重引）= 违例
+##   （WIP 豁免：目录内放 .wip 空文件=该目录树整体跳过并打 NOTICE）
 ##   R10 背景 CanvasLayer 显式写的 layer 必须 <0（≥0 连角色/阴影合成层整个盖掉；
 ##       负档是软边阴影自动档 z=Level-1 正确落位的承重墙，2026-09-20 光照收编）
 
@@ -65,6 +66,12 @@ func _initialize() -> void:
 
 func _collect(dir: String, out: Array) -> void:
 	if not DirAccess.dir_exists_absolute(dir):
+		return
+	# WIP 豁免（仿 .gdignore 先例，2026-09-21）：目录放 .wip 标记文件=整树跳过
+	# 执法扫描并打印 NOTICE——法典"必过校验才有 F5 资格"针对成品地点，
+	# 在施章节不该让全量回归矩阵替 WIP 红灯背书。
+	if FileAccess.file_exists(dir.path_join(".wip")):
+		print("NOTICE: WIP 目录豁免扫描 " + dir)
 		return
 	var d := DirAccess.open(dir)
 	d.list_dir_begin()
