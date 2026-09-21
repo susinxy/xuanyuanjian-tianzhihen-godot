@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://tools/container_prototype/chapter_shell.gd" id="1_shell"]
+[ext_resource type="PackedScene" uid="uid://cqh103kassjrt" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" uid="uid://dqfbpjbn74cn2" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn" id="3_cam"]
+
+[node name="ChapterShell" type="Node2D"]
+script = ExtResource("1_shell")
+
+[node name="Players" type="Node2D" parent="."]
+
+[node name="Chen" parent="Players" instance=ExtResource("2_chen")]
+position = Vector2(500, 600)
+
+[node name="LevelCamera" parent="Players/Chen" index="3" instance=ExtResource("3_cam")]
+limit_top = -280
+limit_right = 2000
+limit_bottom = 1200
