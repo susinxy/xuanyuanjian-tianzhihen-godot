@@ -16,11 +16,13 @@
 
 1. **挂时间数据**：`Ambient/DayNightController.scene_time_data` 填一份 SceneTimeData
    （起步件在 `resources/lighting/`：`day_neutral` 定格正午 / `day_cycle_default`
-   300 秒四相位循环）。**留空=本地点无昼夜（画布纯白，行为与收编前逐帧等价）**。
+   300 秒四相位循环 / `day_cycle_demo` 60 秒快循环=演示档）。
+   **留空=本地点无昼夜（画布纯白，行为与收编前逐帧等价）**。
+   法定实配对偶：ref_a=空数据负例、ref_b=挂 `day_cycle_demo` 的活体正例（契约 LC 组锁）。
    自建数据=复制起步件改四相位字典（`_init` 已给全默认值，tres 里只写要改的）。
 2. **摆阴影区域**（性能件）：地点根下加 `ShadowRegion`（ReferenceRect 拖框）。
    语义：实心/软边阴影都只在框内生成；**0 个框=全屏回退**；多框=并集但**重叠处
-   双倍变暗（禁止重叠）**。参考实配=`stage_c.tscn`。
+   双倍变暗（禁止重叠）**。实配参考=`stage_ref_b.tscn`（覆盖全战区一框）。
 
 ## 三、自动档说明（为什么不配软边阴影层）
 

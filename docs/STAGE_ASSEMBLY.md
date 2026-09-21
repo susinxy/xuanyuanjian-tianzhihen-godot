@@ -27,7 +27,8 @@
 ### 0.2 每地点亲手做的五件事（+一条合流）
 
 1. **建文件**：新建场景→实例化 `scenes/base/base_stage.tscn` 为根→另存
-   `scenes/stages/<章节包>/stage_<名>.tscn`（最小样板=`scenes/stages/ref/stage_c.tscn`）；
+   `scenes/stages/<章节包>/stage_<名>.tscn`（最小体做法=复制 ref_a 删 Room2 与
+   第二生成器、根改 `ends_after_last_room=true`；法定样板 A/B 是"一负一正"光照对偶）；
 2. **根两导出**：`stage_id`（StringName 全局唯一，检查点主键）；
    `ends_after_last_room`（true=全房清演出通关面板；false=必须摆 StageExit——R8 二选一）；
 3. **生玩家+挂相机**：`Level/Characters` 实例 chen.tscn，其下实例
@@ -38,12 +39,13 @@
    `collision_layer=16760832`、`collision_mask=0`，雷区 c）；背景/道具摆 `Objects`/`Background`；
 5. **FightRoom 三件套×N**：字段卡见 0.3（房=ReferenceRect，**子节点坐标相对房左上角**，雷区 a）；
 6. **【可选】光照两件套**：`Ambient/DayNightController.scene_time_data` 挂时间数据
-   （起步件 `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天）；
-   性能需要时在地点根摆 `ShadowRegion` 框（禁重叠，参考实配=stage_c）——细则见 LIGHTING_SETUP_GUIDE；
+   （起步件 `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天；
+   demo 档 `day_cycle_demo.tres`=60 秒快循环）；性能需要时在地点根摆 `ShadowRegion`
+   框（禁重叠，实配参考=ref_b）——细则见 LIGHTING_SETUP_GUIDE；
 7. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
    改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
 
-### 0.3 FightRoom 三件套字段卡（逐项来源=stage_c 实测绿）
+### 0.3 FightRoom 三件套字段卡（逐项来源=ref A/B 实测绿）
 
 **房（ReferenceRect + quiver_fight_room.gd）**
 - `offset_left/top/right/bottom` 与 `limit_left/top/right/bottom` **同值**（offset=编辑器可视、limit=运行时执法）；
@@ -72,7 +74,7 @@
 
 ### 0.4 路线 B——复制改件（日常最快）
 
-复制 `stage_c.tscn`（最小：1 房 1 波通关收尾）或 `stage_ref_a.tscn`（两房串场+出口）→
+复制 `stage_ref_a.tscn`（法定满配：两房串场+出口；最小体按 0.2#1 删减法）→
 换文件名+根名 → **改 `stage_id` 与检查点主键**（撞键=两地点在检查点表合并，回跳错位）→
 改几何/波次/出口 → 校验器。**纪律：复制改件免的是手续、不免审稿——八条+雷区 a-j 仍须逐条过**
 （validator 只保红线，手感与布局它不管）。
@@ -83,7 +85,7 @@
 2. 冒烟：`godot --headless --path . res://scenes/stages/<包>/<你的地点>.tscn` 跑 ~8 秒零 SCRIPT ERROR；
 3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、穿线开战、
    全清→通关面板、死亡→检查点表含本地点。
-（stage_contract 的 117 断言只绑 ref A/B 两台法定样板；新地点由以上三件套+回归时顺扫的校验器保护。）
+（stage_contract 的 128 断言只绑 ref A/B 两台法定样板（含 A负B正 光照对偶锁 LC 组）；新地点由以上三件套+回归时顺扫的校验器保护。）
 
 ## 一、装配九条（校验器 R1-R10 的法律来源）
 

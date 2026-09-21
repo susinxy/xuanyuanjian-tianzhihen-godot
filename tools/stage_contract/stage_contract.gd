@@ -21,7 +21,7 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
-const EXPECTED_ASSERTS := 126
+const EXPECTED_ASSERTS := 128
 
 var _fails := 0
 var _finished := false
@@ -485,7 +485,7 @@ func _flow_c() -> void:
 			"LC6 非 BaseStage 根回退手动态（Run-Test 场景 -1 现状零扰动）")
 	probe.free()
 	_check(get_tree().get_nodes_in_group(&"shadow_region").is_empty(),
-			"LC7 法定样板零区域件=全屏阴影回退语义（区域为可选装配件）")
+			"LC7 ref_a 空数据负例零区域（不挂=全屏阴影回退为合法装配态）")
 
 	# —— C2 房1锁相机+刷怪 ——
 	var cam := _stage_cam()
@@ -592,6 +592,13 @@ func _flow_c() -> void:
 	await _frames(4)
 	_check(GameEvents.get_checkpoints().back().stage_id == &"stage_ref_b",
 			"C5 检查点追新（尾=b）")
+
+	# —— C5.5 ref_b 光照正例对偶锁（A 负 B 正；60 秒活循环+区域实配） ——
+	var b_ctrl := _cs().get_node_or_null("Ambient/DayNightController")
+	_check(b_ctrl != null and b_ctrl.scene_time_data != null,
+			"LC8 ref_b 正例：控制器挂 day_cycle_demo（光照随时在走）")
+	_check(get_tree().get_nodes_in_group(&"shadow_region").size() == 1,
+			"LC9 ref_b 正例：ShadowRegion 区域框实配恰 1 个")
 
 	# —— C6 终点腿：清 B 房 → ends_after_last_room → 面板+冻结 ——
 	var cam_b := _stage_cam()
