@@ -120,7 +120,7 @@ func _on_room_wave_completed(room: QuiverFightRoom) -> void:
 	_cleared_count += 1
 	GameEvents.room_cleared.emit(room.name)
 	if ends_after_last_room and _cleared_count == _rooms.size():
-		_show_end_panel()  # TODO(S2)：剧情批换演出
+		_show_end_panel()  # TODO(S3)：剧情批换演出（编号 2026-09-21 换序：S2=切片 S3=对话）
 
 
 func _show_end_panel() -> void:
