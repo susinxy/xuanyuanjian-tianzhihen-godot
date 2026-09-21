@@ -12,10 +12,31 @@ const SCALES := [0.5, 1.0, 2.0, 4.0, 8.0]
 @export var enabled := false
 @export var radius := 2.0
 @export var scale_idx := 1
-## 全屏合成图的世界 z。柔边是一整张全屏 Sprite，只有一个 z，只能"整层压在某个 z 上/某
-## 个 z 下"。测试场景 Background 在 z=-10、角色在 z=0，故 -1 恰好落在中间。真实 base_stage
-## 的 Background z=5 / Level(角色) z=15，需把此值设为介于二者之间（如 6），否则会被背景埋掉。
+## 全屏合成图的世界 z（**手动态**：仅对非 BaseStage 根的场景生效——Run-Test 场景
+## Background 在 z=-10、角色在 z=0，故 -1 恰好落在中间）。
+## 正式地点（current_scene is BaseStage 根）走自动档：z = Level.z_index - 1
+## （"压背景与裸层装饰之上、所有关卡内容之下"的派生不变式，装配者零感知，
+## 2026-09-20 光照收编定档）；特殊需求在地点根 BaseStage.shadow_composite_override
+## 覆写（见 derived_z_for）。旧注释里"真实背景 z=5"系过时文档值，实测背景为
+## CanvasLayer(-10)，无需魔数。
 @export var composite_z := -1
+
+## BaseStage 覆写哨兵（与 base_stage.gd 导出默认值同步，勿改单侧）
+const AUTO_SENTINEL := -2147483648
+
+## 合成层归属单一判定点（公开供契约断言）：
+## ① BaseStage 根且地点设了 shadow_composite_override → 用之；
+## ② BaseStage 根 → Level.z_index - 1（Level 缺失时回退③）；
+## ③ 其余（测试场景/无地点）→ 本节点 composite_z 导出
+func derived_z_for(scene: Node) -> int:
+	var stage := scene as BaseStage
+	if stage != null:
+		if stage.shadow_composite_override != AUTO_SENTINEL:
+			return stage.shadow_composite_override
+		var level := stage.get_node_or_null("Level")
+		if level != null:
+			return (level as CanvasItem).z_index - 1
+	return composite_z
 
 var shadow_world: Node2D
 
@@ -151,7 +172,8 @@ func _process(_delta: float) -> void:
 		return
 	_set_buffers_update(SubViewport.UPDATE_ALWAYS)
 	shadow_world.visible = true
-	_final.z_index = composite_z
+	# 自动档逐帧派生（两次属性读，成本≈0）：换场景/改 Level.z 即刻随动
+	_final.z_index = derived_z_for(get_tree().current_scene)
 	_sync(cam)
 
 ## 供外部/UI 运行时切换

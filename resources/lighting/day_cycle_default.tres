@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="SceneTimeData" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://cx07ahn52tkvq" path="res://scripts/day_night/scene_time_data.gd" id="1_std"]
+
+[resource]
+script = ExtResource("1_std")
+default_phase = 1
+can_cycle = true

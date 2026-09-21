@@ -20,6 +20,8 @@
 | 通关面板（全房清且 `ends_after_last_room=true` → 返回标题/重走一遍） | `BaseStage._show_end_panel` | 填该导出 |
 | 相机边缘全家桶：四面实体墙+四弹墙带（横竖分档）+出生初帧定位+锁房收口钳位+zoom 归一 | `QuiverLevelCamera` + `QuiverFightRoom` | 挂相机+配房 |
 | 高度层碰撞、阵营免伤、击飞/受击全套语义 | `QuiverCharacter` 运行时下发 | 无 |
+| 昼夜三件套预置（CanvasModulate+KeyLight+Controller；**空数据=自禁定格白天**） | `base_stage.tscn` Ambient 子树（2026-09-20 收编） | 可选：挂 SceneTimeData（0.2 第 6 件） |
+| 软边阴影合成层自动落位（z=Level-1 派生，随动） | `ShadowSoftEdge.derived_z_for` | 无（覆写=专家通道） |
 | 调试重载（debug_restart 动作 → reload_prototype） | `BaseStage._unhandled_input` | 无 |
 
 ### 0.2 每地点亲手做的五件事（+一条合流）
@@ -35,7 +37,10 @@
 4. **场地几何**：`Level/Collisions` 地面板+左右实体墙 StaticBody（配方照抄样板：
    `collision_layer=16760832`、`collision_mask=0`，雷区 c）；背景/道具摆 `Objects`/`Background`；
 5. **FightRoom 三件套×N**：字段卡见 0.3（房=ReferenceRect，**子节点坐标相对房左上角**，雷区 a）；
-6. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
+6. **【可选】光照两件套**：`Ambient/DayNightController.scene_time_data` 挂时间数据
+   （起步件 `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天）；
+   性能需要时在地点根摆 `ShadowRegion` 框（禁重叠，参考实配=stage_c）——细则见 LIGHTING_SETUP_GUIDE；
+7. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
    改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
 
 ### 0.3 FightRoom 三件套字段卡（逐项来源=stage_c 实测绿）
@@ -57,6 +62,14 @@
 - `is_one_shot` 默认 true 可不写（重复触发房属未立法需求，先回设计会）；
 - 触发线用竖 SegmentShape（样板 a=(0,-400) b=(0,700)），放点在玩家必经之路。
 
+**光照与阴影（骨架预置件 + 可选 ShadowRegion）**
+- `Ambient/DayNightController`：唯一要动的导出是 `scene_time_data`（null=自禁）；
+  `point_lights_paths` 留给灯笼类场景道具（DUSK/NIGHT 自动开关）；
+- `Ambient/KeyLight`：`shadow_enabled=false` **法典级禁改**（双重阴影）；无贴图=纯参数载体；
+- `ShadowRegion`（ReferenceRect 挂脚本，可选）：阴影只留框内；**0 个=全屏回退、多框并集、
+  重叠处双倍变暗禁止**；`debug_preview` 正式关卡保持 false（零绘制）；
+- Background CanvasLayer 换件时 **layer 必须 <0**（R10+canary，≥0 连角色一起盖掉）。
+
 ### 0.4 路线 B——复制改件（日常最快）
 
 复制 `stage_c.tscn`（最小：1 房 1 波通关收尾）或 `stage_ref_a.tscn`（两房串场+出口）→
@@ -72,7 +85,7 @@
    全清→通关面板、死亡→检查点表含本地点。
 （stage_contract 的 117 断言只绑 ref A/B 两台法定样板；新地点由以上三件套+回归时顺扫的校验器保护。）
 
-## 一、装配八条（校验器 R1-R9 的法律来源）
+## 一、装配九条（校验器 R1-R10 的法律来源）
 
 - [ ] **1. 相机挂玩家下**：LevelCamera 实例是玩家角色节点的子节点（插件无目标
       查找，跟随=父子变换）；limit 初值给宽，由 FightRoom 运行时收束。
@@ -94,6 +107,9 @@
       ——场景连线表达不了"与"逻辑，**禁逐房手写胶水**（上游每房手写的债已升格为机制）。
 - [ ] **8. 推进机制只有两种**：房→房 = after_fight_limit 扩权步行串场（同地点内）；
       跨地点 = StageExit 触发件（`next_stage_path` 导出）。不设第三种。
+- [ ] **9. 背景负档+光照空禁**：正式地点 Background CanvasLayer `layer` 必须 <0
+      （R10 文本执法 + BaseStage canary 兜"默认 1"缺失案）；昼夜三件套骨架预置，
+      `scene_time_data` 留空=自禁定格白天（装配合法态，非违例）。
 
 ## 二、实证雷区（S1 施工期尸检报告，逐条真踩过）
 

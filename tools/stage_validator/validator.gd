@@ -1,6 +1,6 @@
 extends SceneTree
 
-## 关卡装配校验器（S1-T4，矩阵第 21 项）：对 spec §5 地点契约做 R1-R9 九条
+## 关卡装配校验器（S1-T4，矩阵第 21 项）：对 spec §5 地点契约做 R1-R10 十条
 ## 独立规则的机械执法。**只读 .tscn 文本**（FileAccess+逐行解析），不走
 ## ResourceLoader——避免加载副作用与对未落地依赖的真实解析。
 ## 运行：
@@ -24,6 +24,8 @@ extends SceneTree
 ##      值 8=layer4 顶限，合计 12）；bit2 障碍位允许出现（不检查）
 ##   R8 地点含 StageExit 子树（脚本识别）或 ends_after_last_room = true
 ##   R9 同一 spawner 路径被 ≥2 个不同房的检测器引用（跨房重引）= 违例
+##   R10 背景 CanvasLayer 显式写的 layer 必须 <0（≥0 连角色/阴影合成层整个盖掉；
+##       负档是软边阴影自动档 z=Level-1 正确落位的承重墙，2026-09-20 光照收编）
 
 const BASE_PATH := "res://scenes/base/base_stage.tscn"
 const STAGES_DIR := "res://scenes/stages"
@@ -142,6 +144,7 @@ func _check_file(path: String) -> Array:
 	_check_r7(model, add)
 	_check_r8(model, add)
 	_check_r9(rooms, detectors, add)
+	_check_r10(model, add)
 	return out
 
 
@@ -298,6 +301,17 @@ func _check_r9(rooms: Array, detectors: Array, add: Callable) -> void:
 	for key in owners:
 		if owners[key].size() >= 2:
 			add.call("R9", "spawner %s 被 %d 个房的检测器共引" % [key, owners[key].size()])
+
+
+func _check_r10(model: Dictionary, add: Callable) -> void:
+	for n in model.nodes:
+		if n.type != "CanvasLayer" or n.name != "Background":
+			continue
+		if not n.props.has("layer"):
+			continue  # 未显式写=归脚本/骨架 runtime 定档（debug 背景 -10），文本层不猜
+		var layer: int = int(n.props.layer)
+		if layer >= 0:
+			add.call("R10", "Background CanvasLayer.layer=%d ≥0 会盖掉世界内容，须负档" % layer)
 
 
 #--- 值解析小件 ------------------------------------------------------------------------------------

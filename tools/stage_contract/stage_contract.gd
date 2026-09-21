@@ -21,7 +21,7 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
-const EXPECTED_ASSERTS := 117
+const EXPECTED_ASSERTS := 126
 
 var _fails := 0
 var _finished := false
@@ -456,6 +456,36 @@ func _flow_c() -> void:
 	_check(not cps.is_empty() and cps.back().stage_id == &"stage_ref_a",
 			"C1 检查点表含 stage_ref_a（真换场形态注册）")
 	_check(GameEvents.pending_jump_stage == "", "C1 pending_jump_stage 干净")
+
+	# —— C1.5 光照骨架契约（2026-09-20 收编批：L3 预置骨架+空数据自禁+软边自动档）——
+	var l3_ctrl := _cs().get_node_or_null("Ambient/DayNightController")
+	_check(l3_ctrl is DayNightController,
+			"LC1 骨架预置 DayNightController（L3 三件套已收进 base_stage）")
+	var key_light := _cs().get_node_or_null("Ambient/KeyLight") as DirectionalLight2D
+	_check(key_light != null and not key_light.shadow_enabled,
+			"LC2 KeyLight 在位且内置阴影关（双重阴影禁令，法典级）")
+	var cm := _cs().get_node("Ambient/CanvasModulate") as CanvasModulate
+	_check(l3_ctrl != null and l3_ctrl.scene_time_data == null and cm.color == Color.WHITE,
+			"LC3 空数据地点自禁（不接 manager，画布色纯白不崩）")
+	await _frames(30)
+	_check(cm.color == Color.WHITE, "LC3b 空数据 30 帧后仍纯白（无幽灵驱动）")
+	_check(ShadowSoftEdge.derived_z_for(_cs()) == 14,
+			"LC4 软边自动档=Level.z_index-1（15→14，装配者零感知）")
+	var lvl := _cs().get_node("Level") as CanvasItem
+	lvl.z_index = 20
+	_check(ShadowSoftEdge.derived_z_for(_cs()) == 19,
+			"LC4b Level 改档软边 z 随动（派生非常量）")
+	lvl.z_index = 15
+	_cs().shadow_composite_override = 7
+	_check(ShadowSoftEdge.derived_z_for(_cs()) == 7,
+			"LC5 地点侧哨兵覆写生效（专家通道）")
+	_cs().shadow_composite_override = -2147483648
+	var probe := Node2D.new()
+	_check(ShadowSoftEdge.derived_z_for(probe) == ShadowSoftEdge.composite_z,
+			"LC6 非 BaseStage 根回退手动态（Run-Test 场景 -1 现状零扰动）")
+	probe.free()
+	_check(get_tree().get_nodes_in_group(&"shadow_region").is_empty(),
+			"LC7 法定样板零区域件=全屏阴影回退语义（区域为可选装配件）")
 
 	# —— C2 房1锁相机+刷怪 ——
 	var cam := _stage_cam()

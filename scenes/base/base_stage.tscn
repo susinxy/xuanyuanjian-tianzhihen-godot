@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" path="res://ui/menus/pause_menu.tscn" id="4_pause"]
 [ext_resource type="PackedScene" path="res://ui/menus/death_screen.tscn" id="5_death"]
+[ext_resource type="Script" uid="uid://btxffbkbqwhj7" path="res://scripts/day_night/day_night_controller.gd" id="6_dnc"]
 
 [node name="BaseLevel" type="Node2D" unique_id=1437817321]
 script = ExtResource("1_base")
@@ -33,6 +34,15 @@ visible = false
 [node name="Ambient" type="Node2D" parent="." unique_id=1480857295]
 
 [node name="CanvasModulate" type="CanvasModulate" parent="Ambient" unique_id=792746756]
+
+[node name="KeyLight" type="DirectionalLight2D" parent="Ambient"]
+shadow_enabled = false
+rotation = -0.785398
+
+[node name="DayNightController" type="Node" parent="Ambient"]
+script = ExtResource("6_dnc")
+canvas_modulate_path = NodePath("../CanvasModulate")
+directional_light_path = NodePath("../KeyLight")
 
 [node name="Foreground" type="Node2D" parent="." unique_id=100813915]
 z_index = 25

@@ -15,6 +15,11 @@ const BASE_SCENE_FILE := "res://scenes/base/base_stage.tscn"
 @export var stage_id: StringName
 @export var ends_after_last_room := false
 
+## 软边阴影合成层覆写（默认哨兵=自动档 z=Level.z_index-1，装配者无需感知；
+## 唯一合法改值理由=本地点有压在世界内容之上、又要在阴影之上的特殊裸层件。
+## 派生逻辑单一存于 ShadowSoftEdge.derived_z_for，此处仅存意图覆写）
+@export var shadow_composite_override: int = -2147483648
+
 ## room(NodePath) -> {room: QuiverFightRoom, spawners: Array[QuiverEnemySpawner]}
 var _rooms := {}
 var _cleared_count := 0
@@ -28,6 +33,12 @@ func _ready() -> void:
 	# 计划草稿的 resource_path 系 Node 上不存在的杜撰属性（T3 探针裁决弃用）；
 	# 可转场路径的三形态解析收口在 _scene_path()
 	GameEvents.add_checkpoint(stage_id, _scene_path())
+	# 层级军规 canary（法典 R10 runtime 腿）：背景 CanvasLayer ≥0 会盖掉全部世界
+	# 内容（文本校验看不见"忘写 layer=默认 1"这类缺失，这里兜底）。子 _ready 先跑，
+	# debug 背景已置 -10；正式背景换件同样必须负档——软边自动档落位的承重墙。
+	var bg := get_node_or_null("Background") as CanvasLayer
+	if bg != null and bg.layer >= 0:
+		push_warning("BaseStage: Background.layer=%d ≥ 0 将盖住世界内容，须负档（法典 R10）" % bg.layer)
 	# player_died → 死亡界面（S1 唯一流程订阅者；角色自我清理订阅各自在壳脚本）
 	Events.player_died.connect(_on_player_died)
 	_collect_rooms()

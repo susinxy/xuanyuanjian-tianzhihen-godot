@@ -34,6 +34,11 @@ func _ready() -> void:
 		_runtime_ready()
 
 func _runtime_ready() -> void:
+	# 空数据自禁（2026-09-20 光照收编）：正式地点骨架预置本控制器但默认不挂
+	# SceneTimeData——manager.enter_scene(null) 会直取 default_phase 崩给所有人看，
+	# 必须在入口掐断；未接 manager 也就不接任何信号，行为与无此节点逐帧等价。
+	if scene_time_data == null:
+		return
 	# 解析节点路径
 	if canvas_modulate_path:
 		canvas_modulate = get_node_or_null(canvas_modulate_path)
