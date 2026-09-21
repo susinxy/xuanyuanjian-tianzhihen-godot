@@ -37,6 +37,9 @@ var _cycle_tween: Tween = null
 # 注意：用 Resource 类型而非 SceneTimeData，避免循环依赖
 var _current_scene_data: Resource = null
 
+## 循环倍速（dock 光照页/调试通道写入；0=暂停，对进行中的 cycle 即时生效）
+var cycle_speed := 1.0
+
 # 过渡状态（用于光源参数插值，使角色阴影方向在相位过渡时平滑旋转）
 var _transition_from_phase: int = -1
 var _transition_progress: float = 1.0
@@ -136,6 +139,19 @@ func stop_cycle() -> void:
 		_cycle_tween.kill()
 		_cycle_tween = null
 
+
+## 设循环倍速（clamp 后存档：enter_scene 重建 cycle 时同样应用）
+func set_cycle_speed(mult: float) -> void:
+	cycle_speed = clampf(mult, 0.0, 64.0)
+	if _cycle_tween:
+		# 4.7 实测：Tween 无 scale 属性（赋值静默炸），速度调节走 set_speed_scale
+		_cycle_tween.set_speed_scale(cycle_speed)
+
+
+## 覆盖栈深度（dock 状态行/契约断言用）
+func override_count() -> int:
+	return _override_stack.size()
+
 # ── 内部方法 ──
 
 ## 每个相位的太阳仰角（简化模型）
@@ -151,6 +167,7 @@ func _phase_elevation(phase: int) -> float:
 func _start_auto_cycle(scene_data: Resource) -> void:
 	stop_cycle()
 	_cycle_tween = create_tween().set_loops()
+	_cycle_tween.set_speed_scale(cycle_speed)
 	var phases := [TimePhase.DAY, TimePhase.DUSK, TimePhase.NIGHT, TimePhase.DAWN]
 	var phase_duration: float = scene_data.cycle_duration / 4.0
 	for phase in phases:

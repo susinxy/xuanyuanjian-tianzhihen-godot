@@ -31,8 +31,10 @@ func setup(skin: QuiverCharacterSkin) -> void:
 	_soft_edge = get_node_or_null("/root/ShadowSoftEdge")
 	_setup_shared_material()
 	_create_shadow_polygon()
-	if DEBUG_ENABLED:
-		_create_debug_overlay()
+	# 调试线常生成、默认隐藏（2026-09-20 调试面板正式化）：可见性由 dock
+	# "光照"页开关逐帧操控——正式地点与测试场景同权；DEBUG_ENABLED=启动即显
+	_create_debug_overlay()
+	_debug_overlay.visible = DEBUG_ENABLED
 	_update_shadow()
 
 func _setup_shared_material() -> void:

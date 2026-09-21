@@ -50,6 +50,57 @@ func _ready() -> void:
 
 # 物理帧驱动而非 _process：headless 环境不派发 idle 帧（2026-09-16 探针实证
 # dock 与测试节点自身 _process 均 0 tick），物理心跳是全环境唯一可靠时钟。
+## 覆盖演示唯一配方（O 键与光照页按钮共用；模拟 Boss 战压暗 3 秒）
+func debug_apply_demo_override() -> void:
+	var manager := get_tree().root.get_node_or_null("DayNightManager")
+	if manager == null:
+		return
+	var ov := LightingOverride.new()
+	ov.color = Color(0.2, 0.2, 0.3)
+	ov.light_rotation = 200.0
+	ov.light_energy = 0.3
+	ov.light_color = Color(0.4, 0.3, 0.5)
+	ov.transition_duration = 0.5
+	manager.apply_lighting_override(ov, 3.0)
+
+
+## 5-8/O 内置（2026-09-20 调试面板正式化）：正式地点与测试场景同键手感；
+## 场景自带 DebugDayNightInput（Run-Test 模板件）时整体让位——覆盖双压栈防线
+func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var k: int = event.physical_keycode
+	match k:
+		KEY_5, KEY_6, KEY_7, KEY_8, KEY_O:
+			pass
+		_:
+			return
+	if _scene_has_debug_day_night_input():
+		return
+	var manager := get_tree().root.get_node_or_null("DayNightManager")
+	if manager == null:
+		return
+	match k:
+		KEY_5: manager.transition_to(manager.TimePhase.DAWN)
+		KEY_6: manager.transition_to(manager.TimePhase.DAY)
+		KEY_7: manager.transition_to(manager.TimePhase.DUSK)
+		KEY_8: manager.transition_to(manager.TimePhase.NIGHT)
+		KEY_O: debug_apply_demo_override()
+
+
+func _scene_has_debug_day_night_input() -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	for c in scene.find_children("*", "", true, false):
+		var s := (c as Node).get_script() as Script
+		if s != null and s.resource_path == "res://scripts/debug_day_night_input.gd":
+			return true
+	return false
+
+
 func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("debug_dock_toggle"):
 		visible = not visible

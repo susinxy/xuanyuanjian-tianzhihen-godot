@@ -160,6 +160,11 @@
     装配者零感知）；ShadowRegion 升格为可选装配件（禁重叠军规）；起步数据
     `resources/lighting/`；法典扩**九条/R10**（背景 CanvasLayer 负档，含 runtime
     canary）；LIGHTING_SETUP_GUIDE 重写；stage_contract 117→126（LC1-LC7）
+  - **调试面板正式化批（同夜）**：DebugDock 新增"光照"交互页（相位/倍速/覆盖演示+
+    高度条与阴影调试线开关，拉取刷新状态随现实）；5-8/O 键 dock 内置（正式地点与
+    测试场景同键同能；场景自带 DebugDayNightInput 时整体让位防覆盖双压栈）；阴影
+    调试线节点改常建默认隐身；manager 循环倍速/覆盖栈计数接口；dock_test 扩至
+    八页签+交互页+共存让位+无实物回弹断言
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）

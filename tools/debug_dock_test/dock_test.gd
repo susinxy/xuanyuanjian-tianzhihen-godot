@@ -77,9 +77,9 @@ func _flow() -> void:
 	var titles: PackedStringArray = dock.get_tab_titles()
 	_check(titles.has("探针") and titles.has("第二页"),
 			"两个页签注册成功（%s）" % [str(titles)])
-	_check(["角色", "弹体", "诊断", "高度层", "击飞", "帮助", "系统"]
+	_check(["角色", "弹体", "诊断", "高度层", "击飞", "光照", "帮助", "系统"]
 			.all(func(t): return titles.has(t)),
-			"内容层七页签自动注册在位（%s）" % [str(titles)])
+			"内容层八页签自动注册在位（%s）" % [str(titles)])
 	await _frames(20)
 	var tabs := _tabs_ctrl(dock)
 	var probe_tab := tabs.get_node("探针")
@@ -141,5 +141,84 @@ func _flow() -> void:
 	dock._save_layout()
 	dock._place_default_or_saved()
 	_check(panel.position == Vector2(777, 421), "跨调用读回记忆位（777,421）")
+	# —— 光照·仪表交互页（2026-09-20 调试面板正式化批）——
+	var mgr := get_tree().root.get_node_or_null("DayNightManager")
+	var light_tab := tabs.get_node("光照")
+	var btn_night: Button = null
+	var btn_x4: Button = null
+	var chk_height: CheckBox = null
+	var chk_shadow: CheckBox = null
+	for c in light_tab.find_children("*", "Button", true, false):
+		if (c as Button).text == "夜晚":
+			btn_night = c
+		elif (c as Button).text == "4×":
+			btn_x4 = c
+	for c in light_tab.find_children("*", "CheckBox", true, false):
+		if "高度" in (c as CheckBox).text:
+			chk_height = c
+		elif "阴影" in (c as CheckBox).text:
+			chk_shadow = c
+	_check(btn_night != null and btn_x4 != null
+			and chk_height != null and chk_shadow != null,
+			"相位/倍速按钮与两开关全部在位")
+	btn_night.pressed.emit()
+	_check(mgr.current_phase == 3, "页签按钮→相位即时切到 NIGHT")
+	btn_x4.pressed.emit()
+	_check(is_equal_approx(mgr.cycle_speed, 4.0), "倍速 4× 送达 manager")
+	btn_x4.pressed.emit()
+	var e6 := InputEventKey.new()
+	e6.keycode = KEY_6
+	e6.physical_keycode = KEY_6
+	e6.pressed = true
+	Input.parse_input_event(e6)
+	var e6u := InputEventKey.new()
+	e6u.keycode = KEY_6
+	e6u.physical_keycode = KEY_6
+	e6u.pressed = false
+	Input.parse_input_event(e6u)
+	await _frames(2)
+	_check(mgr.current_phase == 1, "6 键 dock 内置→DAY（OS 原始键全链路）")
+	# 共存让位：场景自带 DebugDayNightInput 时 dock 不响应 O→覆盖恰压栈一次
+	var dnin := Node.new()
+	dnin.set_script(preload("res://scripts/debug_day_night_input.gd"))
+	add_child(dnin)
+	var eo := InputEventKey.new()
+	eo.keycode = KEY_O
+	eo.physical_keycode = KEY_O
+	eo.pressed = true
+	Input.parse_input_event(eo)
+	var eou := InputEventKey.new()
+	eou.keycode = KEY_O
+	eou.physical_keycode = KEY_O
+	eou.pressed = false
+	Input.parse_input_event(eou)
+	await _frames(3)
+	_check(mgr.override_count() == 1,
+			"场景自带调试件→dock 让位（覆盖恰 1 非 2）")
+	dnin.free()
+	# 阴影开关：无角色=空操作，拉取刷新令开关回弹（状态跟随现实）
+	chk_shadow.set_pressed(true)
+	await _frames(20)
+	# 状态属性是 button_pressed——Button.pressed 是信号不是属性（本测试首跑自证）
+	_check(not chk_shadow.button_pressed, "阴影开关无实物回弹（不撒谎契约）")
+	# 高度条：无自带件场景动态生成，关闭后隐藏
+	chk_height.set_pressed(true)
+	await _frames(8)
+	var hv := false
+	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		var s := (n as Node).get_script() as Script
+		if s != null and s.resource_path == "res://scripts/debug_height_overlay.gd":
+			hv = (n as CanvasLayer).visible
+	_check(hv, "高度条正式场景式动态生成且可见")
+	chk_height.set_pressed(false)
+	await _frames(4)
+	var hv_on := false
+	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		var s := (n as Node).get_script() as Script
+		if s != null and s.resource_path == "res://scripts/debug_height_overlay.gd" \
+				and (n as CanvasLayer).visible:
+			hv_on = true
+	_check(not hv_on, "高度条关闭后隐藏（常驻不误绘）")
+
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://debug_dock.cfg"))
 	_finished = true

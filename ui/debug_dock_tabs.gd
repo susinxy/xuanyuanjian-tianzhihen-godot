@@ -20,6 +20,7 @@ func _ready() -> void:
 	dock.add_text_tab("诊断", _provide_collision)
 	dock.add_text_tab("高度层", _provide_height)
 	dock.add_text_tab("击飞", _provide_knockout)
+	dock.add_tab("光照", preload("res://ui/debug_lighting_tab.gd").new())
 	dock.add_text_tab("帮助", _provide_help)
 	dock.add_text_tab("系统", _provide_system)
 
@@ -233,15 +234,19 @@ func _wire_attributes(a: QuiverAttributes) -> void:
 ## 引擎陷阱（2026-09-16 实机定罪）：String.split() 返回 PackedStringArray，
 ## 与 Array[String] 是两种类型——必须逐行搬运，直返在刷新期每 0.15s 报一次。
 func _provide_help() -> Array[String]:
+	const GLOBAL_KEYS := ("全局：=/+ 开合本坞｜Tab 换页｜5-8 相位｜O 覆盖演示｜"
+			+ "T 阴影区域｜L 软边（5-8/O 为 dock 内置，场景自带调试件时让位）")
 	var scene := get_tree().current_scene
 	if scene == null:
-		return ["（无在场场景）"]
+		return ["（无在场场景）", GLOBAL_KEYS]
 	var lbl := scene.find_child("DebugLabel", true, false) as Label
-	if lbl == null or lbl.text.strip_edges().is_empty():
-		return ["（本场景无操作说明牌）"]
 	var out: Array[String] = []
-	for line in lbl.text.split("\n"):
-		out.append(str(line))
+	if lbl == null or lbl.text.strip_edges().is_empty():
+		out.append("（本场景无操作说明牌）")
+	else:
+		for line in lbl.text.split("\n"):
+			out.append(str(line))
+	out.append(GLOBAL_KEYS)
 	return out
 
 
