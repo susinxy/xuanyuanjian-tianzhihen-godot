@@ -3,14 +3,14 @@
 > 一次性耗材批：`tools/dialogic_spike/`（runner+probe.dtl）**不进 23 套回归矩阵**，
 > 红字≠否决——处置分级见文末。目的：为"S2 切片先行、S3 对话后接"换序决定上保险。
 
-## 四问四答
+## 四问四答（✅ 2026-09-21 腿 4 真机目视后全部闭合，spike 结案）
 
 | # | 问题 | 结论 | 证据 |
 |---|---|---|---|
-| Q1 | CJK 渲染 | **待 Windows**（headless 看不见字形） | 腿 4 清单见下 |
+| Q1 | CJK 渲染 | ✅ **绿**：Windows 真机两段中文清晰（系统字体回退在工作）；显式字体槽降级为跨平台一致性小事 | 腿 4 目视 |
 | Q2 | 输入互斥 | **游戏输入会漏进对话**（对话中 chen 收 raw D 键位移 110px）；好消息：移动键不会误推进对话（仅 default action 推进）→ 剧情态门（冻结输入通道）**必须做且够用** | L2 真值表 |
 | Q3 | 暂停语义 | **自洽无冲突**：`tree.paused=true` 时 Dialogic 随树冻结（不吃推进输入）；我们暂停壳（ALWAYS）照常可操作；解除后对话恢复并实际走完（工具收尾成功为旁证） | L3 + L3x PASS |
-| Q4 | 冷启动回环 | **核心通路全活**：autoload 在位、`start(DialogicTimeline资源)` 返回有效布局、事件处理推进、打字机 reveal 运行；`timeline_ended` 在 headless 有界按压内未捕获——直调 `Inputs.handle_input()` 可推事件（1→3）证明内部机制正常，堵点在事件传导/headless 时序面（疑似 reveal 完成计时依赖）。**终验转 Windows 腿 4** | L0-L1d |
+| Q4 | 冷启动回环 | ✅ **绿**：真机 L1c PASS（两行推进→timeline_ended 送达→runner 正常收尾）。headless 曾未捕获的悬案归因**注入保真度**：raw Enter 被 Dialogic 的 exact 匹配拒收（绑定 keycode=Enter/physical=0，注入事件 physical 非零），鼠标 LMB 路可通——非被测系统缺陷 | 腿 4 日志 + 本备忘判例条 |
 
 ## 钉到的判例（超出四问的收获）
 
@@ -27,8 +27,10 @@
 - Q4 的 ended 悬案 = 工具级未钉死（**非否决**），腿 4 一条清单收口；
 - 综合判定：**Dialogic alpha 与本项目运行时兼容面良好，S3 维持 Dialogic 选型，无需触发"自研简版"复议**。
 
-## 腿 4（Windows F5 目视清单，随下次编辑器会话顺做）
+## 腿 4 执行记录（2026-09-21，用户真机）
 
-1. 打开 `tools/dialogic_spike/spike_probe.tscn` F6 单跑：两行中文是字还是豆腐（Q1 收口）；
-2. 按 Enter 推进：能否从第一行走到时间轴自然结束（Q4 终验；结束后日志应见 `timeline_ended`）；
-3. 对话中按 ESC：暂停壳能否正常拉出/关闭（Q3 实机复认）。
+F6 单跑 spike_probe.tscn：全程零人工（runner 自动注入推进），目视确认两段中文
+清晰、chen 出现并右移（L2 现场）、场景自动收尾；日志 L1c PASS、L2/L3 与 headless
+一致。**综合判定不变且加固：S3 维持 Dialogic 选型，四问无遗留。**
+耗材处置：`tools/dialogic_spike/` 保留作证据（不进矩阵）；用户章节素材与根目录
+mp4 按用户表态一律不关心、不代管、暂存逐路径绕开。

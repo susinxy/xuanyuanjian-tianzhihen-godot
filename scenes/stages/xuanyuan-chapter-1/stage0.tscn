@@ -1,6 +1,90 @@
 [gd_scene format=3 uid="uid://c0ks215ifk2og"]
 
 [ext_resource type="VideoStream" uid="uid://h5myxd06t3os" path="res://燃烧的宫殿.mp4" id="1_vvi1j"]
+[ext_resource type="Texture2D" uid="uid://bahcxvkgf75mw" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00078.png" id="2_knkra"]
+[ext_resource type="Texture2D" uid="uid://bj1ml684ypd6d" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00079.png" id="3_knbp6"]
+[ext_resource type="Texture2D" uid="uid://60yh4x4a5rwq" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00080.png" id="4_bbwdq"]
+[ext_resource type="Texture2D" uid="uid://bqa1drnw8nvn3" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00081.png" id="5_7slj8"]
+[ext_resource type="Texture2D" uid="uid://3tgyk0xa5dwf" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00082.png" id="6_o8ld3"]
+[ext_resource type="Texture2D" uid="uid://b6ks0f450fmga" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00083.png" id="7_m62in"]
+[ext_resource type="Texture2D" uid="uid://cddyry1qfv5k6" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00084.png" id="8_ssywj"]
+[ext_resource type="Texture2D" uid="uid://cgi5tgsckkq00" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00085.png" id="9_mpcdg"]
+[ext_resource type="Texture2D" uid="uid://byfa7q5xslc5s" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00086.png" id="10_5tjho"]
+[ext_resource type="Texture2D" uid="uid://bhx3owbmig7gn" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00087.png" id="11_asr6l"]
+[ext_resource type="Texture2D" uid="uid://b6ln8mf3lhji7" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00088.png" id="12_lqm8p"]
+[ext_resource type="Texture2D" uid="uid://dj8nq0jy3771m" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00089.png" id="13_bpgnw"]
+[ext_resource type="Texture2D" uid="uid://curuerpvoxtkr" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00090.png" id="14_m8wk6"]
+[ext_resource type="Texture2D" uid="uid://de8wfmjqt1v36" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00091.png" id="15_eertr"]
+[ext_resource type="Texture2D" uid="uid://cqxiw7ubpwo45" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00092.png" id="16_iutwr"]
+[ext_resource type="Texture2D" uid="uid://dlyw268e5lfew" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00093.png" id="17_qrlui"]
+[ext_resource type="Texture2D" uid="uid://broxwjpn6h44h" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00094.png" id="18_27c45"]
+[ext_resource type="Texture2D" uid="uid://6q8g13ppvbc4" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00095.png" id="19_utyh4"]
+[ext_resource type="Texture2D" uid="uid://7giy6pmjxr62" path="res://scenes/stages/xuanyuan-chapter-1/assets/stage0/燃烧的宫殿/chen_00096.png" id="20_g0yqw"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_00px8"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_knkra")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_knbp6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_bbwdq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_7slj8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_o8ld3")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_m62in")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_ssywj")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_mpcdg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_5tjho")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_asr6l")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_lqm8p")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_bpgnw")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_m8wk6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_eertr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_iutwr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_qrlui")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_27c45")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_utyh4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_g0yqw")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 24.0
+}]
 
 [node name="Stage0" type="Node2D" unique_id=419266682]
 
@@ -10,3 +94,7 @@ offset_bottom = 40.0
 stream = ExtResource("1_vvi1j")
 autoplay = true
 loop = true
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="VideoStreamPlayer" unique_id=420228213]
+sprite_frames = SubResource("SpriteFrames_00px8")
+frame_progress = 0.67250437

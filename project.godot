@@ -32,7 +32,9 @@ GameEvents="*res://scripts/game_events.gd"
 [dialogic]
 
 directories/dch_directory={}
-directories/dtl_directory={}
+directories/dtl_directory={
+"probe": "res://tools/dialogic_spike/probe.dtl"
+}
 layout/style_directory={}
 
 [display]
