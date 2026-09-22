@@ -11,10 +11,14 @@ extends SceneTree
 ##            `[gd_scene ... expect="R#"]` 声明**恰**触发的规则；
 ##            stage_ok 声明 none 必须全绿）
 ## 规则表（账本裁决绑定版；S2-M1-B1 双轨扩，spec D10）：
-##   R1 根必须 instance=ExtResource(base_stage.tscn **或** chapter_shell.tscn)
+##   R1 根必须 instance=ExtResource(base_stage.tscn **或** chapter_shell.tscn)；
+##      ③段形态（根 script=stage_content.gd）与④壳模板本体（根 script=
+##      chapter_shell.gd）豁免——两形合法场景的根=脚本本体而非实例（S2-M1-B2 T4）
 ##   R2 根节点存在形态主键 = &"..." 非空（S1 终审 M-2：限定根属性块，
-##      挂在子孙节点上的主键属污染残留，不算满足）：
-##      base 形态查 stage_id；shell 形态查 chapter_id（R2' 并表同码，hint 区分）
+##      挂在子孙节点上的主键属污染残留，不算满足）四臂分派：
+##      base 形态查 stage_id；shell 形态查 chapter_id（R2' 并表同码，hint 区分）；
+##      ③段形态查 segment_id；④壳模板本体恒过（模板不携带 per-instance 主键，
+##      chapter_id/segment_scenes 由子实例回填）
 ##   R3 每个 QuiverFightRoom 子树含 ≥1 检测器与 ≥1 生成器
 ##   R4 检测器 path_fight_room 非空 且 paths_enemy_spawners ≥1 条非空路径
 ##   R5 生成器 path_spawn_parent ∈ 两种合法形态（白名单）：base 轨
@@ -26,7 +30,8 @@ extends SceneTree
 ##      含全部高度层（bit15-24，16760832）且无旧屏限位（值 4=layer3 屏限、
 ##      值 8=layer4 顶限，合计 12）；bit2 障碍位允许出现（不检查）
 ##   R8 地点含 StageExit 子树（脚本识别）或 ends_after_last_room = true；
-##      shell 形态天然豁免（章节终点=ChapterShell.chapter_finished 信号构造自带）
+##      shell 形态天然豁免（章节终点=ChapterShell.chapter_finished 信号构造自带）；
+##      ③段形态与④壳模板本体同豁免（段无 StageExit 义务，章节终点归壳）
 ##   R9 同一 spawner 路径被 ≥2 个不同房的检测器引用（跨房重引）= 违例
 ##   （WIP 豁免：目录内放 .wip 空文件=该目录树整体跳过并打 NOTICE）
 ##   R10 背景 CanvasLayer 显式写的 layer 必须 <0（≥0 连角色/阴影合成层整个盖掉；
@@ -152,8 +157,13 @@ func _check_file(path: String) -> Array:
 	# 双轨判形（D10）：R1 通过的两形态之一=壳形态；R2/R8 按形分派
 	var is_shell: bool = not root.is_empty() and (root.inst in model.exts) \
 			and model.exts[root.inst] == SHELL_PATH
-	_check_r1(model, root, add)
-	_check_r2(root, add, is_shell)
+	# 判形加臂（S2-M1-B2 T4）：③段形态=根 script stage_content.gd；
+	# ④壳模板本体=根 script chapter_shell.gd（模板自身，根不是任何实例）
+	var root_script := _script_path_of(root, model) if not root.is_empty() else ""
+	var is_segment := root_script.ends_with("stage_content.gd")
+	var is_template := root_script.ends_with("chapter_shell.gd")
+	_check_r1(model, root, add, is_segment, is_template)
+	_check_r2(root, add, is_shell, is_segment, is_template)
 	var rooms := _kind_nodes(model, ROOM_GD)
 	var detectors := _kind_nodes(model, DET_GD)
 	var spawners := _kind_nodes(model, SPAWN_GD)
@@ -162,7 +172,7 @@ func _check_file(path: String) -> Array:
 	_check_r5(spawners, add)
 	_check_r6(spawners, model, add)
 	_check_r7(model, add)
-	_check_r8(model, add, is_shell)
+	_check_r8(model, add, is_shell, is_segment, is_template)
 	_check_r9(rooms, detectors, add)
 	_check_r10(model, add)
 	return out
@@ -221,14 +231,30 @@ func _kind_nodes(model: Dictionary, script_file: String) -> Array:
 	return out
 
 
-func _check_r1(model: Dictionary, root: Dictionary, add: Callable) -> void:
+func _check_r1(model: Dictionary, root: Dictionary, add: Callable,
+		is_segment: bool, is_template: bool) -> void:
+	# ③段形态/④壳模板本体的根=脚本本体而非 base/shell 实例，属合法形态，跳过
+	if is_segment or is_template:
+		return
 	if root.is_empty() or not (root.inst in model.exts) \
 			or (model.exts[root.inst] != BASE_PATH
 					and model.exts[root.inst] != SHELL_PATH):
 		add.call("R1", "根未实例化 base_stage.tscn")
 
 
-func _check_r2(root: Dictionary, add: Callable, is_shell: bool) -> void:
+func _check_r2(root: Dictionary, add: Callable, is_shell: bool,
+		is_segment: bool, is_template: bool) -> void:
+	# ④壳模板本体恒过：模板不携带 per-instance 主键（chapter_id/segment_scenes
+	# 由子实例回填），四臂分派见头注规则表
+	if is_template:
+		return
+	# ③段形态主键=segment_id（并表同码，hint 区分）
+	if is_segment:
+		var s: String = root.props.get("segment_id", "")
+		if s.begins_with('&"') and s.length() > 3:
+			return
+		add.call("R2", "段形态根缺 segment_id = &\"...\" 非空行")
+		return
 	# 壳形态主键=chapter_id（R2' 并表：同码 R2 报告，hint 区分形态）
 	if is_shell:
 		var c: String = root.props.get("chapter_id", "")
@@ -304,12 +330,14 @@ func _check_r7(model: Dictionary, add: Callable) -> void:
 			add.call("R7", "%s collision_layer=%d 未⊇高度层或带旧屏限位" % [n.full, layer])
 
 
-func _check_r8(model: Dictionary, add: Callable, is_shell: bool) -> void:
+func _check_r8(model: Dictionary, add: Callable, is_shell: bool,
+		is_segment: bool, is_template: bool) -> void:
 	# 壳形态豁免（S2-M1-B1 裁决，最小诚实规则）：章节终点=段判清+无后继时
 	# ChapterShell.chapter_finished 信号构造自带（T5/B7 消费口），既无
 	# StageExit 义务，BaseStage 的 ends_after_last_room 导出也不存在于壳——
-	# 单地点形态维持"二选一"红线不变。
-	if is_shell:
+	# 单地点形态维持"二选一"红线不变。③段/④壳模板本体同豁免（S2-M1-B2 T4）：
+	# 段无 StageExit 义务（章节终点归壳），模板本体同理。
+	if is_shell or is_segment or is_template:
 		return
 	if not _kind_nodes(model, EXIT_GD).is_empty():
 		return
