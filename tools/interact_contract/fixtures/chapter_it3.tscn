@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
 [ext_resource type="PackedScene" path="res://tools/interact_contract/fixtures/seg_it_river.tscn" id="2_river"]
