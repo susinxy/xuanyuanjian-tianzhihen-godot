@@ -165,6 +165,15 @@
     测试场景同键同能；场景自带 DebugDayNightInput 时整体让位防覆盖双压栈）；阴影
     调试线节点改常建默认隐身；manager 循环倍速/覆盖栈计数接口；dock_test 扩至
     八页签+交互页+共存让位+无实物回弹断言
+  - **S2-M1-B1 容器批 ✅ 已交付（2026-09-22，headless 24/24，终审 ready-to-merge）**：
+    ChapterShell/StageContent/ChapterSession/SessionRules + validator 双轨（R1/R2 条件化/
+    R5 白名单/R8 壳豁免）+ container_contract（S/E/D/H 四组）+ 法典 0.2b。**B2 开账三件
+    （终审裁定，进 B2 首步）**：①切换链 `_settle_before_switch` 的 await-self 收口
+    （pause 菜单换场景可达窗）②`mark_cleared` 落点终裁（登记时 vs 落地时——船闸
+    force_advance×死亡竞态的前置裁决）③段文件 validator 第三形态（root=stage_content
+    识别，R3-R7 对段执法）。同批顺带：content_ready 死信号清理、终点双信号拆分、
+    E7 Windows .bat 中转预备。措辞修正：BaseStage 为"快乐路径逐位等价+两处受 blessed
+    偏差（reload 解冻 bug 修、错类型静默跳过属改进）"。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
