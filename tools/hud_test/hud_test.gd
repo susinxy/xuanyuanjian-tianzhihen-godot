@@ -2,9 +2,12 @@ extends Node
 
 ## GameHUD 契约测试（批 3）：players 组跟手/血蓝同步/名字头像/已学名/
 ## 冷却遮罩/目标消失自隐。
+## 主权迁移（B2.5 Task4）：被测玩家从活体 chen 换成矩阵替身 test_actor；
+## 名字断言随之改绑替身自身 display_name（HUD 契约验的是"名字=属性值"链路，
+## 不是 chen 的姓名；头像断言同理吃替身自己的 profile_texture）。
 ## 运行：godot --headless --path . res://tools/hud_test/hud_test.tscn
 
-const CHEN := "res://characters/playable/chen/chen.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 const HUD := "res://ui/game_hud.tscn"
 const FIRE_DEF := "res://spells/fire_ball/resources/fire_ball_definition.tres"
 const FIRE_SCENE := "res://spells/fire_ball/fire_ball.tscn"
@@ -28,6 +31,7 @@ func _resolver_cases() -> void:
 	bare.spell_scene = load(FIRE_SCENE)
 	_check(Resolver.icon_for(bare) != null, "resolver：②派生链非空")
 	var fake := SpellDefinition.new()
+	# 注：该 png 是 fire_ball 法术自己的素材（文件名恰含 chen 字样），非生产角色绑定
 	fake.icon = load("res://spells/fire_ball/resources/sprites/chen_00001.png")
 	_check(Resolver.icon_for(fake) == fake.icon, "resolver：①icon 提供即优先")
 	var junk := SpellDefinition.new()
@@ -46,11 +50,30 @@ func _frames(n: int) -> void:
 		await get_tree().physics_frame
 
 
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
+
+
 func _flow() -> void:
+	if not _guard_actor():
+		return
 	var stage := Node2D.new()
 	add_child(stage)
-	var chen: QuiverCharacter = (load(CHEN) as PackedScene).instantiate()
-	stage.add_child(chen)
+	var actor: QuiverCharacter = (load(Kit.ACTOR_SCENE) as PackedScene).instantiate()
+	stage.add_child(actor)
 	var hud := (load(HUD) as PackedScene).instantiate()
 	stage.add_child(hud)
 	# players 组由行为档延迟挂接（组注册晚于 _ready 若干物理帧）——等到跟手为止
@@ -65,11 +88,13 @@ func _flow() -> void:
 	var hp: ProgressBar = hud.get_node("Frame/Row/Info/Hp")
 	var slots_row: HBoxContainer = hud.get_node("Frame/Row/Info/Slots")
 
-	_check(frame.visible and name_l.text == "陈靖仇", "跟随 players 组：名字上屏（%s）" % name_l.text)
+	_check(frame.visible and not actor.attributes.display_name.strip_edges().is_empty()
+			and name_l.text == actor.attributes.display_name.strip_edges(),
+			"跟随 players 组：名字上屏=替身 display_name（%s）" % name_l.text)
 	_check(portrait.texture != null, "头像自 attributes.profile_texture 上屏")
 	_check(name_l.get_theme_color("font_color").v > 0.5, "HUD 名字浅色 override 在位")
 
-	chen.attributes.health_current = 57.0
+	actor.attributes.health_current = 57.0
 	await _frames(2)
 	_check(is_equal_approx(hp.value, 57.0), "血条与属性同值（%.0f）" % hp.value)
 
@@ -77,7 +102,7 @@ func _flow() -> void:
 	def.cooldown = 5.0
 	def.mana_cost = 0.0
 	def.spell_scene = load(FIRE_SCENE)
-	_check(chen.learn_spell(def), "学会冷却 5s 版火球")
+	_check(actor.learn_spell(def), "学会冷却 5s 版火球")
 	await _frames(2)
 	var slot0: Panel = slots_row.get_child(0)
 	var slot0_icon: TextureRect = slot0.get_child(0)
@@ -86,7 +111,7 @@ func _flow() -> void:
 	_check(slot0_label.text == "1", "槽内键位角标数字（%s）" % slot0_label.text)
 	_check(slot0.tooltip_text == "火球术", "显示名进 tooltip（%s）" % slot0.tooltip_text)
 
-	chen.channel.press("spell_1")
+	actor.channel.press("spell_1")
 	await _frames(80)
 	var cover: ColorRect = (slots_row.get_child(0) as Panel).get_child(2)
 	# 断言落几何（尺寸）不落锚点属性：锚点被改而矩形不动曾是隐身事故本故
@@ -94,7 +119,7 @@ func _flow() -> void:
 			"冷却遮罩真实下压（遮罩高 %.0f/槽 56）" % cover.size.y)
 
 	# —— 可变性加固断言：遗忘即时性（拉取制核心承诺）——
-	var sm = chen.get("_spell_manager")
+	var sm = actor.get("_spell_manager")
 	sm.forget_spell(0)
 	await _frames(2)
 	var s0: Panel = slots_row.get_child(0)
@@ -113,7 +138,7 @@ func _flow() -> void:
 	_check(slots_row.get_child_count() == sm.slot_count(),
 			"缩容即时跟随：HUD %d 格" % slots_row.get_child_count())
 
-	chen.queue_free()
+	actor.queue_free()
 	await _frames(4)
 	_check(not frame.visible, "players 组清空 → HUD 自隐")
 	_resolver_cases()

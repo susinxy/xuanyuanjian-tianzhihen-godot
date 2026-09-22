@@ -3,8 +3,10 @@ extends Node
 ## 受击车道换轴契约（2026-09-19 上下攻击批）：
 ## 单元层——CombatSystem 排(Y)/列(X)窗口家族（同一 HitLaneLimits，中心换轴，
 ## lane_size±hit_lane_offset 语义对称）；
-## 行为层——真 chen 出手（QuiverActionAttack 主轴塌缩 + attributes.skin_direction
+## 行为层——真替身出手（QuiverActionAttack 主轴塌缩 + attributes.skin_direction
 ## 镜像生命周期）× PASSIVE 站桩小贩（零漂移靶）四方位打点：
+## 主权迁移（B2.5 Task4）：出手位从活体 chen 换成矩阵替身 test_actor——
+## 车道契约约束的是插件动作层+模板皮肤血统一致的攻击盒，不验 chen 本体内容。
 ## B1 正北 120px：旧 Y 车道必拒、新 X 车道必中（用户定罪现场=本案主症状）；
 ## B4 北偏东 100px：列外必拒；B5 正东同排：旧横攻语义回归；B6 东偏北 120px：排外必拒；
 ## B7-B9（2026-09-20 决策定档批）表现层防"乌龙"断言：命中后防守方必达 Ground/Hurt、
@@ -12,7 +14,8 @@ extends Node
 ## 防守方上一次水平朝向（与上下跳跃同源机制）"从口头共识钉成机器契约。
 ## 运行：godot --headless --path . res://tools/attack_lane_contract/attack_lane_contract.tscn
 
-const CHEN := "res://characters/playable/chen/chen.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
+const ACTOR_SCENE := Kit.ACTOR_SCENE
 const VENDOR := "res://characters/neutrals/street_vendor/street_vendor.tscn"
 
 var _fails := 0
@@ -74,13 +77,30 @@ func _watch_visual(vendor: QuiverCharacter, hp0: float, cap: int) -> Dictionary:
 	return seen
 
 
-func _attack(chen: QuiverCharacter, dir: Vector2) -> void:
-	chen._skin.skin_direction = dir
-	chen.state_machine.transition_to("Ground/Combo1")
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
 
 
-func _place(vendor: QuiverCharacter, chen: QuiverCharacter, offset: Vector2) -> void:
-	vendor.global_position = chen.global_position + offset
+func _attack(actor: QuiverCharacter, dir: Vector2) -> void:
+	actor._skin.skin_direction = dir
+	actor.state_machine.transition_to("Ground/Combo1")
+
+
+func _place(vendor: QuiverCharacter, actor: QuiverCharacter, offset: Vector2) -> void:
+	vendor.global_position = actor.global_position + offset
 	await _frames(6)
 
 
@@ -90,7 +110,7 @@ func _reset_target(vendor: QuiverCharacter) -> void:
 
 
 func _flow() -> void:
-	# ———— 单元层：车道窗口家族的轴无关构造 ————
+	# ———— 单元层：车道窗口家族的轴无关构造（无角色依赖，缺席态也能跑）————
 	var def := QuiverAttributes.new()
 	def.ground_level = 200.0
 	var atk := QuiverAttributes.new()
@@ -109,30 +129,32 @@ func _flow() -> void:
 			"L5 缩窗 offset=-30：列窗收至 [470,530]")
 	def.hit_lane_offset = 0
 
-	# ———— 行为层：真角色入场 ————
+	# ———— 行为层：真角色入场（替身只读守卫先行）————
+	if not _guard_actor():
+		return
 	var stage := Node2D.new()
 	add_child(stage)
-	var chen: QuiverCharacter = (load(CHEN) as PackedScene).instantiate()
+	var actor: QuiverCharacter = (load(ACTOR_SCENE) as PackedScene).instantiate()
 	var vendor: QuiverCharacter = (load(VENDOR) as PackedScene).instantiate()
-	stage.add_child(chen)
+	stage.add_child(actor)
 	stage.add_child(vendor)
-	chen.global_position = Vector2(500, 400)
+	actor.global_position = Vector2(500, 400)
 	vendor.global_position = Vector2(500, 280)
 	await _frames(18)
-	var ok0: bool = await _wait_state(chen, "Ground/Move/Idle", 120)
-	_check(ok0 and str(vendor.state_machine.state_name) != "", "B0 chen/小贩入场就绪")
-	_check(chen.attributes.skin_direction == Vector2.ZERO,
+	var ok0: bool = await _wait_state(actor, "Ground/Move/Idle", 120)
+	_check(ok0 and str(vendor.state_machine.state_name) != "", "B0 替身/小贩入场就绪")
+	_check(actor.attributes.skin_direction == Vector2.ZERO,
 			"B0b 待机镜像=零向量（非出手态旧语义护城河）")
 
 	# B1/B2/B3/B7/B8/B9 正北 120px → 纵攻必中 + 镜像生命周期 + 表现层断言组。
 	# B9 决策锁：受击/击飞处理永不写防守方面向（动画走上一次水平朝向，同纵跳机制）
 	# ——未来若有人实现"北来→强制 right"类映射，会先撞红本条。
 	vendor._skin.facing_x = -1.0
-	_attack(chen, Vector2.UP)
+	_attack(actor, Vector2.UP)
 	# 精确 == 会死于 from_angle(±90°) 的 6e-17 浮点 eps（B2 首跑实锤）：用近似
-	_check(chen.attributes.skin_direction.is_equal_approx(Vector2(0, -1)),
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(0, -1)),
 			"B2 出手镜像=主轴塌缩快照 (0,-1)（近似比，%s）"
-			% chen.attributes.skin_direction)
+			% actor.attributes.skin_direction)
 	var seen := await _watch_visual(vendor, vendor.attributes.health_current, 240)
 	_check(seen.hit, "B1 正北 120px 上攻击中（换轴主症状；旧代码必挂）")
 	_check(seen.hurt_state, "B7 命中后防守方状态机必达 Ground/Hurt（防乌龙断言）")
@@ -143,36 +165,36 @@ func _flow() -> void:
 				str(pb.get_current_node()) if pb != null else "<playback 空>"))
 	_check(vendor._skin.facing_x == -1.0,
 			"B9 纵攻受击全程不改写 facing_x（方向=上次水平朝向，决策定档锁）")
-	_check(await _wait_state(chen, "Ground/Move/Idle", 600), "B3a 出手窗结束后回 Idle")
-	_check(chen.attributes.skin_direction == Vector2.ZERO,
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "B3a 出手窗结束后回 Idle")
+	_check(actor.attributes.skin_direction == Vector2.ZERO,
 			"B3 出手窗出 → 镜像归零（生命周期成对）")
 
 	# B4 北偏东 100px → 列外必拒
 	await _reset_target(vendor)
-	await _place(vendor, chen, Vector2(100, -120))
+	await _place(vendor, actor, Vector2(100, -120))
 	var hp4: float = vendor.attributes.health_current
-	_attack(chen, Vector2.UP)
-	await _wait_state(chen, "Ground/Move/Idle", 600)
+	_attack(actor, Vector2.UP)
+	await _wait_state(actor, "Ground/Move/Idle", 600)
 	_check(vendor.attributes.health_current >= hp4,
 			"B4 北偏东 100px 上攻不中（列窗 60 拒，%.0f）" % vendor.attributes.health_current)
 
 	# B5 正东 80px 南偏 30（排内）→ 横攻回归
 	await _reset_target(vendor)
-	await _place(vendor, chen, Vector2(80, 30))
+	await _place(vendor, actor, Vector2(80, 30))
 	hp4 = vendor.attributes.health_current
-	_attack(chen, Vector2.RIGHT)
-	_check(chen.attributes.skin_direction.is_equal_approx(Vector2(1, 0)),
+	_attack(actor, Vector2.RIGHT)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(1, 0)),
 			"B5a 横攻镜像=(1,0)（选轴判据走旧 Y 分支）")
 	var hit_east: bool = await _watch_hit(vendor, hp4, 240)
 	_check(hit_east, "B5 正东同排打中（横攻旧语义零扰动回归锁）")
-	await _wait_state(chen, "Ground/Move/Idle", 600)
+	await _wait_state(actor, "Ground/Move/Idle", 600)
 
 	# B6 东偏北 120px → 排外必拒（行为级锁）
 	await _reset_target(vendor)
-	await _place(vendor, chen, Vector2(80, -120))
+	await _place(vendor, actor, Vector2(80, -120))
 	hp4 = vendor.attributes.health_current
-	_attack(chen, Vector2.RIGHT)
-	await _wait_state(chen, "Ground/Move/Idle", 600)
+	_attack(actor, Vector2.RIGHT)
+	await _wait_state(actor, "Ground/Move/Idle", 600)
 	_check(vendor.attributes.health_current >= hp4,
 			"B6 东偏北 120px 横攻不中（排窗 60 拒/几何不达双保险）")
 	await _reset_target(vendor)

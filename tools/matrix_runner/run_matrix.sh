@@ -64,9 +64,19 @@ ROSTER=(
 # ── 通道见证表（M4）：label|身份断言标记 ──────────────────────────────────────
 # 消费 test_actor 的套必须在日志里喊出该标记（身份腿真跑了的证据）；标记缺席
 # 且该套本次有跑 = 记红（红因：导入门退化 → NOTICE 静默跳身份腿 → 假绿矩阵）。
+# T4 主权迁移批：所有"只需要一个身体"的直载套迁入 test_actor 后统一以
+# ACTOR-GATE（三态守卫通过行）入表——封死"守卫被绕过/替身未真就绪仍绿"。
 ATTEST=(
 	"interact_contract|S1a "
 	"input_channel_test|ACTOR-GATE"
+	"attack_freeze_repro|ACTOR-GATE"
+	"conductor_test|ACTOR-GATE"
+	"hud_test|ACTOR-GATE"
+	"spell_cast_test|ACTOR-GATE"
+	"tree_connectivity_test|ACTOR-GATE"
+	"wp2_creation_test|ACTOR-GATE"
+	"wp3_formal|ACTOR-GATE"
+	"attack_lane_contract|ACTOR-GATE"
 )
 
 # 颜色（仅 tty 时上色，日志文件里留纯文本判读方便 grep）

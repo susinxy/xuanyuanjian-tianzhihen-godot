@@ -7,9 +7,12 @@ extends SceneTree
 ##  2) 法术侧节点集合必须是角色侧**超集**（发令台型漏装的根治形态）；
 ##  3) 法术套件独有件在位：helper 节点/脚本行；文字面板全部迁 DebugDock 后，
 ##     断言旧面板/避让绝迹、说明牌隐身、帮助文本标注。
+## 主权迁移（B2.5 Task4）：本套是**纯字符串断言**（底版产物永不实例化），角色
+## 路径只是喂给模板的 token；从 chen 换成 TestActorKit.ACTOR_SCENE 常量即
+## 解除对生产角色的字面绑定（不加载替身=无身份门，无需守卫/ATTEST）。
 ## 运行：godot --headless --path . -s tools/test_scene_parity/parity.gd
 
-const CHEN := "res://characters/playable/chen/chen.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 const HELPER := "res://test_scenes/_test_spell_helper_x.gd"
 
 const REQUIRED_BOTH := ["Character", "LevelCamera", "Background", "Ground",
@@ -23,10 +26,10 @@ var _fail := 0
 
 
 func _initialize():
-	var char_text := _compose_of(_base_with_tokens(), CHEN, 0)
+	var char_text := _compose_of(_base_with_tokens(), Kit.ACTOR_SCENE, 0)
 	var spell_base := QuiverRunTestSceneBuilder.add_spell_test_kit(
 			_base_with_tokens(), "fire_ball", HELPER)
-	var spell_text := _compose_of(spell_base, CHEN, 0)
+	var spell_text := _compose_of(spell_base, Kit.ACTOR_SCENE, 0)
 	
 	var char_nodes := _nodes_of(char_text)
 	var spell_nodes := _nodes_of(spell_text)
@@ -66,7 +69,8 @@ func _initialize():
 
 func _base_with_tokens() -> String:
 	return QuiverRunTestSceneBuilder.base_scene_text()\
-			.replace("{{CHAR_NAME}}", "chen").replace("{{CHAR_PATH}}", CHEN)
+			.replace("{{CHAR_NAME}}", Kit.ACTOR_NAME)\
+			.replace("{{CHAR_PATH}}", Kit.ACTOR_SCENE)
 
 
 func _compose_of(text: String, char_path: String, mode: int) -> String:

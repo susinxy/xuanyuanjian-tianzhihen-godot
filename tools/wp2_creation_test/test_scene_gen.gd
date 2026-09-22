@@ -1,6 +1,11 @@
 extends SceneTree
 
 ## Run Test 编排器纯函数回归（依赖正式对手 spar_enemy 已生成）。
+## 【豁免】本套件验证 chen 本体数据/产线镜像，绑定生产角色属题意（B2.5 新法申报）。
+## 理由：断言对象=QuiverRunTestSceneBuilder 的**字面生产行为**——插件对非玩家档
+## 被测者硬编码主角 CHEN_SCENE（addons 红线不可改），本套的 "compose 非玩家档
+## 主角=chen" 与玩家档示例注入 chen 路径两腿镜像的正是这条产线常量；改成
+## test_actor 只会让断言与插件实况脱钩（假绿家族反向形态）。
 ## 运行：godot --headless --path . -s tools/wp2_creation_test/test_scene_gen.gd
 
 

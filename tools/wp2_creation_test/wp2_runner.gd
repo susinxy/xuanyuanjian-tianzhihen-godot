@@ -5,6 +5,9 @@ extends Node
 ##   godot --headless --path . --import
 ##   godot --headless --path . res://tools/wp2_creation_test/wp2_runner.tscn -- --phase=verify
 ## 验证：三档位创建、阵营包目录、行为档写入、小抄约定加载、AI 追打、被动站桩。
+## 主权迁移（B2.5 Task4）：组3 玩家身体从活体 chen 换成矩阵替身 test_actor
+## （本组只需要一个玩家档身体挨打/被追）；组1/组2 是创建产线自证（tmp_* 临时
+## 角色），从不绑 chen。本套走两阶段 shell 手动跑、不在矩阵名册，无需 ATTEST。
 
 const TMP_CHARS := [
 	{"name": "tmp_wp_player", "pkg": "playable", "mode": 0, "tags": "player, tmp_team",
@@ -29,6 +32,8 @@ const TMP_CHARS := [
 	{"name": "tmp_wp_vendor", "pkg": "neutrals", "mode": 2, "tags": "tmp_wp_vendor",
 	"pascal": "TmpWpVendor", "display": "临时小贩"},
 ]
+
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 
 var _pass := 0
 var _fail := 0
@@ -145,11 +150,30 @@ func _create_phase() -> void:
 				"%s 出生即带 spell_start+spelling 两槽（模板继承）" % spec.name)
 
 
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
+
+
 func _verify_phase() -> void:
 	print("════ 组3：场景行为层 ════")
-	var chen: QuiverCharacter = load("res://characters/playable/chen/chen.tscn").instantiate()
-	chen.position = Vector2(200, 400)
-	add_child(chen)
+	if not _guard_actor():
+		return
+	var actor: QuiverCharacter = load(Kit.ACTOR_SCENE).instantiate()
+	actor.position = Vector2(200, 400)
+	add_child(actor)
 	var enemy: QuiverCharacter = load(_scene_path(TMP_CHARS[1])).instantiate()
 	enemy.position = Vector2(700, 400)
 	add_child(enemy)
@@ -164,26 +188,26 @@ func _verify_phase() -> void:
 	# 2026-09-19 弹墙改 in_knockout 状态门后 wall 组全库灭绝，该坑源头不存在，
 	# 但攻击盒×受击盒仍是玩法真实配对，取样纪律保留。）
 	var tagged := 0
-	var chen_hurt: Area2D = null
-	var chen_hit: Area2D = null
-	for a2 in chen.find_children("*", "Area2D", true):
+	var actor_hurt: Area2D = null
+	var actor_hit: Area2D = null
+	for a2 in actor.find_children("*", "Area2D", true):
 		if a2.is_in_group("area2d:player"):
 			tagged += 1
-			if a2 is QuiverHurtBox and chen_hurt == null:
-				chen_hurt = a2
-			if a2 is QuiverHitBox and chen_hit == null:
-				chen_hit = a2
-	_check(tagged >= 5, "chen 根标签运行时下发到全部战斗盒（命中 %d 只）" % tagged)
-	_check(chen_hurt != null and chen_hit != null, "chen 受击/攻击盒分类取到")
+			if a2 is QuiverHurtBox and actor_hurt == null:
+				actor_hurt = a2
+			if a2 is QuiverHitBox and actor_hit == null:
+				actor_hit = a2
+	_check(tagged >= 5, "替身根标签运行时下发到全部战斗盒（命中 %d 只）" % tagged)
+	_check(actor_hurt != null and actor_hit != null, "替身受击/攻击盒分类取到")
 	var enemy_hit: Area2D = null
 	for a3 in enemy.find_children("*", "Area2D", true):
 		if a3 is QuiverHitBox and a3.is_in_group("area2d:enemy"):
 			enemy_hit = a3
 	_check(enemy_hit != null, "enemy 攻击盒标签下发到位")
-	if chen_hurt != null and chen_hit != null and enemy_hit != null:
-		_check(not QuiverHurtBox.are_factions_equal(enemy_hit, chen_hurt),
+	if actor_hurt != null and actor_hit != null and enemy_hit != null:
+		_check(not QuiverHurtBox.are_factions_equal(enemy_hit, actor_hurt),
 				"enemy 拳 × player 身 = 敌对可打（交集空）")
-		_check(QuiverHurtBox.are_factions_equal(chen_hit, chen_hurt),
+		_check(QuiverHurtBox.are_factions_equal(actor_hit, actor_hurt),
 				"自己的拳 × 自己的身 = 同标签互免（打不到自己）")
 	
 	var enemy_script: Script = enemy.behavior.get_script() if enemy.behavior != null else null
@@ -191,20 +215,20 @@ func _verify_phase() -> void:
 			and String(enemy_script.resource_path).ends_with("tmp_wp_enemy_ai.gd"), \
 			"AI 档按约定加载了自家小抄")
 	_check(vendor.behavior is QuiverBehaviorIdle, "被动档挂零写入行为")
-	_check(chen.behavior is QuiverBehaviorPlayer, "玩家档行为完好")
+	_check(actor.behavior is QuiverBehaviorPlayer, "玩家档行为完好")
 	
-	var dist_start: float = enemy.global_position.distance_to(chen.global_position)
+	var dist_start: float = enemy.global_position.distance_to(actor.global_position)
 	var vendor_pos := vendor.global_position
 	# 小抄循环：歇1s → 追击；观察 120 物理帧
 	await _tick(120)
-	var dist_end: float = enemy.global_position.distance_to(chen.global_position)
+	var dist_end: float = enemy.global_position.distance_to(actor.global_position)
 	_check(dist_end < dist_start - 40.0, \
 			"AI 敌人向玩家逼近（%f→%f px）" % [dist_start, dist_end])
 	_check(vendor_pos.distance_to(vendor.global_position) < 1.0, "被动角色 120 帧零位移")
-	_check(chen.attributes.health_current < chen.attributes.health_max \
+	_check(actor.attributes.health_current < actor.attributes.health_max \
 			or String(enemy.state_machine.state_name).contains("Attack") \
 			or String(enemy.state_machine.state_name).contains("Combo"), \
-			"AI 接敌后发动攻击（chen 当前血量 %f）" % chen.attributes.health_current)
+			"AI 接敌后发动攻击（替身当前血量 %f）" % actor.attributes.health_current)
 
 
 func _cleanup() -> void:

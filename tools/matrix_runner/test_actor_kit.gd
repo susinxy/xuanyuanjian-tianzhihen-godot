@@ -34,6 +34,9 @@ extends RefCounted
 const ACTOR_NAME := "test_actor"
 const ACTOR_DIR := "res://characters/playable/test_actor"
 const ACTOR_SCENE := ACTOR_DIR + "/test_actor.tscn"
+## 裸皮肤场景（不含角色壳）：attack_freeze_repro 这类"只要皮肤+AnimTree"的
+## 取证台消费点（产线命名约定 <name>_skin.tscn，与 _required_files 同源）。
+const ACTOR_SKIN_SCENE := ACTOR_DIR + "/test_actor_skin.tscn"
 
 ## shell 侧识别的"需先 --import 再重跑"退出码
 const NEEDS_IMPORT := 42

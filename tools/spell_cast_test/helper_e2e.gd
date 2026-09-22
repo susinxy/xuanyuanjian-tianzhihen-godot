@@ -1,13 +1,15 @@
 extends Node
 
 ## 阶段 0 端到端：法术注入脚本重构（消灭双消费者）
+## 主权迁移（B2.5 Task4）：宿主身体从活体 chen 换成矩阵替身 test_actor——
+## 本套验证的是"助手挂宿主"的通道机制，与具体内容角色无关。
 ## a) 模板字符串：助手模板不得再自建管理器/轮询，必须是"教给宿主"形态
 ## b) 引擎级永久回归锁：旧形态（自建管理器+轮询）在双消费者争抢下**永远看不到按键**
 ## c) 引擎级正向证明：新形态（learn_spell 延后一帧教给宿主）→ 注入按键 → 法术体上场
 ## 运行：godot --headless --path . res://tools/spell_cast_test/helper_e2e.tscn
 
 const SPELL_PLUGIN := "res://addons/quiver.beat_em_up/custom_inspectors/create_new_spell/inspector_plugin.gd"
-const CHEN := "res://characters/playable/chen/chen.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 
 const OldHelperSim := preload("res://tools/spell_cast_test/old_helper_sim.gd")
 const NewHelperSim := preload("res://tools/spell_cast_test/new_helper_sim.gd")
@@ -15,8 +17,29 @@ const NewHelperSim := preload("res://tools/spell_cast_test/new_helper_sim.gd")
 var _fails := 0
 
 
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
+
+
 func _ready() -> void:
 	_string_checks()
+	if not _guard_actor():
+		print("════════ spell-helper-e2e: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
+		get_tree().quit(0 if _fails == 0 else 1)
+		return
 	await _old_structure_race()
 	await _new_structure_cast()
 	await _os_key_full_chain()
@@ -42,36 +65,36 @@ func _string_checks() -> void:
 	_check(not t.contains("func _physics_process"), "助手模板不再轮询按键（单消费者）")
 
 
-func _spawn_chen(helper: Node) -> Dictionary:
+func _spawn_actor(helper: Node) -> Dictionary:
 	var stage := Node2D.new()
 	stage.name = "Stage"
 	add_child(stage)
-	var chen: Node = (load(CHEN) as PackedScene).instantiate()
+	var actor: Node = (load(Kit.ACTOR_SCENE) as PackedScene).instantiate()
 	if helper != null:
-		chen.add_child(helper)  # 入树前先挂好 → 真实场景装载序：子 _ready 早于父
-	stage.add_child(chen)
-	return {"stage": stage, "chen": chen, "helper": helper}
+		actor.add_child(helper)  # 入树前先挂好 → 真实场景装载序：子 _ready 早于父
+	stage.add_child(actor)
+	return {"stage": stage, "actor": actor, "helper": helper}
 
 
 func _old_structure_race() -> void:
-	var ctx := _spawn_chen(OldHelperSim.new())
+	var ctx := _spawn_actor(OldHelperSim.new())
 	for _i in 3:
 		await get_tree().physics_frame
-	ctx.chen.channel.press("spell_1")
+	ctx.actor.channel.press("spell_1")
 	for _i in 3:
 		await get_tree().physics_frame
 	# 角色壳先轮询先吃边沿（空手册无声施法）→ 旧助手必须看不到键
-	_check(ctx.helper.seen == false, "引擎级回归锁：双消费者下旧助手永不通键（chen 先吃）")
+	_check(ctx.helper.seen == false, "引擎级回归锁：双消费者下旧助手永不通键（宿主壳先吃）")
 	ctx.stage.queue_free()
 
 
 func _new_structure_cast() -> void:
-	var ctx := _spawn_chen(NewHelperSim.new())
+	var ctx := _spawn_actor(NewHelperSim.new())
 	for _i in 3:
 		await get_tree().physics_frame
 	_check(ctx.helper.taught == true, "新形态：法术已教给角色本人")
 	var before := _spell_bodies(ctx.stage)
-	ctx.chen.channel.press("spell_1")
+	ctx.actor.channel.press("spell_1")
 	# 零引导仍含起手段（0.333s≈21 帧），等待必须跨过（2026-09-16 语义定档）
 	for _i in 30:
 		await get_tree().physics_frame
@@ -84,7 +107,7 @@ func _new_structure_cast() -> void:
 ## InputEventAction 类，真实键盘法术键将永远无效（本 runner 其余场景直注通道
 ## 恰好测不到这一层）。用 Input.parse_input_event 走 OS 同一入口打全链路。
 func _os_key_full_chain() -> void:
-	var ctx := _spawn_chen(NewHelperSim.new())
+	var ctx := _spawn_actor(NewHelperSim.new())
 	await _frames(3)
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_1

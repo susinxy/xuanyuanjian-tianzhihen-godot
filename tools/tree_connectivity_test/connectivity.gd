@@ -1,14 +1,16 @@
 extends Node
 
-## 动画树连通性回归测试（chen 皮肤）：
+## 动画树连通性回归测试（test_actor 皮肤，模板快照血缘）：
 ##  1) 中枢原则：非 idle 状态之间不得有直连边（连段链 attack1→2→3 除外）；
 ##     walk↔run、walk→attack1 这类边曾存在、2026-09-15 按用户原则移除（travel
 ##     经 idle 中转同帧推进完毕、无观感差异，边数组合爆炸才是问题）。
 ##  2) 回连完整：除 die（合法终态）外，每个状态必须能 travel 回 idle——
 ##     attack2 缺回连 idle 的 bug（寻路会误放 attack3）即本条抓获。
+## 主权迁移（B2.5 Task4）：连通性铁律约束的是**模板 AnimTree 血缘**，替身
+## 与 chen 同血统，换绑 test_actor 后规则覆盖每一个出生角色而非只照 chen。
 ## 运行：godot --headless --path . res://tools/tree_connectivity_test/connectivity.tscn
 
-const CHEN := "res://characters/playable/chen/chen.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 
 var _fails := 0
 
@@ -19,12 +21,33 @@ func _check(ok: bool, label: String) -> void:
 	print("  %s: %s" % ["PASS" if ok else "FAIL", label])
 
 
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
+
+
 func _ready() -> void:
-	var chen: Node = (load(CHEN) as PackedScene).instantiate()
-	add_child(chen)
+	if not _guard_actor():
+		print("════════ tree-connectivity: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
+		get_tree().quit(0 if _fails == 0 else 1)
+		return
+	var actor: Node = (load(Kit.ACTOR_SCENE) as PackedScene).instantiate()
+	add_child(actor)
 	for _i in 5:
 		await get_tree().physics_frame
-	var skin = chen._skin
+	var skin = actor._skin
 	var tree: AnimationTree = skin.get("_animation_tree")
 	var sm: AnimationNodeStateMachine = tree.tree_root.get_node("state_machine")
 	var playback = skin._playback

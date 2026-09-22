@@ -1,7 +1,9 @@
 extends Node
 
 ## 攻击冻结复现台（2026-09-16 悬案取证，tools/attack_freeze_repro/ 第二版）：
-## 真 chen 皮肤+真 attack 动画，AnimationTree 走**真实物理帧管线**
+## 真 test_actor 皮肤（模板快照血缘）+真 attack 动画，AnimationTree 走**真实物理帧管线**
+## （B2.5 主权迁移：原绑活体 chen 皮肤——用户调打击感（attack1 0.333s→0.1s）会
+## 直接改写本台的末帧/停摆窗时序前提；替身动画=模板快照，与生产手感调优解耦。）
 ## （process_callback=PHYSICAL——headless 无 idle 帧；教训定档：
 ## AnimationTree.advance() 只计算输出，方法轨道信标要 commit 阶段才发，
 ## 手动推帧测信标是假现场）。三场景全部协程化串行 await（防未 await 假绿）：
@@ -13,6 +15,8 @@ extends Node
 
 const MAX_FRAMES := 40
 
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
+
 var _skin
 var _tree: AnimationTree
 var _playback
@@ -21,9 +25,29 @@ var _pos_key := "parameters/state_machine/attack1/current_position"
 var _results: Array[String] = []
 
 
+## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
+func _guard_actor() -> bool:
+	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
+	if not Kit.exists():
+		_record(false, "守卫", "test_actor 缺席（%s）" % remedy)
+		return false
+	var rc := Kit.ensure()
+	if rc == Kit.NEEDS_IMPORT:
+		_record(false, "守卫", "test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
+		return false
+	if rc != OK:
+		_record(false, "守卫", "ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
+		return false
+	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+	return true
+
+
 func _ready() -> void:
 	await get_tree().physics_frame
-	_skin = preload("res://characters/playable/chen/chen_skin.tscn").instantiate()
+	if not _guard_actor():
+		_finish()
+		return
+	_skin = load(Kit.ACTOR_SKIN_SCENE).instantiate()
 	add_child(_skin)
 	for i in 30:
 		await get_tree().physics_frame
