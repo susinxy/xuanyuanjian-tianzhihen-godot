@@ -3,7 +3,7 @@ extends Node
 ## 互动触发件契约（S2-M1-B2 I/C/G/Q 组）：InteractTrigger 的距感/E 键发射/
 ## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
 ## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）+
-## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本（Q 组）。
+## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本/第三方判清摘树僵尸钟门（Q 组）。
 ## 形制=container_contract 同款：每流完成旗（协程炸跳段防线）+
 ## _check/_frames/_wait_until。运行：
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
@@ -22,7 +22,7 @@ const QTE_DAMAGE := 15
 
 var _fails := 0
 var _finished := false
-var _done := {}    # 各流完成旗：i1..i7 / c / g / q1..q4
+var _done := {}    # 各流完成旗：i1..i7 / c / g / q1..q5
 var _hits: Array[int] = []   # interacted 计数（lambda 捕获数组引用通道，E6 判例）
 var _chest_ids: Array[StringName] = []   # session.chest_opened 收录（C 组）
 var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
@@ -55,6 +55,8 @@ func _ready() -> void:
 	_check(bool(_done.get("q3")), "Q3 流全序列执行完成（协程静默中断防线）")
 	await _flow_q4()
 	_check(bool(_done.get("q4")), "Q4 流全序列执行完成（协程静默中断防线）")
+	await _flow_q5()
+	_check(bool(_done.get("q5")), "Q5 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -497,3 +499,46 @@ func _flow_q4() -> void:
 	_check(landed, "Q4f 复开窗内 E → 成功落尾段")
 	await _dismantle(shell)
 	_done["q4"] = true
+
+
+## Q5 摘树僵尸钟门（评审轮1 Important，B6 前防）：非 QTE 成功腿的第三方判清
+## （auto_complete/spawner/标记——此处以 session.mark_cleared 直调模拟）把河段
+## remove_child **摘树保活缓存**——实例 id 仍有效，R15 的 id 门卫在此目盲：
+## 循环若在摘树态继续走账，回挂（判清段缓存复用）瞬间就会对在场活玩家补刀。
+## 锁两面貌：摘树期零新失败零掉血 + 回挂后僵尸钟永久死（DONE 终态，_ready 不
+## 再响=不复活是正确语义）。R15 判例：全程先快照 qid 再轮询，判清腿对象未 free
+## 但防御性同锁。
+func _flow_q5() -> void:
+	var shell := await _make_shell(FIX_CHAPTER3)
+	var qte := _find_qte(shell)
+	var qid: int = qte.get_instance_id()
+	shell.playable.attributes.health_current = 100
+	var opened: bool = await _wait_until(func(): return qte.window_open, 60)
+	_check(opened, "Q5a 前置：河段循环已跑动（开过窗）")
+	# 第三方判清（绕过 QTE 成功闸）→ 换段离开：_remove_current 走摘树保活腿
+	shell.session.mark_cleared(&"seg_river")
+	shell.switch_segment(&"seg_it_end", &"default")
+	var away: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_it_end", 600)
+	await _frames(10)   # 落定链尾，避开落位帧采样抖动
+	_check(away and is_instance_id_valid(qid)
+			and not instance_from_id(qid).is_inside_tree(),
+			"Q5b 摘树前提：id 有效 + 不在树（缓存保活=id 门卫盲区成型）")
+	var f0: int = qte.failures
+	var hp0: int = shell.playable.attributes.health_current
+	await _frames(int((QTE_PAUSE + 0.5) * 60.0))   # ≥1 个到期拍（窗0.6/歇1.2 皆短于此）
+	_check(qte.failures == f0, "Q5c 摘树期失败零新增（窗尾/歇拍续命皆终止）")
+	_check(shell.playable.attributes.health_current == hp0,
+			"Q5d 摘树期在场玩家零掉血")
+	shell.switch_segment(&"seg_river", &"default")
+	var back: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_river", 600)
+	_check(back and qte.get_instance_id() == qid and qte.is_inside_tree(),
+			"Q5e 判清段回挂=缓存同实例（观察面连续性）")
+	await _frames(int((2.0 * (QTE_WINDOW + QTE_PAUSE) + 0.5) * 60.0))
+	_check(qte.failures == f0 and not qte.window_open,
+			"Q5f 回挂不复活：僵尸钟永久死（DONE 终态闸住双续命腿）")
+	_check(shell.playable.attributes.health_current == hp0,
+			"Q5g 回挂后零掉血（B6 陷阱面：第三方判清不洗白后续命）")
+	await _dismantle(shell)
+	_done["q5"] = true

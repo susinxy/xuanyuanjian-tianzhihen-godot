@@ -81,7 +81,7 @@ func _apply_damage() -> void:
 
 
 func _schedule(secs: float, continuation: Callable) -> void:
-	# lambda 只捕实例 id + 相位续命，零节点引用；出树/被 free→id 失效→静默
+	# lambda 只捕实例 id + 相位续命，零节点引用；被 free→id 失效→静默
 	var self_id := get_instance_id()
 	var timer := get_tree().create_timer(secs)
 	timer.timeout.connect(func() -> void:
@@ -89,6 +89,19 @@ func _schedule(secs: float, continuation: Callable) -> void:
 			return
 		var q := instance_from_id(self_id) as InteractQte
 		if q == null:
+			return
+		# 出树终止门（评审轮 1 Important，Q5 锁）：id 门卫只防"丢弃释放"腿。
+		# 已判清段被 _remove_current **remove_child 摘树保活**进缓存——id 仍
+		# 有效，第三方判清（auto_complete/spawner/标记）不经本件 DONE 闸，僵尸
+		# 钟若续走账会在摘树态记失败（get_tree() 为 null 还伴随每拍炸流），
+		# 判清段回挂（缓存复用=_ready 不再响）时更可能带脏相位对在场玩家续命
+		# 补刀。不变量：**"摘树未 free"恒=已判清/正判清段**（未清场腿是
+		# queue_free→id 失效路），回挂也绝不复活新生命周期才是正确语义——
+		# 故见出树立刻闩 DONE 收摊（顺手闭 window_open 不留脏观察面），静默
+		# 终止，不复活。
+		if not q.is_inside_tree():
+			q._phase = Phase.DONE
+			q.window_open = false
 			return
 		continuation.call()
 	)
