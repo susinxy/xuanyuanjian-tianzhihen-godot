@@ -179,6 +179,14 @@
     **实机关账（2026-09-22）**：用户 Windows F6 真跑 container_contract 50+ 全绿，E7 `cmd /c`
     引号分支证实可用（.bat 中转预案作废）；chapter_fix 人眼手感验收项**撤销**（夹具系测试台
     毛坯、换段无视觉信号属实——节拍裁决移交 B6 实段，夹具皮肤化移交 B2 首步场地建设）。B1 结清。
+  - **S2-M1-B2 互动触发件批 ✅ 已交付（2026-09-22，SDD 8 任务全过双审查门）**：
+    `InteractTrigger` 通用件（E 键 `interact` 动作/一次性/冷却/旗标门/consume 收口）
+    + 三反应件（宝箱 session 判重、船闸限时→T2 强制链残血带段、跳河 QTE 循环窗×钳伤
+    不死×出树即终门）+ 法典条 10（含⑥重演语义三分）+ validator R11/空根守卫 +
+    段/壳模板双判形 + **契约套 `tools/interact_contract`（矩阵第 25 套，85 断言）** +
+    B1 开账四件全清（SwitchFlow await-self 收口/E8 结构锁、mark_cleared 落点终裁/D5、
+    段文件执法、夹具视觉皮肤化——B1 撤销的人眼验收项由 it2/it3 游乐场复活进 F5 单）。
+    headless 23 跑 22 绿 + 1 红归因用户侧 chen 资产回写（input_channel AI 路，非本批）。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）

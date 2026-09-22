@@ -158,11 +158,17 @@
         `body_entered` 计数稳定（契约 I 组按此设时序）；
       ④ **旗标门经壳 session**——`requires_flag` 非空时触发件走
         `find_shell().session.has_flag()` 判定，无旗**静默拒发**（不吃键、不置消耗）；
+        （R11 只证"形状存在"；disabled/零尺寸形状=可过校验但不可交互，归 F5 肉眼契约。）
         解锁靠别处 `session.add_flag(同旗)`，段间旗标随壳 session 存续；
       ⑤ **反应件是 trigger 子节点、连 `interacted` 信号**——宝箱/NPC 对话/门等
         反馈逻辑挂为 InteractTrigger 的子 Area/Node，`_ready` 里
         `get_parent().interacted.connect(...)`，一次性反应在链尾显式
         `get_parent().consume()` 收口（Prompt 永久隐身 + 后续 E 不再响应）。
+      ⑥ **反应件重演语义三分（B2 定档）**——同段被"判清缓存摘树"后重入：
+        宝箱=session 真值（可重演按开过处理，零副作用）；门=完整重演（连接存续，
+        再按可再开倒计时）；**循环类（QTE 族）=判清后永久哑**（出树即终门）。
+        给同一**段**叠加 QTE 与任何其他判清路（auto_complete/检测器/spawner 聚合）
+        的作者**必须书面声明期望哪种重演**，否则循环钟语义由 QTE 侧抢先判清说了算。
       出口语义不变：互动件**不是**推进机制（条 8 的 StageExit / 段清链才是），
       它只驱动"宝箱开/对话起/机关动"这类会话状态反应。
 
