@@ -88,3 +88,30 @@ paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
 
 [node name="Shape" type="CollisionShape2D" parent="Room1/PlayerDetector"]
 shape = SubResource("Seg_room1")
+
+[node name="VisFloor" type="Polygon2D" parent="."]
+metadata/vis_skin_note = "2026-09-22 视觉皮肤（B2-T3）：自本节点起 Vis* 为纯装饰（色块地面/墙柱/触发线带/段名牌），供人眼感知段切换，勿挂逻辑"
+z_index = -10
+color = Color(0.46,0.42,0.60,1)
+polygon = PackedVector2Array(-100, 600, 2000, 600, 2000, 800, -100, 800)
+
+[node name="VisWallL" type="Polygon2D" parent="."]
+z_index = -10
+color = Color(0.25, 0.22, 0.2, 1)
+polygon = PackedVector2Array(340, -800, 380, -800, 380, 1800, 340, 1800)
+
+[node name="VisWallR" type="Polygon2D" parent="."]
+z_index = -10
+color = Color(0.25, 0.22, 0.2, 1)
+polygon = PackedVector2Array(1900, -800, 1940, -800, 1940, 1800, 1900, 1800)
+
+[node name="VisTriggerLine" type="Polygon2D" parent="."]
+z_index = -5
+color = Color(0.2, 1, 0.35, 0.55)
+polygon = PackedVector2Array(232, -400, 248, -400, 248, 1100, 232, 1100)
+
+[node name="VisSign" type="Label" parent="."]
+position = Vector2(1050, -140)
+scale = Vector2(7, 7)
+text = "SEG C"
+horizontal_alignment = 1
