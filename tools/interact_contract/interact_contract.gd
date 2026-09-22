@@ -1,8 +1,10 @@
 extends Node
 
-## 互动触发件契约（S2-M1-B2 I 组）：InteractTrigger 的距感/E 键发射/一次性与
-## 冷却/旗标门/consume 消耗/提示随距翻转。形制=container_contract 同款：
-## 每流完成旗（协程炸跳段防线）+ _check/_frames/_wait_until。运行：
+## 互动触发件契约（S2-M1-B2 I/C/G 组）：InteractTrigger 的距感/E 键发射/
+## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
+## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）。
+## 形制=container_contract 同款：每流完成旗（协程炸跳段防线）+
+## _check/_frames/_wait_until。运行：
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
 
 const FIX_CHAPTER := "res://tools/interact_contract/fixtures/chapter_it.tscn"
@@ -13,8 +15,10 @@ const FIX_CHAPTER2 := "res://tools/interact_contract/fixtures/chapter_it2.tscn"
 
 var _fails := 0
 var _finished := false
-var _done := {}    # 各流完成旗：i1..i6
+var _done := {}    # 各流完成旗：i1..i7 / c / g
 var _hits: Array[int] = []   # interacted 计数（lambda 捕获数组引用通道，E6 判例）
+var _chest_ids: Array[StringName] = []   # session.chest_opened 收录（C 组）
+var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
 
 
 func _ready() -> void:
@@ -32,6 +36,10 @@ func _ready() -> void:
 	_check(bool(_done.get("i6")), "I6 流全序列执行完成（协程静默中断防线）")
 	await _flow_i7()
 	_check(bool(_done.get("i7")), "I7 流全序列执行完成（协程静默中断防线）")
+	await _flow_c()
+	_check(bool(_done.get("c")), "C 流全序列执行完成（协程静默中断防线）")
+	await _flow_g()
+	_check(bool(_done.get("g")), "G 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -252,3 +260,118 @@ func _flow_i7() -> void:
 	_check(_hits.is_empty(), "I7e 往返后距外按 E 不发（stale-true 误发射防线）")
 	await _dismantle(shell)
 	_done["i7"] = true
+
+
+## C 流（宝箱，一次一场）：首开=chest_opened 恰一 + grants_flag 落 session +
+## 触发件 0.4s 缩小释放；消亡窗内连按无二次 loot；丢弃重建出的假宝箱再开被
+## session 判重拦下（chest_opened/flag_added 总量恒一）。
+func _flow_c() -> void:
+	var shell := await _make_shell(FIX_CHAPTER2)
+	_chest_ids = []
+	_flag_ids = []
+	shell.session.chest_opened.connect(func(id): _chest_ids.append(id))
+	shell.session.flag_added.connect(func(id): _flag_ids.append(id))
+	var trig := _find_trigger(shell)
+	var trig_id: int = trig.get_instance_id()
+	var inr: bool = await _wait_until(func(): return trig.in_range(), 120)
+	_check(inr, "C0 前置：出生位与宝箱触发件重叠→在距")
+	await _press_e()
+	var opened: bool = await _wait_until(
+			func(): return _chest_ids == [&"it_chest"], 60)
+	await _frames(2)
+	_check(opened and shell.session.has_flag(&"chest_it")
+			and _flag_ids == [&"chest_it"],
+			"C1a 首开：chest_opened 恰一 + grants_flag 同步恰一进 session")
+	# 消亡窗（0.4s tween 未完）内连按：触发件已自消耗→无二次发射
+	await _press_e()
+	await _frames(3)
+	_check(_chest_ids.size() == 1 and _flag_ids.size() == 1,
+			"C2 消亡窗内再按 E：无二次 loot（消耗先于信号）")
+	var gone: bool = await _wait_until(
+			func(): return not is_instance_id_valid(trig_id), 120)
+	_check(gone, "C1b 触发件 0.4s 缩小后释放（实例 id 失效）")
+	# C3 丢弃重建假宝箱：chest 段从未判清→离开走 queue_free 腿→回=新实例
+	var seg_inst: int = shell._current.get_instance_id()
+	shell.switch_segment(&"seg_gate", &"default")
+	var away: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_gate", 600)
+	shell.switch_segment(&"seg_chest", &"default")
+	var back: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_chest", 600)
+	_check(away and back and shell._current.get_instance_id() != seg_inst,
+			"C3a 未清段离开再回=丢弃重建（段实例 id 已更换）")
+	var trig2 := _find_trigger(shell)
+	_check(trig2 != null and trig2.get_instance_id() != trig_id,
+			"C3b 重建出新触发件新反应节点（无旧消耗态携带）")
+	var inr2: bool = await _wait_until(func(): return trig2.in_range(), 120)
+	# 判例：等"释放"的轮询必须先存实例 id——对已 free 对象调 get_instance_id()
+	# 的每帧运行时错误让 pred 返回 null=恒假（首轮 C3c 假红根因）
+	var tid2: int = trig2.get_instance_id()
+	await _press_e()
+	var gone2: bool = await _wait_until(
+			func(): return not is_instance_id_valid(tid2), 120)
+	_check(inr2 and gone2 and _chest_ids == [&"it_chest"]
+			and _flag_ids.size() == 1,
+			"C3c 假宝箱再开：open_chest 判重 false（信号总量仍各一，无二次 grant）")
+	await _dismantle(shell)
+	_done["c"] = true
+
+
+## G 流（船闸，gate_seconds=1.0 夹具加速）：G1 门体上提；G2 倒计时到点强推
+## 自动切下段 + 赢链判清源段（T2 成功腿）+ 残血原样穿越（D4/F-1 语义穿透）；
+## G3 竞态重演：force 链在途×restart 顶位→赢的是重跑、落回闸段入口且
+## cleared==false（输链零副作用），余尘后倒计时无再推（窗口静默）。
+func _flow_g() -> void:
+	var shell := await _make_shell(FIX_CHAPTER2)
+	shell.switch_segment(&"seg_gate", &"default")
+	var arrived: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_gate", 600)
+	var trig := _find_trigger(shell)
+	var door := shell._current.get_node_or_null("Door") as Polygon2D
+	var y0 := door.position.y if door != null else 0.0
+	var inr: bool = await _wait_until(func(): return trig.in_range(), 120)
+	_check(arrived and door != null and inr,
+			"G0 前置：落闸段 + 门体在位 + 出生重叠在距")
+	shell.playable.attributes.health_current = 40   # 强推链前先埋残血（G2c 观察面）
+	await _press_e()
+	var moved: bool = await _wait_until(
+			func(): return door.position.y < y0 - 100.0, 40)
+	_check(moved, "G1 interacted 后门 tween 上提中（40 帧内 y<起点-100）")
+	# G2 限时到点：1.0s 倒计时 + force 链 90f 静默 → 自动落下一段
+	var landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_it_end", 600)
+	_check(landed, "G2a 倒计时到点自动强推：current=seg_it_end")
+	await _frames(30)   # 盖过链尾信标窗，防"先到后改"漏网
+	_check(shell.session.is_cleared(&"seg_gate"),
+			"G2b T2 成功腿：赢链把源段（seg_gate）判清")
+	_check(shell.playable.attributes.health_current == 40,
+			"G2c 强推不治疗：残血 40 原样带进下段（F-1 语义穿透船闸）")
+	await _dismantle(shell)
+	# --- G3 竞态（新的一场）：force 链在途 × restart 顶位
+	shell = await _make_shell(FIX_CHAPTER2)
+	shell.switch_segment(&"seg_gate", &"default")
+	var arrived3: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_gate", 600)
+	var trig3 := _find_trigger(shell)
+	var inr3: bool = await _wait_until(func(): return trig3.in_range(), 120)
+	_check(arrived3 and inr3, "G3a 前置：新 shell 落闸段且在距")
+	var gen0: int = shell._transition_gen
+	var whys: Array[StringName] = []
+	shell.segment_restarted.connect(func(w): whys.append(w))
+	await _press_e()
+	# 1.0s 倒计时到点后 force 登记（gen+1）；趁其 90f 静默窗顶入 restart
+	var armed: bool = await _wait_until(
+			func(): return shell._transition_gen > gen0, 300)
+	shell.restart_segment(&"death")
+	var landed3: bool = await _wait_until(func(): return not whys.is_empty(), 600)
+	await _frames(30)
+	_check(armed and landed3 and whys == [&"death"]
+			and shell.current_segment_id() == &"seg_gate",
+			"G3b 重跑链赢：落回闸段入口、被顶 force 链零信标")
+	_check(not shell.session.is_cleared(&"seg_gate"),
+			"G3c 输链不留判清（T2 判词实船集成面：重跑走丢弃重建）")
+	await _frames(300)
+	_check(shell.current_segment_id() == &"seg_gate" and whys == [&"death"],
+			"G3d 余尘静默：300 帧无后续强推/信标（作废倒计时不复活）")
+	await _dismantle(shell)
+	_done["g"] = true
