@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bw4337458q70a"]
 
-[ext_resource type="Script" path="res://tools/container_contract/container_contract.gd" id="1_cc"]
+[ext_resource type="Script" uid="uid://bv5aq5tlfntis" path="res://tools/container_contract/container_contract.gd" id="1_cc"]
 
-[node name="ContainerContract" type="Node"]
+[node name="ContainerContract" type="Node" unique_id=1154237293]
 script = ExtResource("1_cc")
