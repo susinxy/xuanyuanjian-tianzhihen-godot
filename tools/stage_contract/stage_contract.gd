@@ -5,6 +5,11 @@ extends Node
 ## 死亡转场/实例化回跳语义。C 段（T5 全流程，含跳转钮按压→真实换场景）后续续加
 ## C 段（T5）=两个真实参考地点的全流程环：换场存活 runner、锁房、波次聚合
 ## 解锁、跨地点 StageExit 真转场、清场终点面板、真死链→死亡界面→检查点回跳。
+## 【豁免】C 段验证的是"生产参考地点在位"的整体行为：内嵌主角经
+## change_scene_to_file 直载生产 .tscn，playable_override 接缝（B2.5/T5）无从
+## 注入（改绑生产场景文件又被零写令禁），且断言面绑 chen 本体节点路径
+## （ChenSkin/…/HurtBox）与出生位（x=300）——属"chen-in-stage"题意的合法绑定
+## （B2.5 新法申报；A/B 段直载裸骨架与替身无关）。
 ## 运行：godot --headless --path . res://tools/stage_contract/stage_contract.tscn
 
 const TITLE := "res://ui/menus/title_screen.tscn"

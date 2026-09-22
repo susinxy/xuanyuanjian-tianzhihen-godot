@@ -23,6 +23,11 @@ const SHELL_SCENE_FILE := "res://scenes/chapter/chapter_shell.tscn"
 @export var chapter_id: StringName
 @export var segment_scenes: Array[PackedScene] = []
 @export_node_path("QuiverCharacter") var playable_path := NodePath("Players/Chen")
+## 换人接缝（B2.5/T5 测试主权）：非空=在 _ready 一切绑段动作之前，把模板内嵌
+## 主角释放、用本场景替身顶上原槽位（同父/同名/同位，模板挂载件随迁）。
+## **生产场景永不设值**（默认 null=换人腿整体不执行，行为零变化）；唯一合法
+## 消费方=test fixtures 的 .tscn（回归矩阵夹具把 chen 换成 test_actor）。
+@export var playable_override: PackedScene = null
 
 var session := ChapterSession.new()
 var _instances := {}          # segment_id -> 实例（常驻缓存，spec D12 缓存面）
@@ -58,6 +63,15 @@ func _ready() -> void:
 	# B7 锁语义容器版：终点面板 ALWAYS + 两钮代码接线（自动弹出无接入——
 	# 章节终点演出=chapter_finished 的 B7 过场批消费口，面板留给消费方拉起）
 	SessionRules.wire_end_panel(_end_panel, _on_back_title, _on_replay)
+	# 换人接缝（B2.5/T5）：插入点裁决——①检查点注册/回跳消费/终点面板接线三条腿
+	# 与角色身份无关，先跑无妨；②必须早于段扫描、Events.player_died 订阅与首次
+	# enter_segment——enter_segment 会写 playable.global_position 并绑段，晚换人
+	# =首段绑到已释放旧体；③@onready playable 在函数体首行前已解析成旧体，换完
+	# 走既有 set_playable 覆盖引用与路径（area2d:player 身份校验链复用，缺组即
+	# chapter_error，手术不落地场景原样保留）。
+	if playable_override != null:
+		if not _apply_playable_override():
+			return
 	if playable == null:
 		chapter_error.emit("playable 缺席（playable_path 未指向有效角色）")
 		return
@@ -101,6 +115,27 @@ func reload_prototype() -> void:
 ## 即章节外层文件；场景内实例化根 → 外层文件，同 B5 探针实证形态）。
 func _scene_path() -> String:
 	return SessionRules.resolve_scene_path(self, SHELL_SCENE_FILE)
+
+
+## 换人真身（B2.5/T5 接缝）：手术本体在 SessionRules.swap_in_playable（与
+## BaseStage 双轨同源）。失败即 chapter_error + 早返（_ready 返回 false 时中止）；
+## 成功后走既有 set_playable 收口——area2d:player 身份校验缺组即拒收（拒收时
+## 替身释放、playable 归 null，与 playable 缺席腿同源形态，绝不扶正断链目标）。
+func _apply_playable_override() -> bool:
+	if playable == null:
+		chapter_error.emit("playable_override 落空：playable_path 未命中内嵌主角")
+		return false
+	var qc := SessionRules.swap_in_playable(self, playable, playable_override)
+	if qc == null:
+		chapter_error.emit("playable_override 根非 QuiverCharacter，换人放弃（旧场景未动）")
+		return false
+	if not qc.is_in_group("area2d:player"):
+		qc.free()
+		playable = null
+		chapter_error.emit("playable_override 替身缺 area2d:player 身份组，拒换上位")
+		return false
+	set_playable(qc)
+	return playable == qc
 
 
 ## 换角接口位（D11：本切片只留位，换人实现——皮肤/输入通道/相机迁移——留 D2 批）：

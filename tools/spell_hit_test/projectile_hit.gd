@@ -4,6 +4,10 @@ extends Node
 ##   一、真实吟唱链路：上场→淡入门→命中→ENDING 淡出→真删，全程逐帧采样判定门；
 ##   二、双实例隔离：两发弹体各自的命中/消亡/回执事件必须各归各身；
 ##   三、僵尸回执：死体不得二次宣告。
+## 【豁免】被测场景=addons 产线 Run-Test 镜像（ensure_spell_run_test 生成，
+## 主角位绑 CHEN_SCENE 硬码=插件红线不许碰，场景根亦非 BaseStage/ChapterShell，
+## playable_override 接缝在架构上不及此处）——绑定生产角色属题意
+## （B2.5 新法申报，与 wp2_creation_test 镜像豁免同判例）。
 ## 教训固化：协程内报错=静默跳段（AGENTS 明文），本 runner 设完成旗汇总前必查；
 ##   事件帧号一律用循环内状态采样记录，不用 lambda 捕获局部变量（值拷贝陷阱）。
 ## 运行：godot --headless --path . res://tools/spell_hit_test/projectile_hit.tscn

@@ -66,6 +66,48 @@ static func goto_title(tree: SceneTree) -> void:
 	ScreenTransitions.transition_to_scene(TITLE_PATH)
 
 
+## 换人接缝手术本体（B2.5/T5，BaseStage 与 ChapterShell 双轨共用，防两份漂移）：
+## 释放模板内嵌主角 old，用 override 实例化顶上原槽位——同父/同 index/同名/
+## 同出生位；宿主场景根在角色身上额外挂载的子节点（owner==host 判据，4.7.1
+## 探针实证：角色本体件 owner=角色根，模板/夹具加挂件 owner=宿主场景根，如
+## LevelCamera）随迁替身。挂件先经宿主中转两跳 reparent（reparent 要求双方
+## 都在树，而 old.free() 级联即杀仍挂其下的挂件——故**必先摘再 free**，
+## keep_global_transform=true 全程保变换）。旧体走**即时 free**（非 queue_free）：
+## 槽位名要当帧让给替身，延迟删除会撞名；此刻全树仍在 _ready 同步段，无物理
+## 查询回调在途，free 合法。返回新主角；根类型不符返回 null（此时旧体未动、
+## 场景原样，由调用方报错弃用）。
+static func swap_in_playable(host: Node, old: QuiverCharacter, override: PackedScene) -> QuiverCharacter:
+	var inst := override.instantiate()
+	var qc := inst as QuiverCharacter
+	if qc == null:
+		if inst != null:
+			inst.free()
+		return null
+	var parent := old.get_parent()
+	var idx := old.get_index()
+	var slot := String(old.name)
+	var spawn := old.global_position
+	var extras: Array[Node] = []
+	for c in old.get_children():
+		if c.get_owner() == host:
+			extras.append(c)
+	for c in extras:
+		c.reparent(host, true)   # 第一跳：挂件脱体借宿宿主（免被 old 级联释放）
+	old.free()
+	qc.name = slot
+	parent.add_child(qc)
+	parent.move_child(qc, idx)
+	qc.global_position = spawn
+	for c in extras:
+		c.reparent(qc, true)   # 第二跳：随迁入替身（全局变换全程锁定）
+		# 相机随迁后补位 current（摘旧体会清空 viewport 当前相机指针；
+		# 容器 E7 探针按 root.get_camera_2d() 取证，掉相机=锁房链整断）
+		var cam := c as Camera2D
+		if cam != null and not cam.is_current():
+			cam.make_current()
+	return qc
+
+
 ## 原型重载（debug_restart 腿/章节重走）：**先显式解冻再重载**（B7 冻结所有权
 ## 铁律：冻结树被重载继承=新壳出生即 paused、ESC 永闸=不可解软锁——终点面板
 ## 正是冻结全树后拉"重走一遍"的现场）；随后角色复位广播 + 延迟重载当前场景。

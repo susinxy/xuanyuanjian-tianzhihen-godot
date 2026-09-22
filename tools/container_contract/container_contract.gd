@@ -3,6 +3,13 @@ extends Node
 ## 舞台容器契约（S2-M1-B1）：ChapterSession 语义（S 组）、壳切换（E 组）、
 ## 段检查点（D 组）、壳件五职责（H 组）。运行：
 ## godot --headless --path . res://tools/container_contract/container_contract.tscn
+##
+## B2.5/T5 主权迁移：chapter_fix 夹具经 playable_override 接缝把模板内嵌 chen
+## 换成矩阵代管 test_actor（E/D/H 全流经 shell.playable 泛型消费，替身在场即
+## 全套跑通；身份见证腿登记在 interact_contract X 流）。
+
+## 替身产线 kit（preload 路径引用，全局类缓存判例与 interact 同款）
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 
 const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
 const FIX_SEG_C := "res://tools/container_contract/fixtures/seg_light_c.tscn"
@@ -27,6 +34,16 @@ var _orphan_done := false  # E8 流全序列旗（B2-T1 同款防线）
 
 
 func _ready() -> void:
+	# 替身门（消费铁律②）：夹具 ext_resource 引用 test_actor，缺席=夹具整体
+	# 解析失败、各流经此即炸点——前置判 exists() 打可读红+处方即退，绝不
+	# 代 runner 创建（创建归 run_matrix.sh 生命周期）。
+	if not Kit.exists():
+		print("  FAIL: test_actor 替身缺席——chapter_fix 等夹具经 playable_override "
+				+ "依赖其主场景，不可解析（处方：bash tools/matrix_runner/"
+				+ "run_matrix.sh --ensure-only 建好替身后复跑）")
+		print("════════ container-contract: FAIL ════════")
+		get_tree().quit(1)
+		return
 	await _flow_session()
 	await _flow_enter()
 	await _flow_switch()

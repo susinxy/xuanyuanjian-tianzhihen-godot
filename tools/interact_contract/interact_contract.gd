@@ -1,6 +1,7 @@
 extends Node
 
-## 互动触发件契约（S2-M1-B2 I/C/G/Q 组 + B2.5 S 组）：InteractTrigger 的距感/E 键发射/
+## 互动触发件契约（S2-M1-B2 I/C/G/Q 组 + B2.5 S 组 + B2.5/T5 X 组换人接缝身份腿）：
+## InteractTrigger 的距感/E 键发射/
 ## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
 ## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）+
 ## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本/第三方判清摘树僵尸钟门（Q 组）+
@@ -36,6 +37,23 @@ var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
 
 
 func _ready() -> void:
+	# 替身门（消费铁律②，B2.5/T5）：chapter_it* 夹具经 playable_override 接缝
+	# ext_resource 引用 test_actor——缺席=夹具整体解析失败，I/C/G/Q/X 各流全是
+	# 炸点。判 exists() 即跳主体并记 FAIL（rc=1，处方走 --ensure-only 通道，
+	# 绝不代 runner 创建），S 流保留（其身份腿自带两态形状，草稿演练不依赖
+	# 共享替身在场）。
+	if not Kit.exists():
+		print("  FAIL: test_actor 替身缺席——chapter_it* 夹具不可解析，"
+				+ "I/C/G/Q/X 腿整体跳过（处方：bash tools/matrix_runner/"
+				+ "run_matrix.sh --ensure-only 建好替身后复跑）")
+		_fails += 1
+		await _flow_s()
+		_check(bool(_done.get("s")), "S 流全序列执行完成（协程静默中断防线）")
+		_finished = true
+		_check(_finished, "全序列执行完成（协程静默中断防线）")
+		print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
+		get_tree().quit(0 if _fails == 0 else 1)
+		return
 	await _flow_i1()
 	_check(bool(_done.get("i1")), "I1 流全序列执行完成（协程静默中断防线）")
 	await _flow_i2()
@@ -64,6 +82,8 @@ func _ready() -> void:
 	_check(bool(_done.get("q4")), "Q4 流全序列执行完成（协程静默中断防线）")
 	await _flow_q5()
 	_check(bool(_done.get("q5")), "Q5 流全序列执行完成（协程静默中断防线）")
+	await _flow_x()
+	_check(bool(_done.get("x")), "X 流全序列执行完成（协程静默中断防线）")
 	await _flow_s()
 	_check(bool(_done.get("s")), "S 流全序列执行完成（协程静默中断防线）")
 	_finished = true
@@ -551,6 +571,32 @@ func _flow_q5() -> void:
 			"Q5g 回挂后零掉血（B6 陷阱面：第三方判清不洗白后续命）")
 	await _dismantle(shell)
 	_done["q5"] = true
+
+## X 组（B2.5/T5 换人接缝身份腿，铁律④登记 ATTEST 标记 SEAM-GATE）：夹具的
+## playable_override 必须真正把模板内嵌 chen 换成矩阵代管 test_actor。锁的是
+## "接缝形态"而非替身产品身份（后者归 S 组常驻腿）：
+## · X0/X1 同名原位槽位（Players/Chen）由替身本体占据——换人走"释放内嵌体→
+##   替身顶槽"，playable_path 与一切旧引用路径零断链；
+## · X2 scene_file_path==替身主场景——**接缝不生效时此腿必红**（内嵌体仍是
+##   chen.tscn，即 brief 的 TDD 红据形状）；
+## · X3 替身持 area2d:player（set_playable 身份校验链的通过态见证）；
+## · X4 模板挂载件 LevelCamera 随迁（相机掉件=E7 锁房链事故，容器基线同锁）。
+func _flow_x() -> void:
+	var shell := await _make_shell()
+	var pl := shell.playable
+	_check(pl != null, "X0 换人后 playable 在位")
+	if pl != null:
+		print("SEAM-GATE: playable=%s @%s" % [pl.scene_file_path, pl.get_path()])
+		_check(pl.get_parent() == shell.get_node("Players") and pl.name == "Chen",
+				"X1 替身占原槽（Players/Chen 同名同父，实际=%s）" % pl.get_path())
+		_check(pl.scene_file_path == Kit.ACTOR_SCENE,
+				"X2 playable=test_actor（内嵌 chen 已释放，实际=%s）" % pl.scene_file_path)
+		_check(pl.is_in_group("area2d:player"), "X3 替身持 area2d:player 身份组")
+		_check(pl.get_node_or_null("LevelCamera") is QuiverLevelCamera,
+				"X4 LevelCamera 模板挂载件随迁替身")
+	await _dismantle(shell)
+	_done["x"] = true
+
 
 ## S 组（B2.5 主权契约，R2 修时雷改版）：test_actor 全套件产线活体校验。
 ## **本进程无法导入纹理**（--import 只由 run_matrix.sh 在套件进程之外跑），故

@@ -66,8 +66,10 @@ ROSTER=(
 # 且该套本次有跑 = 记红（红因：导入门退化 → NOTICE 静默跳身份腿 → 假绿矩阵）。
 # T4 主权迁移批：所有"只需要一个身体"的直载套迁入 test_actor 后统一以
 # ACTOR-GATE（三态守卫通过行）入表——封死"守卫被绕过/替身未真就绪仍绿"。
+# T5 接缝批起支持**同套多行**（每行一个标记，全部必须在日志在场）。
 ATTEST=(
 	"interact_contract|S1a "
+	"interact_contract|SEAM-GATE"
 	"input_channel_test|ACTOR-GATE"
 	"attack_freeze_repro|ACTOR-GATE"
 	"conductor_test|ACTOR-GATE"
@@ -216,15 +218,19 @@ for row in "${ROSTER[@]}"; do
 		fi
 		# M4 见证（Task2 评审）：表内套 rc=0 但日志没喊出身份标记 = 身份腿被
 		# 门控静默跳过（NOTICE 家族假绿），本次跑同样记红。rc 已红则不叠加。
-		marker=""
+		markers=()
 		for a in "${ATTEST[@]}"; do
 			IFS='|' read -r alabel amarker <<< "${a}"
-			[ "${alabel}" = "${label}" ] && marker="${amarker}"
+			[ "${alabel}" = "${label}" ] && markers+=("${amarker}")
 		done
-		if [ -n "${marker}" ] && [ "${rc}" -eq 0 ] \
-				&& ! grep -qa -- "${marker}" "${LOG_ROOT}/${label}${extra:+_fixtures}.log"; then
-			verdict="${C_RED}RED(M4 见证标记「${marker%% *}」缺席)${C_RST}"; RED=$((RED + 1))
-		fi
+		# T5 起一可多标记：任一缺席都记红（${markers[@]:-} 兼容 set -u 空数组）
+		for marker in "${markers[@]:-}"; do
+			[ -z "${marker}" ] && continue
+			if [ "${rc}" -eq 0 ] \
+					&& ! grep -qa -- "${marker}" "${LOG_ROOT}/${label}${extra:+_fixtures}.log"; then
+				verdict="${C_RED}RED(M4 见证标记「${marker%% *}」缺席)${C_RST}"; RED=$((RED + 1))
+			fi
+		done
 		printf '%s %-28s rc=%-3s %s  %s\n' \
 			"${C_YEL}=>${C_RST}" "${tag}" "${rc}" "${verdict}" "${LAST_PASS_LINE}"
 		RESULTS+=("${tag}|${rc}|${LAST_PASS_LINE}")
