@@ -107,7 +107,7 @@ polygon = PackedVector2Array(1900, -800, 1940, -800, 1940, 1800, 1900, 1800)
 [node name="VisTriggerLine" type="Polygon2D" parent="."]
 z_index = -5
 color = Color(0.2, 1, 0.35, 0.55)
-polygon = PackedVector2Array(232, -400, 248, -400, 248, 1100, 232, 1100)
+polygon = PackedVector2Array(612, -400, 628, -400, 628, 1100, 612, 1100)
 
 [node name="VisSign" type="Label" parent="."]
 position = Vector2(1050, -140)
