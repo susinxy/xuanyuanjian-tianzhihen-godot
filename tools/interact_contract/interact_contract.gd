@@ -563,10 +563,12 @@ func _flow_q5() -> void:
 ##   ┌ S1 身份分支（PROBE）：仅 pre_imported 才跑（用常驻探针在活树里实例化替身，
 ##   │   断言 player 组/皮肤/sprite_frames/状态机/落 idle）。否则**大声**打 NOTICE
 ##   │   跳过（静默跳段=假绿家族判例）——导入活体校验在通跑通道内闭环。
-##   ├ S2 共享替身只读分支（恒跑，零副作用；R6 消费铁律：消费套禁 destroy）：
+##   ├ S2 共享替身只读分支（pre_existed 门内跑，零副作用；R6 消费铁律：消费套
+##   │   禁 destroy；R7 补刀：缺席态也**不得触 ensure()**——ensure 对缺席名会
+##   │   走创建分支=消费套代 runner 建档的副作用泄漏，缺席=一条可读红即返）：
 ##   │   旧版 S2 在通跑中途销毁共享替身=时雷——本进程纹理失明，后续套名的
-##   │   ensure() 永远回 42，身份腿静默退化成 NOTICE。现共享路径只做
-##   │   exists/ensure 只读断言：入口答案可复现、反复调不变、exists 稳定。
+##   │   ensure() 永远回 42，身份腿静默退化成 NOTICE。现共享路径只在目录已在
+##   │   时做 exists/ensure 只读断言：入口答案可复现、反复调不变、exists 稳定。
 ##   └ S3 私有草稿破坏性周期（恒跑，SCRATCH_NAME 自生自灭，绝不碰共享替身）：
 ##       destroy→exists 假 → ensure=NEEDS_IMPORT(42)（产线非半途留残目录 + 本进程不可
 ##       导入）→exists 真 → 再 ensure 仍 42（同进程纹理失明：导入不可在进程内发生，
@@ -595,14 +597,19 @@ func _flow_s() -> void:
 		print("  NOTICE: 跳过 S1 身份分支——test_actor 非本进程可加载态（pre_existed=%s）；" % pre_existed
 				+ "导入活体校验在 run_matrix.sh 通跑通道内闭环")
 
-	# ── S2 共享替身只读分支（恒跑，零副作用；消费套禁 destroy——R6 铁律）──
-	var expect_now := OK if pre_imported else Kit.NEEDS_IMPORT
-	var r0 := Kit.ensure()
-	_check(r0 == expect_now,
-			"S2a 共享替身 ensure() 只读复现入口态（期望=%d 实=%d）" % [expect_now, r0])
-	var r1 := Kit.ensure()
-	_check(r1 == r0, "S2b 重复 ensure 答案不变（幂等只读：不创建不销毁，实=%d）" % r1)
-	_check(Kit.exists() == pre_existed, "S2c exists 前后稳定（共享替身生命周期未被触碰）")
+	# ── S2 共享替身只读分支（pre_existed 短路门，零副作用；消费套禁 destroy=
+	# R6 铁律，缺席不触 ensure=代创建禁令的 R7 补刀，处方走 runner 通道）──
+	if not pre_existed:
+		_check(false, "S2 共享替身缺席：消费套不代替 runner 创建"
+				+ "（先跑 run_matrix.sh --ensure-only）")
+	else:
+		var expect_now := OK if pre_imported else Kit.NEEDS_IMPORT
+		var r0 := Kit.ensure()
+		_check(r0 == expect_now,
+				"S2a 共享替身 ensure() 只读复现入口态（期望=%d 实=%d）" % [expect_now, r0])
+		var r1 := Kit.ensure()
+		_check(r1 == r0, "S2b 重复 ensure 答案不变（幂等只读：不创建不销毁，实=%d）" % r1)
+		_check(Kit.exists() == pre_existed, "S2c exists 前后稳定（共享替身生命周期未被触碰）")
 
 	# ── S3 私有草稿破坏性周期（自生自灭，绝不碰共享替身）──
 	_check(Kit.destroy(SCRATCH_NAME) == OK, "S3a 草稿 destroy 幂等（首次归零入口态）")
