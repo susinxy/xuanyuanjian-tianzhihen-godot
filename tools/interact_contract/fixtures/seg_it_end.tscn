@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+
+[sub_resource type="RectangleShape2D" id="Rect_ground_end"]
+size = Vector2(2100, 200)
+
+[node name="SegItEnd" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"seg_it_end"
+auto_complete = true
+
+[node name="GroundBody" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="GroundBody"]
+position = Vector2(950, 700)
+shape = SubResource("Rect_ground_end")

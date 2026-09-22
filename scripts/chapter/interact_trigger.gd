@@ -35,6 +35,14 @@ func _ready() -> void:
 		_prompt.visible = false
 
 
+func _exit_tree() -> void:
+	# R13 守卫（评审预测→探针修正）：预测的"摘树不补发 body_exited→缓存段
+	# detach/reattach 双计→stale-true"漂移 4.7.1 实测**不复现**（摘树即补发一枚
+	# exited，与回挂 insert-scan 的 entered 对称）。守卫仍落=结构性保险：出树
+	# 恒零不自证引擎行为，距感重建一律交重挂扫描重计（契约 I7 锁观测面）。
+	_in_range = 0
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	# 判例（2026-09-15 盖戳案+Dialogic spike）：未处理输入流只收原始按键、
 	# 合成动作事件永不到达；is_action_pressed 走默认 exact=false

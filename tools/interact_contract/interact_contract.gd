@@ -6,6 +6,7 @@ extends Node
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
 
 const FIX_CHAPTER := "res://tools/interact_contract/fixtures/chapter_it.tscn"
+const FIX_CHAPTER2 := "res://tools/interact_contract/fixtures/chapter_it2.tscn"
 ## I 组注入判例（法典输入流+控制器定档）：interact 绑定是 keycode:0 /
 ## physical:69，_unhandled_input 只收原始按键 → raw InputEventKey 双键位都填
 ## KEY_E（spell 盖戳判例同款），is_action_pressed 走默认 exact=false。
@@ -29,6 +30,8 @@ func _ready() -> void:
 	_check(bool(_done.get("i5")), "I5 流全序列执行完成（协程静默中断防线）")
 	await _flow_i6()
 	_check(bool(_done.get("i6")), "I6 流全序列执行完成（协程静默中断防线）")
+	await _flow_i7()
+	_check(bool(_done.get("i7")), "I7 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -55,8 +58,8 @@ func _wait_until(pred: Callable, cap: int = 600) -> bool:
 
 
 ## 一次一场：新壳实例化（新 session、段丢弃重建=触发件全新生效态）
-func _make_shell() -> ChapterShell:
-	var ps := load(FIX_CHAPTER) as PackedScene
+func _make_shell(path: String = FIX_CHAPTER) -> ChapterShell:
+	var ps := load(path) as PackedScene
 	var shell: ChapterShell = ps.instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
@@ -214,3 +217,38 @@ func _flow_i6() -> void:
 	_check(back, "I6d 再入距重新显示")
 	await _dismantle(shell)
 	_done["i6"] = true
+
+
+## I7 摘树计数清算（R13 定档）：评审预测的"detach 不补发 exited→回挂双计→
+## stale-true 误发射"漂移，4.7.1 headless 探针实测**不复现**（PROBE：摘树即补发
+## 一枚 exited 归零、回挂 insert-scan 重发 entered——两事件对称）。守卫照落为
+## 结构性保险（不赌引擎该行为），本流锁定"detach/reattach 往返后距感语义正确"
+## 的观测面：出距结算归零 + 距外按 E 不发。载体=chapter_it2 的 seg_chest
+## （触发件与出生位同址，往返期间角色不动身）。
+func _flow_i7() -> void:
+	var shell := await _make_shell(FIX_CHAPTER2)
+	var trig := _find_trigger(shell)
+	_hits = []
+	trig.interacted.connect(func(): _hits.append(1))
+	var inr: bool = await _wait_until(func(): return trig.in_range(), 120)
+	_check(inr, "I7a 前置：出生位与感应盒重叠 → in_range")
+	var seg_inst: int = shell._current.get_instance_id()
+	shell.session.mark_cleared(&"seg_chest")
+	shell.switch_segment(&"seg_gate", &"default")
+	var away: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_gate", 600)
+	_check(away, "I7b 判清后离开=缓存保活腿（remove_child 摘树，不 free）")
+	shell.switch_segment(&"seg_chest", &"default")
+	var back: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_chest", 600)
+	_check(back and shell._current.get_instance_id() == seg_inst,
+			"I7c 再入=缓存复用同实例（回挂 insert-scan 就地重发 body_entered）")
+	# 回挂后计数恰=1（探针实测对称）；出距一枚 exited 即归零
+	shell.playable.global_position = Vector2(1500, 600)
+	var drained: bool = await _wait_until(func(): return trig._in_range == 0, 120)
+	_check(drained, "I7d 回挂往返后传送出距：计数结算归零（无双计残留）")
+	await _press_e()
+	await _frames(3)
+	_check(_hits.is_empty(), "I7e 往返后距外按 E 不发（stale-true 误发射防线）")
+	await _dismantle(shell)
+	_done["i7"] = true
