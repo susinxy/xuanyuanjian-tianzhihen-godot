@@ -9,6 +9,7 @@ const FIX_SEG_C := "res://tools/container_contract/fixtures/seg_light_c.tscn"
 
 var _fails := 0
 var _finished := false
+var _death_done := false   # D 流全序列旗（子协程炸尾防线，见 _flow_death 注）
 
 
 func _ready() -> void:
@@ -16,6 +17,10 @@ func _ready() -> void:
 	await _flow_enter()
 	await _flow_switch()
 	await _flow_agg()
+	await _flow_death()
+	# 判例（4.7 探针实锤）：await 的子协程运行时炸掉后**父协程照常续跑**，
+	# _finished 拦不住"子流尾段静默蒸发"——每流自带完成旗单独锁。
+	_check(_death_done, "D 流全序列执行完成（子协程炸跳段防线）")
 	_finished = true   # 全链末端才置位：早于任何后续流程会截断静默跳段防线
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ container-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -175,3 +180,67 @@ func _flow_agg() -> void:
 	_check(advanced, "E6c 自动推进：段清链把壳按顺序推进到 seg_b")
 	shell.queue_free()
 	await _frames(6)
+
+
+func _one_shot_attack() -> QuiverAttackData:
+	var a := QuiverAttackData.new()
+	a.attack_damage = 50
+	return a
+
+
+## D 组（spec D4）：玩家死亡=段内重跑，不再弹地点死亡壳。
+func _flow_death() -> void:
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _frames(20)
+	var chen: QuiverCharacter = shell.playable
+	# R7 判例：跨线必须逐帧扫（瞬移跳变零宽线永不判交）
+	for x in range(500, 701, 25):
+		chen.global_position = Vector2(x, 600)
+		await get_tree().physics_frame
+	var armed: bool = await _wait_until(func(): return _spar_count() == 1, 240)
+	_check(armed, "D0 前置：跨线锁房刷怪（真死链有敌在场）")
+	chen.attributes.health_current = 1
+	CombatSystem.apply_damage(_one_shot_attack(), chen.attributes)  # 真死链
+	chen.attributes.health_current = 0
+	# 判例：GDScript lambda 对局部**标量**捕获是拷贝，lambda 内重新赋值不回传
+	# （E6 的 cleared_ids.append 走的是数组引用通道才成立）——旗标走 Array 壳。
+	var restarted := [false]
+	shell.segment_restarted.connect(func(_w): restarted[0] = true)
+	# 死亡链含玩家慢动作（time_scale=0.2 ⇒ 动画/腾空按 5× 物理帧数走，
+	# 探针实测发射点在击杀后 ~1000 tick）+重跑静默窗 90f，封顶宽放至 1800
+	var got_restart: bool = await _wait_until(func(): return restarted[0], 1800)
+	_check(got_restart, "D0b 真死链终点 player_died → 段重跑广播")
+	await _frames(120)   # 死亡演出+重进段
+	# 入口 y=600 是地面顶线；角色碰撞体在原点下沿~20px，落位后首个物理帧
+	# 即被地面顶到静止位 579.93（实测，任何入场同款）。故列严格、行按沉没带容差。
+	_check(chen.attributes.health_current == chen.attributes.health_max
+			and absf(chen.global_position.x - 500.0) < 0.5
+			and chen.global_position.y > 570.0 and chen.global_position.y <= 600.0
+			and shell.current_segment_id() == &"seg_a",
+			"D1 死亡=段重跑：满血/回入口点/仍在本段")
+	# R2 状态机复位面：死亡演出后脑不能停在 Die（否则角色永久冻死）
+	_check(shell.playable.state_machine.state_name != NodePath("Die"),
+			"D1b 段重跑后动作状态机已脱离 Die")
+	# R12 屏蔽窗代际防线：已清场缓存段=同批检测器，开窗内二次入场
+	# 若以"当前值"作快照会把 monitoring=false 当原值恢复=静默软锁。
+	shell.session.mark_cleared(&"seg_a")
+	shell.enter_segment(&"seg_a", &"default")      # 窗 #1
+	var det_mid := _first_detector(shell._current)
+	_check(det_mid != null and not det_mid.monitoring,
+			"D1c 落位窗内（缓存复用=同批检测器）monitoring 闭合")
+	shell.enter_segment(&"seg_a", &"default")      # 开窗内再入（假快照陷阱）
+	await _frames(8)
+	var det_a := _first_detector(shell._current)
+	_check(det_a != null and is_instance_valid(det_a) and det_a.monitoring,
+			"D1d R12 双入窗内：检测器最终恢复 monitoring=true（假快照免疫）")
+	shell.session.cleared_segments.erase(&"seg_a")   # 复原"未清场"前提给 D2
+	# 重进段后再跨线（R7 判例：逐帧扫；D1d 的再入已把角色落回入口）
+	for x in range(500, 701, 25):
+		chen.global_position = Vector2(x, 600)
+		await get_tree().physics_frame
+	var spawn_again: bool = await _wait_until(func(): return _spar_count() == 1, 300)
+	_check(spawn_again, "D2 未清场段重跑=敌复位（丢弃重建红利）")
+	shell.queue_free()
+	await _frames(6)
+	_death_done = true

@@ -8,6 +8,7 @@ signal segment_entered(id: StringName)
 signal chapter_error(message: String)
 signal segment_cleared(id: StringName)
 signal segment_advance_failed(reason: String)
+signal segment_restarted(why: StringName)
 
 @export var chapter_id: StringName
 @export var segment_scenes: Array[PackedScene] = []
@@ -23,6 +24,9 @@ var _seg_spawner_set := {}    # segment_id -> Array[QuiverEnemySpawner]（R9：�
 var _current: StageContent = null
 var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
 var _switching := false
+var _suppress_state := {"gen": 0, "orig": {}}   # R12：屏蔽窗代际+检测器原值存证
+                                                # （字典按引用被恢复 lambda 捕获，
+                                                # 壳先亡也可安全清算）
 
 
 @onready var playable: QuiverCharacter = get_node_or_null(playable_path)
@@ -48,7 +52,42 @@ func _ready() -> void:
 	if _order.is_empty():
 		chapter_error.emit("零段可进（segment_scenes 空/全坏）")
 		return
+	Events.player_died.connect(_on_player_died)
 	enter_segment(_order[0], &"default")
+
+
+func _on_player_died() -> void:
+	# spec D4：段级重跑取代地点死亡壳（地点级回跳仍归暂停壳/检查点表）
+	restart_segment(&"death")
+
+
+## 段重跑（D4，曹氏血崩等剧情杀复用 why 通道）：切换三拍清场→回满血→
+## 动作脑复位（R2）→按检查点重进当前段（未清场=丢弃重建，敌复位）。
+## 顺序判例（D1 实测）：reset 必须排在静默窗**之后**——先回血=给在场敌
+## 90 帧无抗打靶窗，重进段时血已非满（71/101 案）。
+func restart_segment(why: StringName = &"manual") -> void:
+	if playable == null:
+		return
+	await _settle_before_switch()
+	playable.attributes.reset()
+	# R2：Die 是终态（physics 无推进、信标已消费），不手动重入 initial_state
+	# 角色就永久冻死。手工三连镜像 transition_to 的 exit→set→enter 时序。
+	var sm := playable.state_machine
+	if sm and sm.state:
+		sm.state.exit()
+		sm.state = sm.get_node(sm.initial_state)
+		sm.state.enter({})
+	enter_segment(session.checkpoint_segment(), session.checkpoint_entry())
+	segment_restarted.emit(why)
+
+
+## 曹氏血崩等"历史不可变强制推进"（spec D6）：当前段判清+前进
+func force_advance_current(reason: StringName) -> void:
+	if _current == null:
+		return
+	session.mark_cleared(_current.segment_id)
+	switch_segment.call_deferred()
+	segment_restarted.emit(reason)
 
 
 func current_segment_id() -> StringName:
@@ -147,22 +186,41 @@ func _apply_lighting(seg: StageContent) -> void:
 	_shell_canvas.color = seg.lighting_color
 
 
-## R8（spec C4）：落位建立的既成重叠不得被当作"跨线"。入场即闭段内全部
-## 检测器 monitoring（存原值），2 物理帧后恢复；段被提前摘树时经
-## is_instance_valid 幂等免炸。恢复只走时间轴、不依赖下次入场补写。
+## R8（spec C4）+R12 重构：落位建立的既成重叠不得被当作"跨线"。入场即闭段内
+## 全部检测器 monitoring，约 2 物理帧后恢复。两条判例雷的修法：
+## ①恢复不走协程 await（壳先亡=resume on freed 炸点），改为一发 timer 到点
+##   调 lambda，lambda 只捕获共享状态字典+本窗名单+代际号（零 self 依赖）；
+## ②开窗内二次入场不得以"当前值"作快照（缓存复用段=同批检测器，二次快照
+##   读到 false 会把 monitoring 恢复成 false=静默软锁）：原值 first-wins 存
+##   在共享字典里，代际陈旧的窗只让路不恢复，最新一代窗统一收尾。
 func _suppress_detectors(seg: StageContent) -> void:
-	var saved: Array = []
+	var state: Dictionary = _suppress_state
+	state["gen"] += 1
+	var gen: int = state["gen"]
+	var orig: Dictionary = state["orig"]
+	var watched: Array[int] = []
 	for det in seg.find_children("*", "", true, false):
-		if det is QuiverPlayerDetector:
-			saved.append([det, det.monitoring])
-			det.monitoring = false
-	if saved.is_empty():
+		if not (det is QuiverPlayerDetector):
+			continue
+		var did: int = det.get_instance_id()
+		if not orig.has(did):
+			orig[did] = det.monitoring   # 首见存原值：窗内再入不改写快照
+		det.monitoring = false
+		watched.append(did)
+	if watched.is_empty():
 		return
-	for _i in 2:
-		await get_tree().physics_frame
-	for pair in saved:
-		if is_instance_valid(pair[0]):
-			pair[0].monitoring = pair[1]
+	var timer := get_tree().create_timer(2.0 / float(Engine.physics_ticks_per_second))
+	timer.timeout.connect(func() -> void:
+		if gen != int(state["gen"]):
+			return   # 陈旧代：原值存目留给最新代恢复，防假快照/抢跑
+		for did in watched:
+			if not is_instance_id_valid(did):
+				orig.erase(did)   # 段被丢弃重建：死检测器的存证顺手清
+				continue
+			var det := instance_from_id(did) as QuiverPlayerDetector
+			det.monitoring = bool(orig.get(did, true))
+			orig.erase(did)
+	)
 
 
 ## 三件套聚合接线（spec §3.1，R9 实源化）：段清判定的 spawner 集取自检测器
