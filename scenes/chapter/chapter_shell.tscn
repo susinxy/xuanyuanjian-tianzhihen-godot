@@ -20,4 +20,8 @@ limit_bottom = 1200
 [node name="HudLayer" type="CanvasLayer" parent="."]
 layer = 2
 
+[node name="Ambient" type="Node2D" parent="."]
+
+[node name="CanvasModulate" type="CanvasModulate" parent="Ambient"]
+
 [node name="Segments" type="Node2D" parent="."]

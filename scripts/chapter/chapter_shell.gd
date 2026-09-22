@@ -6,6 +6,8 @@ extends Node2D
 
 signal segment_entered(id: StringName)
 signal chapter_error(message: String)
+signal segment_cleared(id: StringName)
+signal segment_advance_failed(reason: String)
 
 @export var chapter_id: StringName
 @export var segment_scenes: Array[PackedScene] = []
@@ -17,10 +19,13 @@ var _order: Array[StringName] = []
 var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first-wins；
                               # 位置双轨在跳过坏段时会错位映射，判例修正）
 var _current: StageContent = null
+var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
+var _switching := false
 
 
 @onready var playable: QuiverCharacter = get_node_or_null(playable_path)
 @onready var _segments_root: Node2D = $Segments
+@onready var _shell_canvas: CanvasModulate = $Ambient/CanvasModulate
 
 
 func _ready() -> void:
@@ -48,6 +53,18 @@ func current_segment_id() -> StringName:
 	return _current.segment_id if _current != null else &""
 
 
+func _exit_tree() -> void:
+	# 所有权清算：清场缓存段是 remove_child 摘出的游离树（_instances 字典引用
+	# 不构成 Node 所有权——Godot 4 "摘树不 free=永久泄漏" 判例，退出期实测
+	# 832 实例+3 PhysicsBody 滞留即此）。壳出树（含被删/进程退出）时，
+	# 凡已无父节点的缓存段由壳显式释放；仍挂在壳下的交给删除级联。
+	for sid in _instances.keys():
+		var inst: StageContent = _instances[sid]
+		if inst != null and inst.get_parent() == null:
+			_instances.erase(sid)
+			inst.free()
+
+
 ## 未清场段=丢弃重建（清掉上一次未通关的痕迹：one-shot 检测器自毁语义下的
 ## 段重试正道，spec D4/D12）；已清场段=缓存复用（清场持久本体）。
 func enter_segment(id: StringName, entry: StringName) -> void:
@@ -67,10 +84,97 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 	playable.global_position = _current.to_global(
 			_current.entry_position(entry))
 	session.record_checkpoint(id, entry)
-	# C5 光照复位（画布件在段内，T3 完整实现，本版先广播入场）
+	_wire_segment(_current)
+	_apply_lighting(_current)
 	segment_entered.emit(id)
 	if _current.auto_complete:
 		session.mark_cleared(id)
+		switch_segment.call_deferred()
+
+
+## 顺序推进（id 空=下一段）；段清除链的出口。
+func switch_segment(id: StringName = &"", entry: StringName = &"default") -> void:
+	if _switching:
+		return
+	_switching = true
+	var target := id
+	if target == &"":
+		var idx := _order.find(current_segment_id())
+		if idx >= _order.size() - 1:
+			_switching = false
+			segment_advance_failed.emit("章节终点（无后继段）")
+			return
+		target = _order[idx + 1]
+	await _settle_before_switch()
+	_switching = false
+	enter_segment(target, entry)
+
+
+## 切换三拍（spec §3.4 C2/C3）：静默窗让在途 tween 落位；
+## 在场敌强清（策略 A）并等 tree_exited 结算有界 120 帧。
+func _settle_before_switch() -> void:
+	await _frames(90)
+	var live := _live_enemies()
+	for e in live:
+		e.queue_free()
+	if not live.is_empty():
+		var waited := 0
+		while _live_enemies().size() > 0 and waited < 120:
+			await get_tree().physics_frame
+			waited += 1
+
+
+func _frames(n: int) -> void:
+	for _i in n:
+		await get_tree().physics_frame
+
+
+func _live_enemies() -> Array:
+	var out: Array = []
+	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if n is QuiverCharacter:
+			out.append(n)
+	return out
+
+
+func _apply_lighting(seg: StageContent) -> void:
+	# C5：段入场画布复位责任在壳。画布合成色由壳自建 CanvasModulate 承载
+	# （段内不放 CanvasModulate），保证"每段必有其色"。
+	applied_lighting = seg.lighting_color
+	_shell_canvas.color = seg.lighting_color
+
+
+## 三件套聚合接线（spec §3.1）：段内全部 spawner 的完成信号汇入段清判定。
+func _wire_segment(seg: StageContent) -> void:
+	for det in seg.find_children("*", "", true, false):
+		if not (det is QuiverPlayerDetector):
+			continue
+		for sp_path in det.paths_enemy_spawners:
+			var sp := det.get_node_or_null(sp_path) as QuiverEnemySpawner
+			if sp != null and not sp.all_waves_completed.is_connected(
+					_on_spawner_completed.bind(seg)):
+				sp.all_waves_completed.connect(_on_spawner_completed.bind(seg))
+	# 无房/无生成器的战斗空段防呆：进段即完成条件=auto_complete 已覆盖
+
+
+func _on_spawner_completed(seg: StageContent) -> void:
+	# 段内全部 spawner 完成才算段清（多房段聚合）
+	for sp in seg.find_children("*", "Marker2D", true, false):
+		if sp is QuiverEnemySpawner and not sp.is_completed:
+			return
+	_finish_segment(seg)
+
+
+func _finish_segment(seg: StageContent) -> void:
+	if seg == null or session.is_cleared(seg.segment_id):
+		return
+	session.mark_cleared(seg.segment_id)
+	for room in seg.find_children("*", "ReferenceRect", true, false):
+		if room is QuiverFightRoom:
+			room.setup_after_fight_room()   # 房内解锁演出保留
+	segment_cleared.emit(seg.segment_id)
+	if seg == _current:
+		switch_segment.call_deferred()
 
 
 func _instantiate(sc: PackedScene) -> StageContent:
