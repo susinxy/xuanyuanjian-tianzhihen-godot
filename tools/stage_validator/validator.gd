@@ -269,7 +269,9 @@ func _check_r5(spawners: Array, add: Callable) -> void:
 	for sp in spawners:
 		var raw: String = sp.props.get("path_spawn_parent", "")
 		# 白名单双形（base 三级/shell 四级）；缺行=运行时吃上游默认值，同罪
-		if raw not in LEGAL_SPAWN_PARENTS:
+		if raw.is_empty():
+			add.call("R5", "生成器 %s path_spawn_parent 缺失（吃上游默认）" % sp.full)
+		elif raw not in LEGAL_SPAWN_PARENTS:
 			add.call("R5", "生成器 %s path_spawn_parent 非合法形态：%s" % [sp.full, raw])
 
 

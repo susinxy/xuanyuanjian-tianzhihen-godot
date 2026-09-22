@@ -122,8 +122,10 @@
 - [ ] **2. 检测器三导出显式填**：`path_fight_room=NodePath("..")`、
       `paths_enemy_spawners` 列全本房生成器、`is_one_shot=true`；
       身份判定走 `area2d:player` 组（本项目已迁，勿再找 `players` 组）。
-- [ ] **3. 生成器必改 `path_spawn_parent`** 为 `../../../Level/Characters` 形态
-      （上游默认值 `../../Characters` 在标准层级下是错的——校验器 R5 红色项）。
+- [ ] **3. 生成器必改 `path_spawn_parent`** 为 R5 白名单双形（白名单即权威，
+      非形一律红）：单地点轨 `../../../Level/Characters`（房挂 FightRooms 下
+      恒 3 级）/ 容器段轨 `../../../../Players`（段挂壳 Segments 下恒 4 级，
+      见 0.2b）——上游默认值 `../../Characters` 在两种标准层级下都是错的。
 - [ ] **4. 碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 配
       高度层（全段=16760832，bit15-24），**障碍层 2 允许出现**（校验器 R7
       只执 12 位）；**禁手配旧层 3/4 掩码**（屏限/顶限归相机高度层，由
