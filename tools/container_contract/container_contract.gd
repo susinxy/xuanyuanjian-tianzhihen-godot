@@ -411,6 +411,41 @@ func _flow_death() -> void:
 	_check(adv_landed and chen.attributes.health_current == 40
 			and adv_why == [&"scripted"],
 			"D4 强制推进：残血原样带段/信标恰一次（无 reset 满血无复活复位）")
+	# --- D5（B2-T2 终裁）：船闸竞态——force 链在途 × 更晚死亡重跑顶位
+	# 裁决（法源=终审 Issue 2 + spec §4 船闸竞态，2026-09-22 定档）：判清登记
+	# 随"链赢落位"才落，被顶掉的陈旧链零副作用（源段不背判清→死亡重跑走
+	# 丢弃重建→不出现"缓存复用腿带进半战场"）。复用 D3 并发模板：
+	# 第一意图=force_advance_current（携 seg_b 判清登记），第二意图=restart。
+	var src_seg: StringName = shell.current_segment_id()   # = seg_b（D4 落位段）
+	var race_whys: Array[StringName] = []
+	shell.segment_restarted.connect(func(w): race_whys.append(w))
+	shell.force_advance_current(&"race")     # 链 #1（判清登记按终裁悬置在链尾）
+	await _frames(10)                          # 静默窗中：链 #1 在途未落位
+	shell.restart_segment(&"death_race")      # 链 #2 顶掉链 #1（同段死亡重跑）
+	var race_landed: bool = await _wait_until(
+			func(): return not race_whys.is_empty(), 600)
+	await _frames(30)   # 盖过链 #1 最晚尾点，防"顶位失败仍落位"竞态漏网
+	_check(race_landed and race_whys == [&"death_race"]
+			and shell.current_segment_id() == src_seg
+			and shell.session.checkpoint_segment() == src_seg,
+			"D5a 重跑链落位：checkpoint=本段入口，被顶 force 链零信标")
+	_check(not shell.session.is_cleared(src_seg),
+			"D5b 被顶掉的 force 链不把源段标 cleared（修复前必红）")
+	# --- D5c 对照腿：无竞争 force 链判清照常随落位登记，再入走缓存复用
+	# （实例 id 不变）——证明 b 非"永远无缓存"，成功路径未被搬移破坏。
+	var seg_b_inst: int = shell._current.get_instance_id()
+	shell.force_advance_current(&"legit")      # 独链：mark 必在 enter 前落
+	var legit_landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_c", 600)
+	await _frames(30)
+	shell.switch_segment(&"seg_b", &"default")  # 判清段再入 → 缓存腿
+	var back_landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_b", 600)
+	await _frames(30)
+	_check(legit_landed and back_landed
+			and shell.session.is_cleared(src_seg)
+			and shell._current.get_instance_id() == seg_b_inst,
+			"D5c 对照：赢链判清落位后再入=缓存复用（实例 id 不变）")
 	shell.queue_free()
 	await _frames(6)
 	_death_done = true
