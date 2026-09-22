@@ -1,12 +1,18 @@
 extends Node
 
-## 互动触发件契约（S2-M1-B2 I/C/G/Q 组）：InteractTrigger 的距感/E 键发射/
+## 互动触发件契约（S2-M1-B2 I/C/G/Q 组 + B2.5 S 组）：InteractTrigger 的距感/E 键发射/
 ## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
 ## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）+
-## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本/第三方判清摘树僵尸钟门（Q 组）。
+## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本/第三方判清摘树僵尸钟门（Q 组）+
+## test_actor 主权契约流：身份探针常驻化 + 生命周期两态可重入（S 组）。
 ## 形制=container_contract 同款：每流完成旗（协程炸跳段防线）+
 ## _check/_frames/_wait_until。运行：
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
+
+## S 组（主权契约）依赖：测试替身产线 kit + 身份探针（preload 路径引用，
+## 规避全局类缓存需编辑器扫描的判例，与 kit 内部引用产线类同一手法）。
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
+const Probe := preload("res://tools/matrix_runner/fixtures/sovereignty_probe.gd")
 
 const FIX_CHAPTER := "res://tools/interact_contract/fixtures/chapter_it.tscn"
 const FIX_CHAPTER2 := "res://tools/interact_contract/fixtures/chapter_it2.tscn"
@@ -22,7 +28,7 @@ const QTE_DAMAGE := 15
 
 var _fails := 0
 var _finished := false
-var _done := {}    # 各流完成旗：i1..i7 / c / g / q1..q5
+var _done := {}    # 各流完成旗：i1..i7 / c / g / q1..q5 / s
 var _hits: Array[int] = []   # interacted 计数（lambda 捕获数组引用通道，E6 判例）
 var _chest_ids: Array[StringName] = []   # session.chest_opened 收录（C 组）
 var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
@@ -57,6 +63,8 @@ func _ready() -> void:
 	_check(bool(_done.get("q4")), "Q4 流全序列执行完成（协程静默中断防线）")
 	await _flow_q5()
 	_check(bool(_done.get("q5")), "Q5 流全序列执行完成（协程静默中断防线）")
+	await _flow_s()
+	_check(bool(_done.get("s")), "S 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -542,3 +550,57 @@ func _flow_q5() -> void:
 			"Q5g 回挂后零掉血（B6 陷阱面：第三方判清不洗白后续命）")
 	await _dismantle(shell)
 	_done["q5"] = true
+
+## S 组（B2.5 主权契约）：test_actor 全套件产线活体校验。**本进程无法导入纹理**
+## （--import 只由 run_matrix.sh 在套件进程之外跑），故身份活体面依赖"进场时
+## ensure() 已报 OK（=通跑器已导入过）"。断言按**两态皆成立**设计，防 standalone
+## flake。状态机（入口态 pre_existed 驱动，全程零残留承诺）：
+##
+##   入口 pre_existed := Kit.exists()    # 进场时目录是否已在（不代表可加载）
+##   入口 pre_imported := pre_existed and Kit.ensure() == OK   # 本进程真能加载=已导入
+##
+##   ┌ S1 身份分支（PROBE）：仅 pre_imported 才跑（用常驻探针在活树里实例化替身，
+##   │   断言 player 组/皮肤/sprite_frames/状态机/落 idle）。否则**大声**打 NOTICE
+##   │   跳过（静默跳段=假绿家族判例）——导入活体校验在通跑通道内闭环。
+##   └ S2 生命周期分支（恒跑，不依赖预导入，两态同形）：
+##       destroy→exists 假 → ensure=NEEDS_IMPORT(42)（产线非半途留残目录 + 本进程不可
+##       导入）→exists 真 → 再 ensure 仍 42（同进程纹理失明：导入不可在进程内发生，
+##       即 R5 门的跨进程语义）。终局归零：destroy 幂等×2 + exists 假（standalone
+##       编辑器跑不脏 characters/playable/；通跑末销毁由 runner 兜底，此处亦已归零）。
+##   S2 的 ensure()==OK 正路（sidecar 与 .ctex 双在）由 pre_imported 门间接触发：
+##   standalone 无 .ctex → 恒 false → 跳 S1；通跑 --import 后 → true → 跑 S1。
+func _flow_s() -> void:
+	var pre_existed := Kit.exists()
+	var pre_imported := pre_existed and Kit.ensure() == OK
+
+	# ── S1 身份探针分支（仅可加载态跑；否则大声跳过）──
+	if pre_imported:
+		var rep: Dictionary = await Probe.identity_check(self)
+		_check(bool(rep.get("loadable", false)), "S1a test_actor 可加载（load 得 PackedScene）")
+		_check(bool(rep.get("in_player_group", false)), "S1b 替身持 area2d:player 身份组")
+		_check(bool(rep.get("skin_ok", false)), "S1c 皮肤节点非空")
+		_check(bool(rep.get("frames_ok", false)), "S1d 皮肤 sprite_frames 非空")
+		_check(bool(rep.get("sm_ok", false)), "S1e 动作状态机非空")
+		_check(bool(rep.get("idle_ok", false)),
+				"S1f 状态机落 idle（实=%s）" % String(rep.get("state_name", "")))
+	else:
+		print("  NOTICE: 跳过 S1 身份分支——test_actor 非本进程可加载态（pre_existed=%s）；" % pre_existed
+				+ "导入活体校验在 run_matrix.sh 通跑通道内闭环")
+
+	# ── S2 生命周期分支（恒跑，两态同形）──
+	_check(Kit.destroy() == OK, "S2a destroy 幂等（首次归零入口态）")
+	_check(not Kit.exists(), "S2b destroy 后 exists 假")
+	var c1 := Kit.ensure()
+	_check(c1 == Kit.NEEDS_IMPORT,
+			"S2c 新建后 ensure=NEEDS_IMPORT(42)：产线未半途留残目录且本进程不可导入（实=%d）" % c1)
+	_check(Kit.exists(), "S2d ensure 创建后 exists 真（目录+主场景落地）")
+	var c2 := Kit.ensure()
+	_check(c2 == Kit.NEEDS_IMPORT,
+			"S2e 同进程二次 ensure 仍 42（纹理失明=R5 门：导入不可在进程内发生，实=%d）" % c2)
+
+	# ── 终局归零（两态一律 destroy：standalone 零残留；通跑亦已归零，runner 兜底幂等）──
+	_check(Kit.destroy() == OK, "S2f destroy 幂等×2=产线可重入")
+	_check(not Kit.exists(), "S2g 终局 exists 假（零残留：编辑器不脏 playable，通跑末销毁幂等）")
+
+	_done["s"] = true
+
