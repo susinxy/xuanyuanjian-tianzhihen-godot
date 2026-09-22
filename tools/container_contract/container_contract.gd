@@ -6,6 +6,10 @@ extends Node
 
 const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
 const FIX_SEG_C := "res://tools/container_contract/fixtures/seg_light_c.tscn"
+const FIX_SEG_A := "res://tools/container_contract/fixtures/seg_gate_a.tscn"
+## D1 行容差带：入口 y=地面顶线，角色碰撞体在原点下沿 ~20px，落位后首个
+## 物理帧即被顶到静止位（实测 579.93，任何入场同款）——带宽由入口坐标推导。
+const SETTLE_TOLERANCE := 24.0
 
 var _fails := 0
 var _finished := false
@@ -189,14 +193,35 @@ func _one_shot_attack() -> QuiverAttackData:
 
 
 ## D 组（spec D4）：玩家死亡=段内重跑，不再弹地点死亡壳。
+## 编排判例（评审轮 1 I4）：R12 双入块走"**清场缓存复用**"通道（=同批检测器，
+## 假快照陷阱的成立前提），且必须在检测器 one-shot 自毁前跑——故置于首次扫线
+## 之前；D2 靠"实例 id 变化+新实例检测器再触"锁真·丢弃重建，不搭 R12 的便车。
 func _flow_death() -> void:
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
 	var chen: QuiverCharacter = shell.playable
+	var probe: StageContent = (load(FIX_SEG_A) as PackedScene).instantiate()
+	var entry_a: Vector2 = probe.entry_position(&"default")
+	probe.free()
+	# --- R12 屏蔽窗代际防线（趁检测器未消费）：开窗内二次入场若以"当前值"
+	# 作快照会把 monitoring=false 当原值恢复=静默软锁。
+	shell.session.mark_cleared(&"seg_a")
+	shell.enter_segment(&"seg_a", &"default")      # 窗 #1（缓存复用=同批检测器）
+	var det_mid := _first_detector(shell._current)
+	_check(det_mid != null and not det_mid.monitoring,
+			"R12a 落位窗内：monitoring 闭合")
+	shell.enter_segment(&"seg_a", &"default")      # 开窗内再入（假快照陷阱）
+	await _frames(8)
+	var det_a := _first_detector(shell._current)
+	_check(det_a != null and is_instance_valid(det_a) and det_a.monitoring,
+			"R12b 双入窗内：检测器最终恢复 monitoring=true（假快照免疫）")
+	shell.session.cleared_segments.erase(&"seg_a")  # 复原"未清场"（丢弃重建语义有效）
+	var entry_inst_id: int = shell._current.get_instance_id()
+	# --- 真死链：跨线引刷→血尽→knockout→Die→player_died→段重跑
 	# R7 判例：跨线必须逐帧扫（瞬移跳变零宽线永不判交）
-	for x in range(500, 701, 25):
-		chen.global_position = Vector2(x, 600)
+	for x in range(entry_a.x, 701, 25):
+		chen.global_position = Vector2(x, entry_a.y)
 		await get_tree().physics_frame
 	var armed: bool = await _wait_until(func(): return _spar_count() == 1, 240)
 	_check(armed, "D0 前置：跨线锁房刷怪（真死链有敌在场）")
@@ -210,37 +235,39 @@ func _flow_death() -> void:
 	# 死亡链含玩家慢动作（time_scale=0.2 ⇒ 动画/腾空按 5× 物理帧数走，
 	# 探针实测发射点在击杀后 ~1000 tick）+重跑静默窗 90f，封顶宽放至 1800
 	var got_restart: bool = await _wait_until(func(): return restarted[0], 1800)
-	_check(got_restart, "D0b 真死链终点 player_died → 段重跑广播")
-	await _frames(120)   # 死亡演出+重进段
-	# 入口 y=600 是地面顶线；角色碰撞体在原点下沿~20px，落位后首个物理帧
-	# 即被地面顶到静止位 579.93（实测，任何入场同款）。故列严格、行按沉没带容差。
+	_check(got_restart, "D0b 真死链终点 player_died → 段重跑广播（落位后才发）")
+	await _frames(120)   # 落位后的稳定观察窗
 	_check(chen.attributes.health_current == chen.attributes.health_max
-			and absf(chen.global_position.x - 500.0) < 0.5
-			and chen.global_position.y > 570.0 and chen.global_position.y <= 600.0
+			and absf(chen.global_position.x - entry_a.x) < 0.5
+			and chen.global_position.y > entry_a.y - SETTLE_TOLERANCE
+			and chen.global_position.y <= entry_a.y
 			and shell.current_segment_id() == &"seg_a",
 			"D1 死亡=段重跑：满血/回入口点/仍在本段")
-	# R2 状态机复位面：死亡演出后脑不能停在 Die（否则角色永久冻死）
-	_check(shell.playable.state_machine.state_name != NodePath("Die"),
-			"D1b 段重跑后动作状态机已脱离 Die")
-	# R12 屏蔽窗代际防线：已清场缓存段=同批检测器，开窗内二次入场
-	# 若以"当前值"作快照会把 monitoring=false 当原值恢复=静默软锁。
-	shell.session.mark_cleared(&"seg_a")
-	shell.enter_segment(&"seg_a", &"default")      # 窗 #1
-	var det_mid := _first_detector(shell._current)
-	_check(det_mid != null and not det_mid.monitoring,
-			"D1c 落位窗内（缓存复用=同批检测器）monitoring 闭合")
-	shell.enter_segment(&"seg_a", &"default")      # 开窗内再入（假快照陷阱）
-	await _frames(8)
-	var det_a := _first_detector(shell._current)
-	_check(det_a != null and is_instance_valid(det_a) and det_a.monitoring,
-			"D1d R12 双入窗内：检测器最终恢复 monitoring=true（假快照免疫）")
-	shell.session.cleared_segments.erase(&"seg_a")   # 复原"未清场"前提给 D2
-	# 重进段后再跨线（R7 判例：逐帧扫；D1d 的再入已把角色落回入口）
-	for x in range(500, 701, 25):
-		chen.global_position = Vector2(x, 600)
+	# I5 复活真身：动作脑精确回起点+输入窗重开（Die 冻死/连段窗带尸两案并锁）
+	var sm := shell.playable.state_machine
+	_check(sm.state_name == NodePath("Ground/Move/Idle") and sm.input_window_open,
+			"D1b 段重跑后：状态机=Ground/Move/Idle 且输入窗已开")
+	# I4 丢弃重建测真身：重跑后在场实例必须是新对象（≠扫线时的入场实例）
+	_check(shell._current.get_instance_id() != entry_inst_id,
+			"D1c 重跑=丢弃重建：段实例 id 已更换（敌复位的机制本体）")
+	# --- D2：新实例的检测器应可再触发（此处 count 起点=0：敌已被重跑链清场）
+	for x in range(entry_a.x, 701, 25):
+		chen.global_position = Vector2(x, entry_a.y)
 		await get_tree().physics_frame
 	var spawn_again: bool = await _wait_until(func(): return _spar_count() == 1, 300)
-	_check(spawn_again, "D2 未清场段重跑=敌复位（丢弃重建红利）")
+	_check(spawn_again, "D2 未清场段重跑=敌复位（新实例检测器再触发）")
+	# --- I2 并发锁：两链在途，最新意图接管落位，被顶掉的陈旧链不得回填
+	var entered: Array[StringName] = []
+	shell.segment_entered.connect(func(i): entered.append(i))
+	shell.switch_segment(&"seg_b", &"default")     # 链 #1（不 await，留场在途）
+	await _frames(10)
+	shell.switch_segment(&"seg_a", &"default")     # 链 #2 顶掉链 #1
+	var single: bool = await _wait_until(
+			func(): return not entered.is_empty(), 600)
+	await _frames(150)   # 盖过链 #1 最晚尾点（90f 静默+120f 清场结算上限）
+	_check(single and entered == [&"seg_a"]
+			and shell.current_segment_id() == &"seg_a",
+			"D3 I2 并发切段：仅最新意图落位一次，陈旧链静默让位")
 	shell.queue_free()
 	await _frames(6)
 	_death_done = true

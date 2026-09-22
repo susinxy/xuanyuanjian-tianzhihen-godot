@@ -8,6 +8,8 @@ signal segment_entered(id: StringName)
 signal chapter_error(message: String)
 signal segment_cleared(id: StringName)
 signal segment_advance_failed(reason: String)
+## 语义（评审轮 1 定档）：**实际落位之后**才响（restart/强制推进链尾统一发；
+## 被更新的转场意图顶掉、或终点推进失败时不发）。
 signal segment_restarted(why: StringName)
 
 @export var chapter_id: StringName
@@ -23,7 +25,8 @@ var _seg_spawner_set := {}    # segment_id -> Array[QuiverEnemySpawner]（R9：�
                               # 的 spawner 集实源于接线期检测器 paths 并集）
 var _current: StageContent = null
 var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
-var _switching := false
+var _transition_gen := 0              # I2：转场意图代际（switch/restart/强制推进共用，
+                                      # 最新意图胜出；链尾对号，陈旧链静默让位）
 var _suppress_state := {"gen": 0, "orig": {}}   # R12：屏蔽窗代际+检测器原值存证
                                                 # （字典按引用被恢复 lambda 捕获，
                                                 # 壳先亡也可安全清算）
@@ -61,33 +64,45 @@ func _on_player_died() -> void:
 	restart_segment(&"death")
 
 
-## 段重跑（D4，曹氏血崩等剧情杀复用 why 通道）：切换三拍清场→回满血→
-## 动作脑复位（R2）→按检查点重进当前段（未清场=丢弃重建，敌复位）。
-## 顺序判例（D1 实测）：reset 必须排在静默窗**之后**——先回血=给在场敌
-## 90 帧无抗打靶窗，重进段时血已非满（71/101 案）。
+## 段重跑（D4，曹氏血崩等剧情杀复用 why 通道）：不 spawn 自建协程，而是
+## 借道 switch 链（I3：信号侧只同步登记意图，消灭"死亡瞬间壳被删=90+ 帧
+## 自等协程 resume-on-freed"这一与 R12 同族的雷；I2：与在途切段天然互斥）。
+## 复活（回血+动作脑复位）排在链尾静默窗**之后**——顺序判例（D1 实测）：
+## 先回血=给在场敌 90 帧无抗打靶窗，落位时血已非满（71/101 案）。
 func restart_segment(why: StringName = &"manual") -> void:
 	if playable == null:
 		return
-	await _settle_before_switch()
+	switch_segment(session.checkpoint_segment(), session.checkpoint_entry(), why)
+
+
+## 复活真身（R2+I5）：满血+额度/旗标回满、动作脑重入 initial_state、输入
+## 窗口重开。Die 是终态（physics 无推进、信标已消费），不手动重入角色就
+## 永久冻死；手工三连镜像 transition_to 的 exit→set→enter 时序（m4 备忘：
+## 不经 transition_to 则不发 transitioned 信号，调试面板看不到这一次跳转）。
+func _revive_playable() -> void:
 	playable.attributes.reset()
-	# R2：Die 是终态（physics 无推进、信标已消费），不手动重入 initial_state
-	# 角色就永久冻死。手工三连镜像 transition_to 的 exit→set→enter 时序。
 	var sm := playable.state_machine
-	if sm and sm.state:
+	if sm == null:
+		return
+	if sm.state:
 		sm.state.exit()
-		sm.state = sm.get_node(sm.initial_state)
-		sm.state.enter({})
-	enter_segment(session.checkpoint_segment(), session.checkpoint_entry())
-	segment_restarted.emit(why)
+	sm.state = sm.get_node(sm.initial_state)
+	sm.state.enter({})
+	# I5：input_window_open 由攻击/施法窗族按 enter/exit 时点各自开关，
+	# mid_air 等存在"enter 关窗、exit 不复开"的路径（quiver_action_mid_air
+	# .gd:86）——死在连段/空中窗口里时窗会带着 false 进重跑，全体复位须显式重开。
+	sm.input_window_open = true
 
 
-## 曹氏血崩等"历史不可变强制推进"（spec D6）：当前段判清+前进
+## 曹氏血崩等"历史不可变强制推进"（spec D6）：当前段判清+前进。
+## I1：旧实现的 `_switching` 早退闸门会把本调用静默吞掉（判清了、发了
+## restarted、段却没换）——现走代际转场链：并发时最新意图接管落位；终点
+## 失败只发 segment_advance_failed，不会伪报 segment_restarted。
 func force_advance_current(reason: StringName) -> void:
 	if _current == null:
 		return
 	session.mark_cleared(_current.segment_id)
-	switch_segment.call_deferred()
-	segment_restarted.emit(reason)
+	switch_segment.call_deferred(&"", &"default", reason)
 
 
 func current_segment_id() -> StringName:
@@ -134,22 +149,32 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 		switch_segment.call_deferred()
 
 
-## 顺序推进（id 空=下一段）；段清除链的出口。
-func switch_segment(id: StringName = &"", entry: StringName = &"default") -> void:
-	if _switching:
-		return
-	_switching = true
+## 顺序推进（id 空=下一段）；段清除链的出口，也是 restart/强制推进的共用
+## 落位链（I2/I3/I1）：
+## · 代际互斥——每次成功登记意图 +1，链尾对号，陈旧链让位（最新意图胜出）；
+## · 终点失败发生在登记代际**之前**，只发 segment_advance_failed，绝不把
+##   在途链顶成孤儿（否则两头不落地=卡死）；
+## · restart_why 为链局部量：链被顶掉则 its 信标随之作废，不会串到别的链上
+##   误发 segment_restarted。
+func switch_segment(id: StringName = &"", entry: StringName = &"default",
+		restart_why: StringName = &"") -> void:
 	var target := id
 	if target == &"":
 		var idx := _order.find(current_segment_id())
 		if idx >= _order.size() - 1:
-			_switching = false
 			segment_advance_failed.emit("章节终点（无后继段）")
 			return
 		target = _order[idx + 1]
+	_transition_gen += 1
+	var gen := _transition_gen
 	await _settle_before_switch()
-	_switching = false
+	if gen != _transition_gen:
+		return   # I2：更新意图（含迟到的死亡重跑）已接管落位，本链让位
+	if restart_why != &"":
+		_revive_playable()
 	enter_segment(target, entry)
+	if restart_why != &"":
+		segment_restarted.emit(restart_why)
 
 
 ## 切换三拍（spec §3.4 C2/C3）：静默窗让在途 tween 落位；
@@ -195,8 +220,6 @@ func _apply_lighting(seg: StageContent) -> void:
 ##   在共享字典里，代际陈旧的窗只让路不恢复，最新一代窗统一收尾。
 func _suppress_detectors(seg: StageContent) -> void:
 	var state: Dictionary = _suppress_state
-	state["gen"] += 1
-	var gen: int = state["gen"]
 	var orig: Dictionary = state["orig"]
 	var watched: Array[int] = []
 	for det in seg.find_children("*", "", true, false):
@@ -208,8 +231,12 @@ func _suppress_detectors(seg: StageContent) -> void:
 		det.monitoring = false
 		watched.append(did)
 	if watched.is_empty():
-		return
-	var timer := get_tree().create_timer(2.0 / float(Engine.physics_ticks_per_second))
+		return   # m1：没闭任何检测器就不推进代际（零检测器段不得让在途窗变孤儿）
+	state["gen"] += 1
+	var gen: int = state["gen"]
+	# m3：process_in_physics=true，时基与 physics_frame 同源，2 格=2 物理帧
+	var timer := get_tree().create_timer(
+			2.0 / float(Engine.physics_ticks_per_second), true, true)
 	timer.timeout.connect(func() -> void:
 		if gen != int(state["gen"]):
 			return   # 陈旧代：原值存目留给最新代恢复，防假快照/抢跑
@@ -220,6 +247,9 @@ func _suppress_detectors(seg: StageContent) -> void:
 			var det := instance_from_id(did) as QuiverPlayerDetector
 			det.monitoring = bool(orig.get(did, true))
 			orig.erase(did)
+		for oid in orig.keys():   # m2：陈旧代残留（被丢弃段的死 id）随最新代收尾清算
+			if not is_instance_id_valid(oid):
+				orig.erase(oid)
 	)
 
 
