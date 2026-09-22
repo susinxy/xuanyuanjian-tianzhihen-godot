@@ -7,7 +7,7 @@ extends RefCounted
 ## **不再踩 resume-on-freed**（await-self 判例收口）。
 ## 时序与旧 _settle_before_switch 逐位等价（T1 红线）；T2 终裁已落地：
 ## 判清登记在本链 gen 对号之后、落位之前（船闸 force×死亡竞态前置裁决，
-## 2026-09-22 定档）——被顶掉的陈旧链零副作用。
+## 2026-09-22 定档）——被顶掉的陈旧链零副作用（判清/落位/信标三件；reg+90 战场强清除外）。
 ## 跨文件下划线调用（_transition_gen/_revive_playable/_live_enemies）为刻意
 ## 安排（GDScript 无 private），判例互指见 chapter_shell.gd switch_segment。
 
@@ -41,7 +41,8 @@ func _drive(target: StringName, entry: StringName, why: StringName,
 ## 壳亡/被顶号 → _alive() 假 → 静默让位，**不再有 resume-on-freed 路径**。
 ## mark_src 消费位（T2 终裁，法源=终审 Issue 2 + spec §4 船闸竞态，
 ## 2026-09-22 定档）：判清登记随"**本链通过代际对号、即将落位**"才落，
-## 被顶掉的陈旧链零副作用（源段不背判清→死亡重跑走丢弃重建）。顺序硬约束：
+## 被顶掉的陈旧链零副作用（严格=判清/落位/信标三件，reg+90 战场强清除外；
+## 源段不背判清→死亡重跑走丢弃重建）。顺序硬约束：
 ## mark 必在 enter_segment **之前**——其内 _remove_current 读 is_cleared(源段)
 ## 选缓存保活腿还是丢弃腿，晚落=赢链判清被自己丢弃（D4 哨兵锁成功路径）。
 ## 等帧一律 Engine.get_main_loop()（SceneTree 单例），不持壳/tree 常驻引用。

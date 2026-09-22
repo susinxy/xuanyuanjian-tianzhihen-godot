@@ -36,6 +36,11 @@ func _ready() -> void:
 	_open_window()
 
 
+## 终点段软锁告诫（本轮承诺的注释，不改行为）：**勿把 QTE 放在章节终点段**。
+## 成功路径先 `_phase = Phase.DONE` 再 `force_advance_current`，而终点段无后继
+## （F-2）→ 推进失败、无落位无链、钟恒钉死 DONE、段永不清——"悲剧只延迟不否决"
+## 的 spec 保证就此沦为永久否决。非要放则须监听壳的 `segment_advance_failed`
+## 信标回拨相位重开窗口（DONE 闩的三分语义另见法典条⑥）。
 func _on_interacted() -> void:
 	# 仅开态接单：歇拍/已结束/未开=静默（距外拒发已在触发件侧，此为第二道闸）
 	if _phase != Phase.OPEN:

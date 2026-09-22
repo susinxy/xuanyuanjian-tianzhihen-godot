@@ -166,7 +166,8 @@ func _revive_playable() -> void:
 ## 纯推进**不复活**（F-1）：残血/断法/输入窗状态原样带进新段——剧情跳段
 ## 不是免费治疗。判清持久化的登记延迟到链尾"**代际对号通过、即将落位**"
 ## 才落（T2 终裁：船闸 force×死亡竞态前置裁决，2026-09-22 定档）——
-## 被更晚意图顶掉时陈旧链零副作用，源段不背判清（重跑走丢弃重建）；
+## 被更晚意图顶掉时陈旧链零副作用（判清/落位/信标三件；reg+90 战场强清除外），
+## 源段不背判清（重跑走丢弃重建）；
 ## 终点解析失败（F-2）同样扣下，只发 segment_advance_failed，原地不动。
 func force_advance_current(reason: StringName) -> void:
 	if _current == null:
@@ -227,7 +228,7 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 ##   在途链顶成孤儿（否则两头不落地=卡死），mark_cleared_after 同被扣下（F-2）；
 ## · mark_cleared_after 不在本函数落账（T2 终裁判词：船闸 force×死亡竞态
 ##   前置裁决，2026-09-22 定档）——登记随链赢落位（gen 对号后、enter 前，
-##   见 switch_flow._run），被顶掉的陈旧链零副作用；
+##   见 switch_flow._run），被顶掉的陈旧链零副作用（判清/落位/信标三件；reg+90 战场强清除外）；
 ## · restart_why / revive 均为链局部量：链被顶掉则信标与复活随之作废，
 ##   不会串到别的链上误发（F-1：why≠复活——强制推进带 why 但 revive=false）。
 ## 跨文件下划线调用（_transition_gen/_revive_playable/_live_enemies）系刻意
