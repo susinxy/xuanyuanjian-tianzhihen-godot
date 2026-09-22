@@ -45,9 +45,29 @@ func _check(ok: bool, label: String) -> void:
 	print("  %s: %s" % ["PASS" if ok else "FAIL", label])
 
 
+## 槽0 是否已回到"空槽数字态"（遗忘断言谓词；lambda 单行化避开解析雷）
+func _slot0_empty(slots_row: HBoxContainer) -> bool:
+	var p: Panel = slots_row.get_child(0)
+	return (p.get_child(0) as TextureRect).texture == null \
+			and p.tooltip_text == "" \
+			and (p.get_child(1) as Label).text == "1"
+
+
 func _frames(n: int) -> void:
 	for _i in n:
 		await get_tree().physics_frame
+
+
+## 上升沿观察（input_channel 同款孪生）：逐物理帧轮询 pred，命中即真；先判
+## 后等=第 0 帧也算一次采样。HUD 每帧在 _process 重绘，而 _process 提交可能
+## 晚于若干个物理 tick（矩阵通道实测：import 冷缓存下血条腿 2 物理帧瞬时抽查
+## 读到旧绘值 100 假红）——"值终会同步"类断言一律观察化，不再押固定帧预算。
+func _wait_until(pred: Callable, cap_frames: int) -> bool:
+	for _i in cap_frames:
+		if pred.call():
+			return true
+		await get_tree().physics_frame
+	return pred.call()
 
 
 ## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
@@ -95,8 +115,11 @@ func _flow() -> void:
 	_check(name_l.get_theme_color("font_color").v > 0.5, "HUD 名字浅色 override 在位")
 
 	actor.attributes.health_current = 57.0
-	await _frames(2)
-	_check(is_equal_approx(hp.value, 57.0), "血条与属性同值（%.0f）" % hp.value)
+	# 观察帽 120 帧（≈2s 墙钟）= 一个完整冷却窗量级，远大于任何重绘迟到；
+	# 同值后仍连续两帧复核由 _wait_until 的先判后等天然覆盖
+	var hp_synced: bool = await _wait_until(
+			func(): return is_equal_approx(hp.value, 57.0), 120)
+	_check(hp_synced, "血条与属性同值（观察帽 120 帧，实=%.0f）" % hp.value)
 
 	var def: SpellDefinition = (load(FIRE_DEF) as SpellDefinition).duplicate(true)
 	def.cooldown = 5.0
@@ -121,22 +144,28 @@ func _flow() -> void:
 	# —— 可变性加固断言：遗忘即时性（拉取制核心承诺）——
 	var sm = actor.get("_spell_manager")
 	sm.forget_spell(0)
-	await _frames(2)
+	# 拉取制即时性=观察式（下一枚 HUD 重绘必到位；120 帧帽同上推导）
+	var forgot: bool = await _wait_until(
+			func(): return _slot0_empty(slots_row), 120)
 	var s0: Panel = slots_row.get_child(0)
-	_check((s0.get_child(0) as TextureRect).texture == null
+	_check(forgot and (s0.get_child(0) as TextureRect).texture == null
 			and s0.tooltip_text == ""
 			and (s0.get_child(1) as Label).text == "1",
-			"遗忘一帧内：图标清/tooltip 空/回数字态")
+			"遗忘即时（观察帽 120 帧）：图标清/tooltip 空/回数字态")
 
 	# —— 可变性加固断言：数量双向自校准（白盒改容量模拟未来扩容）——
 	sm._slots.append(SpellSlot.new())
-	await _frames(2)
-	_check(slots_row.get_child_count() == sm.slot_count(),
-			"扩容即时跟随：HUD %d 格 = manager %d 格" % [slots_row.get_child_count(), sm.slot_count()])
+	var grew: bool = await _wait_until(
+			func(): return slots_row.get_child_count() == sm.slot_count() and sm.slot_count() == 5,
+			120)
+	_check(grew,
+			"扩容即时跟随（观察帽 120 帧）：HUD %d 格 = manager %d 格" % [slots_row.get_child_count(), sm.slot_count()])
 	sm._slots.pop_back()
-	await _frames(2)
-	_check(slots_row.get_child_count() == sm.slot_count(),
-			"缩容即时跟随：HUD %d 格" % slots_row.get_child_count())
+	var shrank: bool = await _wait_until(
+			func(): return slots_row.get_child_count() == sm.slot_count() and sm.slot_count() == 4,
+			120)
+	_check(shrank,
+			"缩容即时跟随（观察帽 120 帧）：HUD %d 格" % slots_row.get_child_count())
 
 	actor.queue_free()
 	await _frames(4)
