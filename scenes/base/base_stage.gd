@@ -6,7 +6,6 @@ class_name BaseStage
 ## 胶水在此机制化）；③player_died 转交 DeathScreen。
 ## 参考关两处以后要换的口子以 TODO 挂子项目编号。
 
-const TITLE_PATH := "res://ui/menus/title_screen.tscn"
 ## 重走一遍的落点（T5 已落地；下方存在性守卫是文件级防御，非待办口子）
 const STAGE_A_PATH := "res://scenes/stages/ref/stage_ref_a.tscn"
 ## 本骨架文件自身（_scene_path 判别"实例化根被祖先污染"用的锚点）
@@ -42,14 +41,11 @@ func _ready() -> void:
 	# player_died → 死亡界面（S1 唯一流程订阅者；角色自我清理订阅各自在壳脚本）
 	Events.player_died.connect(_on_player_died)
 	_collect_rooms()
-	if GameEvents.pending_jump_stage == _scene_path():
-		GameEvents.pending_jump_stage = ""  # 检查点回跳落位，一次性消费
-	# 终点面板两钮纯代码接线（tscn 零 [connection]，防编辑器双路）；
-	# 冻结树活性收口与 PauseLayer/death 壳同源——_show_end_panel 冻结全树，
-	# 面板继承不到 ALWAYS 则两钮 pressed 永闸=不可解软锁（评审轮1 修复，B7 锁）
-	_end_panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	_end_panel.get_node("PanelBox/BackTitle").pressed.connect(_on_back_title)
-	_end_panel.get_node("PanelBox/Replay").pressed.connect(_on_replay)
+	# 检查点回跳落位，一次性消费（T5/D10：与壳同源，规则本体在 SessionRules）
+	SessionRules.consume_pending_jump(_scene_path())
+	# 终点面板接线（tscn 零 [connection] 防编辑器双路 + 冻结树 ALWAYS——
+	# B7 死锁锁语义）：与壳同源收进 SessionRules.wire_end_panel
+	SessionRules.wire_end_panel(_end_panel, _on_back_title, _on_replay)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -58,24 +54,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func reload_prototype() -> void:
-	Events.characters_reseted.emit()
-	get_tree().call_deferred("reload_current_scene")
+	SessionRules.reload_prototype(get_tree())
 
 
-## 本场景可转场文件路径（检查点注册/回跳比对单一入口）。4.7 探针实证的两种
-## 真实形态（正式地点=本骨架的实例，故恒为"外层文件"语义）：
-## - current_scene（change_scene 直载）→ scene_file_path 即地点文件；
-## - 场景内实例化根 → scene_file_path 被祖先实例化污染返回**内层**骨架文件，
-##   须取 get_path() 去 "::" 前缀得外层地点文件。
-## 边界：把骨架**本体**直挂测试树与"包裹层就叫骨架文件"不可判（探针实证同值），
-## 契约 B 段因此一律经 fixtures/ 包裹实例，复刻正式地点形态。
+## 本场景可转场文件路径（检查点注册/回跳比对单一入口）。两形态判例与
+## 章节壳同源（T5/D10），解析规则本体在 SessionRules.resolve_scene_path，
+## 锚点=本骨架文件；边界（骨架本体直挂测试树等）见 SessionRules 注释。
 func _scene_path() -> String:
-	if get_tree().current_scene == self:
-		return scene_file_path
-	if scene_file_path != BASE_SCENE_FILE and not scene_file_path.is_empty():
-		return scene_file_path
-	var path := str(get_path())
-	return path.get_slice("::", 0)
+	return SessionRules.resolve_scene_path(self, BASE_SCENE_FILE)
 
 
 func _collect_rooms() -> void:
@@ -84,11 +70,9 @@ func _collect_rooms() -> void:
 			continue
 		var spawners: Array[QuiverEnemySpawner] = []
 		for detector in _room_detectors(room):
-			for p in detector.paths_enemy_spawners:
-				# 路径相对于检测器导出（与 detector._ready 自激活同源解析，4.7 探针
-				# 实证）；brief 草稿的 room.get_node("../X") 会从房框解析→恒 null
-				var sp: QuiverEnemySpawner = detector.get_node_or_null(p)
-				if sp is QuiverEnemySpawner and not spawners.has(sp):
+			# 检测器导出→生成器的相对解析/去重与壳段聚合同源（T5/D10）
+			for sp in SessionRules.spawners_from_detector(detector):
+				if not spawners.has(sp):
 					spawners.append(sp)
 		if spawners.is_empty():
 			continue  # 手动开房（代码 setup_fight_room 类）不参与聚合
@@ -133,11 +117,9 @@ func _on_player_died() -> void:
 	_death_screen.open_screen()
 
 
-## 时序铁律（暂停壳同款）：转场前必须显式解冻，否则 tween 在冻结树下永挂
+## 时序铁律（转场前显式解冻）与回跳清理与壳同源，本体在 SessionRules.goto_title
 func _on_back_title() -> void:
-	get_tree().paused = false
-	GameEvents.pending_jump_stage = ""
-	ScreenTransitions.transition_to_scene(TITLE_PATH)
+	SessionRules.goto_title(get_tree())
 
 
 func _on_replay() -> void:

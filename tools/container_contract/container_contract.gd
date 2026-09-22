@@ -1,7 +1,7 @@
 extends Node
 
 ## 舞台容器契约（S2-M1-B1）：ChapterSession 语义（S 组）、壳切换（E 组）、
-## 段检查点（D 组）、壳件（H 组）。运行：
+## 段检查点（D 组）、壳件五职责（H 组）。运行：
 ## godot --headless --path . res://tools/container_contract/container_contract.tscn
 
 const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
@@ -14,6 +14,7 @@ const SETTLE_TOLERANCE := 24.0
 var _fails := 0
 var _finished := false
 var _death_done := false   # D 流全序列旗（子协程炸尾防线，见 _flow_death 注）
+var _kit_done := false     # H 流全序列旗（同款炸跳段防线）
 
 
 func _ready() -> void:
@@ -25,6 +26,8 @@ func _ready() -> void:
 	# 判例（4.7 探针实锤）：await 的子协程运行时炸掉后**父协程照常续跑**，
 	# _finished 拦不住"子流尾段静默蒸发"——每流自带完成旗单独锁。
 	_check(_death_done, "D 流全序列执行完成（子协程炸跳段防线）")
+	await _flow_shellkit()
+	_check(_kit_done, "H 流全序列执行完成（子协程炸跳段防线）")
 	_finished = true   # 全链末端才置位：早于任何后续流程会截断静默跳段防线
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ container-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -282,3 +285,118 @@ func _flow_death() -> void:
 	shell.queue_free()
 	await _frames(6)
 	_death_done = true
+
+
+## H 组（T5 五职责齐平，spec D10/D11）：模板五壳件在位 + B7 冻结纪律容器版 +
+## raw ESC 全链 + 检查点注册/回跳消费 + 章节终点语义 + set_playable 接口位。
+## 注入判例（stage_contract A3 同源）：未处理输入流只收原始按键，有界轮询等落定。
+func _flow_shellkit() -> void:
+	# 回跳消费真验前置：pending 预置为章节外层文件，壳 _ready 一次性吃掉
+	GameEvents.pending_jump_stage = FIX_CHAPTER
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _frames(20)
+	_check(GameEvents.pending_jump_stage == "",
+			"H1 地点回跳由壳 _ready 一次性消费（与 BaseStage 同规则）")
+	# H2 检查点注册：(fix → 外层章节文件)，回跳目标可解析
+	var hit := false
+	for cp in GameEvents.get_checkpoints():
+		if cp.stage_id == &"fix" and cp.scene_path == FIX_CHAPTER:
+			hit = true
+	_check(hit, "H2 章节检查点注册（fix→外层文件，B5 同形态）")
+	# H3 五壳件在位（模板场景经 fixture 同实例通道带出）
+	var pause_layer := shell.get_node_or_null("HudLayer/PauseLayer") as Control
+	var pm := shell.get_node_or_null("HudLayer/PauseLayer/PauseMenu") as Control
+	var ds := shell.get_node_or_null("HudLayer/PauseLayer/DeathScreen") as Control
+	var endp := shell.get_node_or_null("HudLayer/StageEndPanel") as Control
+	_check(pause_layer != null and pm != null and ds != null,
+			"H3a PauseLayer/PauseMenu/DeathScreen 在位")
+	_check(endp != null and endp.get_node_or_null("PanelBox/BackTitle") != null
+			and endp.get_node_or_null("PanelBox/Replay") != null,
+			"H3b StageEndPanel 两钮就位")
+	_check(pause_layer != null and pause_layer.process_mode == Node.PROCESS_MODE_ALWAYS,
+			"H3c PauseLayer=ALWAYS（B7 容器同款）")
+	_check(endp != null and endp.process_mode == Node.PROCESS_MODE_ALWAYS
+			and not endp.visible,
+			"H3d 终点面板 ALWAYS+初始隐藏（冻结树里钮可响应——B7 锁容器版）")
+	_check(pm != null and pm.process_mode == Node.PROCESS_MODE_ALWAYS
+			and not pm.visible and not ds.visible,
+			"H3e PauseMenu 自置 ALWAYS；pause/death 初始隐藏")
+	# H4 GameHUD 上幕并跟手壳内 chen（组扫描通道与 base 同源，零胶水）
+	var hud_frame := shell.get_node_or_null("HudLayer/GameHUD/Frame") as Control
+	_check(hud_frame != null and hud_frame.visible, "H4 GameHUD 上幕并跟手 chen")
+	# H5 raw ESC 全链：开→冻结；再按→关+解冻
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.device = -1
+	esc.pressed = true
+	# 4.7 判例：同一事件对象同帧重复投递 unsafe——每次投 duplicate 副本
+	Input.parse_input_event(esc.duplicate())
+	var opened: bool = await _wait_until(
+			func() -> bool: return pm.visible and get_tree().paused, 240)
+	_check(opened, "H5a raw ESC → 暂停壳开+树冻结（注入事件在冻结树抵达 ALWAYS 壳）")
+	esc.pressed = false
+	Input.parse_input_event(esc.duplicate())
+	await _frames(1)
+	esc.pressed = true
+	Input.parse_input_event(esc.duplicate())
+	var closed: bool = await _wait_until(
+			func() -> bool: return not pm.visible and not get_tree().paused, 240)
+	_check(closed, "H5b 再按 ESC → 关壳+解冻（末尾未冻结防线）")
+	# H5c B7 冻结所有权容器版：他人冻结态（模拟终点面板/死亡壳持有）ESC 不叠开
+	get_tree().paused = true
+	esc.pressed = false
+	Input.parse_input_event(esc.duplicate())
+	await _frames(1)
+	esc.pressed = true
+	Input.parse_input_event(esc.duplicate())
+	await _frames(30)
+	_check(not pm.visible, "H5c 他人冻结态 ESC 不叠开（冻结所有权 I-1 容器版）")
+	get_tree().paused = false
+	await _frames(2)
+	# H6 终点链（E6 廉价通道：session 判清 + switch 链走到终点段）
+	var finished: Array[String] = []
+	shell.chapter_finished.connect(func(): finished.append("f"))
+	var failed: Array[String] = []
+	shell.segment_advance_failed.connect(func(r): failed.append(r))
+	shell.session.mark_cleared(&"seg_a")
+	await shell.switch_segment(&"seg_b", &"default")
+	shell.session.mark_cleared(&"seg_b")
+	await shell.switch_segment(&"seg_c", &"default")
+	_check(shell.current_segment_id() == &"seg_c", "H6a 三段夹具按序推进到终点段")
+	# 终点强推（未判清）：F-2 只发失败、不判清、不发章节完成
+	shell.force_advance_current(&"h6")
+	var neg: bool = await _wait_until(func(): return not failed.is_empty(), 240)
+	_check(neg and failed.size() == 1 and finished.is_empty()
+			and not shell.session.is_cleared(&"seg_c"),
+			"H6b 终点强推未判清：仅 advance_failed（不伪判清不广播完成）")
+	# 终点段清且无后继 → chapter_finished 恰一次（B7 过场批消费口）
+	shell.session.mark_cleared(&"seg_c")
+	shell.switch_segment()
+	await _frames(6)
+	_check(failed.size() == 2 and finished.size() == 1,
+			"H6c 终点段清+无后继 → advance_failed 且 chapter_finished 恰一次")
+	shell.switch_segment()
+	await _frames(6)
+	_check(finished.size() == 1, "H6d 重复终点推不重发（chapter_finished 闩锁）")
+	# H7 D11 换角接口位：null/缺身份组拒换；带组仅换引用（迁移留 D2 批）
+	var errs: Array[String] = []
+	shell.chapter_error.connect(func(m): errs.append(m))
+	var before: QuiverCharacter = shell.playable
+	shell.set_playable(null)
+	var stranger := QuiverCharacter.new()
+	shell.set_playable(stranger)
+	_check(errs.size() == 2 and shell.playable == before,
+			"H7a set_playable 空目标/缺 area2d:player → chapter_error 拒换")
+	stranger.free()
+	var ally := QuiverCharacter.new()
+	ally.add_to_group("area2d:player")
+	shell.set_playable(ally)
+	_check(shell.playable == ally, "H7b 带身份组目标 → 换引用（换人实现留 D2 批）")
+	shell.playable = before   # 还原引用再拆场（防 dangling 观察面）
+	ally.free()
+	shell.queue_free()
+	await _frames(6)
+	GameEvents.reset_session()
+	_check(GameEvents.get_checkpoints().is_empty(), "H8 会话自洁（测试收尾清表）")
+	_kit_done = true

@@ -11,6 +11,14 @@ signal segment_advance_failed(reason: String)
 ## 语义（评审轮 1 定档）：**实际落位之后**才响（restart/强制推进链尾统一发；
 ## 被更新的转场意图顶掉、或终点推进失败时不发）。
 signal segment_restarted(why: StringName)
+## 章节终点（T5/B7 消费口）：**终点段已判清**且无后继、推进链撞墙时发射，
+## 恰一次（闩锁）。终点段未判清的失败推进（F-2 强推）只发
+## segment_advance_failed 不发本作完成——"历史不可变"跳段≠通关。
+signal chapter_finished
+
+## 本模板文件自身（_scene_path 判别"实例化根被祖先污染"用的锚点，
+## BaseStage 同款两形态判例）
+const SHELL_SCENE_FILE := "res://scenes/chapter/chapter_shell.tscn"
 
 @export var chapter_id: StringName
 @export var segment_scenes: Array[PackedScene] = []
@@ -30,14 +38,26 @@ var _transition_gen := 0              # I2：转场意图代际（switch/restart
 var _suppress_state := {"gen": 0, "orig": {}}   # R12：屏蔽窗代际+检测器原值存证
                                                 # （字典按引用被恢复 lambda 捕获，
                                                 # 壳先亡也可安全清算）
+var _chapter_finished_emitted := false          # chapter_finished 闩锁（恰一次）
 
 
 @onready var playable: QuiverCharacter = get_node_or_null(playable_path)
 @onready var _segments_root: Node2D = $Segments
 @onready var _shell_canvas: CanvasModulate = $Ambient/CanvasModulate
+@onready var _end_panel: Control = $HudLayer/StageEndPanel
 
 
 func _ready() -> void:
+	# 五职责齐平（T5，spec §3.1"五壳件"）：进章节注册检查点 + 回跳一次性消费，
+	# 路径解析与 BaseStage 同源（SessionRules）。注意：章节形态的回跳=整章
+	# 场景重载=会话重置（清场/旗标丢失，playable 回出生位）——段粒度续档归 S5；
+	# D4 已把死亡改走段重跑，回跳仅服务暂停壳"回本地点入口"与未来 S5。
+	var scene_path := _scene_path()
+	GameEvents.add_checkpoint(chapter_id, scene_path)
+	SessionRules.consume_pending_jump(scene_path)
+	# B7 锁语义容器版：终点面板 ALWAYS + 两钮代码接线（自动弹出无接入——
+	# 章节终点演出=chapter_finished 的 B7 过场批消费口，面板留给消费方拉起）
+	SessionRules.wire_end_panel(_end_panel, _on_back_title, _on_replay)
 	if playable == null:
 		chapter_error.emit("playable 缺席（playable_path 未指向有效角色）")
 		return
@@ -60,8 +80,52 @@ func _ready() -> void:
 
 
 func _on_player_died() -> void:
-	# spec D4：段级重跑取代地点死亡壳（地点级回跳仍归暂停壳/检查点表）
+	# spec D4：段级重跑取代地点死亡壳（地点级回跳仍归暂停壳/检查点表；
+	# DeathScreen 壳件照模板在位但章节形态不接死亡——休眠件）
 	restart_segment(&"death")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# debug_restart（BaseStage 同款：仅 debug 构建，原始事件流按动作判定）
+	if OS.is_debug_build() and event.is_action_pressed("debug_restart"):
+		reload_prototype()
+
+
+func reload_prototype() -> void:
+	SessionRules.reload_prototype(get_tree())
+
+
+## 本章节可转场文件路径（检查点注册/回跳比对单一入口）。壳根非 BaseStage
+## 实例，_scene_path 两形态判例经 SessionRules 共享、锚点换本模板文件：
+## 正式章节=chapter_shell.tscn 的实例化根（change_scene 直载 → scene_file_path
+## 即章节外层文件；场景内实例化根 → 外层文件，同 B5 探针实证形态）。
+func _scene_path() -> String:
+	return SessionRules.resolve_scene_path(self, SHELL_SCENE_FILE)
+
+
+## 换角接口位（D11：本切片只留位，换人实现——皮肤/输入通道/相机迁移——留 D2 批）：
+## 换引用 + `area2d:player` 身份组校验。缺组=拒换并广播 chapter_error——
+## HUD 跟手、AI 索敌、死亡游戏结束全按该组查询身份，禁把断链目标扶正。
+func set_playable(next: QuiverCharacter) -> void:
+	if next == null:
+		chapter_error.emit("set_playable: 目标为空")
+		return
+	if not next.is_in_group("area2d:player"):
+		chapter_error.emit("set_playable: 目标缺 area2d:player 身份组")
+		return
+	playable = next
+	# 路径存证只在目标已挂树时进行（不在树时 get_path() 报引擎错误——噪音纪律）
+	if next.is_inside_tree():
+		playable_path = next.get_path()
+
+
+func _on_back_title() -> void:
+	SessionRules.goto_title(get_tree())
+
+
+func _on_replay() -> void:
+	# 章节重走=原型重载（新会话：清场/旗标丢失——会话续档归 S5，D4 注同文）
+	reload_prototype()
 
 
 ## 段重跑（D4，曹氏血崩等剧情杀复用 why 通道）：不 spawn 自建协程，而是
@@ -167,6 +231,7 @@ func switch_segment(id: StringName = &"", entry: StringName = &"default",
 		var idx := _order.find(current_segment_id())
 		if idx >= _order.size() - 1:
 			segment_advance_failed.emit("章节终点（无后继段）")
+			_maybe_finish_chapter()
 			return
 		target = _order[idx + 1]
 	if mark_cleared_after != &"":
@@ -181,6 +246,19 @@ func switch_segment(id: StringName = &"", entry: StringName = &"default",
 	enter_segment(target, entry)
 	if restart_why != &"":
 		segment_restarted.emit(restart_why)
+
+
+## 终点撞墙链的完成判定（T5/B7）：**当前（终点）段已判清**才广播 chapter_finished，
+## F-2 未判清的强推失败不发（跳段≠通关）；闩锁保恰一次（auto_complete 终点段
+## 重进、重复终点推等后续链路不得二次广播）。
+func _maybe_finish_chapter() -> void:
+	if _chapter_finished_emitted:
+		return
+	var sid := current_segment_id()
+	if sid == &"" or not session.is_cleared(sid):
+		return
+	_chapter_finished_emitted = true
+	chapter_finished.emit()
 
 
 ## 切换三拍（spec §3.4 C2/C3）：静默窗让在途 tween 落位；
@@ -269,9 +347,9 @@ func _wire_segment(seg: StageContent) -> void:
 	for det in seg.find_children("*", "", true, false):
 		if not (det is QuiverPlayerDetector):
 			continue
-		for sp_path in det.paths_enemy_spawners:
-			var sp := det.get_node_or_null(sp_path) as QuiverEnemySpawner
-			if sp == null or sp in wired:
+		# 检测器导出→生成器的解析/去重与 BaseStage 房聚合同源（D10，SessionRules）
+		for sp in SessionRules.spawners_from_detector(det):
+			if sp in wired:
 				continue
 			wired.append(sp)
 			if not sp.all_waves_completed.is_connected(
