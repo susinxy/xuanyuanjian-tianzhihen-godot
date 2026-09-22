@@ -171,9 +171,14 @@
     （终审裁定，进 B2 首步）**：①切换链 `_settle_before_switch` 的 await-self 收口
     （pause 菜单换场景可达窗）②`mark_cleared` 落点终裁（登记时 vs 落地时——船闸
     force_advance×死亡竞态的前置裁决）③段文件 validator 第三形态（root=stage_content
-    识别，R3-R7 对段执法）。同批顺带：content_ready 死信号清理、终点双信号拆分、
+    识别，R3-R7 对段执法）④夹具视觉皮肤化（seg 三段+chapter_fix：色块地面/段名牌/可视
+    触发线，纯装饰零碰撞；B2 触发件肉眼验收场地，2026-09-22 实机确认毛坯不可辨后定档）。
+    同批顺带：content_ready 死信号清理、终点双信号拆分、
     E7 Windows .bat 中转预备。措辞修正：BaseStage 为"快乐路径逐位等价+两处受 blessed
     偏差（reload 解冻 bug 修、错类型静默跳过属改进）"。
+    **实机关账（2026-09-22）**：用户 Windows F6 真跑 container_contract 50+ 全绿，E7 `cmd /c`
+    引号分支证实可用（.bat 中转预案作废）；chapter_fix 人眼手感验收项**撤销**（夹具系测试台
+    毛坯、换段无视觉信号属实——节拍裁决移交 B6 实段，夹具皮肤化移交 B2 首步场地建设）。B1 结清。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
