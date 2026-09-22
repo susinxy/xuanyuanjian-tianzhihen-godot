@@ -7,7 +7,15 @@ extends RefCounted
 ## 产线是 RefCounted + DirAccess/FileAccess 纯文本手术，无 EditorInterface 依赖，
 ## headless -s 直接可用）。
 ##
-## ensure() 三态契约（run_matrix.sh 消费，语义如下）：
+## 主权归属（Task2 评审 R2/R6 定档，不可协商）：
+## - 共享替身 `test_actor` 的创建/导入/销毁**只属于 run_matrix.sh**；
+##   消费套**只读**消费（exists()/ensure() 幂等读），**禁止 Kit.destroy()**
+##   ——通跑中途销毁会让后续套名的 ensure() 永远拿不到 OK（进程间纹理失明）。
+## - 需要"全创建→全销毁"破坏性周期演练的套件（interact_contract S2），
+##   传入**私有草稿名**（如 test_actor_scratch）自生自灭、零残留，
+##   绝不动共享替身。
+##
+## ensure(p_name) 三态契约（run_matrix.sh 消费，语义如下）：
 ## - `OK`(0)：文件齐且**本进程可加载**——上轮产线已创建、且已过一遍 --import。
 ## - `NEEDS_IMPORT`(=Kit.NEEDS_IMPORT，42)：本进程刚创建完文件（或目录在但纹理
 ##   未导入）。当前进程无法导入纹理，调用方须先跑 `godot --headless --import`
@@ -38,57 +46,87 @@ const ERR_CANCELED := 1
 const _Creator := preload("res://addons/quiver.beat_em_up/custom_inspectors/create_new_character/character_creator.gd")
 const _Deleter := preload("res://addons/quiver.beat_em_up/custom_inspectors/create_new_character/character_deleter.gd")
 
+## 角色产物的路径推导（全部从名字来；默认名 = 共享替身 test_actor，
+## 常量 ACTOR_DIR/ACTOR_SCENE 即其字面特例，历史消费点零改动）
+static func _dir_for(p_name: String) -> String:
+	return "res://characters/playable/" + p_name
+
+
+static func _scene_for(p_name: String) -> String:
+	return _dir_for(p_name) + "/" + p_name + ".tscn"
+
+
 ## 导入门文件（见文件头判据实测定档）
-const _IMPORT_GATE := ACTOR_DIR + "/resources/sprites/test_actor_profile.png.import"
+static func _gate_for(p_name: String) -> String:
+	return _dir_for(p_name) + "/resources/sprites/" + p_name + "_profile.png.import"
+
+
+## snake_case 名 → PascalCase 类名（零信任：不赌 to_pascal_case 存在，
+## 本仓库判例要求引擎 API 写前探一次；手写 split+capitalize 无版本风险）
+static func _class_for(p_name: String) -> String:
+	var cls := ""
+	for part in p_name.split("_"):
+		if String(part).is_empty():
+			continue
+		cls += String(part)[0].to_upper() + String(part).substr(1)
+	return cls
+
 
 ## 产线必备产物（创建成功后逐文件断言；缺任何一个 = CANCELED）
-const REQUIRED_FILES := [
-	"test_actor.tscn",
-	"test_actor_skin.tscn",
-	"test_actor.gd",
-	"test_actor_skin.gd",
-	"resources/test_actor_attributes.tres",
-	"resources/anim_library_test_actor.tres",
-	"resources/spriteframes_test_actor.tres",
-	"resources/attacks/punch1_attack_data.tres",
-	"resources/attacks/punch2_attack_data.tres",
-	"resources/attacks/punch3_attack_data.tres",
-	"resources/attacks/air_kick_attack_data.tres",
-]
+static func _required_files(p_name: String) -> Array[String]:
+	return [
+		p_name + ".tscn",
+		p_name + "_skin.tscn",
+		p_name + ".gd",
+		p_name + "_skin.gd",
+		"resources/" + p_name + "_attributes.tres",
+		"resources/anim_library_" + p_name + ".tres",
+		"resources/spriteframes_" + p_name + ".tres",
+		"resources/attacks/punch1_attack_data.tres",
+		"resources/attacks/punch2_attack_data.tres",
+		"resources/attacks/punch3_attack_data.tres",
+		"resources/attacks/air_kick_attack_data.tres",
+	]
 
 
 ## 目录与主场景文件都在（不代表可加载，可加载性看 _imported()）
-static func exists() -> bool:
-	return DirAccess.dir_exists_absolute(ACTOR_DIR) and FileAccess.file_exists(ACTOR_SCENE)
+static func exists(p_name: String = ACTOR_NAME) -> bool:
+	var dir := _dir_for(p_name)
+	return DirAccess.dir_exists_absolute(dir) and FileAccess.file_exists(_scene_for(p_name))
 
 
 ## 三态就绪检查：详见文件头契约。幂等——已就绪时零副作用。
-static func ensure() -> int:
-	if exists() and _imported():
+## 注意：名字缺席时 ensure 会走创建（供 run_matrix.sh / 草稿演练用）；
+## 只读消费套必须先自判 exists() 再调，缺席即报可读红（R6 消费铁律）。
+static func ensure(p_name: String = ACTOR_NAME) -> int:
+	if exists(p_name) and _imported(p_name):
 		return OK
-	if not exists():
+	if not exists(p_name):
 		var creator = _Creator.new()
 		var ok: bool = creator.create_character(
-				ACTOR_NAME, "TestActor", "测试替身", "player", {}, [],
+				p_name, _class_for(p_name), "测试替身", "player", {}, [],
 				_Creator.ControlMode.PLAYER_INPUT)
 		if not ok:
 			push_error("[TestActorKit] CharacterCreator 产线创建失败（诊断见上行 push_error）")
 			return ERR_CANCELED
-		for rel in REQUIRED_FILES:
-			if not FileAccess.file_exists(ACTOR_DIR.path_join(rel)):
-				push_error("[TestActorKit] 产线产物缺失: %s" % ACTOR_DIR.path_join(rel))
+		var dir := _dir_for(p_name)
+		for rel in _required_files(p_name):
+			if not FileAccess.file_exists(dir.path_join(rel)):
+				push_error("[TestActorKit] 产线产物缺失: %s" % dir.path_join(rel))
 				return ERR_CANCELED
 	# 走到这里：要么本轮刚创建完（文件在、纹理未导入），要么目录早已存在但
 	# 缺 .import（上轮崩溃/手工拷入）——两种形态的处方相同：--import 后重跑。
 	return NEEDS_IMPORT
 
 
-## 递归删除 ACTOR_DIR（走真实 CharacterDeleter 产线）。幂等：不存在 = OK。
-static func destroy() -> int:
-	if not DirAccess.dir_exists_absolute(ACTOR_DIR):
+## 递归删除 _dir_for(p_name)（走真实 CharacterDeleter 产线）。幂等：不存在 = OK。
+## 共享替身只有 run_matrix.sh 有资格调它；草稿名由演练套自生自灭。
+static func destroy(p_name: String = ACTOR_NAME) -> int:
+	var dir := _dir_for(p_name)
+	if not DirAccess.dir_exists_absolute(dir):
 		return OK
 	var deleter = _Deleter.new()
-	if not deleter.delete_character(ACTOR_NAME, "playable"):
+	if not deleter.delete_character(p_name, "playable"):
 		push_error("[TestActorKit] CharacterDeleter 产线删除失败")
 		return ERR_CANCELED
 	return OK
@@ -102,10 +140,11 @@ static func destroy() -> int:
 ## 误判（下轮矩阵用假替身仍绿）。故二次核验 `.ctex` 实体（真实 sidecar 行样例见
 ## characters/enemies/spar_enemy/.../spar_enemy_profile.png.import：
 ## `path="res://.godot/imported/spar_enemy_profile.png-<hash>.ctex"`）。
-static func _imported() -> bool:
-	if not FileAccess.file_exists(_IMPORT_GATE):
+static func _imported(p_name: String = ACTOR_NAME) -> bool:
+	var gate := _gate_for(p_name)
+	if not FileAccess.file_exists(gate):
 		return false
-	var sidecar := FileAccess.get_file_as_string(_IMPORT_GATE)
+	var sidecar := FileAccess.get_file_as_string(gate)
 	var marker := "path=\"res://"
 	var at := sidecar.find(marker)
 	if at == -1:

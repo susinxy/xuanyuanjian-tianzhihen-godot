@@ -4,7 +4,8 @@ extends Node
 ## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
 ## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）+
 ## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本/第三方判清摘树僵尸钟门（Q 组）+
-## test_actor 主权契约流：身份探针常驻化 + 生命周期两态可重入（S 组）。
+## test_actor 主权契约流：身份探针常驻化 + 共享替身只读校验 + 私有草稿破坏性
+## 周期自生自灭（S 组，R2 修时雷：通跑中途销毁共享替身的旧 S2 已废）。
 ## 形制=container_contract 同款：每流完成旗（协程炸跳段防线）+
 ## _check/_frames/_wait_until。运行：
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
@@ -551,10 +552,10 @@ func _flow_q5() -> void:
 	await _dismantle(shell)
 	_done["q5"] = true
 
-## S 组（B2.5 主权契约）：test_actor 全套件产线活体校验。**本进程无法导入纹理**
-## （--import 只由 run_matrix.sh 在套件进程之外跑），故身份活体面依赖"进场时
-## ensure() 已报 OK（=通跑器已导入过）"。断言按**两态皆成立**设计，防 standalone
-## flake。状态机（入口态 pre_existed 驱动，全程零残留承诺）：
+## S 组（B2.5 主权契约，R2 修时雷改版）：test_actor 全套件产线活体校验。
+## **本进程无法导入纹理**（--import 只由 run_matrix.sh 在套件进程之外跑），故
+## 身份活体面依赖"进场时 ensure() 已报 OK（=通跑器已导入过）"。断言按
+## **两态皆成立**设计，防 standalone flake。状态机（入口态 pre_existed 驱动）：
 ##
 ##   入口 pre_existed := Kit.exists()    # 进场时目录是否已在（不代表可加载）
 ##   入口 pre_imported := pre_existed and Kit.ensure() == OK   # 本进程真能加载=已导入
@@ -562,13 +563,20 @@ func _flow_q5() -> void:
 ##   ┌ S1 身份分支（PROBE）：仅 pre_imported 才跑（用常驻探针在活树里实例化替身，
 ##   │   断言 player 组/皮肤/sprite_frames/状态机/落 idle）。否则**大声**打 NOTICE
 ##   │   跳过（静默跳段=假绿家族判例）——导入活体校验在通跑通道内闭环。
-##   └ S2 生命周期分支（恒跑，不依赖预导入，两态同形）：
+##   ├ S2 共享替身只读分支（恒跑，零副作用；R6 消费铁律：消费套禁 destroy）：
+##   │   旧版 S2 在通跑中途销毁共享替身=时雷——本进程纹理失明，后续套名的
+##   │   ensure() 永远回 42，身份腿静默退化成 NOTICE。现共享路径只做
+##   │   exists/ensure 只读断言：入口答案可复现、反复调不变、exists 稳定。
+##   └ S3 私有草稿破坏性周期（恒跑，SCRATCH_NAME 自生自灭，绝不碰共享替身）：
 ##       destroy→exists 假 → ensure=NEEDS_IMPORT(42)（产线非半途留残目录 + 本进程不可
 ##       导入）→exists 真 → 再 ensure 仍 42（同进程纹理失明：导入不可在进程内发生，
-##       即 R5 门的跨进程语义）。终局归零：destroy 幂等×2 + exists 假（standalone
-##       编辑器跑不脏 characters/playable/；通跑末销毁由 runner 兜底，此处亦已归零）。
-##   S2 的 ensure()==OK 正路（sidecar 与 .ctex 双在）由 pre_imported 门间接触发：
-##   standalone 无 .ctex → 恒 false → 跳 S1；通跑 --import 后 → true → 跑 S1。
+##       即 R5 门的跨进程语义）→destroy 幂等×2=产线可重入→终局 exists 假
+##       （草稿零残留；standalone 编辑器跑不脏 characters/playable/）。
+##   ensure()==OK 正路（sidecar 与 .ctex 双在）= pre_imported 门：standalone 无
+##   .ctex → 恒 false → 跳 S1；通跑 --import 后 → true → 跑 S1 + S2 只读复现 OK。
+const SCRATCH_NAME := "test_actor_scratch"
+
+
 func _flow_s() -> void:
 	var pre_existed := Kit.exists()
 	var pre_imported := pre_existed and Kit.ensure() == OK
@@ -587,20 +595,30 @@ func _flow_s() -> void:
 		print("  NOTICE: 跳过 S1 身份分支——test_actor 非本进程可加载态（pre_existed=%s）；" % pre_existed
 				+ "导入活体校验在 run_matrix.sh 通跑通道内闭环")
 
-	# ── S2 生命周期分支（恒跑，两态同形）──
-	_check(Kit.destroy() == OK, "S2a destroy 幂等（首次归零入口态）")
-	_check(not Kit.exists(), "S2b destroy 后 exists 假")
-	var c1 := Kit.ensure()
-	_check(c1 == Kit.NEEDS_IMPORT,
-			"S2c 新建后 ensure=NEEDS_IMPORT(42)：产线未半途留残目录且本进程不可导入（实=%d）" % c1)
-	_check(Kit.exists(), "S2d ensure 创建后 exists 真（目录+主场景落地）")
-	var c2 := Kit.ensure()
-	_check(c2 == Kit.NEEDS_IMPORT,
-			"S2e 同进程二次 ensure 仍 42（纹理失明=R5 门：导入不可在进程内发生，实=%d）" % c2)
+	# ── S2 共享替身只读分支（恒跑，零副作用；消费套禁 destroy——R6 铁律）──
+	var expect_now := OK if pre_imported else Kit.NEEDS_IMPORT
+	var r0 := Kit.ensure()
+	_check(r0 == expect_now,
+			"S2a 共享替身 ensure() 只读复现入口态（期望=%d 实=%d）" % [expect_now, r0])
+	var r1 := Kit.ensure()
+	_check(r1 == r0, "S2b 重复 ensure 答案不变（幂等只读：不创建不销毁，实=%d）" % r1)
+	_check(Kit.exists() == pre_existed, "S2c exists 前后稳定（共享替身生命周期未被触碰）")
 
-	# ── 终局归零（两态一律 destroy：standalone 零残留；通跑亦已归零，runner 兜底幂等）──
-	_check(Kit.destroy() == OK, "S2f destroy 幂等×2=产线可重入")
-	_check(not Kit.exists(), "S2g 终局 exists 假（零残留：编辑器不脏 playable，通跑末销毁幂等）")
+	# ── S3 私有草稿破坏性周期（自生自灭，绝不碰共享替身）──
+	_check(Kit.destroy(SCRATCH_NAME) == OK, "S3a 草稿 destroy 幂等（首次归零入口态）")
+	_check(not Kit.exists(SCRATCH_NAME), "S3b 草稿 destroy 后 exists 假")
+	var c1 := Kit.ensure(SCRATCH_NAME)
+	_check(c1 == Kit.NEEDS_IMPORT,
+			"S3c 草稿新建后 ensure=NEEDS_IMPORT(42)：产线未半途留残目录且本进程不可导入（实=%d）" % c1)
+	_check(Kit.exists(SCRATCH_NAME), "S3d 草稿 ensure 创建后 exists 真（目录+主场景落地）")
+	var c2 := Kit.ensure(SCRATCH_NAME)
+	_check(c2 == Kit.NEEDS_IMPORT,
+			"S3e 同进程二次 ensure 仍 42（纹理失明=R5 门：导入不可在进程内发生，实=%d）" % c2)
+
+	# ── 终局归零（只归零草稿；共享替身完整留给后续套名与 runner 末销毁）──
+	_check(Kit.destroy(SCRATCH_NAME) == OK, "S3f 草稿 destroy 幂等×2=产线可重入")
+	_check(not Kit.exists(SCRATCH_NAME), "S3g 草稿终局 exists 假（零残留）")
+	_check(Kit.exists() == pre_existed, "S3h 草稿周期全程未伤共享替身（exists 与入口一致）")
 
 	_done["s"] = true
 

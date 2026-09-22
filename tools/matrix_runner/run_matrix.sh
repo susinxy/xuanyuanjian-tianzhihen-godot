@@ -14,10 +14,15 @@
 ##      （目录在但门控 png 缺 → 创建器拒覆写 → import 也造不出 sidecar）。
 ##   3. 每套 `timeout 300` 守卫；rc=124 记红并标 TIMEOUT。
 ##   4. 末行汇总表（名/rc/PASS 行 grep），退出码 = 红套数。
+##   5. 通道见证（M4）：消费 test_actor 的套须在日志里喊出身份断言标记
+##      （下表 ATTEST），标记缺席 = 该跑记红——封死"导入门退化→NOTICE 静默
+##      跳身份腿→绿矩阵"的家族路径。
 ##
 ## 用法：
 ##   tools/matrix_runner/run_matrix.sh                 # 全套通跑（含末销毁）
 ##   tools/matrix_runner/run_matrix.sh --only 子串     # 只跑名含子串的套；跳过末销毁
+##   tools/matrix_runner/run_matrix.sh --ensure-only   # 只走生命周期建好替身即退
+##                                                     # （消费套头部红字的处方通道）
 ## =============================================================================
 set -u
 
@@ -56,6 +61,14 @@ ROSTER=(
 	"validator|stage_validator|tools/stage_validator/validator.gd"
 )
 
+# ── 通道见证表（M4）：label|身份断言标记 ──────────────────────────────────────
+# 消费 test_actor 的套必须在日志里喊出该标记（身份腿真跑了的证据）；标记缺席
+# 且该套本次有跑 = 记红（红因：导入门退化 → NOTICE 静默跳身份腿 → 假绿矩阵）。
+ATTEST=(
+	"interact_contract|S1a "
+	"input_channel_test|ACTOR-GATE"
+)
+
 # 颜色（仅 tty 时上色，日志文件里留纯文本判读方便 grep）
 if [ -t 1 ]; then C_RED=$'\033[31m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_RST=$'\033[0m'
 else C_RED=""; C_GRN=""; C_YEL=""; C_RST=""; fi
@@ -85,9 +98,12 @@ lifecycle_ensure() {
 	fi
 
 	echo "== [3/3] godot --headless --import =="
-	if ! "${GODOT}" --headless --path "${REPO_ROOT}" --import \
-			>"${LOG_ROOT}/import.log" 2>&1; then
-		local irc=$?
+	# M1 修正（Task2 评审）：`if !` 之后再取 $? 恒为 0（取到的是取反后的判定），
+	# 必须先直跑命令、紧跟捕获 irc，再判非 0。
+	"${GODOT}" --headless --path "${REPO_ROOT}" --import \
+			>"${LOG_ROOT}/import.log" 2>&1
+	local irc=$?
+	if [ "${irc}" -ne 0 ]; then
 		echo "${C_RED}FATAL: --import 退出码 ${irc}!=0（半导入窗口，拒绝续跑）${C_RST}" >&2
 		tail -n 15 "${LOG_ROOT}/import.log" >&2
 		exit 5
@@ -127,19 +143,39 @@ run_suite() {
 
 # ── 参数解析 ──────────────────────────────────────────────────────────────────
 ONLY=""
+MODE="full"
 while [ $# -gt 0 ]; do
 	case "$1" in
-		--only) ONLY="${2:-}"; shift 2 ;;
-		--only=*) ONLY="${1#--only=}"; shift ;;
-		-h|--help) sed -n '2,26p' "${BASH_SOURCE[0]}"; exit 0 ;;
-		*) echo "未知参数：$1（--only 子串 | --help）" >&2; exit 2 ;;
+		--only)
+			# M2 修正（Task2 评审）：裸 `--only`（尾参缺失）时 shift 2 失败、
+			# $@ 不变 → 死循环。必须先验剩余参数充足且不是另一个选项。
+			if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" = --* ]]; then
+				echo "错误：--only 需要名册子串参数（--only <套件名子串>）" >&2
+				exit 2
+			fi
+			ONLY="$2"; shift 2 ;;
+		--only=*)
+			ONLY="${1#--only=}"
+			if [ -z "${ONLY}" ]; then
+				echo "错误：--only= 的子串不能为空" >&2
+				exit 2
+			fi
+			shift ;;
+		--ensure-only) MODE="ensure"; shift ;;
+		-h|--help) sed -n '/^## =====/,/^## =====/p' "${BASH_SOURCE[0]}"; exit 0 ;;
+		*) echo "未知参数：$1（--only 子串 | --ensure-only | --help）" >&2; exit 2 ;;
 	esac
 done
 
 cd "${REPO_ROOT}" || { echo "无法进入 ${REPO_ROOT}" >&2; exit 2; }
 
-# 生命周期：全跑与 --only 都先建好 test_actor（--only 末不销毁）。
+# 生命周期：全跑 / --only / --ensure-only 都先建好 test_actor。
 lifecycle_ensure
+
+if [ "${MODE}" = "ensure" ]; then
+	echo "${C_GRN}--ensure-only：test_actor 已就绪（未跑名册，供消费套单跑使用）${C_RST}"
+	exit 0
+fi
 
 # ── 逐套执行，收集 (label|rc|passline) ────────────────────────────────────────
 RESULTS=()
@@ -168,16 +204,43 @@ for row in "${ROSTER[@]}"; do
 		elif [ "${rc}" -ne 0 ]; then
 			verdict="${C_RED}RED${C_RST}"; RED=$((RED + 1))
 		fi
+		# M4 见证（Task2 评审）：表内套 rc=0 但日志没喊出身份标记 = 身份腿被
+		# 门控静默跳过（NOTICE 家族假绿），本次跑同样记红。rc 已红则不叠加。
+		marker=""
+		for a in "${ATTEST[@]}"; do
+			IFS='|' read -r alabel amarker <<< "${a}"
+			[ "${alabel}" = "${label}" ] && marker="${amarker}"
+		done
+		if [ -n "${marker}" ] && [ "${rc}" -eq 0 ] \
+				&& ! grep -qa -- "${marker}" "${LOG_ROOT}/${label}${extra:+_fixtures}.log"; then
+			verdict="${C_RED}RED(M4 见证标记「${marker%% *}」缺席)${C_RST}"; RED=$((RED + 1))
+		fi
 		printf '%s %-28s rc=%-3s %s  %s\n' \
 			"${C_YEL}=>${C_RST}" "${tag}" "${rc}" "${verdict}" "${LAST_PASS_LINE}"
 		RESULTS+=("${tag}|${rc}|${LAST_PASS_LINE}")
 	done
 done
 
-# ── 末销毁（--only 跳过，保留 test_actor 供下次强制重建）──────────────────────
+# M3 修正（Task2 评审）：--only 子串零命中时 RESULTS 为空、旧版会静默 exit 0
+# ——拼错名册标签等于"假装跑完"。必须 FATAL 并列出可用标签。
+if [ -n "${ONLY}" ] && [ "${#RESULTS[@]}" -eq 0 ]; then
+	echo "${C_RED}FATAL: --only「${ONLY}」未命中任何套件（本次零执行，判定不可信）${C_RST}" >&2
+	echo "可用标签：" >&2
+	for row in "${ROSTER[@]}"; do
+		IFS='|' read -r _k _label _p <<< "${row}"
+		echo "  ${_label}" >&2
+	done
+	exit 7
+fi
+
+# ── 末销毁（--only 跳过；M5：残留文案以盘上实况为准，不再口头断言）──────────
 if [ -n "${ONLY}" ]; then
 	echo
-	echo "${C_YEL}--only 模式：test_actor 残留中，下次通跑将强制重建（destroy 先行）${C_RST}"
+	if [ -d "${REPO_ROOT}/characters/playable/test_actor" ]; then
+		echo "${C_YEL}--only 模式：test_actor 仍驻留（消费套只读不销毁，属预期），下次通跑 destroy 先行强制重建${C_RST}"
+	else
+		echo "${C_YEL}--only 模式：test_actor 未驻留（异常形态——通跑生命周期建好的替身被本次执行弄丢，查上行消费套日志），下次通跑将重建${C_RST}"
+	fi
 else
 	echo "== 末销毁 test_actor =="
 	run_kit "${DESTROY_ENTRY}"
