@@ -14,6 +14,8 @@ extends Node
 @export var timeout_reason := &"gate_timeout"
 
 var _door: Polygon2D
+# 一次性闩：见 _on_interacted 顶部说明——封堵 repeatable 触发件的"双推跳段"雷。
+var _armed := false
 
 
 func _ready() -> void:
@@ -25,12 +27,20 @@ func _ready() -> void:
 
 
 func _on_interacted() -> void:
+	# _armed 闩封堵"repeatable × 门"多段静默跳过雷：作者若把触发件设 repeatable=true，
+	# 则每次 interacted 都会另起一枚倒计时，而倒计时目标在注册时按 force 时的 _current
+	# 现取——首链落位 settle 后，第二枚倒计时到点会把**新段**也一并 advance，静默跳过
+	# 一整段剧情。闩令每个门节点实例的倒计时至多开一次（与 repeatable 设定无关）。
+	if _armed:
+		return
 	var trig := get_parent() as InteractTrigger
 	if trig == null or not is_instance_valid(trig):
 		return
 	var shell := trig.find_shell()
 	if shell == null:
 		return   # 无壳=无段可推，静默
+	# 三关（trig 有效 + 有壳）通过、即将开门起钟——先落闩，杜绝同实例二次起钟
+	_armed = true
 	if _door:
 		var tw := create_tween()
 		tw.tween_property(_door, "position:y", _door.position.y - 320.0, 0.6)
