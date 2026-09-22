@@ -1,6 +1,6 @@
 extends SceneTree
 
-## 关卡装配校验器（S1-T4，矩阵第 21 项）：对 spec §5 地点契约做 R1-R10 十条
+## 关卡装配校验器（S1-T4，矩阵第 21 项）：对 spec §5 地点契约做 R1-R11 十一条
 ## 独立规则的机械执法。**只读 .tscn 文本**（FileAccess+逐行解析），不走
 ## ResourceLoader——避免加载副作用与对未落地依赖的真实解析。
 ## 运行：
@@ -36,6 +36,11 @@ extends SceneTree
 ##   （WIP 豁免：目录内放 .wip 空文件=该目录树整体跳过并打 NOTICE）
 ##   R10 背景 CanvasLayer 显式写的 layer 必须 <0（≥0 连角色/阴影合成层整个盖掉；
 ##       负档是软边阴影自动档 z=Level-1 正确落位的承重墙，2026-09-20 光照收编）
+##   R11 触发件（script 路径尾 interact_trigger.gd 的节点）必有 CollisionShape2D
+##       后代（零宽/缺形=隐身不可交互，法典第十条；经 instance= 引入的触发件
+##       自带形状在**其本体文件**里，本文件无 script 属性行不误伤）
+##   空根守卫（T4 评审 R12）：零节点 .tscn（垃圾/截断）记 R1 早退，
+##       不得流进 R2/R11 臂（root={} → .props null 崩）
 
 const BASE_PATH := "res://scenes/base/base_stage.tscn"
 const SHELL_PATH := "res://scenes/chapter/chapter_shell.tscn"
@@ -47,6 +52,7 @@ const ROOM_GD := "quiver_fight_room.gd"
 const DET_GD := "quiver_player_detector.gd"
 const SPAWN_GD := "quiver_enemy_spawner.gd"
 const EXIT_GD := "stage_exit.gd"
+const TRIG_GD := "interact_trigger.gd"
 # R5 白名单双形（spec D10/C6）：base 轨房挂 FightRooms 下恒 3 级到根；
 # shell 轨段挂壳 Segments 下、房直接挂段根，恒 4 级到壳根 Players
 const LEGAL_SPAWN_PARENTS := [
@@ -153,7 +159,12 @@ func _check_file(path: String) -> Array:
 	var out: Array = []
 	var add := func(rule: String, hint: String) -> void:
 		out.append({rule = rule, hint = hint})
-	var root: Dictionary = model.nodes[0] if not model.nodes.is_empty() else {}
+	# R12 守卫（T4 评审判例随批补）：零节点文件=垃圾 .tscn，记 R1 早退——
+	# root={} 直进 R2/R11 臂会吃 null.props 崩（pre-existing 洞，非 R11 引入）
+	if model.nodes.is_empty():
+		add.call("R1", "场景零节点（.tscn 损坏/空文件）")
+		return out
+	var root: Dictionary = model.nodes[0]
 	# 双轨判形（D10）：R1 通过的两形态之一=壳形态；R2/R8 按形分派
 	var is_shell: bool = not root.is_empty() and (root.inst in model.exts) \
 			and model.exts[root.inst] == SHELL_PATH
@@ -175,6 +186,7 @@ func _check_file(path: String) -> Array:
 	_check_r8(model, add, is_shell, is_segment, is_template)
 	_check_r9(rooms, detectors, add)
 	_check_r10(model, add)
+	_check_r11(model, add)
 	return out
 
 
@@ -376,6 +388,21 @@ func _check_r10(model: Dictionary, add: Callable) -> void:
 		var layer: int = int(n.props.layer)
 		if layer >= 0:
 			add.call("R10", "Background CanvasLayer.layer=%d ≥0 会盖掉世界内容，须负档" % layer)
+
+
+func _check_r11(model: Dictionary, add: Callable) -> void:
+	# R11（法典第十条文本执法）：script=interact_trigger.gd 的节点必有
+	# CollisionShape2D 后代——感应盒缺形=隐身不可交互（雷区：发丝线不判交的
+	# 交互侧翻版）；实例化引入的触发件（instance= 行）脚本住在本体文件，
+	# 本文件解析不到 script 属性=不误伤（形状由其本体场景自证）。
+	for trig in _kind_nodes(model, TRIG_GD):
+		var has_shape := false
+		for n in model.nodes:
+			if n.type == "CollisionShape2D" and n.full.begins_with(trig.full + "/"):
+				has_shape = true
+				break
+		if not has_shape:
+			add.call("R11", "触发件 %s 无感应形状（零宽/缺形=隐身不可交互）" % trig.full)
 
 
 #--- 值解析小件 ------------------------------------------------------------------------------------

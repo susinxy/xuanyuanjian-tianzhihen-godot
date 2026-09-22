@@ -70,8 +70,9 @@
 - **推进与终点**：段清自动顺序推进，**无 StageExit 义务**（R8 壳形态豁免）；
   章节终点=终点段判清+无后继时 `chapter_finished` 信号（消费口=过场衔接批 B7），
   死亡=段重跑（D4），跨段回跳仍走暂停壳检查点；
-- **条 10/R11 预留**：段内 Area2D 交互件白名单规则（spec R11）属 B2 互动触发件批，
-  **本次未开账**——别在段里手写交互胶水，等立法。
+- **条 10/R11 已开账（S2-M1-B2）**：段内互动走通用触发件
+  `scenes/chapter/interact_trigger.tscn`（装配五条+R11 口径见第一章条 10），
+  **仍禁在段里手写交互胶水**。
 
 ### 0.3 FightRoom 三件套字段卡（逐项来源=ref A/B 实测绿）
 
@@ -115,7 +116,7 @@
    全清→通关面板、死亡→检查点表含本地点。
 （stage_contract 的 128 断言只绑 ref A/B 两台法定样板（含 A负B正 光照对偶锁 LC 组）；新地点由以上三件套+回归时顺扫的校验器保护。）
 
-## 一、装配九条（校验器 R1-R10 的法律来源）
+## 一、装配十条（校验器 R1-R11 的法律来源）
 
 - [ ] **1. 相机挂玩家下**：LevelCamera 实例是玩家角色节点的子节点（插件无目标
       查找，跟随=父子变换）；limit 初值给宽，由 FightRoom 运行时收束。
@@ -142,6 +143,28 @@
 - [ ] **9. 背景负档+光照空禁**：正式地点 Background CanvasLayer `layer` 必须 <0
       （R10 文本执法 + BaseStage canary 兜"默认 1"缺失案）；昼夜三件套骨架预置，
       `scene_time_data` 留空=自禁定格白天（装配合法态，非违例）。
+- [ ] **10. 互动触发件走通用件（S2-M1-B2 开账，R11 执法）**：段内 E 键互动一律
+      实例化 `scenes/chapter/interact_trigger.tscn`（`InteractTrigger`），**禁手写
+      Area2D+按键胶水**。装配五条：
+      ① **触发件挂段内**——它是 StageContent 的子节点（不挂壳、不另起节点），
+        感应盒世界坐标即落位点；`_ready` 自配 `collision_mask` 全高度层 +
+        `monitorable=false`（雷区 b 同款掩码配方），无需装配方填；
+      ② **感应形状必有实体矩形**——触发件本体自带 160×160 `RectangleShape2D`
+        （`Shape` 子节点），**零宽/缺形 = 不可交互**（发丝线不判交判例的交互侧翻版）：
+        校验器 **R11** 对"script 尾缀 `interact_trigger.gd` 却无 `CollisionShape2D`
+        后代"的节点直接红（instance 引入的触发件形状在其本体文件自证，不误伤）；
+      ③ **入口与触发件同址要 ≥2 帧后判在距**——落位屏蔽窗（R8 同族）内 Area 检测
+        尚未对既成重叠结算，装配上"进段即期望 interacted"是错的，反应件须等
+        `body_entered` 计数稳定（契约 I 组按此设时序）；
+      ④ **旗标门经壳 session**——`requires_flag` 非空时触发件走
+        `find_shell().session.has_flag()` 判定，无旗**静默拒发**（不吃键、不置消耗）；
+        解锁靠别处 `session.add_flag(同旗)`，段间旗标随壳 session 存续；
+      ⑤ **反应件是 trigger 子节点、连 `interacted` 信号**——宝箱/NPC 对话/门等
+        反馈逻辑挂为 InteractTrigger 的子 Area/Node，`_ready` 里
+        `get_parent().interacted.connect(...)`，一次性反应在链尾显式
+        `get_parent().consume()` 收口（Prompt 永久隐身 + 后续 E 不再响应）。
+      出口语义不变：互动件**不是**推进机制（条 8 的 StageExit / 段清链才是），
+      它只驱动"宝箱开/对话起/机关动"这类会话状态反应。
 
 ## 二、实证雷区（S1 施工期尸检报告，逐条真踩过）
 

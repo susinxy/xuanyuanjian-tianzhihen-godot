@@ -1,0 +1,26 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter/interact_trigger.gd" id="1_it"]
+
+[sub_resource type="RectangleShape2D" id="Rect_sense"]
+size = Vector2(160, 160)
+
+[node name="InteractTrigger" type="Area2D"]
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("1_it")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("Rect_sense")
+
+[node name="Prompt" type="Label" parent="."]
+visible = false
+offset_left = -80.0
+offset_top = -140.0
+offset_right = 80.0
+offset_bottom = -108.0
+scale = Vector2(3, 3)
+text = "互动"
+horizontal_alignment = 1
+mouse_filter = 2
