@@ -1,21 +1,28 @@
 extends Node
 
-## 互动触发件契约（S2-M1-B2 I/C/G 组）：InteractTrigger 的距感/E 键发射/
+## 互动触发件契约（S2-M1-B2 I/C/G/Q 组）：InteractTrigger 的距感/E 键发射/
 ## 一次性与冷却/旗标门/consume 消耗/提示随距翻转/摘树计数清算（I 组）+
-## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）。
+## 宝箱反应件 session 判重（C 组）+ 船闸限时强推复用 T2 链（G 组）+
+## 跳河 QTE 窗口循环/失败钳伤不死/距外按 E 零成本（Q 组）。
 ## 形制=container_contract 同款：每流完成旗（协程炸跳段防线）+
 ## _check/_frames/_wait_until。运行：
 ## godot --headless --path . res://tools/interact_contract/interact_contract.tscn
 
 const FIX_CHAPTER := "res://tools/interact_contract/fixtures/chapter_it.tscn"
 const FIX_CHAPTER2 := "res://tools/interact_contract/fixtures/chapter_it2.tscn"
+const FIX_CHAPTER3 := "res://tools/interact_contract/fixtures/chapter_it3.tscn"
+## Q 组时间预算与夹具同源（river：window 0.6 / pause 1.2 / damage 15，
+## 数值改一边必改另一边——cap 由这些常数推导，不留裸魔法数）
+const QTE_WINDOW := 0.6
+const QTE_PAUSE := 1.2
+const QTE_DAMAGE := 15
 ## I 组注入判例（法典输入流+控制器定档）：interact 绑定是 keycode:0 /
 ## physical:69，_unhandled_input 只收原始按键 → raw InputEventKey 双键位都填
 ## KEY_E（spell 盖戳判例同款），is_action_pressed 走默认 exact=false。
 
 var _fails := 0
 var _finished := false
-var _done := {}    # 各流完成旗：i1..i7 / c / g
+var _done := {}    # 各流完成旗：i1..i7 / c / g / q1..q4
 var _hits: Array[int] = []   # interacted 计数（lambda 捕获数组引用通道，E6 判例）
 var _chest_ids: Array[StringName] = []   # session.chest_opened 收录（C 组）
 var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
@@ -40,6 +47,14 @@ func _ready() -> void:
 	_check(bool(_done.get("c")), "C 流全序列执行完成（协程静默中断防线）")
 	await _flow_g()
 	_check(bool(_done.get("g")), "G 流全序列执行完成（协程静默中断防线）")
+	await _flow_q1()
+	_check(bool(_done.get("q1")), "Q1 流全序列执行完成（协程静默中断防线）")
+	await _flow_q2()
+	_check(bool(_done.get("q2")), "Q2 流全序列执行完成（协程静默中断防线）")
+	await _flow_q3()
+	_check(bool(_done.get("q3")), "Q3 流全序列执行完成（协程静默中断防线）")
+	await _flow_q4()
+	_check(bool(_done.get("q4")), "Q4 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -82,6 +97,13 @@ func _dismantle(shell: ChapterShell) -> void:
 func _find_trigger(shell: ChapterShell) -> InteractTrigger:
 	for n in shell._current.find_children("*", "", true, false):
 		if n is InteractTrigger:
+			return n
+	return null
+
+
+func _find_qte(shell: ChapterShell) -> InteractQte:
+	for n in shell._current.find_children("*", "", true, false):
+		if n is InteractQte:
 			return n
 	return null
 
@@ -375,3 +397,103 @@ func _flow_g() -> void:
 			"G3d 余尘静默：300 帧无后续强推/信标（作废倒计时不复活）")
 	await _dismantle(shell)
 	_done["g"] = true
+
+
+## Q1 成功腿：开窗→窗内 E→赢链落尾段 + 判清河段 + health 原样不动。
+func _flow_q1() -> void:
+	var shell := await _make_shell(FIX_CHAPTER3)
+	var qte := _find_qte(shell)
+	shell.playable.attributes.health_current = 100
+	var hp0: int = shell.playable.attributes.health_current
+	var opened: bool = await _wait_until(func(): return qte.window_open, 60)
+	_check(opened, "Q1a 出生河段开窗（window_open 有限帧内 true）")
+	await _press_e()
+	var landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_it_end", 600)
+	_check(landed, "Q1b 窗内 E → force 赢链落尾段（seg_it_end）")
+	await _frames(30)
+	_check(shell.session.is_cleared(&"seg_river"),
+ 			"Q1c T2 成功腿：赢链把河段（seg_river）判清")
+	_check(shell.playable.attributes.health_current == hp0,
+ 			"Q1d 成功不掉血：health 原样（hp0==hp_now）")
+	await _dismantle(shell)
+	_done["q1"] = true
+
+
+## Q2 失败循环：开窗不接→窗尾恰掉 damage、段不变、歇拍后 window_open 再 true。
+func _flow_q2() -> void:
+	var shell := await _make_shell(FIX_CHAPTER3)
+	var qte := _find_qte(shell)
+	shell.playable.attributes.health_current = 100
+	var opened: bool = await _wait_until(func(): return qte.window_open, 60)
+	_check(opened, "Q2a 前置：开窗")
+	var hp0: int = shell.playable.attributes.health_current
+	# 窗尾结算在到期帧内原子发生（window_open=false + failures++ + 掉血同步）
+	var failed: bool = await _wait_until(func(): return qte.failures == 1,
+ 			int((QTE_WINDOW + 0.5) * 60.0))
+	_check(failed, "Q2b 不接 → 窗尾 failures 0→1（window+margin 帧内）")
+	await _frames(2)
+	_check(shell.playable.attributes.health_current == hp0 - QTE_DAMAGE,
+ 			"Q2c 首败恰掉 damage（新==旧-damage，未触钳制）")
+	_check(shell.current_segment_id() == &"seg_river", "Q2d 失败不换段（仍在河段）")
+	_check(not qte.window_open, "Q2e 失败后进歇拍（window_open 转 false）")
+	var reopen: bool = await _wait_until(func(): return qte.window_open,
+ 			int((QTE_PAUSE + 0.5) * 60.0))
+	_check(reopen, "Q2f 歇拍后 window_open 再 true（循环可续，pause+margin 帧内）")
+	await _dismantle(shell)
+	_done["q2"] = true
+
+
+## Q3 钳伤不死：预置 health=10 → 两窗连败 → 恰钳到 1、未死、player_died 未发、段不变。
+func _flow_q3() -> void:
+	var shell := await _make_shell(FIX_CHAPTER3)
+	var qte := _find_qte(shell)
+	var died: Array[int] = []
+	var died_cb := func(): died.append(1)   # 存引用：全局 autoload 信号用完必摘
+	Events.player_died.connect(died_cb)
+	shell.playable.attributes.health_current = 10
+	var opened: bool = await _wait_until(func(): return qte.window_open, 60)
+	_check(opened and qte.failures == 0, "Q3a 前置：残血 10 开局、零失败")
+	# 两窗连败（各含一次歇拍→再开窗→再窗尾）
+	var two: bool = await _wait_until(func(): return qte.failures == 2,
+ 			int((2.0 * (QTE_WINDOW + QTE_PAUSE) + 0.5) * 60.0))
+	_check(two, "Q3b 两窗连败（failures==2）")
+	await _frames(2)
+	_check(shell.playable.attributes.health_current == 1,
+ 			"Q3c 钳制生效：残血 10 连败两窗恰钳到 1（maxi 下限，非 0/负）")
+	_check(died.is_empty(), "Q3d 悲剧只延迟不否决：Events.player_died 未收")
+	_check(shell.current_segment_id() == &"seg_river",
+ 			"Q3e 未触发死亡重跑：仍在河段")
+	Events.player_died.disconnect(died_cb)
+	await _dismantle(shell)
+	_done["q3"] = true
+
+
+## Q4 距外（歇拍相）按 E 零成本：不吃失败、不消耗窗口，下窗照排期开、窗内接=成功。
+func _flow_q4() -> void:
+	var shell := await _make_shell(FIX_CHAPTER3)
+	var qte := _find_qte(shell)
+	shell.playable.attributes.health_current = 100
+	# 先自然输掉首窗进入歇拍（不按键）
+	var failed: bool = await _wait_until(func(): return qte.failures == 1,
+ 			int((QTE_WINDOW + 0.5) * 60.0))
+	var in_cooldown: bool = await _wait_until(func(): return not qte.window_open, 60)
+	_check(failed and in_cooldown, "Q4a 前置：首窗已输、处歇拍（window_open=false）")
+	var f0: int = qte.failures
+	var hp0: int = shell.playable.attributes.health_current
+	await _press_e()
+	await _frames(3)
+	_check(qte.failures == f0, "Q4b 歇拍按 E：失败数不增（既非答案亦非新失）")
+	_check(shell.playable.attributes.health_current == hp0,
+ 			"Q4c 歇拍按 E：零掉血（不吃窗口=零成本）")
+	_check(shell.current_segment_id() == &"seg_river",
+ 			"Q4d 歇拍按 E：段未变（未提前跳过）")
+	var reopen: bool = await _wait_until(func(): return qte.window_open,
+ 			int((QTE_PAUSE + 0.5) * 60.0))
+	_check(reopen, "Q4e 下窗照排期开（歇拍按 E 未打乱节奏）")
+	await _press_e()
+	var landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_it_end", 600)
+	_check(landed, "Q4f 复开窗内 E → 成功落尾段")
+	await _dismantle(shell)
+	_done["q4"] = true

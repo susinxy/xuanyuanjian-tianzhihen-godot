@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="PackedScene" path="res://scenes/chapter/interact_trigger.tscn" id="2_trig"]
+[ext_resource type="Script" path="res://scripts/chapter/reactions/interact_qte.gd" id="3_qte"]
+
+[sub_resource type="RectangleShape2D" id="Rect_ground_river"]
+size = Vector2(2100, 200)
+
+[node name="SegItRiver" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"seg_river"
+
+[node name="GroundBody" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="GroundBody"]
+position = Vector2(950, 700)
+shape = SubResource("Rect_ground_river")
+
+[node name="River" parent="." instance=ExtResource("2_trig")]
+position = Vector2(500, 600)
+prompt_text = "跳河"
+repeatable = true
+
+[node name="Reaction" type="Node" parent="River"]
+script = ExtResource("3_qte")
+window = 0.6
+pause_between = 1.2
+damage = 15
