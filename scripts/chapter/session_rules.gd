@@ -7,6 +7,9 @@ extends RefCounted
 ## 防两份实现漂移。抽取口径=读 base_stage.gd 实况后仅取真实共享件，
 ## brief 草图的 collect_rooms 与实况房聚合形态不符，裁决弃用（见任务报告）。
 
+## 回标题落点（Minor-2 知情注记）：现状三处并存——本库（base/壳共用腿）+
+## pause_menu.gd 与 death_screen.gd 的各自私有常数（菜单件在本批抽取域外，
+## 未连坐）；单一存放点合并挂 S5 会话整合批，防漂移靠本行注记。
 const TITLE_PATH := "res://ui/menus/title_screen.tscn"
 
 
@@ -63,7 +66,10 @@ static func goto_title(tree: SceneTree) -> void:
 	ScreenTransitions.transition_to_scene(TITLE_PATH)
 
 
-## 原型重载（debug_restart 腿）：角色复位广播 + 延迟重载当前场景。
+## 原型重载（debug_restart 腿/章节重走）：**先显式解冻再重载**（B7 冻结所有权
+## 铁律：冻结树被重载继承=新壳出生即 paused、ESC 永闸=不可解软锁——终点面板
+## 正是冻结全树后拉"重走一遍"的现场）；随后角色复位广播 + 延迟重载当前场景。
 static func reload_prototype(tree: SceneTree) -> void:
+	tree.paused = false
 	Events.characters_reseted.emit()
 	tree.call_deferred("reload_current_scene")

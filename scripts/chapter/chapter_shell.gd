@@ -124,7 +124,8 @@ func _on_back_title() -> void:
 
 
 func _on_replay() -> void:
-	# 章节重走=原型重载（新会话：清场/旗标丢失——会话续档归 S5，D4 注同文）
+	# 章节重走=原型重载（新会话：清场/旗标丢失——会话续档归 S5，D4 注同文）。
+	# 解冻收口在 SessionRules.reload_prototype 共享腿（B7：冻结树不得跨重载）
 	reload_prototype()
 
 
