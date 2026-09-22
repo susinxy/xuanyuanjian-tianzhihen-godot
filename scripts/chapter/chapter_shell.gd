@@ -14,6 +14,8 @@ signal chapter_error(message: String)
 var session := ChapterSession.new()
 var _instances := {}          # segment_id -> 实例（常驻缓存，spec D12 缓存面）
 var _order: Array[StringName] = []
+var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first-wins；
+                              # 位置双轨在跳过坏段时会错位映射，判例修正）
 var _current: StageContent = null
 
 
@@ -34,6 +36,7 @@ func _ready() -> void:
 			inst.free()   # 扫描用即抛实例不是 RefCounted，不显式释放=退出期 ObjectDB 泄漏
 			continue
 		_order.append(inst.segment_id)
+		_scene_by_id[inst.segment_id] = sc   # 重复 id 已被上行拦下=天然 first-wins
 		inst.free()      # 同上：真身由 enter_segment 按需重新实例化（未清场=丢弃重建语义）
 	if _order.is_empty():
 		chapter_error.emit("零段可进（segment_scenes 空/全坏）")
@@ -74,14 +77,16 @@ func _instantiate(sc: PackedScene) -> StageContent:
 	if sc == null:
 		return null
 	var n := sc.instantiate()
-	return n as StageContent
+	if n == null:
+		return null
+	if not (n is StageContent):
+		n.free()   # 根类型不符=即抛实例，非 RefCounted 不释放=退出期泄漏
+		return null
+	return n
 
 
 func _scene_of(id: StringName) -> PackedScene:
-	for i in _order.size():
-		if _order[i] == id:
-			return segment_scenes[i]
-	return null
+	return _scene_by_id.get(id)
 
 
 func _remove_current() -> void:

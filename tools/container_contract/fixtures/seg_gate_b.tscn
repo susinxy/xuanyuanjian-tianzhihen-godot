@@ -23,7 +23,7 @@ use_spawner_position = true
 a = Vector2(0, -400)
 b = Vector2(0, 700)
 
-[node name="SegGateA" type="Node2D"]
+[node name="SegGateB" type="Node2D"]
 script = ExtResource("1_sc")
 segment_id = &"seg_b"
 
@@ -77,7 +77,7 @@ path_spawn_parent = NodePath("../../../../Players")
 spawn_waves = [[SubResource("SD_w1")]]
 
 [node name="PlayerDetector" type="Area2D" parent="Room1"]
-position = Vector2(140, 400)
+position = Vector2(240, 400)
 collision_layer = 0
 collision_mask = 16760832
 monitorable = false

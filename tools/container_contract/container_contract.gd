@@ -13,6 +13,7 @@ var _finished := false
 func _ready() -> void:
 	await _flow_session()
 	await _flow_enter()
+	_finished = true   # 全链末端才置位：早于任何后续流程会截断静默跳段防线
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ container-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -45,7 +46,6 @@ func _flow_session() -> void:
 	s.record_checkpoint(&"seg_02", &"gate")
 	_check(s.checkpoint_segment() == &"seg_02" and s.checkpoint_entry() == &"gate",
 			"S4 检查点记录段+入口名")
-	_finished = true
 
 
 func _wait_until(pred: Callable, cap: int = 600) -> bool:
@@ -71,7 +71,11 @@ func _flow_enter() -> void:
 	_check(shell.current_segment_id() == &"seg_a",
 			"E1a 章节就绪自动进入首段（段内锁房刷怪由 E1b 实证）")
 	var chen: QuiverCharacter = shell.playable
-	chen.global_position = Vector2(700, 600)
+	# 发丝检测线对"瞬移跨越"不判交（Godot 面积监控按 tick 离散重合，扫掠路径
+	# 不算——R6 落位后直跳 700 实测不触发即此引擎事实）：逐帧平移真实过线。
+	for x in range(500, 701, 25):
+		chen.global_position = Vector2(x, 600)
+		await get_tree().physics_frame
 	var spawned: bool = await _wait_until(func(): return _spar_count() == 1, 240)
 	_check(spawned, "E1b 进段后三件套照常：跨线锁房+波次刷怪")
 	shell.queue_free()
