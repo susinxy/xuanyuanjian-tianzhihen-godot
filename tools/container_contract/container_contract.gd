@@ -15,6 +15,7 @@ func _ready() -> void:
 	await _flow_session()
 	await _flow_enter()
 	await _flow_switch()
+	await _flow_agg()
 	_finished = true   # 全链末端才置位：早于任何后续流程会截断静默跳段防线
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ container-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
@@ -94,6 +95,13 @@ func _flow_switch() -> void:
 	_check(shell.current_segment_id() == &"seg_b"
 			and chen.is_inside_tree() and _spar_count() == 0,
 			"E2 切段：A 摘树/B 进树/玩家永驻且场上无敌残留")
+	# R8/spec C4 落位屏蔽窗：切换同帧新段检测器应闭合，数物理帧后恢复
+	var det_b := _first_detector(shell._current)
+	_check(det_b != null and det_b.monitoring == false,
+			"E2b 落位窗：新段检测器 monitoring 临时闭合（R8）")
+	await _frames(4)
+	_check(det_b != null and is_instance_valid(det_b) and det_b.monitoring == true,
+			"E2c 落位窗：有界帧内恢复 monitoring")
 	# E3 清场持久：回 A 前先标记清场 → 缓存复用（刷怪不复出）
 	shell.session.mark_cleared(&"seg_b")
 	await shell.switch_segment(&"seg_a", &"default")
@@ -111,6 +119,8 @@ func _flow_switch() -> void:
 	# E5 光照复位：进带色段后壳记录画布色=段配置（brief 简化口径：不摸引擎合成）
 	await shell.switch_segment(&"seg_c", &"default")
 	await _frames(4)
+	_check(_spar_count() == 0,
+			"E5+ 切换强清：E4 残留敌经策略 A 无存活（静默窗+tree_exited 结算）")
 	_check(_lighting_matches_seg_c(shell), "E5 段入场光照色由壳复位")
 	shell.queue_free()
 	await _frames(6)
@@ -121,3 +131,47 @@ func _lighting_matches_seg_c(shell: ChapterShell) -> bool:
 	var want: Color = probe.lighting_color
 	probe.free()
 	return shell.applied_lighting == want
+
+
+func _first_spar() -> QuiverCharacter:
+	for x in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if x is QuiverCharacter:
+			return x
+	return null
+
+
+func _first_detector(seg: StageContent) -> QuiverPlayerDetector:
+	for n in seg.find_children("*", "", true, false):
+		if n is QuiverPlayerDetector:
+			return n
+	return null
+
+
+func _flow_agg() -> void:
+	# E6 聚合链真覆盖（R10）：杀穿 spawner→段清广播→壳自动推进下一段。
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _frames(20)
+	var chen: QuiverCharacter = shell.playable
+	# R7 判例：跨线必须逐帧扫（瞬移跳变零宽线永不判交）
+	for x in range(500, 701, 25):
+		chen.global_position = Vector2(x, 600)
+		await get_tree().physics_frame
+	var spawned: bool = await _wait_until(func(): return _spar_count() == 1, 240)
+	_check(spawned, "E6a 前置：新段跨线刷怪")
+	var cleared_ids: Array[StringName] = []
+	shell.segment_cleared.connect(func(id): cleared_ids.append(id))
+	# 真死链（container_prototype 判例）：血归零+带竖直分量 launch，浅杀不走演出
+	var foe := _first_spar()
+	foe.attributes.health_current = 0
+	var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH,
+			Vector2(0.866, -0.5))
+	CombatSystem.apply_knockback(data, foe.attributes)
+	var done: bool = await _wait_until(func(): return not cleared_ids.is_empty(), 600)
+	_check(done and cleared_ids[0] == &"seg_a",
+			"E6b 聚合链：段内全 spawner 完成 → segment_cleared(seg_a) 广播")
+	var advanced: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_b", 600)
+	_check(advanced, "E6c 自动推进：段清链把壳按顺序推进到 seg_b")
+	shell.queue_free()
+	await _frames(6)

@@ -18,6 +18,8 @@ var _instances := {}          # segment_id -> 实例（常驻缓存，spec D12 �
 var _order: Array[StringName] = []
 var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first-wins；
                               # 位置双轨在跳过坏段时会错位映射，判例修正）
+var _seg_spawner_set := {}    # segment_id -> Array[QuiverEnemySpawner]（R9：段清判定
+                              # 的 spawner 集实源于接线期检测器 paths 并集）
 var _current: StageContent = null
 var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
 var _switching := false
@@ -83,6 +85,7 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 	_segments_root.add_child(_current)
 	playable.global_position = _current.to_global(
 			_current.entry_position(entry))
+	_suppress_detectors(_current)   # R8/C4：落位既成重叠不得误判为"跨线"
 	session.record_checkpoint(id, entry)
 	_wire_segment(_current)
 	_apply_lighting(_current)
@@ -144,23 +147,52 @@ func _apply_lighting(seg: StageContent) -> void:
 	_shell_canvas.color = seg.lighting_color
 
 
-## 三件套聚合接线（spec §3.1）：段内全部 spawner 的完成信号汇入段清判定。
+## R8（spec C4）：落位建立的既成重叠不得被当作"跨线"。入场即闭段内全部
+## 检测器 monitoring（存原值），2 物理帧后恢复；段被提前摘树时经
+## is_instance_valid 幂等免炸。恢复只走时间轴、不依赖下次入场补写。
+func _suppress_detectors(seg: StageContent) -> void:
+	var saved: Array = []
+	for det in seg.find_children("*", "", true, false):
+		if det is QuiverPlayerDetector:
+			saved.append([det, det.monitoring])
+			det.monitoring = false
+	if saved.is_empty():
+		return
+	for _i in 2:
+		await get_tree().physics_frame
+	for pair in saved:
+		if is_instance_valid(pair[0]):
+			pair[0].monitoring = pair[1]
+
+
+## 三件套聚合接线（spec §3.1，R9 实源化）：段清判定的 spawner 集取自检测器
+## paths_enemy_spawners 并集（运行时按段存 _seg_spawner_set）——枚举式判清
+## 在空集时会假性秒段清（静默跳段），实源集把该危害变成显式防呆。
 func _wire_segment(seg: StageContent) -> void:
+	var wired: Array[QuiverEnemySpawner] = []
 	for det in seg.find_children("*", "", true, false):
 		if not (det is QuiverPlayerDetector):
 			continue
 		for sp_path in det.paths_enemy_spawners:
 			var sp := det.get_node_or_null(sp_path) as QuiverEnemySpawner
-			if sp != null and not sp.all_waves_completed.is_connected(
+			if sp == null or sp in wired:
+				continue
+			wired.append(sp)
+			if not sp.all_waves_completed.is_connected(
 					_on_spawner_completed.bind(seg)):
 				sp.all_waves_completed.connect(_on_spawner_completed.bind(seg))
+	_seg_spawner_set[seg.segment_id] = wired
 	# 无房/无生成器的战斗空段防呆：进段即完成条件=auto_complete 已覆盖
+	# （实源集为空集时 _on_spawner_completed 显式拒判段清，双保险）
 
 
 func _on_spawner_completed(seg: StageContent) -> void:
-	# 段内全部 spawner 完成才算段清（多房段聚合）
-	for sp in seg.find_children("*", "Marker2D", true, false):
-		if sp is QuiverEnemySpawner and not sp.is_completed:
+	# 段内全部 spawner 完成才算段清（多房段聚合，集=接线期实源并集）
+	var spawners: Array = _seg_spawner_set.get(seg.segment_id, [])
+	if spawners.is_empty():
+		return
+	for sp in spawners:
+		if not is_instance_valid(sp) or not sp.is_completed:
 			return
 	_finish_segment(seg)
 
@@ -204,4 +236,5 @@ func _remove_current() -> void:
 	else:
 		_current.queue_free()
 		_instances.erase(sid)
+		_seg_spawner_set.erase(sid)   # 实源集随丢弃段失效（再入走 _wire_segment 重建）
 	_current = null
