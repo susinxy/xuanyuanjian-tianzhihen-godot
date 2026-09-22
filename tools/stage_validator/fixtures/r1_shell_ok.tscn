@@ -1,0 +1,38 @@
+[gd_scene load_steps=9 format=3 expect="none"]
+
+[ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="2_sc"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="3_room"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="4_sp"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="5_det"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="6_sd"]
+[ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="7_enemy"]
+
+[sub_resource type="Resource" id="wave0"]
+script = ExtResource("6_sd")
+enemy_scene = ExtResource("7_enemy")
+
+[node name="ShellOk" instance=ExtResource("1_shell")]
+chapter_id = &"shell_ok"
+
+[node name="SegA" type="Node2D" parent="Segments"]
+script = ExtResource("2_sc")
+segment_id = &"seg_a"
+entry_points = {
+&"default": Vector2(240, 400)
+}
+
+[node name="Room1" type="ReferenceRect" parent="Segments/SegA"]
+script = ExtResource("3_room")
+
+[node name="Spawner1" type="Marker2D" parent="Segments/SegA/Room1"]
+script = ExtResource("4_sp")
+path_spawn_parent = NodePath("../../../../Players")
+spawn_waves = [[SubResource("wave0")]]
+
+[node name="PlayerDetector" type="Area2D" parent="Segments/SegA/Room1"]
+collision_layer = 0
+monitorable = false
+script = ExtResource("5_det")
+path_fight_room = NodePath("..")
+paths_enemy_spawners = Array[NodePath]([NodePath("../Spawner1")])

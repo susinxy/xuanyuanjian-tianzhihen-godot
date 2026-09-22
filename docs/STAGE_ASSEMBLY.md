@@ -47,6 +47,32 @@
 7. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
    改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
 
+### 0.2b 容器形态双轨（S2-M1-B1 立形，spec D10：选形先于施工）
+
+**何时用哪轨**：单地点（ref A/B 类，一屏一仗）= **BaseStage 轨**（0.2 五件事不变）；
+**新章节一律 ChapterShell 轨**（多段串场+段级检查点+会话状态包），双轨零互扰。
+
+- **建文件**：新建场景→实例化 `scenes/chapter/chapter_shell.tscn` 为根→另存。
+  壳模板自带 Players/Chen+相机+HUD/暂停/终点面板+Ambient——**0.2 第 2/3 件在壳轨
+  由模板免费提供**，段内容件里禁再放任何壳件与 CanvasModulate（光照复位责任在壳）；
+- **壳根两导出**：`chapter_id`（StringName 非空，R2 壳形态主键；检查点按它注册）+
+  `segment_scenes`（Array[PackedScene]，顺序=推进序，重复 id/坏段运行时报 chapter_error）；
+- **段内容件（StageContent 根，`scripts/chapter/stage_content.gd`）**字段卡：
+  - `segment_id`：StringName，章内唯一（重复=扫描期 chapter_error）；
+  - `entry_points`：`{&"default": Vector2, ...}`，`&"default"` 必有且**必须放第一
+    检测线西侧前场区**——入口几何纪律是承重墙（裁决 R13：落位屏蔽 2 帧窗只是
+    串行化保险，既成重叠的根治靠摆位，雷区 i 的容器化）；坐标为**段内局部**；
+  - `lighting_color`：段入场画布色（壳的 CanvasModulate 复位输入；缺省白=中性）；
+  - `auto_complete`：非战斗段（过场/尾声）true=进段即判清推进；
+- **三件套层级与生成器路径**：房（ReferenceRect+room 脚本）**直接挂段根**
+  （`Segments/SegA/Room1` 形态），生成器 `path_spawn_parent =
+  NodePath("../../../../Players")`——段挂壳 Segments 下恒 4 级（R5 白名单第二形）；
+- **推进与终点**：段清自动顺序推进，**无 StageExit 义务**（R8 壳形态豁免）；
+  章节终点=终点段判清+无后继时 `chapter_finished` 信号（消费口=过场衔接批 B7），
+  死亡=段重跑（D4），跨段回跳仍走暂停壳检查点；
+- **条 10/R11 预留**：段内 Area2D 交互件白名单规则（spec R11）属 B2 互动触发件批，
+  **本次未开账**——别在段里手写交互胶水，等立法。
+
 ### 0.3 FightRoom 三件套字段卡（逐项来源=ref A/B 实测绿）
 
 **房（ReferenceRect + quiver_fight_room.gd）**
@@ -56,7 +82,7 @@
 - `preview_camera/preview_after_room=true` 仅编辑器预览着色。
 
 **生成器（Marker2D + quiver_enemy_spawner.gd）**
-- `path_spawn_parent = NodePath("../../../Level/Characters")` —— **必改**（上游默认值是错的，R5 红）；
+- `path_spawn_parent = NodePath("../../../Level/Characters")` —— **必改**（上游默认值是错的，R5 红；壳形态段内用 `../../../../Players`，见 0.2b）；
 - `spawn_waves = [[SD, SD, ...], [SD, ...]]` —— 外层=波序、内层=同波并发；SD 子资源形态照抄样板（`enemy_scene` 指真实存在的敌人 .tscn=R6；`spawn_mode=1`+`use_spawner_position=true`=参考默认，语义要调时查插件 Inspector 面板）；
 - `position` 是**相对房左上角**的落点（雷区 a）。
 

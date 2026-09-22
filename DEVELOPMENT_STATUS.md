@@ -168,6 +168,9 @@
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
+  - **S2-M1-B1 容器批（2026-09-22）**：ChapterShell/StageContent/ChapterSession/
+    SessionRules + validator 双轨（R1 两形态/R2 条件化/R5 白名单双形/R8 壳豁免）+
+    契约 container_contract（矩阵 23→24）
 - **S1 能力总评**：装配法典化/推进二态/事件总线/检查点自动注册四个设计决定全部
   经受住验收期考验；爆过的雷都在新机制缝里（相机/车道），且均已固化为断言。
   **能力使用手册 = `docs/STAGE_ASSEMBLY.md` 第〇章食谱**（新地点=五件事+免费清单，
