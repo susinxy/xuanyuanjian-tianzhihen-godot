@@ -1,0 +1,9 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
+[ext_resource type="PackedScene" path="res://tools/container_contract/fixtures/seg_gate_a.tscn" id="2_sega"]
+[ext_resource type="PackedScene" path="res://tools/container_contract/fixtures/seg_gate_b.tscn" id="3_segb"]
+
+[node name="ChapterFix" instance=ExtResource("1_shell")]
+chapter_id = &"fix"
+segment_scenes = Array[PackedScene]([ExtResource("2_sega"), ExtResource("3_segb")])

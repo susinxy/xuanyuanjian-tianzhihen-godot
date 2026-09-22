@@ -4,12 +4,15 @@ extends Node
 ## 段检查点（D 组）、壳件（H 组）。运行：
 ## godot --headless --path . res://tools/container_contract/container_contract.tscn
 
+const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
+
 var _fails := 0
 var _finished := false
 
 
 func _ready() -> void:
 	await _flow_session()
+	await _flow_enter()
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	print("════════ container-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -43,3 +46,33 @@ func _flow_session() -> void:
 	_check(s.checkpoint_segment() == &"seg_02" and s.checkpoint_entry() == &"gate",
 			"S4 检查点记录段+入口名")
 	_finished = true
+
+
+func _wait_until(pred: Callable, cap: int = 600) -> bool:
+	for _i in cap:
+		if pred.call():
+			return true
+		await get_tree().physics_frame
+	return pred.call()
+
+
+func _spar_count() -> int:
+	var n := 0
+	for x in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if x is QuiverCharacter:
+			n += 1
+	return n
+
+
+func _flow_enter() -> void:
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _frames(20)
+	_check(shell.current_segment_id() == &"seg_a",
+			"E1a 章节就绪自动进入首段（段内锁房刷怪由 E1b 实证）")
+	var chen: QuiverCharacter = shell.playable
+	chen.global_position = Vector2(700, 600)
+	var spawned: bool = await _wait_until(func(): return _spar_count() == 1, 240)
+	_check(spawned, "E1b 进段后三件套照常：跨线锁房+波次刷怪")
+	shell.queue_free()
+	await _frames(6)
