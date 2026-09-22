@@ -69,10 +69,13 @@ func _on_player_died() -> void:
 ## 自等协程 resume-on-freed"这一与 R12 同族的雷；I2：与在途切段天然互斥）。
 ## 复活（回血+动作脑复位）排在链尾静默窗**之后**——顺序判例（D1 实测）：
 ## 先回血=给在场敌 90 帧无抗打靶窗，落位时血已非满（71/101 案）。
+## revive=true 是本 API 与强制推进的分水岭（F-1）：死亡重跑必复活，
+## force_advance_current 只落位/推进不治疗。
 func restart_segment(why: StringName = &"manual") -> void:
 	if playable == null:
 		return
-	switch_segment(session.checkpoint_segment(), session.checkpoint_entry(), why)
+	switch_segment(session.checkpoint_segment(), session.checkpoint_entry(),
+			why, true)
 
 
 ## 复活真身（R2+I5）：满血+额度/旗标回满、动作脑重入 initial_state、输入
@@ -95,14 +98,14 @@ func _revive_playable() -> void:
 
 
 ## 曹氏血崩等"历史不可变强制推进"（spec D6）：当前段判清+前进。
-## I1：旧实现的 `_switching` 早退闸门会把本调用静默吞掉（判清了、发了
-## restarted、段却没换）——现走代际转场链：并发时最新意图接管落位；终点
-## 失败只发 segment_advance_failed，不会伪报 segment_restarted。
+## 纯推进**不复活**（F-1）：残血/断法/输入窗状态原样带进新段——剧情跳段
+## 不是免费治疗。判清持久化的登记延迟到链内解析成功**之后**（F-2）：
+## 终点失败只发 segment_advance_failed，当前段不被伪判清、原地不动。
 func force_advance_current(reason: StringName) -> void:
 	if _current == null:
 		return
-	session.mark_cleared(_current.segment_id)
-	switch_segment.call_deferred(&"", &"default", reason)
+	switch_segment.call_deferred(&"", &"default", reason, false,
+			_current.segment_id)
 
 
 func current_segment_id() -> StringName:
@@ -153,11 +156,12 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 ## 落位链（I2/I3/I1）：
 ## · 代际互斥——每次成功登记意图 +1，链尾对号，陈旧链让位（最新意图胜出）；
 ## · 终点失败发生在登记代际**之前**，只发 segment_advance_failed，绝不把
-##   在途链顶成孤儿（否则两头不落地=卡死）；
-## · restart_why 为链局部量：链被顶掉则 its 信标随之作废，不会串到别的链上
-##   误发 segment_restarted。
+##   在途链顶成孤儿（否则两头不落地=卡死），mark_cleared_after 同被扣下（F-2）；
+## · restart_why / revive 均为链局部量：链被顶掉则信标与复活随之作废，
+##   不会串到别的链上误发（F-1：why≠复活——强制推进带 why 但 revive=false）。
 func switch_segment(id: StringName = &"", entry: StringName = &"default",
-		restart_why: StringName = &"") -> void:
+		restart_why: StringName = &"", revive: bool = false,
+		mark_cleared_after: StringName = &"") -> void:
 	var target := id
 	if target == &"":
 		var idx := _order.find(current_segment_id())
@@ -165,12 +169,14 @@ func switch_segment(id: StringName = &"", entry: StringName = &"default",
 			segment_advance_failed.emit("章节终点（无后继段）")
 			return
 		target = _order[idx + 1]
+	if mark_cleared_after != &"":
+		session.mark_cleared(mark_cleared_after)   # F-2：解析成功才落判清
 	_transition_gen += 1
 	var gen := _transition_gen
 	await _settle_before_switch()
 	if gen != _transition_gen:
 		return   # I2：更新意图（含迟到的死亡重跑）已接管落位，本链让位
-	if restart_why != &"":
+	if revive:
 		_revive_playable()
 	enter_segment(target, entry)
 	if restart_why != &"":
@@ -179,6 +185,8 @@ func switch_segment(id: StringName = &"", entry: StringName = &"default",
 
 ## 切换三拍（spec §3.4 C2/C3）：静默窗让在途 tween 落位；
 ## 在场敌强清（策略 A）并等 tree_exited 结算有界 120 帧。
+## 裁决备忘：强清**不会**触发段清推进——spawner 完成只认真实死亡链
+## （quiver_enemy_spawner.gd:94-98），被 queue_free 的在场敌永不计波。
 func _settle_before_switch() -> void:
 	await _frames(90)
 	var live := _live_enemies()

@@ -268,6 +268,17 @@ func _flow_death() -> void:
 	_check(single and entered == [&"seg_a"]
 			and shell.current_segment_id() == &"seg_a",
 			"D3 I2 并发切段：仅最新意图落位一次，陈旧链静默让位")
+	# --- D4（F-1/spec D6）：强制推进=纯推进，绝不隐式复活（剧情跳段≠免费治疗）
+	chen.attributes.health_current = 40   # 带残血过链
+	var adv_why: Array[StringName] = []
+	shell.segment_restarted.connect(func(w): adv_why.append(w))
+	shell.force_advance_current(&"scripted")
+	var adv_landed: bool = await _wait_until(
+			func(): return shell.current_segment_id() == &"seg_b", 600)
+	await _frames(30)   # 宽限盖过链尾信标，防"先到后改"竞态漏网
+	_check(adv_landed and chen.attributes.health_current == 40
+			and adv_why == [&"scripted"],
+			"D4 强制推进：残血原样带段/信标恰一次（无 reset 满血无复活复位）")
 	shell.queue_free()
 	await _frames(6)
 	_death_done = true
