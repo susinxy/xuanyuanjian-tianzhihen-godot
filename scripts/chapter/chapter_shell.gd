@@ -218,12 +218,15 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 
 
 ## 顺序推进（id 空=下一段）；段清除链的出口，也是 restart/强制推进的共用
-## 落位链（I2/I3/I1）：
+## 落位链（I2/I3/I1；B2-T1 起为**同步登记 + SwitchFlow 载体**，本函数不再
+## 是协程——await-self 收口，见 scripts/chapter/switch_flow.gd）：
 ## · 代际互斥——每次成功登记意图 +1，链尾对号，陈旧链让位（最新意图胜出）；
 ## · 终点失败发生在登记代际**之前**，只发 segment_advance_failed，绝不把
 ##   在途链顶成孤儿（否则两头不落地=卡死），mark_cleared_after 同被扣下（F-2）；
 ## · restart_why / revive 均为链局部量：链被顶掉则信标与复活随之作废，
 ##   不会串到别的链上误发（F-1：why≠复活——强制推进带 why 但 revive=false）。
+## 跨文件下划线调用（_transition_gen/_revive_playable/_live_enemies）系刻意
+## 安排（GDScript 无 private），判例互指见 switch_flow.gd。
 func switch_segment(id: StringName = &"", entry: StringName = &"default",
 		restart_why: StringName = &"", revive: bool = false,
 		mark_cleared_after: StringName = &"") -> void:
@@ -238,15 +241,10 @@ func switch_segment(id: StringName = &"", entry: StringName = &"default",
 	if mark_cleared_after != &"":
 		session.mark_cleared(mark_cleared_after)   # F-2：解析成功才落判清
 	_transition_gen += 1
-	var gen := _transition_gen
-	await _settle_before_switch()
-	if gen != _transition_gen:
-		return   # I2：更新意图（含迟到的死亡重跑）已接管落位，本链让位
-	if revive:
-		_revive_playable()
-	enter_segment(target, entry)
-	if restart_why != &"":
-		segment_restarted.emit(restart_why)
+	# 静默窗/强清/结算整段移交 RefCounted 载体（fire-and-forget；登记即返，
+	# 时序与旧协程体逐位等价——T1 红线；mark 后移另案 T2）
+	SwitchFlow.start(self, _transition_gen, target, entry, restart_why,
+			revive, mark_cleared_after)
 
 
 ## 终点撞墙链的完成判定（T5/B7）：**当前（终点）段已判清**才广播 chapter_finished，
@@ -262,27 +260,9 @@ func _maybe_finish_chapter() -> void:
 	chapter_finished.emit()
 
 
-## 切换三拍（spec §3.4 C2/C3）：静默窗让在途 tween 落位；
-## 在场敌强清（策略 A）并等 tree_exited 结算有界 120 帧。
-## 裁决备忘：强清**不会**触发段清推进——spawner 完成只认真实死亡链
-## （quiver_enemy_spawner.gd:94-98），被 queue_free 的在场敌永不计波。
-func _settle_before_switch() -> void:
-	await _frames(90)
-	var live := _live_enemies()
-	for e in live:
-		e.queue_free()
-	if not live.is_empty():
-		var waited := 0
-		while _live_enemies().size() > 0 and waited < 120:
-			await get_tree().physics_frame
-			waited += 1
-
-
-func _frames(n: int) -> void:
-	for _i in n:
-		await get_tree().physics_frame
-
-
+## 在场敌查询（B2-T1 起由 scripts/chapter/switch_flow.gd 经 instance id 调用——
+## 跨文件下划线互指判例见 switch_segment 头注）：切换强清的 targets 与
+## tree_exited 结算窗观察面。
 func _live_enemies() -> Array:
 	var out: Array = []
 	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):

@@ -9,6 +9,11 @@ const FIX_SEG_C := "res://tools/container_contract/fixtures/seg_light_c.tscn"
 const FIX_SEG_A := "res://tools/container_contract/fixtures/seg_gate_a.tscn"
 ## E7 炸窗自测子进程场景（Task 6 双保险第二层的靶面）
 const FIX_E7_PROBE := "res://tools/container_contract/fixtures/e7_late_cb_probe.tscn"
+## E8 孤儿链自测子进程场景（B2-T1：切换链在途时壳被删的靶面）
+const FIX_E8_PROBE := "res://tools/container_contract/fixtures/e8_orphan_probe.tscn"
+## resume-on-freed stderr 指纹稳定核（R7 定档；本机 4.7.1 Linux 实测不可达，
+## 本断言作 Windows 侧回归锁，Linux 恒绿无害——承红见 E8c 结构守卫）
+const E8_FREED_FINGERPRINT := "Resumed function"
 ## D1 行容差带：入口 y=地面顶线，角色碰撞体在原点下沿 ~20px，落位后首个
 ## 物理帧即被顶到静止位（实测 579.93，任何入场同款）——带宽由入口坐标推导。
 const SETTLE_TOLERANCE := 24.0
@@ -18,6 +23,7 @@ var _finished := false
 var _death_done := false   # D 流全序列旗（子协程炸尾防线，见 _flow_death 注）
 var _kit_done := false     # H 流全序列旗（同款炸跳段防线）
 var _e7_done := false      # E7 流全序列旗（同款防线）
+var _orphan_done := false  # E8 流全序列旗（B2-T1 同款防线）
 
 
 func _ready() -> void:
@@ -27,6 +33,8 @@ func _ready() -> void:
 	await _flow_agg()
 	await _flow_guard()
 	_check(_e7_done, "E7 流全序列执行完成（协程静默中断防线）")
+	await _flow_orphan()
+	_check(_orphan_done, "E8 流全序列执行完成（协程静默中断防线）")
 	await _flow_death()
 	# 判例（4.7 探针实锤）：await 的子协程运行时炸掉后**父协程照常续跑**，
 	# _finished 拦不住"子流尾段静默蒸发"——每流自带完成旗单独锁。
@@ -106,9 +114,11 @@ func _flow_switch() -> void:
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
-	# E2 主动切换：摘挂+落位+玩家留存
+	# E2 主动切换：摘挂+落位+玩家留存（switch 登记即返，等链落位——B2-T1 后
+	# switch_segment 不再是协程，观察面从 await 完成改为落位轮询）
 	var chen: QuiverCharacter = shell.playable
-	await shell.switch_segment(&"seg_b", &"default")
+	shell.switch_segment(&"seg_b", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_b", 600)
 	_check(shell.current_segment_id() == &"seg_b"
 			and chen.is_inside_tree() and _spar_count() == 0,
 			"E2 切段：A 摘树/B 进树/玩家永驻且场上无敌残留")
@@ -121,20 +131,24 @@ func _flow_switch() -> void:
 			"E2c 落位窗：有界帧内恢复 monitoring")
 	# E3 清场持久：回 A 前先标记清场 → 缓存复用（刷怪不复出）
 	shell.session.mark_cleared(&"seg_b")
-	await shell.switch_segment(&"seg_a", &"default")
-	await shell.switch_segment(&"seg_b", &"default")
+	shell.switch_segment(&"seg_a", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_a", 600)
+	shell.switch_segment(&"seg_b", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_b", 600)
 	_check(_spar_count() == 0,
 			"E3 已清场段缓存复用：零复活（清场持久本体）")
 	# E4 未清场丢弃：seg_a 被踢出后再进=全新（检测器可再触发）。
 	# R7 判例：零宽线对瞬移跳变永不判交，必须逐帧扫线（同 E1b 模式）。
-	await shell.switch_segment(&"seg_a", &"default")
+	shell.switch_segment(&"seg_a", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_a", 600)
 	for x in range(500, 701, 25):
 		chen.global_position = Vector2(x, 600)
 		await get_tree().physics_frame
 	var respawn: bool = await _wait_until(func(): return _spar_count() == 1, 240)
 	_check(respawn, "E4 未清场丢弃重建：段重试可再触发（检测器自毁语义闭环）")
 	# E5 光照复位：进带色段后壳记录画布色=段配置（brief 简化口径：不摸引擎合成）
-	await shell.switch_segment(&"seg_c", &"default")
+	shell.switch_segment(&"seg_c", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_c", 600)
 	await _frames(4)
 	_check(_spar_count() == 0,
 			"E5+ 切换强清：E4 残留敌经策略 A 无存活（静默窗+tree_exited 结算）")
@@ -204,26 +218,14 @@ func _flow_agg() -> void:
 ## 捕获通道判例（4.7.1 实测）：OS.execute 的 output 数组在本环境恒空（连
 ## echo 都捕不到）——改走 shell 重定向到临时文件再读；OS.execute 实测阻塞
 ## 至子进程退出（不放心仍留有限轮询）。双平台：Windows 用户端同样可跑。
+## （B2-T1 R5：执行/轮询本体提为共享 helper _run_probe_subprocess，
+## E7a/E7b 两断言原文不动=该 helper 的逐位哨兵。）
 func _flow_guard() -> void:
 	var log_path := OS.get_temp_dir().path_join("xuanyuan_e7_probe.log")
-	if FileAccess.file_exists(log_path):
-		DirAccess.remove_absolute(log_path)
-	var inner := '"%s" --headless --path "%s" "%s" --quit-after 3600' % [
-			OS.get_executable_path(),
-			ProjectSettings.globalize_path("res://"), FIX_E7_PROBE]
-	var err := OK
-	if OS.get_name() == "Windows":
-		err = OS.execute("cmd", ["/c", inner + ' 1>"%s" 2>&1' % log_path],
-				PackedStringArray(), false, false)
-	else:
-		err = OS.execute("/bin/sh", ["-c", inner + ' > "%s" 2>&1' % log_path],
-				PackedStringArray(), false, false)
-	var text := ""
-	for _i in 600:   # 有限轮询：等子进程落盘（正常首轮即中）
-		text = FileAccess.get_file_as_string(log_path)
-		if text.contains("E7PROBE-DONE"):
-			break
-		await get_tree().physics_frame
+	var texts: Array = await _run_probe_subprocess(
+			FIX_E7_PROBE, log_path, log_path, "E7PROBE-DONE")
+	var err: int = texts[3]
+	var text: String = "%s\n%s" % [texts[0], texts[1]]
 	var window := text.contains("E7PROBE-LOCKED true") \
 			and text.contains("E7PROBE-DETACHED true")
 	var done := text.contains("E7PROBE-DONE")
@@ -233,8 +235,87 @@ func _flow_guard() -> void:
 			"E7b finished 迟到回调在出树房间不再炸（子进程输出无收口函数指纹）")
 	if not (window and done):
 		print("──── E7 子进程现场（尾 2000 字）────\n", text.right(2000))
-	DirAccess.remove_absolute(log_path)
 	_e7_done = true
+
+
+## 探针子进程共享运行体（B2-T1 R5 自 E7 段提取；两流共用）。
+## out_path==err_path 时走 E7 原形态 `2>&1` 合流；分写时两路各自重定向。
+## 返回 [stdout 文本, stderr 文本, 落盘哨兵是否等到, OS.execute 错误码]；
+## 临时文件读毕即清。有限轮询 10s 兜底（正常子进程退出首轮即中）。
+func _run_probe_subprocess(target_scene: String, out_path: String,
+		err_path: String, sentinel: String, max_frames: int = 600) -> Array:
+	for p in [out_path, err_path]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
+	var inner := '"%s" --headless --path "%s" "%s" --quit-after 3600' % [
+			OS.get_executable_path(),
+			ProjectSettings.globalize_path("res://"), target_scene]
+	var err := OK
+	var redir: String
+	var merged := out_path == err_path
+	if merged:
+		redir = ' 1>"%s" 2>&1' % out_path
+	elif OS.get_name() == "Windows":
+		redir = ' 1>"%s" 2>"%s"' % [out_path, err_path]
+	else:
+		redir = ' > "%s" 2> "%s"' % [out_path, err_path]
+	if OS.get_name() == "Windows":
+		err = OS.execute("cmd", ["/c", inner + redir],
+				PackedStringArray(), false, false)
+	else:
+		err = OS.execute("/bin/sh", ["-c", inner + redir],
+				PackedStringArray(), false, false)
+	var out := ""
+	var found := false
+	for _i in max_frames:   # 有限轮询：等子进程落盘（正常首轮即中）
+		out = FileAccess.get_file_as_string(out_path)
+		if out.contains(sentinel):
+			found = true
+			break
+		await get_tree().physics_frame
+	var errt := out if merged else FileAccess.get_file_as_string(err_path)
+	DirAccess.remove_absolute(out_path)
+	if not merged:
+		DirAccess.remove_absolute(err_path)
+	return [out, errt, found, err]
+
+
+## E8（B2-T1，终审 Issue 1）：切换链在途时壳被删=await-self 炸点收口锁。
+## 三段判据：E8c 结构守卫（本体承红）——修复前 switch_segment 是壳协程，
+## callv 动态调用返回在途 GDScriptFunctionState（≠null 即红）；收口后同步
+## 登记+RefCounted 载体，返回 null。为何走 callv：裸直调在修复前后都编译
+## 合法（D3 现例），静态取返回值在修复前是 parse error——动态通道是两侧
+## 唯一合法观察窗。E8a/E8b 子进程对（e8_orphan_probe 靶面 + 共享 helper）：
+## 壳在 90 帧静默窗正中删除、链孤儿化，子进程仍须跑完收口且不吐
+## resume-on-freed 指纹。**Step 0 实探判词（Linux 4.7.1 headless）**：
+## 修复前靶面全部静默死亡零输出（GDScriptInstance 析构先断开在途协程的
+## 信号连接，godot 4.7 gdscript.cpp:2066-2079），"Resumed function" 指纹
+## 在本平台不可达 → E8b 在 Linux 恒绿、仅作 Windows 侧回归锁（R7 定档）。
+func _flow_orphan() -> void:
+	# E8c：结构守卫（进程内动态调用，修复前必红）
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	add_child(shell)
+	await _frames(20)   # 让 _ready 进首段链跑完
+	var r: Variant = shell.callv(&"switch_segment",
+			[&"seg_b", &"default", &"", false, &""])
+	_check(r == null, "E8c switch_segment 不再是壳协程（动态调用返回=%s）" % r)
+	shell.queue_free()
+	await _frames(6)
+	# E8a/E8b：子进程靶面（stdout/stderr 分文件捕获）
+	var tmp := OS.get_temp_dir()
+	var texts: Array = await _run_probe_subprocess(FIX_E8_PROBE,
+			tmp.path_join("xuanyuan_e8_out.txt"),
+			tmp.path_join("xuanyuan_e8_err.txt"), "E8-DONE", 1200)
+	var code: int = texts[3]
+	var txt := String(texts[0])
+	var errt := String(texts[1])
+	_check(code == OK and txt.contains("E8-DONE"),
+			"E8a 炸链真实构造：壳在切换窗中被删且子进程跑完（非假绿）")
+	_check(not errt.contains(E8_FREED_FINGERPRINT),
+			"E8b 在途链孤儿化不再 resume-on-freed（指纹=%s）" % E8_FREED_FINGERPRINT)
+	if not txt.contains("E8-DONE"):
+		print("──── E8 子进程现场（尾 2000 字）────\n", txt.right(2000))
+	_orphan_done = true
 
 
 func _one_shot_attack() -> QuiverAttackData:
@@ -408,9 +489,11 @@ func _flow_shellkit() -> void:
 	var failed: Array[String] = []
 	shell.segment_advance_failed.connect(func(r): failed.append(r))
 	shell.session.mark_cleared(&"seg_a")
-	await shell.switch_segment(&"seg_b", &"default")
+	shell.switch_segment(&"seg_b", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_b", 600)
 	shell.session.mark_cleared(&"seg_b")
-	await shell.switch_segment(&"seg_c", &"default")
+	shell.switch_segment(&"seg_c", &"default")
+	await _wait_until(func(): return shell.current_segment_id() == &"seg_c", 600)
 	_check(shell.current_segment_id() == &"seg_c", "H6a 三段夹具按序推进到终点段")
 	# 终点强推（未判清）：F-2 只发失败、不判清、不发章节完成
 	shell.force_advance_current(&"h6")
