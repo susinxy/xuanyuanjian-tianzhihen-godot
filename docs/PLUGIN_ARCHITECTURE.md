@@ -1122,6 +1122,10 @@ func setup_after_fight_room() # 战斗结束 → 切换到战后区域
   不清速度）。背景：相机隐形墙随推近 Tween 扫掠，0.8s 过渡里退到缝隙后方的
   玩家会被落在实体墙背面（扫掠吞人 F5 案）——语义="锁房动作不许把任何人留在
   墙外"；参考实现与回归锁见 stage_contract C2.5。
+  **树守卫（2026-09-21，S2 容器批）**：函数首行 `is_inside_tree()` 早退——
+  tween.finished 迟到时本房间可能已被章节壳摘树（清场缓存段走 `remove_child`
+  保活腿：房间出树不死），`get_tree()` 为空即炸（spike C2 实锤）；与壳切换
+  90 帧静默窗构成双保险，回归锁 container_contract E7（子进程指纹判分）。
 - **`_fit_zoom`（夹紧纯函数）**：战斗 `zoom` 走属性 setter、`after_fight_zoom`
   在 setup 时消费，两路共用同一式（zoom ≥ 主轴"房间收进视口"比）。此前 after
   路径裸值消费不夹——after 房一旦宽过视口即把墙推出镜头=无条件出屏。

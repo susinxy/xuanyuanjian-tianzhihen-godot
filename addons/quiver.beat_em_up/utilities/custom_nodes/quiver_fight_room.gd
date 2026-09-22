@@ -194,6 +194,11 @@ func _connect_settle_clamp(tween: Tween, p_l: int, p_t: int, p_r: int, p_b: int)
 
 ## 只钳位置不清速度：击飞弹道/受击滑移原样保留，撞墙弹归状态门那套管。
 func _clamp_players_into_room(p_l: int, p_t: int, p_r: int, p_b: int) -> void:
+	# 容器切换判例（2026-09-21 spike C2）：tween.finished 迟到时本节点可能
+	# 已摘树（清场缓存段 remove_child 保活——房间出树不死），get_tree() 为空
+	# ——守卫先行（双保险第二层；第一层=壳切换 90 帧静默窗）
+	if not is_inside_tree():
+		return
 	var inset := Rect2(
 			p_l + SETTLE_CLAMP_MARGIN, p_t + SETTLE_CLAMP_MARGIN,
 			maxf(0.0, p_r - p_l - 2.0 * SETTLE_CLAMP_MARGIN),

@@ -7,6 +7,8 @@ extends Node
 const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
 const FIX_SEG_C := "res://tools/container_contract/fixtures/seg_light_c.tscn"
 const FIX_SEG_A := "res://tools/container_contract/fixtures/seg_gate_a.tscn"
+## E7 炸窗自测子进程场景（Task 6 双保险第二层的靶面）
+const FIX_E7_PROBE := "res://tools/container_contract/fixtures/e7_late_cb_probe.tscn"
 ## D1 行容差带：入口 y=地面顶线，角色碰撞体在原点下沿 ~20px，落位后首个
 ## 物理帧即被顶到静止位（实测 579.93，任何入场同款）——带宽由入口坐标推导。
 const SETTLE_TOLERANCE := 24.0
@@ -15,6 +17,7 @@ var _fails := 0
 var _finished := false
 var _death_done := false   # D 流全序列旗（子协程炸尾防线，见 _flow_death 注）
 var _kit_done := false     # H 流全序列旗（同款炸跳段防线）
+var _e7_done := false      # E7 流全序列旗（同款防线）
 
 
 func _ready() -> void:
@@ -22,6 +25,8 @@ func _ready() -> void:
 	await _flow_enter()
 	await _flow_switch()
 	await _flow_agg()
+	await _flow_guard()
+	_check(_e7_done, "E7 流全序列执行完成（协程静默中断防线）")
 	await _flow_death()
 	# 判例（4.7 探针实锤）：await 的子协程运行时炸掉后**父协程照常续跑**，
 	# _finished 拦不住"子流尾段静默蒸发"——每流自带完成旗单独锁。
@@ -187,6 +192,49 @@ func _flow_agg() -> void:
 	_check(advanced, "E6c 自动推进：段清链把壳按顺序推进到 seg_b")
 	shell.queue_free()
 	await _frames(6)
+
+
+## E7（Task 6，spike C2 双保险第二层）：锁房收口 tween 的 finished 迟到落在
+## "清场缓存段 remove_child 保活"的出树房间上 → get_tree()==null 炸。
+## SCRIPT ERROR 只存在于引擎进程 stderr，本进程内无从断言"无错"——故炸窗
+## 由 fork 的 --headless 子进程（e7_late_cb_probe）走真实引擎事件流构造，
+## 父进程拿子进程全输出做指纹判定：守卫前必真红（实测指纹=
+## "Cannot call method 'get_nodes_in_group' on a null value" 回溯点名
+## _clamp_players_into_room），守卫后绿；刻痕断言防"窗口没搭起来"的假绿。
+## 捕获通道判例（4.7.1 实测）：OS.execute 的 output 数组在本环境恒空（连
+## echo 都捕不到）——改走 shell 重定向到临时文件再读；OS.execute 实测阻塞
+## 至子进程退出（不放心仍留有限轮询）。双平台：Windows 用户端同样可跑。
+func _flow_guard() -> void:
+	var log_path := OS.get_temp_dir().path_join("xuanyuan_e7_probe.log")
+	if FileAccess.file_exists(log_path):
+		DirAccess.remove_absolute(log_path)
+	var inner := '"%s" --headless --path "%s" "%s" --quit-after 3600' % [
+			OS.get_executable_path(),
+			ProjectSettings.globalize_path("res://"), FIX_E7_PROBE]
+	var err := OK
+	if OS.get_name() == "Windows":
+		err = OS.execute("cmd", ["/c", inner + ' 1>"%s" 2>&1' % log_path],
+				PackedStringArray(), false, false)
+	else:
+		err = OS.execute("/bin/sh", ["-c", inner + ' > "%s" 2>&1' % log_path],
+				PackedStringArray(), false, false)
+	var text := ""
+	for _i in 600:   # 有限轮询：等子进程落盘（正常首轮即中）
+		text = FileAccess.get_file_as_string(log_path)
+		if text.contains("E7PROBE-DONE"):
+			break
+		await get_tree().physics_frame
+	var window := text.contains("E7PROBE-LOCKED true") \
+			and text.contains("E7PROBE-DETACHED true")
+	var done := text.contains("E7PROBE-DONE")
+	_check(err == OK and window and done,
+			"E7a 炸窗真实构造：锁房 tween 在途 + 缓存段摘树保活 + 子进程跑完")
+	_check(done and not text.contains("_clamp_players_into_room"),
+			"E7b finished 迟到回调在出树房间不再炸（子进程输出无收口函数指纹）")
+	if not (window and done):
+		print("──── E7 子进程现场（尾 2000 字）────\n", text.right(2000))
+	DirAccess.remove_absolute(log_path)
+	_e7_done = true
 
 
 func _one_shot_attack() -> QuiverAttackData:
