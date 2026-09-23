@@ -11,7 +11,8 @@ extends Node
 ##  对照   信标→idle 消化2拍→再进 attack1（应二次信标）
 ##  H1     信标同一同步栈内 idle→attack1 背靠背双转换（模拟信标帧内
 ##         FSM 退场+缓冲输入再进场，树一帧未走）
-##  H3     末段（pos≥0.30）树 active 置假 3 个物理帧（HitFreeze 型停摆）
+##  H3     末段（pos≥0.7×current_length，T7 起比率锚定长）真暂停 3 个物理帧（与生产
+##         HitFreeze 同款 get_tree().paused 机制；T7 前用 tree.active 通断近似，6 帧长动画下失真）
 ## 红判据：40 物理帧内等不到预期信标。
 
 const MAX_FRAMES := 40
@@ -23,6 +24,7 @@ var _tree: AnimationTree
 var _playback
 var _beacons := 0
 var _pos_key := "parameters/state_machine/attack1/current_position"
+var _len_key := "parameters/state_machine/attack1/current_length"
 var _results: Array[String] = []
 
 
@@ -128,19 +130,39 @@ func _scenario_pause_at_tail() -> void:
 	await _harden()
 	_beacons = 0
 	_skin.transition_to("attack1")
+	# 校准两改（T7 全矩阵红复盘，tools/tmp_b3t7probe 探针五连定性，两跑确定性）：
+	# ① 停摆窗锚：旧常量 0.30 是 attack1 长度 0.333s 时代（=90% 片长）的按秒窗；
+	#   T5 flush 把模板基线左右长迁到 0.1s，按秒窗不再可达（pos 封顶 0.1）→
+	#   末帧信标先响被"还没到停摆窗"判红。改 current_length×0.7 比率锚——
+	#   0.7 是经验证信标存活域里最贴尾的档位（0.0833=末帧信标 0.1 前一拍；
+	#   0.85 落在信标后=场景作废；0.4/0.5 浅档位遇 6 帧长冻有引擎抖动异象）。
+	#   入场后先沉 2 帧：travel 首拍 pos 参数仍读上轮钉死旧值（探针 v4 实锤），
+	#   且 current_length 须起播后才有值。
+	# ② 停摆机构：旧用 tree.active 通断近似，在 6 帧长度动画下判失真——重激活
+	#   把在播节点直接弹回 Start 并跳过末帧方法键（g∈0.35..0.85×冻 1..6 帧
+	#   全灭，确定性），那不是生产 HitFreeze 的物理。换成与 hit_freeze.gd
+	#   同款机制：get_tree().paused 真暂停 3 个物理帧（freeze_frames 默认=3）。
+	# 红判据不变：恢复后 40 物理帧内等不到预期信标=红（真冻结吞信标的任何
+	# 产线回归都会在此响亮红）。
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 	var guard := 0
-	while float(_tree.get(_pos_key)) < 0.30 and _beacons == 0 and guard < 40:
+	while _beacons == 0 and guard < 40:
+		if float(_tree.get(_len_key)) > 0.0 \
+				and float(_tree.get(_pos_key)) >= 0.7 * float(_tree.get(_len_key)):
+			break
 		await get_tree().physics_frame
 		guard += 1
 	if _beacons > 0:
 		_record(false, "H3 末段停摆", "还没到停摆窗信标就响了（pos=%s，场景作废）" % _pos())
 		return
-	_tree.active = false
-	await _wait(3)
-	_tree.active = true
+	get_tree().paused = true
+	for _i in 3:
+		await get_tree().physics_frame
+	get_tree().paused = false
 	_beacons = 0
 	var ok := await _wait_beacon()
-	_record(ok, "H3 末段停摆3帧（HitFreeze 型）",
+	_record(ok, "H3 末段停摆3帧（生产 HitFreeze 同款 paused 机制）",
 			"恢复后信标=%s pos=%s current=%s" % ["响" if ok else "未响", _pos(), _node()])
 
 
