@@ -36,7 +36,10 @@ func _ready() -> void:
 		QuiverEditorHelper.disable_all_processing(self)
 		return
 	
-	attributes = attributes.duplicate()
+	# 深拷（R11 账本隔离判据，2026-09-23 由浅拷升格）：同场景多实例共享
+	# attributes.tres 引用，浅拷下 _modifier_records/_modifier_bases 字典仍是
+	# 同一对象——B′ 账本跨个体串写（多士兵差异化修饰=引爆点），必须 duplicate(true)
+	attributes = attributes.duplicate(true)
 	attributes.reset()
 	super()
 

@@ -177,7 +177,27 @@ QuiverBaseCharacter (CharacterBody2D)
 ### 子类约定
 
 - **玩家**: 继承 `QuiverCharacter`，角色脚本只做初始化
-- **敌人**: 继承 `QuiverEnemyCharacter`，增加 `AiStateMachine` 引用，`_ready()` 里 `attributes.duplicate()`（每个敌人独立的 HP）
+- **敌人**: 继承 `QuiverEnemyCharacter`，增加 `AiStateMachine` 引用，`_ready()` 里
+  `attributes.duplicate(true)` + `reset()`——**深拷**（R11 账本隔离裁决，2026-09-23；
+  浅拷年代每敌人只是"独立 HP"侥幸，`_modifier_records/_modifier_bases` 字典两
+  实例仍同一对象，同场景多敌人共享 B′ 账本=差异化修饰串写的潜伏雷；深拷连账本
+  一起隔离，判据=修饰/池/旗标的个体性）
+
+**attributes 实例隔离案卷（R11，2026-09-23，判例三条）**：
+- **玩家档壳零隔离**：`QuiverCharacter` 及其创建器产物（含 AI 档壳）不做实例
+  隔离，同 `.tres` 被多实例按引用共享（血/池/姿态旗全是一个对象）。游戏以
+  `area2d:player` 身份门保证玩家档在场至多一具；确需双实例（测试替身、分身）
+  时消费方自救：`duplicate(true)` 且**双写** `root.attributes`（动作状态的
+  `_on_owner_ready` 缓存源）+ `skin.attributes`（战斗盒 `character_attributes`
+  的 group 推送源）——只写一处=裂脑（block_parry_contract Q 流 A 方实证形制）。
+- **`local_to_scene` 是反药（封死勿再试，双写判例）**：皮肤拆独立场景后
+  root/skin 各自成份，上面"两引用同源"的既有契约当场破裂，且"一场景一本体"
+  也满足不了；处方=显式 duplicate + 双写，隔离点唯一。
+- **创建器 AI 档 × spawner 双头死结**（挂账 B5 设计会前置清单）：AI 档壳恒
+  `extends QuiverCharacter`（无隔离）而 `QuiverEnemySpawner.spawn_current_wave()`
+  `instantiate() as QuiverEnemyCharacter` 硬转型（非敌人壳=null）——AI 档角色
+  喂 spawner 两头都死；二选一立案（创建器改产 EnemyCharacter 壳 vs
+  `make_attributes_local()` 显式双写入口）属设计裁决，工程侧不私斗。
 
 ---
 
@@ -295,6 +315,11 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export var is_invulnerable := false    # 无敌帧（apply_knock/apply_damage 直接免疫）
 @export var has_superarmor := false     # 霸体（统一模型 G2 归零制：击打值完全无效）
 @export var can_be_grabbed := true      # 可被抓取
+@export var parry_window_frames: int = 6    # 弹反窗物理帧数（B3 盾反批；受管字段，
+                                            # 入册后只准走修饰 API，见下受管名单）
+@export var block_damage_ratio: float = 0.4 # 格挡伤害系数（B3；受管同上）
+@export var attack_output: float = 1.0      # 自身输出全局乘数，护人态等增益以
+                                            # 修饰表达而非裸写（B3；受管同上）
 
 var health_current := health_max        # 当前 HP（setter 触发 health_changed 信号）
 var mana_current := mana_max            # 当前法力值（setter 触发 mana_changed 信号）
@@ -303,7 +328,13 @@ var resistance_current := 0.0           # 运行时抗击打余量 R_current（_
 var ground_level := 0.0                 # 当前地面高度（Y 坐标）
 var character_node: QuiverCharacter     # 关联的角色节点
 var grabbed_offset: Marker2D            # 被抓取时的偏移标记
+var is_blocking: bool = false           # 格挡旗标（运行时成对旗之一，B3；唯一生产
+                                        # 写方 QuiverActionBlock enter/exit，判定缝只读）
+var block_started_frame: int = 0        # 起架物理帧号（与 is_blocking 同帧成对写入，
+                                        # 判定缝以此算 delta 对照弹反窗）
 var _modifier_records: Array[Dictionary]  # 活跃的属性修改器记录
+var _modifier_bases := {}               # 方式 B′ 账本：attribute → {value, is_int}
+                                        # （base 首个修饰时捕获一次，重算永远以此为锚）
 ```
 
 ### 信号
@@ -334,19 +365,51 @@ func apply_knock(knock_value: float) -> Dictionary
 func refill_resistance()    # 回气回满（Move.enter 与落地 _handle_landing 调用）
 func is_alive() -> bool
 func get_health_as_percentage() -> float
-func reset() -> void              # 重置所有状态（HP、无敌、霸体、可被抓取）
+func reset() -> void              # 重置所有状态（HP、无敌、霸体、可被抓取、
+                                  # in_knockout/skin_direction/格挡成对旗清零+清修饰账）
 
-# Modifier 系统（用于 Buff/Debuff）
+# Modifier 系统（用于 Buff/Debuff；方式 B′ 重算回写，见下说明）
 func add_modifier(mod_id: StringName, attribute: StringName, type: String, value: float, source: Node = null)
 func remove_modifier(mod_id: StringName)
 func remove_modifiers_from_source(source: Node)
+func modifier_snapshot() -> Array[Dictionary]  # 展示用深拷贝快照（dock 账本），非第二真相
 ```
 
-**Modifier 系统说明**：
-- `add_modifier()`: 记录 base_value，然后直接修改属性值（type="add" 加法，type="multiply" 乘法）
-- `remove_modifier()`: 按 ID 查找并移除，恢复 base_value
-- `remove_modifiers_from_source()`: 按来源节点批量移除所有相关 modifier
-- 实现方式：方式 B（直接修改属性值，记录 base_value 用于恢复）
+**Modifier 系统说明——方式 B′（2026-09-23 手术；旧"方式 B：添加即裸改、
+移除恢复 base_value"描述作废，本段为权威）**：
+公开签名自法术时代起逐字未动（调用方零改动=宪法），实现内核换血——
+
+- **重算回写**：任何加/摘/清账都经唯一重算点 `_recompute(attribute)`，按
+  `值 = (base + Σ加项) × Π乘项` 从锚重算回写属性，**永不读现场值做增量**。
+  旧世界的叠挂踩踏（同属性两修饰互相污染 base）与乱序摘除踩踏（先摘
+  乘项会把被污染现场写回）在结构上不可能。
+- **base 首捕一次**：属性的 base 只在该属性**首个修饰**到来时捕获进
+  `_modifier_bases`（同时锁 `is_int` 类型），此后现场值再怎么裸写都不回流
+  锚——"入册即抄走当时的被污染值"的旧踩踏链从此断根。
+- **同 id 再挂=替换**：`add_modifier` 先 `remove_modifier(同 id)` 再入账
+  （M3 锁），重复施加是"刷新"不是"叠乘"。
+- **int 类型锁**：int 型受管字段（move_speed/parry_window_frames）回写走
+  `roundi`，防重算把 int 导出劣化成 float（P4a 断言 typeof 锁死）。
+- **未知操作型零副作用**：非 `"add"/"multiply"` 告警拒收，不入账不改值（M4a）。
+- **reset 清账**：`reset()` 调 `_clear_all_modifiers()`——全部记录作废、
+  受管属性回 base（先快照账本再清，防"回写要读表"的清序陷阱）；护人/减速
+  等修饰不跨死亡泄漏到下世（M5 锁）。
+- **单写者纪律（数值治理法，AGENTS）**：字段入册（首个修饰捕获 base）后
+  只能经修饰 API 变更，裸写=重算锚漂移。现行执行手段=代码注释+契约哨兵
+  （block_parry_contract M/P 流），运行时守卫按 plan 从简未建。
+
+**受管字段名单（B3 盾反批入册；"升格规则"=出现第二写入方的当天进名单）**：
+
+| 字段 | 类别 | 出生默认 | 写路径纪律 |
+|---|---|---|---|
+| `move_speed` | 受管导出（int，locomotion 老户） | 600 | 入册后只准修饰路（护人×0.5 等） |
+| `parry_window_frames` | 受管导出（int） | 6 | 只准修饰路（P4/P5 实证：每角色窗配置×加/乘全走修饰） |
+| `block_damage_ratio` | 受管导出（float） | 0.4 | 只准修饰路 |
+| `attack_output` | 受管导出（float） | 1.0 | 只准修饰路（护人态=×0.3 修饰表达，禁模式旗标内藏数值推导） |
+| `is_blocking` | 运行时成对旗（bool） | false | **非修饰域**；唯一生产写方 `QuiverActionBlock.enter/exit` 成对括弧，判定缝只读，`reset()` 兜底清零 |
+| `block_started_frame` | 运行时成对旗（int） | 0 | 同上，与 `is_blocking` **同帧**成对写入（R4 宪章） |
+
+回归锁：`tools/block_parry_contract/`（M 流修饰核心 + P 流判定缝 + Q 流姿态链）。
 
 ### 内部类 `HitLaneLimits`
 
@@ -801,6 +864,46 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 - **闸口**（SpellManager 侧）：咏唱中拒绝再起手；空中（Air 子树）拒绝起手；
   `caster_cast_time=0` 或未挂 Cast 节点的角色维持旧瞬发行为（向后兼容）。
 
+### 5.11 姿态状态（Block 格挡，游戏层 `_beat_em_up/action_states/quiver_action_block.gd`；2026-09-23 S2-B3）
+
+**仓库新判例：状态"不在场"也能自选进场——引擎虚函数自武装**。状态机只把
+`physics_process/unhandled_input` 转发给**当前激活状态**（§5.2），但节点自身的
+**引擎虚 `_physics_process` 无论在场/不在场每帧都跑**（`quiver_state` 仅编辑器
+hint 下关处理；2026-09-23 全仓状态节点零第二覆写者实锤）。姿态类状态
+（格挡/架枪/蓄力一类"条件成立即自动进、条件消失即自动出"的站桩态）据此
+零插件核心手术完成闭环：
+
+```gdscript
+func _physics_process(_delta):
+	# 在场管出（松键回 Idle）；不在场管进（按住 + 当前态在白名单）
+	if sm.state == self:
+		if not _character.channel.is_held(&"block"):
+			sm.transition_to(_path_idle_state)
+	elif _character.channel.is_held(&"block") \
+			and StringName(str(sm.state.name)) in _entry_whitelist:
+		sm.transition_to(sm.get_path_to(self))
+```
+
+- **输入只认私有通道**（`channel.is_held`，§5.0）——OS 链端到端由
+  block_parry_contract Q 流（raw 键直投）锁死；`StringName` 显式转换是
+  类型陷阱防线（`sm.state.name` 转回 StringName 再入白名单比较，裸 `in` 恒假）。
+- **进入白名单**：转移图=代码约定（AGENTS 状态机章口径），默认
+  `Idle/Walk/Run` 三个 locomotion 节点；白名单外（攻击/受击/击飞子树）
+  持键也不得自入（P11c 全录像锁：击飞→恢复途中逐帧零 Block，落地回
+  Move 后回流起架属设计语义）。
+- **单写者纪律**：格挡成对旗 `is_blocking`/`block_started_frame` 的唯一生产
+  写方=本状态 enter/exit（同帧成对，R4 宪章）；判定缝只读；打断走 Ground
+  挂线（hurt/knockout 信号链在姿态下仍武装）→ exit 照跑注销旗=闭环
+  （P11 活体：键仍按住时白名单拒回流）。
+- **姿态期间**：输入窗关闭（`input_window_open=false`，Space 跳跃不劫持，
+  Cast 同款）；`velocity` 逐帧钉死=站桩；伤害结算**不在本状态**——全在
+  QuiverHurtBox 判定缝读成对旗（§7.3），本状态零数值。
+- **缺槽降级**：`_skin_state` 动画槽缺失=单皮肤告警一次+姿态逻辑照常
+  （Cast 阶梯同款精神；真防御动画到货仅改导出、同名替换纪律）。
+
+回归锁：`tools/block_parry_contract/` Q 流（P7/P10/P11）；数值委托 API
+（`apply_damage_value`）与其上三分支见 §7.1/§7.3。
+
 ---
 
 ## 6. AI 状态机系统 (`characters/ai/`)
@@ -880,11 +983,21 @@ enum HurtTypes { MID, HIGH }
 func is_in_same_lane_as(defender, attacker) -> bool      # 横攻：比"排"(Y)
 func is_in_same_column_as(defender, attacker, defender_x, attacker_x) -> bool  # 纵攻：比"列"(X)
 func apply_damage(attack: QuiverAttackData, target: QuiverAttributes)
+    # 薄委托（2026-09-23 判定缝批）：既有签名逐字保留，转调 apply_damage_value；
+    # 弹墙等"整包 attack_data"调用方零感知
+func apply_damage_value(p_damage: float, target: QuiverAttributes)
+    # **数值伤害唯一入口**（spec §6.2）：无敌免疫 → 扣血 → HitFreeze 默认 3 帧。
+    # p_damage 是 float 且**本层不取整**（判定缝的输出/格挡乘算全程浮点，
+    # health_current 为 int 存储、整值 float 无声吞收——探针 D 实锤）；
+    # 攻击数据是共享导出资源严禁 mutate，一切缩放由调用方算好后走本入口
+    # （防 emit_changed 判例；这也是姿态/弹反等"改伤害数值不改 attack_data"
+    # 类规则的统一委托 API）
 func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 ```
 
 **攻击流程**:
-1. `apply_damage` → 扣血 → 触发 `HitFreeze`（命中的顿感）
+1. `apply_damage_value`（或经 `apply_damage` 薄委托）→ 扣血 → 触发 `HitFreeze`
+   （命中的顿感；免伤路不经过此处——弹反支必须自发拍定格，见 §7.3 判定缝）
 2. `apply_knockback` → 转交 `QuiverAttributes.apply_knock`（**唯一判定点**），按裁决分发：
    `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默（含霸体
    与空中零击打值）；否则 `hurt_requested`——分发器为纯三向开关，无战斗政策
@@ -945,19 +1058,47 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 | 进入的 Area | 方法 | 后续 |
 |---|---|---|
 | `WallHitBox` | `_handle_wall_hit_box()` | **先过 `in_knockout` 状态门**（链外静默免结算）→ 放行时 `apply_damage(墙 attack_data)` + `wall_bounced(墙.mirror_axis)` |
-| `QuiverHitBox` | `_handle_hit_box()` | `apply_damage` + `apply_knockback` |
+| `QuiverHitBox` | `_handle_hit_box()` | 判定缝三分支（弹反/格挡/常规，见下；不防时= `apply_damage_value` + `apply_knockback` 原样） |
 | `QuiverGrabBox` | `_handle_grab_box()` | `grab_requested` 信号 |
 
 **注意**: 阵营检查 `are_factions_equal()` 在 `_on_area_entered()` 入口处统一执行，同阵营直接 return，不再在各个 `_handle_*()` 方法中单独检查。
 
-**`_handle_hit_box()` 完整流程**:
-1. `_can_be_attacked_by(attacker, hit_box)` 检查：非无敌 + 受击车道命中
-   （横攻比排/纵攻比列，选轴读 `attacker.skin_direction` 出手镜像，见 §4 车道家族）
-2. `CombatSystem.apply_damage(hit_box.attack_data, character_attributes)`
-3. 构造 `QuiverKnockbackData`（包含 treated launch_vector：根据攻击方向翻转，让角色**始终向后飞**）
-4. `CombatSystem.apply_knockback(knockback_data, character_attributes)`
-5. 命中回执：`hit_box.on_target_hit.is_valid()` 时同步 `call(self)`
-   （见 7.2 注入契约；旧 owner 反射已废除）
+**`_handle_hit_box()` 判定缝三分支**（S2-B3 spec §2.3，2026-09-23；唯一插入点
+= `_can_be_attacked_by` 门后，门本体不变：非无敌 + 车道命中，横攻比排/纵攻比列，
+选轴读 `attacker.skin_direction` 出手镜像，见 §4 车道家族）:
+
+1. 读输出乘数 `out_mult = hit_box.character_attributes.attack_output`——弹体的
+   `character_attributes` 绑**施法者**属性（spell_base.gd:74 探针实锤）⇒
+   输出缩放天然走施法者侧读取；null 仅防御性兜底。
+2. 防守方 `defender_attrs.is_blocking`？（成对旗读值，`delta =
+   Engine.get_physics_frames() − block_started_frame`，窗读**受管字段**
+   `parry_window_frames` 当前合成值——重算回写使判定代码零感知修饰存在）
+   - **弹反支**（`delta < 窗`，严格 `<`：按下帧 delta=0 起算共窗帧数，
+     delta==窗 归格挡）：**免伤免退**——零伤害、防守方池一分不扣、不进受击态；
+     `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` **自发拍**（免伤路不经
+     apply_damage_value，遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+
+     攻击弱档）；`apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
+     池——统一模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，
+     P9 实证；霸体鼠洞知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌
+     弹反空转，B5 都尉若发护甲须正式裁决，届时改规则不改这里）。
+   - **格挡支**（超窗按住）：`apply_damage_value(原伤害 × out_mult ×
+     block_damage_ratio)`；**该击击退值整颗作废**（不回池、不派发、不换算——
+     "重击变轻拳、飞天变站桩"的全部真相，P10 活体）；防守方弱白闪。
+   - **常规支**（未防）：`apply_damage_value(原伤害 × out_mult)`
+     （out_mult==1.0 时与改造前逐字等价——lane 契约 P1 哨兵锁）；构造
+     `QuiverKnockbackData`（treated launch_vector 让角色**始终向后飞**）→
+     `apply_knockback` 照旧。
+3. **公共义务（三分支一律）**：`hit_box.on_target_hit.is_valid()` 时同步
+   `call(self)`（见 7.2 注入契约；旧 owner 反射已废除）——弹体靠它回执离场，
+   任何分支绕过=穿体飞到超时判例同族（回归锁 P6c/P8e：命中帧起 ≤15 帧离场护栏，
+   堵 max_lifetime=300f 与采样窗同缘的假绿边角）。
+4. 规则常量单一出处（数值治理法第 2 档）：`_PARRY_STUN_KNOCK/_PARRY_FREEZE_FRAMES/
+   _FLASH_*` 全部定义在 quiver_hurt_box.gd 常量区，禁散落魔数。
+
+**时基判例（Step0 探针 2026-09-23 实锤）**：定格期间 physics_frame 信号照响、
+全局物理帧号照走 ⇒ 在途 HitFreeze 真会蚕食弹反窗帧——Block.enter 写
+`block_started_frame`=按下瞬间读数，蚕食属规则本意（spec §10 帧计数定案），
+手感疑案先疑此勿疑缝。
 
 **阵营过滤机制**（`area2d:` group；2026-09-17 单一存放点体系）:
 - **数据只存角色根节点**（`groups=["area2d:<标签>", …]`，创建表单写入）；
@@ -1072,10 +1213,11 @@ are_factions_equal() 检查：
   Enemy HurtBox groups: ["area2d:enemy"]
   无交集 → 不同阵营 → 继续处理
   ↓
-_handle_hit_box()
+_handle_hit_box() 判定缝三分支（§7.3；敌未防时走常规支）
   ↓
-CombatSystem.apply_damage() → HP 扣减 → HitFreeze（顿感）
-CombatSystem.apply_knockback() → 累积击退 → hurt_requested 或 knockout_requested
+常规支：CombatSystem.apply_damage_value() → HP 扣减 → HitFreeze（顿感）
+CombatSystem.apply_knockback() → apply_knock 唯一判定 → hurt_requested 或 knockout_requested
+（格挡支=乘算扣血+击退值整颗作废；弹反支=免伤+反顶攻击者池+自发定格——均无下列派发）
   ↓
 地面状态 QuiverActionGround 收到 signal:
   hurt_requested  → transition_to("Ground/Hurt")
@@ -1176,6 +1318,11 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 
 `WALK_TO_POSITION`: 在 spawner 位置生成，然后调用 `spawn_ground_to_position()` 走向目标。
 `IN_PLACE`: 直接在目标位置生成。
+
+**一波多兵的安全性**：靠 `QuiverEnemyCharacter._ready` 的 attributes **深拷**
+（R11 账本隔离，§2 案卷）——同场景实例化 N 只各自独立血/池/修饰账本；
+转型 `as QuiverEnemyCharacter` 意味着喂进 spawner 的必须是敌人壳（创建器
+AI 档死结挂 B5，见 §2）。
 
 ### 8.4 QuiverLevelCamera（游戏摄像机）
 
