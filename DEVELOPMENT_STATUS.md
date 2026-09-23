@@ -228,9 +228,12 @@
     attributes 浅拷→深拷，B′ 账本个体隔离，knockout_contract 多 spar 实例为
     直接消费腿）、H3 停摆窗随模板基线迁长**按 B2.5 预批随动**重校准（比率锚
     0.7×length+停摆机构换生产 HitFreeze 同款 paused，红判据不变）。
-    批末**全矩阵 24/24 绿**。挂账移交 B5 设计会前置清单：AI 档壳×spawner
-    双头死结（创建器改产 EnemyCharacter 壳 vs make_attributes_local 双写入口
-    二选一立案，账本 R11③）。F5 单三眼见
+    批末**全矩阵 24/24 绿**。挂账移交 B5 设计会前置清单（三件）：
+    ① AI 档隔离×spawner 硬转型双头死结裁决（make_attributes_local() 双写
+    vs 创建器改产 QuiverCharacterEnemy 壳，二选一立案，账本 R11③）；
+    ② 短动画×≥4 帧定格浅位信标死格异象——B5 开工前读探针案卷
+    `/tmp/opencode/b3_t7/h3probe*.log` 并补 F5 眼"被弹反方连段窗不死"；
+    ③ 深拷账本隔离锁已由 iso_leg 入 knockout 契约（本波）。F5 单三眼见
     `docs/superpowers/plans/2026-09-23-s2-b3-block-parry-f5.md`。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶

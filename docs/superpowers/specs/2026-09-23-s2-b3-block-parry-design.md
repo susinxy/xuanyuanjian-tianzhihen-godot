@@ -178,7 +178,7 @@ attrs.add_modifier(&"escort_power",  &"attack_output",       "multiply", 0.3)   
 F5 单三眼：弹反白闪+顶硬手感、K 让位后跳跃（Space）无恙、格挡对普通怪链。
 
 ## 9. 文档义务（同批）
-`PLUGIN_ARCHITECTURE.md`（判定流程图、修饰 B′ 章、受管字段表）；`PLUGIN_CHANGES.md` 案卷（三处插件触点：attributes 手术+hurtbox 判定头+CombatSystem 入口，API 稳定性声明）；`SPELL_SYSTEM_DESIGN.md` §11 方式 B 段**就地升格为 B′**（法术权威与代码不得两页书）；根 AGENTS 数值治理法+矩阵 26 计数。
+`PLUGIN_ARCHITECTURE.md`（判定流程图、修饰 B′ 章、受管字段表）；`PLUGIN_CHANGES.md` 案卷（三处插件触点：attributes 手术+hurtbox 判定头+CombatSystem 入口，API 稳定性声明）；`SPELL_SYSTEM_DESIGN.md` §11 方式 B 段**就地升格为 B′**（法术权威与代码不得两页书）；根 AGENTS 数值治理法+矩阵 23 套=24 跑计数（§7 勘误同口径）。
 
 ## 10. 对原 §5.1 的改案（显式回标）
 
