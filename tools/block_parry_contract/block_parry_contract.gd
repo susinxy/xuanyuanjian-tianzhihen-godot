@@ -18,6 +18,12 @@ extends Node
 ## 残场（评审 I3：后流绝不看见前流的幻影键盘/共享原体）。
 ## 本套自 T6 起入 run_matrix 名册，身份见证=ACTOR-GATE（守卫通过行）。
 ##
+## T7 强化（R13，测试强度批）：P11c 由"起飞后定点 30 帧非 Block"（击飞在途
+## ⇒ 恒真窗盲）改为"打断→Move 途中逐帧零 Block + Move 必达"全录像判停（首
+## Move 帧即收闸——此后回流起架是白名单设计语义，P7a 同路）；P6c/P8e 加
+## "命中帧起 ≤15 帧离场"护栏（max_lifetime=300f 与本采样窗同长，只判最终
+## 离场则穿体飞到超时仍绿=窗缘假绿边角；缝栈内回执与结算同帧，正常帧距 0）。
+##
 ## Step0 探针实锤（2026-09-23，tools/tmp_b3probe 一次性台已毁尸，逐字记录见
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
 ## 照走（定格 12 帧 → 帧号 +12），但 Area 回调被暂停门扣到恢复帧才发；
@@ -353,21 +359,34 @@ func _flow_parry() -> void:
 	var v_hurt6 := false
 	var v_pool6_min := POOL0
 	var ball_spent := false
+	# R13②帧距护栏：max_lifetime=5s=300 物理 tick 与本采样窗同长——只判
+	# "最终离场"则穿体飞到超时仍绿（窗缘假绿边角）。改判"命中帧起 ≤15 帧内
+	# 离场"：缝内 on_target_hit 与伤害同栈同步（hurt_box:250），正常帧距 0。
+	var f_hit6 := -1
+	var f_spent6 := -1
 	for _i in 300:
 		await get_tree().physics_frame
+		if f_hit6 < 0 and vendor.attributes.health_current < hp6:
+			f_hit6 = Engine.get_physics_frames()
 		if str(vendor.state_machine.state_name) == "Ground/Hurt":
 			v_hurt6 = true
 		v_pool6_min = minf(v_pool6_min, vendor.attributes.resistance_current)
 		if is_instance_valid(ball) and ball.state != SpellBase.SpellState.ACTIVE:
+			f_spent6 = Engine.get_physics_frames()
 			ball_spent = true
 			break
 		if not is_instance_valid(ball):
+			f_spent6 = Engine.get_physics_frames()
 			ball_spent = true
 			break
 	var drop6: float = hp6 - vendor.attributes.health_current
 	_check(drop6 == 4.0, "P6a 弹体被挡掉血恰 4=弹伤10×1.0×0.4（实际 %.1f）" % drop6)
 	_check(not v_hurt6 and v_pool6_min >= POOL0, "P6b 弹体被挡无反顶无池耗无受击态")
-	_check(ball_spent, "P6c 格挡支公共义务：on_target_hit 回执照发（弹体离场非 ACTIVE，否则穿体飞到判例复发）")
+	_check(ball_spent and f_hit6 >= 0 and f_spent6 >= f_hit6
+			and f_spent6 - f_hit6 <= 15,
+			"P6c 格挡支公共义务：on_target_hit 回执在命中帧后 ≤15 帧内送达离场"
+			+ "（命中帧=%d 离场帧=%d；穿体飞到超时≈300f 必炸本护栏）"
+			% [f_hit6, f_spent6])
 	if ball_spent and is_instance_valid(ball):
 		ball.destroy()
 
@@ -389,10 +408,16 @@ func _flow_parry() -> void:
 	var a_hurt8 := false
 	var ball8_spent := false
 	var grace8 := 0
+	# R13②帧距护栏（P6c 同款）：命中帧观测位=反顶削池首帧（apply_knockback 与
+	# on_target_hit 同在判定缝栈内，正常帧距 0）；穿体飞到超时≈300f 炸护栏。
+	var f_hit8 := -1
+	var f_spent8 := -1
 	for _i in 300:
 		await get_tree().physics_frame
 		# hold 重写（与 _shot 同款 j=0 约定）：命中落在哪帧都 delta≡1 在窗内
 		vendor.attributes.block_started_frame = Engine.get_physics_frames()
+		if f_hit8 < 0 and actor.attributes.resistance_current < POOL0:
+			f_hit8 = Engine.get_physics_frames()
 		if str(vendor.state_machine.state_name) == "Ground/Hurt":
 			v_hurt8 = true
 		v_pool8_min = minf(v_pool8_min, vendor.attributes.resistance_current)
@@ -405,6 +430,8 @@ func _flow_parry() -> void:
 			if grace8 >= 30:
 				break
 		if not is_instance_valid(ball2) or ball2.state != SpellBase.SpellState.ACTIVE:
+			if not ball8_spent:
+				f_spent8 = Engine.get_physics_frames()
 			ball8_spent = true
 	_check(hp8 - vendor.attributes.health_current == 0.0,
 			"P8a 弹体弹反 V 免伤（实际掉 %.1f）" % (hp8 - vendor.attributes.health_current))
@@ -414,7 +441,11 @@ func _flow_parry() -> void:
 			"P8c 弹体反顶回施法者头上来：A 池 600→540（实际最低 %.0f）" % a_pool8_min)
 	_check(a_hurt8 and actor.attributes.health_current == a_hp8_0,
 			"P8d 施法者被反顶进 Hurt 但零伤害（弹反支无反顶伤害要素）")
-	_check(ball8_spent, "P8e 弹反支公共义务：弹体回执照常离场（否则穿体飞到判例复发）")
+	_check(ball8_spent and f_hit8 >= 0 and f_spent8 >= f_hit8
+			and f_spent8 - f_hit8 <= 15,
+			"P8e 弹反支公共义务：on_target_hit 回执在命中帧后 ≤15 帧内送达离场"
+			+ "（命中帧=%d 离场帧=%d；穿体飞到超时≈300f 必炸本护栏）"
+			% [f_hit8, f_spent8])
 
 	# ── P9 反顶升格（R9⑤）：攻击方余池 50 吃弹反 K=60 ⇒ 统一模型破池自动
 	#    升格 knockout（apply_knock 唯一判定点不偏袒攻守哪一侧）──
@@ -601,9 +632,26 @@ func _flow_stance() -> void:
 	_check(ok11a, "P11a 不可挡发射器打断姿态：A 升空进 Air/Knockout/*")
 	_check(not a.attributes.is_blocking,
 			"P11b Block 经父挂线被打断时 exit 照跑、旗标注销（单写者闭环）")
-	await _frames(30)  # 键仍按住 30 帧：白名单外（Knockout 系）绝不回流起架
-	_check(not str(a.state_machine.state_name).contains("Block"),
-			"P11c 打断后持键 30 帧不复活姿态（白名单外禁入的活体面）")
+	# P11c（R13①强化）：旧版起飞后定点采"第 30 帧非 Block"——击飞序列仍在途，
+	# 白名单外禁入使断言恒真=窗盲。强化后全录像判停：自打断起逐帧盯到
+	# state 含 "Move"（=落地+Recovery/GetBackUp 恢复链走完，脑回到自选权在
+	# 地的 locomotion 门口，180 帧帽），途中任帧含 "Block" 即判红（白名单破
+	# 口、持键回流的活体面）；180 帧不见 Move 亦红（"没恢复=没资格判"，反窗
+	# 盲的证成腿）。首 Move 帧即收闸松键——此后再起架是白名单设计语义
+	# （与 P7a 同路），本腿不越权判。
+	var f11_move := -1
+	var block11_seen := false
+	for _i in 180:
+		await get_tree().physics_frame
+		if str(a.state_machine.state_name).contains("Block"):
+			block11_seen = true
+			break
+		if str(a.state_machine.state_name).contains("Move"):
+			f11_move = Engine.get_physics_frames()
+			break
+	_check(f11_move >= 0 and not block11_seen,
+			"P11c 全录像判停：击飞→恢复→Move 途中持键零 Block（恢复=%s 违规帧=%s）"
+			% [f11_move >= 0, block11_seen])
 	_press_key(KEY_K, false)
 
 	# ── 收场（评审 I3）：拆除残场，键位已净 ──
