@@ -14,6 +14,26 @@ extends Area2D
 ## 阵营过滤前缀：同一 area2d: 组的双方视为同阵营，攻击不造成伤害
 const FACTION_PREFIX = "area2d:"
 
+## ── 判定缝规则常量（S2-B3 spec §4 第 2 档：单一出处，禁散落魔数）────────────
+## 弹反顶硬击打值 K：打进攻击者自己的抗击打池，走统一弹退模型（无新机制）。
+const _PARRY_STUN_KNOCK := 60.0
+## 弹反加强定格帧数。**必须自发拍**：免伤路不经 apply_damage_value，现行唯一
+## 生产定格调用发生在扣血处——遗忘本拍=静默无反馈假绿族（spec §10 警条）。
+## 时基实锤（2026-09-23 Step0 探针，tools/tmp_b3probe 已毁尸，逐字记录见
+## task-4-report）：定格期间 Engine.get_physics_frames() **照走**（定格 12 帧
+## → 帧号 +12）、physics_frame 信号照响，Area 回调被暂停门扣到恢复帧才发。
+## ⇒ 弹反窗按全局物理帧计，在途定格会蚕食窗口——Block 态 enter 写
+## block_started_frame（按下瞬间读数），蚕食属规则本意（spec §10 帧计数定案）。
+const _PARRY_FREEZE_FRAMES := 6
+## 白闪双档峰值色（over-bright modulate 回弹；弹反=防守强档+攻击同拍弱档，
+## 格挡=防守弱档。spec §2.4 时长/色单一出处）
+const _FLASH_STRONG := Color(2.5, 2.5, 2.5, 1.0)
+const _FLASH_WEAK := Color(1.8, 1.8, 1.8, 1.0)
+## 白闪总时长（秒）：弹反 ≈0.12 亮档 / 格挡 ≈0.07 微档，升/降段统一 40/60 拆分
+const _FLASH_STRONG_DUR := 0.12
+const _FLASH_WEAK_DUR := 0.07
+const _FLASH_UP_RATIO := 0.4
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 var character_attributes: QuiverAttributes = null
@@ -168,23 +188,86 @@ func _can_be_grabbed_by(grabber: QuiverAttributes) -> bool:
 	return value
 
 
+## 判定缝三分支（S2-B3 spec §2.3，唯一插入点=_can_be_attacked_by 通过后）：
+## delta = 当前物理帧 − block_started_frame；窗=防守方受管字段（重算回写模型
+## 使本代码零感知修饰存在）。弹反严格 `<`（按下帧 delta=0 起算共窗帧数，
+## delta==窗 归格挡）。读到的三个字段皆为当前合成值。
 func _handle_hit_box(hit_box: QuiverHitBox) -> void:
-	if _can_be_attacked_by(hit_box.character_attributes, hit_box):
-#		print("hit_box: %s"%[hit_box.get_path()])
-		CombatSystem.apply_damage(hit_box.attack_data, character_attributes)
+	if not _can_be_attacked_by(hit_box.character_attributes, hit_box):
+		return
+	var atk_attrs := hit_box.character_attributes
+	var defender_attrs := character_attributes
+	# 输出乘数=攻击方受管字段（护人阶段 0.3 之类全由修饰表达）；弹体的
+	# character_attributes 实测绑施法者属性（spell_base.gd:74，P6 探针实锤），
+	# null 仅防御性兜底——_can_be_attacked_by 已解引用攻击者，走到此处恒非 null。
+	var out_mult := 1.0 if atk_attrs == null else atk_attrs.attack_output
+	if defender_attrs.is_blocking:
+		var delta := Engine.get_physics_frames() - defender_attrs.block_started_frame
+		if delta < defender_attrs.parry_window_frames:
+			# —— 弹反支：免伤免退，防守方池一分不扣、不进受击态 ——
+			# 定格自发（见 _PARRY_FREEZE_FRAMES 警条注释）；双方白闪同拍
+			# （防守强档+攻击弱档=spec §2.4 三件套之视觉两件，第三件=攻击者
+			# 自己的受击动画，由下面的反顶派发）。伤害与击退派发均不发生。
+			HitFreeze.start(_PARRY_FREEZE_FRAMES)
+			_flash(defender_attrs, true)
+			_flash(atk_attrs, false)
+			if atk_attrs != null:
+				# 顶回去=对攻击者本人跑同一统一弹退模型（launch 零向量，位移
+				# 仅其受击动画自带小退步；其池将破则现行判则自动升格 knockout，
+				# 腾空者按空中判则被轰下——全是旧机制，无新分支）。
+				var counter := QuiverKnockbackData.new(
+						_PARRY_STUN_KNOCK, CombatSystem.HurtTypes.MID, Vector2.ZERO
+				)
+				CombatSystem.apply_knockback(counter, atk_attrs)
+				# 霸体鼠洞（spec §2.3 知情条款，勿私斗）：apply_knock 归零制吞 K
+				# 且不发任何信号 ⇒ 对护甲敌人弹反空转。当前内容库零使用者；
+				# B5 都尉若发护甲须正式裁决"弹反与护甲互相无效"，届时改规则不改这里。
+		else:
+			# —— 格挡支：伤害=原伤害×输出乘数×系数；该击击退值**整颗作废**
+			# （不回池、不派发、不换算）——"重击变轻拳、飞天变站桩"的全部真相。
+			CombatSystem.apply_damage_value(
+					hit_box.attack_data.attack_damage * out_mult * defender_attrs.block_damage_ratio,
+					defender_attrs
+			)
+			_flash(defender_attrs, false)
+	else:
+		# —— 常规支：out_mult==1.0 时与改造前逐字等价（lane 契约 P1 哨兵锁）；
+		# 击退构建与派发块保持原样（仅伤害入口换成 apply_damage_value）。
+		CombatSystem.apply_damage_value(
+				hit_box.attack_data.attack_damage * out_mult, defender_attrs)
 		var knockback: QuiverKnockbackData = QuiverKnockbackData.new(
 				hit_box.attack_data.knock_strength,
 				hit_box.attack_data.hurt_type,
 				_get_treated_launch_vector(hit_box)
 		)
 		CombatSystem.apply_knockback(knockback, character_attributes)
-		
-		# 命中回执：走攻击盒自带的注入式回调（QuiverHitBox.on_target_hit 注释含
-		# 完整决策史）。旧实现 `hit_box.owner.has_method("on_hit")` 反射已废除：
-		# owner 只跨一道场景边界，弹体攻击盒的 owner 是皮肤非弹体，通知从诞生
-		# 即静默丢弃（2026-09-16 用户 F5 定罪：弹体扣血后穿体飞到超时）。
-		if hit_box.on_target_hit.is_valid():
-			hit_box.on_target_hit.call(self)
+
+	# 命中回执：走攻击盒自带的注入式回调（QuiverHitBox.on_target_hit 注释含
+	# 完整决策史）。旧实现 `hit_box.owner.has_method("on_hit")` 反射已废除：
+	# owner 只跨一道场景边界，弹体攻击盒的 owner 是皮肤非弹体，通知从诞生
+	# 即静默丢弃（2026-09-16 用户 F5 定罪：弹体扣血后穿体飞到超时）。
+	# 判定缝公共义务（spec §2.3.4）：三分支一律照常送达——绕过=穿体飞到判例同族。
+	if hit_box.on_target_hit.is_valid():
+		hit_box.on_target_hit.call(self)
+
+
+## 白闪 helper（spec §2.4：出处定档一处，弹反/格挡共用）：角色根节点
+## modulate 双段回弹（升段 40% / 降段 60%）。bind_node 让节点中途释放时
+## tween 自动夭折（击飞链 free 判例防线）；null/失效率安全——反馈件永不
+## 有资格炸掉结算链。
+static func _flash(target_attrs: QuiverAttributes, strong: bool) -> void:
+	if target_attrs == null:
+		return
+	var node := target_attrs.character_node
+	if node == null or not is_instance_valid(node):
+		return
+	node.modulate = Color.WHITE
+	var total: float = _FLASH_STRONG_DUR if strong else _FLASH_WEAK_DUR
+	var peak: Color = _FLASH_STRONG if strong else _FLASH_WEAK
+	var tw := node.create_tween()
+	tw.bind_node(node)
+	tw.tween_property(node, "modulate", peak, total * _FLASH_UP_RATIO)
+	tw.tween_property(node, "modulate", Color.WHITE, total * (1.0 - _FLASH_UP_RATIO))
 
 
 func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:

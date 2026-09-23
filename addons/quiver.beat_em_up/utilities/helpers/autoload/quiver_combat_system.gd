@@ -50,10 +50,21 @@ func is_in_same_column_as(
 	return defender.get_hit_lane_limits(defender_x).is_value_inside_lane(attacker_x)
 
 
+## 薄委托（2026-09-23 判定缝批三行真身下沉至数值入口）：既有签名逐字保留，
+## 弹墙/既有调用方零感知；一切缩放走 [method apply_damage_value]。
 func apply_damage(attack: QuiverAttackData, target: QuiverAttributes) -> void:
+	apply_damage_value(attack.attack_damage, target)
+
+
+## 数值伤害唯一入口（spec §6.2）：无敌免疫 → 扣血（setter 族→HUD 信号）→
+## 默认 3 帧定格。p_damage 为 float 且**不在本层取整**（判定缝的输出/格挡
+## 乘算全程浮点，两世界算术逐位同构；health_current 为 int 存储，探针 D
+## 实锤整值 float 无声吞收）。攻击数据是共享导出资源严禁 mutate，缩放一律
+## 由调用方算好后从本入口进来（防 emit_changed 判例）。
+func apply_damage_value(p_damage: float, target: QuiverAttributes) -> void:
 	if target.is_invulnerable:
 		return
-	target.health_current -= attack.attack_damage
+	target.health_current -= p_damage
 	HitFreeze.start()
 
 
