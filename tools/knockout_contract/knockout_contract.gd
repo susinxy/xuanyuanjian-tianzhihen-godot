@@ -8,6 +8,9 @@ extends Node
 ## D 段（2026-09-19 弹墙状态门批）——真实 Area2D 物理重叠级契约：走路贴
 ## 弹墙带免伤（用户 F5 定罪现场）、链内贴墙扣血反弹（保留设计）、链退出
 ## 旗自动归零、旁观者零误伤、阵营组纯度哨兵。
+## D9（2026-09-23 R11 收口批）——账本隔离可红锁：双 spar 实例 attributes
+## 对象独立 + 修饰挂/撤双向互不穿透，敌人壳热修行删回共享 tres 引用形态
+## 当场红（true↔浅拷实测无可观测差，哨兵锁存在性，案语修正见 _section_iso）。
 ## 运行：godot --headless --path . res://tools/knockout_contract/knockout_contract.tscn
 
 const SPAR := "res://characters/enemies/spar_enemy/spar_enemy.tscn"
@@ -275,6 +278,11 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 	remove_child(rig)
 	rig.queue_free()
 
+	# D9 账本隔离红锁：借用 D5 旁观者当第二主体（同 .tres 双实例，正是
+	# R11 热修要拦的形态）。热修行删回共享引用→实例独立+账本写穿+移速
+	# 鬼影三闸连红（机制实测修正见 _section_iso 头注）。
+	_section_iso(spar, bystander)
+
 	# D7 reflect 语义引擎真值表（2026-09-19 弹墙终案卷的永久钉）：
 	# reflect(n)=2(v·n)n−v 翻转“垂直于 n”的分量——左右竖墙配 UP 翻水平、
 	# 上下横墙配 RIGHT 翻竖直。谁再凭文档措辞推理这两行，先来看看这条断言。
@@ -299,6 +307,43 @@ func _section_wall(spar: QuiverCharacter, dir30: Vector2) -> void:
 			"D8 带墙间距横竖两档定和合规[74,90)（实测 %.0f/%.0f/%.0f/%.0f）"
 			% [d_l, d_r, d_t, d_b])
 	cam_rig.queue_free()
+
+
+## D9 账本隔离（iso_leg，2026-09-23 R11 热修的可红锁哨兵）。闸一锁"每实例
+## 各持独立 attributes 对象"——热修行被删/退回共享 tres 引用时当场红（幻影
+## 掉血族，B 读 300 鬼影同红）。**4.7.1 实测修正机制**：_modifier_records/
+## _modifier_bases 是非导出 var，不走 storage 拷贝通道，duplicate() 构造新
+## 对象时由 _init 重造全新容器——"浅拷账本串写"旧案语系误诊，且实测
+## duplicate(true) 对 life_bar_gradient 等导出子资源也不分裂（引用恒同源），
+## 故 true↔浅在本数据下**无可观测差**，本哨兵锁到 duplicate 存在性为止，
+## 挂/撤双向穿透闸（闸二/三）即热修的实际保护面。全程同步无帧隙——两主体
+## 此刻均不在 Walk 态，账本天然空场，计数断言不被 locomotion 临时记录抢跑。
+func _section_iso(a: QuiverCharacter, b: QuiverCharacter) -> void:
+	var a_base: int = a.attributes.move_speed
+	var b_base: int = b.attributes.move_speed
+	_check(a.attributes != b.attributes,
+			"D9 双实例 attributes 各持独立对象（共享 tres 回潮=当场红）")
+	_check(b.attributes.modifier_snapshot().is_empty()
+			and a.attributes.modifier_snapshot().is_empty(),
+			"D9 前置：双实例账本空场（A %d 条 B %d 条）" % [
+			a.attributes.modifier_snapshot().size(),
+			b.attributes.modifier_snapshot().size()])
+	a.attributes.add_modifier(&"iso_leg", &"move_speed", "multiply", 0.5)
+	_check(a.attributes.move_speed == int(a_base * 0.5),
+			"D9 A 挂 ×0.5 生效（读 %.0f，base %.0f）" % [
+			a.attributes.move_speed, a_base])
+	_check(b.attributes.move_speed == b_base,
+			"D9 B 移速零鬼影（读 %.0f=自身 base %.0f）" % [
+			b.attributes.move_speed, b_base])
+	_check(b.attributes.modifier_snapshot().is_empty(),
+			"D9 B 账本零鬼影条目（实 %d 条）" % b.attributes.modifier_snapshot().size())
+	_check(a.attributes.modifier_snapshot().size() == 1,
+			"D9 A 账本恰 1 条在册（实 %d 条）" % a.attributes.modifier_snapshot().size())
+	a.attributes.remove_modifier(&"iso_leg")
+	_check(a.attributes.move_speed == a_base
+			and b.attributes.move_speed == b_base
+			and b.attributes.modifier_snapshot().is_empty(),
+			"D9 摘除后 A 回 base、B 双向仍洁净")
 
 
 func _get_skin(ch: QuiverCharacter) -> CanvasItem:
