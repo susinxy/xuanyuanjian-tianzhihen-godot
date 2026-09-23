@@ -7,13 +7,20 @@ extends RefCounted
 ## 产线是 RefCounted + DirAccess/FileAccess 纯文本手术，无 EditorInterface 依赖，
 ## headless -s 直接可用）。
 ##
-## 主权归属（Task2 评审 R2/R6 定档，不可协商）：
+## 主权归属（Task2 评审 R2/R6 定档 + 终审波 peek() API 化，不可协商）：
 ## - 共享替身 `test_actor` 的创建/导入/销毁**只属于 run_matrix.sh**；
-##   消费套**只读**消费（exists()/ensure() 幂等读），**禁止 Kit.destroy()**
-##   ——通跑中途销毁会让后续套名的 ensure() 永远拿不到 OK（进程间纹理失明）。
-## - 需要"全创建→全销毁"破坏性周期演练的套件（interact_contract S2），
-##   传入**私有草稿名**（如 test_actor_scratch）自生自灭、零残留，
-##   绝不动共享替身。
+##   消费套**只读**消费，判态一律走 `peek()`（三态分类、结构上零副作用），
+##   **禁止消费套调 ensure()/destroy()**——ensure() 对缺席名会走创建分支，
+##   守卫若忘记 exists() 前置短路、又恰逢同步域在两次调用之间弄丢目录
+##   （Syncthing 判例家族），"读者"会静默变"建档者"（R7 家族）；peek()
+##   让这类泄漏在结构上不可能发生。ensure()/destroy() 的合法调用者仅剩：
+##   run_matrix.sh（生命周期归属）与 interact_contract S 流（其题意就是
+##   断言 ensure()/destroy() 的产线契约本身，含 SCRATCH 草稿演练）。
+##
+## peek(p_name) 三态分类契约（消费守卫用，永不触碰创建产线）：
+## - `READY`(=OK，0)：文件齐且已导入（exists 且 _imported 双真）。
+## - `NEEDS_IMPORT`(42)：目录/主场景在，但导入判据不过（缺 sidecar 或 .ctex）。
+## - `ABSENT`(43)：目录或主场景文件缺席——处方恒为 `--ensure-only` 通道。
 ##
 ## ensure(p_name) 三态契约（run_matrix.sh 消费，语义如下）：
 ## - `OK`(0)：文件齐且**本进程可加载**——上轮产线已创建、且已过一遍 --import。
@@ -40,6 +47,11 @@ const ACTOR_SKIN_SCENE := ACTOR_DIR + "/test_actor_skin.tscn"
 
 ## shell 侧识别的"需先 --import 再重跑"退出码
 const NEEDS_IMPORT := 42
+## peek() 的"目录/主场景缺席"态（与 ensure() 共用 42 导入态；43 不与
+## 任何退出码约定冲突——peek 只在 GDScript 内消费，不过 shell）
+const ABSENT := 43
+## peek() 的"就绪"态（恒等于 OK，match 分支书写用）
+const READY := OK
 ## 产线失败退出码（本构建 `Error.CANCELED` 成员访问不被解析器接受——判例：
 ## 4.7.1 headless "Cannot find member CANCELED in base Error"，故自带常量）
 const ERR_CANCELED := 1
@@ -98,11 +110,22 @@ static func exists(p_name: String = ACTOR_NAME) -> bool:
 	return DirAccess.dir_exists_absolute(dir) and FileAccess.file_exists(_scene_for(p_name))
 
 
+## 只读三态分类器（消费守卫的唯一状态通道，契约见文件头"主权归属"）：
+## 与 ensure() 共享同一对 exists()/_imported() 判据（单一判据存放点），
+## **永不触碰创建产线**——ABSENT/NEEDS_IMPORT/READY 三态皆零副作用。
+static func peek(p_name: String = ACTOR_NAME) -> int:
+	if not exists(p_name):
+		return ABSENT
+	if _imported(p_name):
+		return READY
+	return NEEDS_IMPORT
+
+
 ## 三态就绪检查：详见文件头契约。幂等——已就绪时零副作用。
-## 注意：名字缺席时 ensure 会走创建（供 run_matrix.sh / 草稿演练用）；
-## 只读消费套必须先自判 exists() 再调，缺席即报可读红（R6 消费铁律）。
+## 注意：名字缺席时 ensure 会走创建（**这是 runner 与 S 流专属的语义**；
+## 只读消费套一律改判 peek()，缺席走处方红，R7 家族泄漏结构性根绝）。
 static func ensure(p_name: String = ACTOR_NAME) -> int:
-	if exists(p_name) and _imported(p_name):
+	if peek(p_name) == READY:
 		return OK
 	if not exists(p_name):
 		var creator = _Creator.new()

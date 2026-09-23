@@ -48,18 +48,20 @@ func _frames(n: int) -> void:
 ## 头部三态守卫（input_channel 同款只读阶梯）；通过喊出 ACTOR-GATE（M4 见证）
 func _guard_actor() -> bool:
 	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
-	if not Kit.exists():
-		_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
-		return false
-	var rc := Kit.ensure()
-	if rc == Kit.NEEDS_IMPORT:
-		_check(false, "替身守卫：test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
-		return false
-	if rc != OK:
-		_check(false, "替身守卫：ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
-		return false
-	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
-	return true
+	# 终审波：判态结构性断奶 ensure()——peek() 零副作用三态分类，
+	# ABSENT/NEEDS_IMPORT 两支都只打处方红，创建泄漏在类型上不可能
+	var st: int = Kit.peek()  # 只读分类（peek 承诺零副作用、永不建档）
+	match st:
+		Kit.READY:
+			print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+			return true
+		Kit.NEEDS_IMPORT:
+			_check(false, "替身守卫：test_actor 已建未导入（%s）" % remedy)
+		Kit.ABSENT:
+			_check(false, "替身守卫：test_actor 缺席（%s）" % remedy)
+		_:
+			_check(false, "替身守卫：peek() 返回未知态 %d（kit 契约破损，查 test_actor_kit）" % st)
+	return false
 
 
 func _file_checks() -> void:

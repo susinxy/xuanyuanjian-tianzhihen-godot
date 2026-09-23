@@ -29,18 +29,19 @@ var _results: Array[String] = []
 ## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
 func _guard_actor() -> bool:
 	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
-	if not Kit.exists():
-		_record(false, "守卫", "test_actor 缺席（%s）" % remedy)
-		return false
-	var rc := Kit.ensure()
-	if rc == Kit.NEEDS_IMPORT:
-		_record(false, "守卫", "test_actor 在但本进程不可加载=NEEDS_IMPORT(42)（%s）" % remedy)
-		return false
-	if rc != OK:
-		_record(false, "守卫", "ensure() 报产线失败（rc=%d，诊断见上行）" % rc)
-		return false
-	print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
-	return true
+	# 终审波：判态结构性断奶 ensure()——peek() 零副作用三态分类
+	var st: int = Kit.peek()  # 只读分类（peek 承诺零副作用、永不建档）
+	match st:
+		Kit.READY:
+			print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
+			return true
+		Kit.NEEDS_IMPORT:
+			_record(false, "守卫", "test_actor 已建未导入（%s）" % remedy)
+		Kit.ABSENT:
+			_record(false, "守卫", "test_actor 缺席（%s）" % remedy)
+		_:
+			_record(false, "守卫", "peek() 返回未知态 %d（kit 契约破损，查 test_actor_kit）" % st)
+	return false
 
 
 func _ready() -> void:
