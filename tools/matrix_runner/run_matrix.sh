@@ -17,6 +17,16 @@
 ##   5. 通道见证（M4）：消费 test_actor 的套须在日志里喊出身份断言标记
 ##      （下表 ATTEST），标记缺席 = 该跑记红——封死"导入门退化→NOTICE 静默
 ##      跳身份腿→绿矩阵"的家族路径。
+##   6. 生命周期 [2/3] 接受 42（正常新建待导入）**或 0**（终审波 FIX2：
+##      Syncthing 回灌复活形态——destroy 先行后目录被同步域原样送回且本机
+##      .ctex 健在，ensure 合法报 0=健康态）；0 态打"复活形态"行并**跳过
+##      --import**（避免对完好缓存强跑双导入的窗口风险）。
+##
+## 退出码分区（终审波 FIX3：FATAL 全部 ≥64，与红套数 0-23 命名空间分离，
+## CI 消费方可靠 rc 区分"判定=有红"和"环境=没跑成"）：
+##   0-23 = 红套数（正常判定路径）；64 = 参数/环境错误；65 = destroy 先行失败；
+##   66 = ensure [2/3] 非 {0,42}；67 = --import 非 0（半导入窗口）；
+##   68 = import 后 ensure 非 0；69 = --only 子串零命中。
 ##
 ## 用法：
 ##   tools/matrix_runner/run_matrix.sh                 # 全套通跑（含末销毁）
@@ -100,31 +110,44 @@ lifecycle_ensure() {
 	echo "== [1/3] destroy 先行（破永久 42 死锁） =="
 	run_kit "${DESTROY_ENTRY}"
 	if [ "${RC}" -ne 0 ]; then
-		echo "${C_RED}FATAL: destroy 先行失败 rc=${RC}${C_RST}" >&2; exit 3
+		echo "${C_RED}FATAL: destroy 先行失败 rc=${RC}${C_RST}" >&2; exit 65
 	fi
 
-	echo "== [2/3] ensure（期望 42 = 已创建待导入） =="
+	echo "== [2/3] ensure（期望 42=已创建待导入；0=同步域回灌复活态） =="
 	run_kit "${ENSURE_ENTRY}"
-	if [ "${RC}" -ne 42 ]; then
-		echo "${C_RED}FATAL: ensure 期望 42，实得 ${RC}${C_RST}" >&2; exit 4
+	SKIP_IMPORT=0
+	if [ "${RC}" -eq 0 ]; then
+		# 终审波 FIX2（评审处方）：Windows 端 Syncthing 把刚 destroy 的
+		# test_actor 目录连 .import sidecar 原样回灌、且本机上一轮 --import
+		# 留下的 .ctex 健在时，ensure() 合法返回 0——这是**健康态**，不是
+		# 死锁前兆（destroy 先行已保证正常路径必为 42）。旧版硬期望 42 会把
+		# 一次完好的通跑打成 FATAL exit；现在打"复活形态"行并跳过 --import
+		# （对完好缓存强跑双导入反而制造半导入窗口），[2/3] 这个 0 即已
+		# 满足"expect 0"验证，直进名册。
+		echo "${C_YEL}复活形态（同步域回灌且判据完备）—跳过 import${C_RST}"
+		SKIP_IMPORT=1
+	elif [ "${RC}" -ne 42 ]; then
+		echo "${C_RED}FATAL: ensure 期望 42 或 0，实得 ${RC}${C_RST}" >&2; exit 66
 	fi
 
-	echo "== [3/3] godot --headless --import =="
-	# M1 修正（Task2 评审）：`if !` 之后再取 $? 恒为 0（取到的是取反后的判定），
-	# 必须先直跑命令、紧跟捕获 irc，再判非 0。
-	"${GODOT}" --headless --path "${REPO_ROOT}" --import \
-			>"${LOG_ROOT}/import.log" 2>&1
-	local irc=$?
-	if [ "${irc}" -ne 0 ]; then
-		echo "${C_RED}FATAL: --import 退出码 ${irc}!=0（半导入窗口，拒绝续跑）${C_RST}" >&2
-		tail -n 15 "${LOG_ROOT}/import.log" >&2
-		exit 5
-	fi
+	if [ "${SKIP_IMPORT}" -eq 0 ]; then
+		echo "== [3/3] godot --headless --import =="
+		# M1 修正（Task2 评审）：`if !` 之后再取 $? 恒为 0（取到的是取反后的判定），
+		# 必须先直跑命令、紧跟捕获 irc，再判非 0。
+		"${GODOT}" --headless --path "${REPO_ROOT}" --import \
+				>"${LOG_ROOT}/import.log" 2>&1
+		local irc=$?
+		if [ "${irc}" -ne 0 ]; then
+			echo "${C_RED}FATAL: --import 退出码 ${irc}!=0（半导入窗口，拒绝续跑）${C_RST}" >&2
+			tail -n 15 "${LOG_ROOT}/import.log" >&2
+			exit 67
+		fi
 
-	echo "== ensure（期望 0 = 就绪） =="
-	run_kit "${ENSURE_ENTRY}"
-	if [ "${RC}" -ne 0 ]; then
-		echo "${C_RED}FATAL: import 后 ensure 期望 0，实得 ${RC}${C_RST}" >&2; exit 6
+		echo "== ensure（期望 0 = 就绪） =="
+		run_kit "${ENSURE_ENTRY}"
+		if [ "${RC}" -ne 0 ]; then
+			echo "${C_RED}FATAL: import 后 ensure 期望 0，实得 ${RC}${C_RST}" >&2; exit 68
+		fi
 	fi
 	echo "${C_GRN}test_actor 就绪${C_RST}"
 }
@@ -163,23 +186,23 @@ while [ $# -gt 0 ]; do
 			# $@ 不变 → 死循环。必须先验剩余参数充足且不是另一个选项。
 			if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" = --* ]]; then
 				echo "错误：--only 需要名册子串参数（--only <套件名子串>）" >&2
-				exit 2
+				exit 64
 			fi
 			ONLY="$2"; shift 2 ;;
 		--only=*)
 			ONLY="${1#--only=}"
 			if [ -z "${ONLY}" ]; then
 				echo "错误：--only= 的子串不能为空" >&2
-				exit 2
+				exit 64
 			fi
 			shift ;;
 		--ensure-only) MODE="ensure"; shift ;;
 		-h|--help) sed -n '/^## =====/,/^## =====/p' "${BASH_SOURCE[0]}"; exit 0 ;;
-		*) echo "未知参数：$1（--only 子串 | --ensure-only | --help）" >&2; exit 2 ;;
+		*) echo "未知参数：$1（--only 子串 | --ensure-only | --help）" >&2; exit 64 ;;
 	esac
 done
 
-cd "${REPO_ROOT}" || { echo "无法进入 ${REPO_ROOT}" >&2; exit 2; }
+cd "${REPO_ROOT}" || { echo "无法进入 ${REPO_ROOT}" >&2; exit 64; }
 
 # 生命周期：全跑 / --only / --ensure-only 都先建好 test_actor。
 lifecycle_ensure
@@ -252,7 +275,7 @@ if [ -n "${ONLY}" ] && [ "${#RESULTS[@]}" -eq 0 ]; then
 		IFS='|' read -r _k _label _p <<< "${row}"
 		echo "  ${_label}" >&2
 	done
-	exit 7
+	exit 69
 fi
 
 # ── 末销毁（--only 跳过；M5：残留文案以盘上实况为准，不再口头断言）──────────
