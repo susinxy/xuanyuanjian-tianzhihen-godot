@@ -1,0 +1,141 @@
+# S2-B3 盾反/格挡 + 修饰核心归一 · 设计文档
+
+日期：2026-09-23 ｜ 状态：待用户评审
+输入：S2 切片设计会裁决 D5（两层简版）；本仓 `docs/superpowers/specs/2026-09-21-s2-prologue-slice-design.md` §5.1（本文件对其有**显式改案**，见 §10 差异表）；用户 2026-09-23 两项理念裁决——**"任何数值皆为变量，模式旗标以数据修饰表达，分支消亡"** 与 **"与当年法术设计的 Modifier 系统归一"**。
+
+## 0. 定位
+
+本批交付玩家侧格挡/弹反机制（按住式站桩、6 帧弹反窗、双层减伤/反硬直），并**顺势把已有的属性修饰器（Modifier）核心从"改值还原式"升级为"重算回写式"**——护人态、装备、boss 阶段、后续 buff/debuff 法术共用这一条缝，全项目只此一处。
+
+## 1. 范围
+
+**本批做**：输入绑定（block=K）、格挡状态、判定管线三分支、白闪/定格反馈、attributes 三新导出、修饰核心手术、护人态**数据面**（=修饰用法示范）、契约新套、文档三件套。
+**本批不做**（各归其批）：真防御姿势动画（美术到货同名替换，占位=idle）；褚遂愿 NPC 与其阶段脚本（B6，占位皮先行）；令锋都尉"正面减伤 0.7"（B5——注意那是**带方向闸**的常驻格挡，届时在判定头加朝向比较，数值面复用本批字段）；修饰**时长/周期跳数/标签查询**（第一个真·限时 buff 消费者出现时再涨，记录形状预留见 §5.4）；空中格挡、架盾反击、蓄力格挡（简版纪律：规则不是数值的不进本批）。
+
+## 2. 机制设计
+
+### 2.1 按键
+- 新输入动作 `block` = 物理键 **K**（对齐分镜"J 刀 K 盾"）。
+- `jump` 现绑 Space+**K** → **解除 K**，只留 Space。施工时全仓 grep 以裸键 K 驱动跳跃的测试/文档，一并迁 Space。
+- Windows 端需重启编辑器认账（project.godot 外部修改判例）。
+
+### 2.2 格挡状态 `QuiverActionBlock`
+- 位置：`_beat_em_up/action_states/`（自定义动作目录，插件核心区外）。
+- 进入：Idle/Walk/Run 的 process 轮询 `channel.is_held("block")`（locomotion 按住路由先例）；按住即入。
+- 存续：站桩（零位移）；`input_window_open=false`（姿态期不受理跳/攻/其它按键——要动先松手）；姿态动画槽 `@export` 默认指向 `&"idle"`（施法状态降级梯同款：目标动画缺失自动回落，真防御动画到货只改导出）。
+- 退出：松开 K 回 Idle（release-exit 先例）；从受击/击飞/死亡状态**不可进入**（进入源仅限三个 locomotion 状态，天然成立）。
+- 生命周期旗标（**状态进出驱动**，仿 `in_knockout`，废除原 §5.1 动画关键帧路线——理由与代价见 §10）：enter → `attributes.is_blocking = true`、`attributes.block_started_frame = Engine.get_physics_frames()`；exit → `is_blocking = false`。弹反窗自**按下瞬间**起算（非姿势到位起算，与 6 帧窗语义自洽）。
+
+### 2.3 判定三分支（唯一插入点：`QuiverHurtBox._handle_hit_box`，`_can_be_attacked_by` 通过后、`apply_damage` 前）
+
+设 `now = Engine.get_physics_frames()`，窗 = 受击方 `parry_window_frames`（受管字段，已含一切修饰）：
+
+| 条件 | 结果 |
+|---|---|
+| `is_blocking` 且 `now - block_started_frame <= 窗` | **弹反**：防守免伤免退；攻击者吃 `QuiverKnockbackData(弹反顶硬 K=60, MID, ZERO)` → `apply_knockback`（走其自身抗性池，短硬直不浮空）；`HitFreeze.start(6)` 加强一拍；防守皮肤白闪（强档）。**弹反必须自己触发定格**——现行唯一生产定格调用在 apply_damage 内，免伤路径不经过它（静默无反馈陷阱）。禁用 K=0 表达"零击退"（池空时 `0>=0` 会误发射浮空，判例入注释） |
+| `is_blocking`（超窗） | **格挡**：伤害 ×`block_damage_ratio`，经新入口 `CombatSystem.apply_damage_value`（§6.2）；**不调用**击退派发（免退、免池耗、不换状态）；防守皮肤白闪（弱档） |
+| 其余 | 现行流程逐字不变；死亡结算路径不动 |
+
+**三味公共义务**：弹反/格挡分支**仍须照常调用** `hit_box.on_target_hit`（弹体消命/近战收尾回调，绕过=穿体飞到判例同族）；`is_invulnerable` 免疫路不经本缝（现行顺序在先，语义不变）；本缝读到的受管三字段=已含修饰的当前值（重算回写模型使判定代码零感知修饰的存在）。
+
+**法术弹体同效**：弹体命中同样经过本缝，格挡/弹一对弹体成立（弹反=弹体照常消亡+施法者硬直）——统一管道零特例。
+
+### 2.4 反馈件
+- 白闪共享小函数（约 10 行，出处定档一处）：对角色皮肤 `modulate` 短回弹（弹反 ≈0.12s 亮档、格挡 ≈0.07s 微档；时长/色为规则常量单一出处）。现件无生产命中 VFX 先例（legacy 台本有 modulate 回弹原型可参照）。
+- 格挡无硬直无退步（v1 定案）；掉血数字即感知；参数位已留（B6 若补挡架演出走动画同名替换）。
+
+## 3. 数据面（`QuiverAttributes` 新增）
+
+| 字段 | 形态 | 默认 | 说明 |
+|---|---|---|---|
+| `is_blocking` | 运行时 bool | false | 状态闸门（**非**数值，不违反 §4 精神） |
+| `block_started_frame` | 运行时 int | 0 | 物理帧时基 |
+| `parry_window_frames` | `@export` int，**受管** | 6 | 弹反窗帧数，每角色可配 |
+| `block_damage_ratio` | `@export` float，**受管** | 0.4 | 格挡伤害系数，每角色可配 |
+| `attack_output` | `@export` float，**受管** | 1.0 | 自身输出乘算（护人 0.3 等由修饰表达） |
+
+创建器三件套同步：`DEFAULT_STATS`、attributes.tres 合成器、wp2 断言逐行核（+3 字段）。debug dock 数值页加"修饰记录"一行列表（来源→字段→操作→值，防"谁改了我的数"冤案）。
+
+## 4. 数值治理法（新纪律，落 AGENTS + 法典口径）
+
+数值三档归位：
+1. **角色数值域** → attributes 受管导出（每角色 tres/创建面板配置）；
+2. **规则常量** → 单一出处（弹反顶硬 60、白闪两档、定格帧数、护人乘数），禁止散落魔数；
+3. **禁止**：模式旗标内藏数值推导（`guard_mode` 型分支——本法的立法定性案例）；受管字段**单写者纪律**：入册字段只能经修饰 API 变更，裸写=违规（契约可查，见 §8 P9）。
+
+**升格规则（"用到才包"）**：一个字段出现第二写入方的当天进受管名单；无消费者不预包（防双真相点凭空增殖）。本批入册者即 §3 三字段（护人态=其第二写入方）。
+
+## 5. 修饰核心手术：方式 B → **B′ 重算回写**
+
+### 5.1 现状与欠账
+`quiver_attributes.gd:253-276` 已实现 `add_modifier/remove_modifier/remove_modifiers_from_source`，语义=挂上直接改属性值、摘除写回该记录捕获的 base_value（"方式 B"，法术设计文档 §11 定案）。唯一定制消费方=`quiver_action_locomotion.gd:71/102`（走/跑速度乘子）。结构性欠账三处：同属性叠挂时后来者以**已改值**为 base，乱序摘除即踩坏；`reset()` 不清记录，跨死亡旧账回填；无时长/刷新语义。
+
+### 5.2 手术规格（API 一字不变，内脏替换）
+- **base 捕获**：每属性仅在**第一个**修饰到来时捕获当前值为真 base（此后 base 只随 tres/创建器变）；
+- **写回模型**：任何 add/remove 后，对该属性按 `(base + Σadd) × Πmultiply` 重算并 `set()` 回属性本身——**消费方读路径零改动**（保住方式 B 的唯一美德：无第二真相、无 getter 遍地化）；
+- **刷新语义**：同 `mod_id` 再挂=替换旧记录（先摘后挂），杜绝重复条目；
+- **清账**：`reset()` 清空 `_modifier_records` 并将各受管属性写回真 base（护人/locomotion 修饰不跨死亡）；
+- 非法 `type` → `push_warning` + 不生效（现状静默，升格）。
+- **等价哨兵**：locomotion 行为逐位不变由既有矩阵（run/walk 速度腿）护航。
+
+### 5.3 与护人态的合体（原 guard_mode 的消亡）
+护人阶段=两条修饰，一行撤净，机制代码全程只读数字：
+```gdscript
+attrs.add_modifier(&"escort_window", &"parry_window_frames", "multiply", 2.0)   # 6→12 帧
+attrs.add_modifier(&"escort_power",  &"attack_output",       "multiply", 0.3)   # 出拳×0.3
+# 阶段结束：attrs.remove_modifiers_from_source(阶段脚本自身)
+```
+弹反窗×2 与输出×0.3 的乘数是**规则常量**（§4 第 2 档）；"护人何时开始/结束"是 B6 阶段脚本的职责，本批只交付机制并以契约**模拟挂/撤**。
+
+### 5.4 为未来预留（本批不实现，只留形）
+记录字典预留空位 `duration`/`tick` 语义扩展位；时长泵的正确挂点=角色 `_physics_process`（物理帧口径与定格冻结天然一致）；DoT=周期 `apply_damage_value`。触发条件写死：**第一个限时法术批**。GAS 的标签查询/表现 cue 层不预留实现、只在本档记名。
+
+## 6. 伤害算术归位
+
+### 6.1 公式（判定缝内）
+```
+最终伤害 = 攻击数据.damage
+         × (防守方 is_blocking ? 防守方.block_damage_ratio : 1.0)   # 弹反分支则整条免伤
+         × 攻击方.attack_output                                     # 受管字段，已含护人等修饰
+```
+`attack_data` 是攻击方共享导出资源——**任何路径不得 mutate**（`emit_changed` 判例）；缩放一律走 §6.2 数值入口。
+
+### 6.2 新入口 `CombatSystem.apply_damage_value(p_damage: int, target: QuiverAttributes)`
+`apply_damage` 现有函数体抽出：invulnerable 免疫检查 + 扣血（clamp/HUD 信号经 setter 族）+ `HitFreeze.start()` 默认拍——三行复用，不新增旁路真相。
+
+## 7. 装配面
+- `chen.tscn`（非 git，生产主角）与 `templates/character/`（入库，同步工具链）：`StateMachine/Ground` 挂 `Block` 状态节点（同 Cast 形制：脚本 + 皮肤槽导出指 idle）；AnimTree **零改动**（idle 占位经降级梯）。
+- 敌人/被动角色出生不挂 Block=默认无姿态（v1 玩家专属；B5 都尉走常驻格挡+方向闸，届时定形）。
+- 新契约套 `tools/block_parry_contract/` 入 `run_matrix.sh` 名册（矩阵第 26 runner），身份腿走 ATTEST 登记。
+
+## 8. 测试设计（契约 `block_parry_contract`，靶场复用 lane 骨架：test_actor 攻 × street_vendor 守，peek 三态守卫 + 真键盘腿）
+- P1 回归：未格挡→伤害/击退逐字如旧；
+- P2 格挡减伤：架盾受击掉血=基础×0.4 精确；不击退不换状态；
+- P3 窗界：按下后第 5 帧击=弹反（零伤+攻击者池 -60+其进 Hurt）；第 8 帧击=只格挡；
+- P4 每角色配置：替身 `parry_window_frames=2` 时第 3 帧击只格挡（证读字段非读常量）；
+- P5 护人换挡（模拟）：挂 §5.3 两条修饰→窗=12 且出拳×0.3 双腿各自断言→撤除→还原干净；
+- P6 弹体被挡：法术弹体命中走同三分支（减伤腿）；
+- P7 真键盘 E2E（主权法 OS 入口）：raw K 按下→Block 态→挨打→数值生效→松 K→回 Idle；raw Space 腿证明跳跃仍可用且 K 不再触发跳；
+- P8 死亡清账：挂修饰→死亡重跑→受管字段=真 base（§5.2 复位腿）；
+- P9 单写者守卫：契约内先裸写受管字段再挂修饰摘除，断言文档化的已知边界行为（写纪律注记，非执法）；叠挂乱序摘除值仍正确（B′ 手术本体回归腿）。
+F5 单三眼：弹反白闪+顶硬手感、K 让位后跳跃（Space）无恙、格挡对普通怪链。
+
+## 9. 文档义务（同批）
+`PLUGIN_ARCHITECTURE.md`（判定流程图、修饰 B′ 章、受管字段表）；`PLUGIN_CHANGES.md` 案卷（三处插件触点：attributes 手术+hurtbox 判定头+CombatSystem 入口，API 稳定性声明）；`SPELL_SYSTEM_DESIGN.md` §11 方式 B 段**就地升格为 B′**（法术权威与代码不得两页书）；根 AGENTS 数值治理法+矩阵 26 计数。
+
+## 10. 对原 §5.1 的改案（显式回标）
+
+| 原条文 | 改案 | 理由 |
+|---|---|---|
+| `is_blocking` 动画关键帧轨道驱动（is_invulnerable 同族） | **状态进/出驱动**（in_knockout 同族） | 前者要求每角色全部动画（chen 66 个）铺 false 归一键且新角色忘铺即泄漏；后者结构性无泄漏、动画改动为零。语义差=按下即生效 vs 姿势到位生效；6 帧窗语境下前者更公平且与 D5"约 6 帧"同口径 |
+| 弹反窗 `<= 100ms`（get_ticks_msec） | **物理帧计数**（默认 6 帧） | 命中定格暂停物理帧而毫秒钟照走，连段中窗口被定格蚕食（时基失配实锤）；D5 原文本就是"约 6 帧" |
+| `guard_mode := false` 模式旗标 | **删除**。护人态=两条属性修饰（窗×2、输出×0.3），由未来阶段脚本挂/撤 | 用户数值治理法立法案例：模式旗标=藏在分支里的数值推导；修饰容器让分支消亡，装备/boss 阶段/未来 buff 同缝复用 |
+| （无每角色窗口配置） | `parry_window_frames`/`block_damage_ratio`/`attack_output` 为受管导出 | 用户 2026-09-23 裁决"任何数值皆为变量"；B5 都尉数值差异化（池 1500/正面 0.7）依赖此形 |
+| 格挡/弹反反馈仅"白闪+定格加强" | 补**双档白闪**规格与"弹反自触发定格"警条 | 探明：免伤路径不经 apply_damage=现行唯一生产定格调用，遗忘=静默无反馈假绿族 |
+
+## 11. 风险登记
+1. **locomotion 回归**（修饰内脏手术碰到现役唯一消费方）——等价哨兵=矩阵 run/walk 腿 + P9 叠挂乱序腿；
+2. **受管字段裸写违规**（双真相源头）——单写者纪律入 AGENTS + dock 记录可见 + P9 契约注记；
+3. `Engine.get_physics_frames()` 含暂停期口径=与 HitFreeze 交互需实测确认（探针先行：定格期间帧号是否停走，若引擎不停在契约 P3 用相对窗验证兜底写法）；
+4. 创建面板三件套扩容断言行数漂移（wp2 逐行核先例，低风险）；
+5. 都尉方向盾（B5）若届时要求"背面不受减伤"，判定头需读攻击向量——本批 `QuiverKnockbackData` 的 launch 向量在判定缝内可得，形已留，勿提前建闸。
