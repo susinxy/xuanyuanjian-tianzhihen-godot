@@ -36,9 +36,11 @@ func _ready() -> void:
 		QuiverEditorHelper.disable_all_processing(self)
 		return
 	
-	# 深拷（R11 账本隔离判据，2026-09-23 由浅拷升格）：同场景多实例共享
-	# attributes.tres 引用，浅拷下 _modifier_records/_modifier_bases 字典仍是
-	# 同一对象——B′ 账本跨个体串写（多士兵差异化修饰=引爆点），必须 duplicate(true)
+	# duplicate 断根级共享（R11，机制归因经 b3 收口波实测勘误）：同场景多实例
+	# 共享 attributes.tres 引用，本调用即完成个体隔离——_modifier_records/
+	# _modifier_bases 是非导出 var，不走 storage 拷贝通道，副本由 _init 重造
+	# 全新容器；浅/深对本 tres 零可观测差，(true) 保留为无害保守形，
+	# "深拷提供账本隔离"的旧归因作废（红锁见 knockout_contract D9 iso_leg）
 	attributes = attributes.duplicate(true)
 	attributes.reset()
 	super()

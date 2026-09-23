@@ -178,14 +178,17 @@ QuiverBaseCharacter (CharacterBody2D)
 
 - **玩家**: 继承 `QuiverCharacter`，角色脚本只做初始化
 - **敌人**: 继承 `QuiverEnemyCharacter`，增加 `AiStateMachine` 引用，`_ready()` 里
-  `attributes.duplicate(true)` + `reset()`——**深拷**（R11 账本隔离裁决，2026-09-23；
-  浅拷年代每敌人只是"独立 HP"侥幸，`_modifier_records/_modifier_bases` 字典两
-  实例仍同一对象，同场景多敌人共享 B′ 账本=差异化修饰串写的潜伏雷；深拷连账本
-  一起隔离，判据=修饰/池/旗标的个体性）
+  `attributes.duplicate(true)` + `reset()`——**断根级共享**（R11 裁决，机制归因
+  b3 收口波实测勘误：隔离由 duplicate 调用本身完成——非导出账本变量
+  `_modifier_records/_modifier_bases` 不走 storage 拷贝通道、副本由 `_init`
+  重造；浅/深对本 tres 零可观测差，"浅拷账本串写"旧述系误诊，`(true)`
+  仅无害保守形。判据=修饰/池/旗标的个体性，红锁=knockout_contract D9）
 
 **attributes 实例隔离案卷（R11，2026-09-23，判例三条）**：
 - **玩家档壳零隔离**：`QuiverCharacter` 及其创建器产物（含 AI 档壳）不做实例
-  隔离，同 `.tres` 被多实例按引用共享（血/池/姿态旗全是一个对象）。游戏以
+  隔离（缺 :39 式 `duplicate()` 调用，与浅/深无关），同 `.tres` 被多实例
+  按引用共享（血/池/姿态旗全是一个对象——真雷在此，b3 收口波实测确认：
+  敌人壳只要保留 duplicate 调用即断根，退回共享引用则当场红）。游戏以
   `area2d:player` 身份门保证玩家档在场至多一具；确需双实例（测试替身、分身）
   时消费方自救：`duplicate(true)` 且**双写** `root.attributes`（动作状态的
   `_on_owner_ready` 缓存源）+ `skin.attributes`（战斗盒 `character_attributes`
@@ -194,7 +197,7 @@ QuiverBaseCharacter (CharacterBody2D)
   root/skin 各自成份，上面"两引用同源"的既有契约当场破裂，且"一场景一本体"
   也满足不了；处方=显式 duplicate + 双写，隔离点唯一。
 - **创建器 AI 档 × spawner 双头死结**（挂账 B5 设计会前置清单）：AI 档壳恒
-  `extends QuiverCharacter`（无隔离）而 `QuiverEnemySpawner.spawn_current_wave()`
+  `extends QuiverCharacter`（缺 :39 式隔离调用）而 `QuiverEnemySpawner.spawn_current_wave()`
   `instantiate() as QuiverEnemyCharacter` 硬转型（非敌人壳=null）——AI 档角色
   喂 spawner 两头都死；二选一立案（创建器改产 EnemyCharacter 壳 vs
   `make_attributes_local()` 显式双写入口）属设计裁决，工程侧不私斗。
@@ -1319,8 +1322,10 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 `WALK_TO_POSITION`: 在 spawner 位置生成，然后调用 `spawn_ground_to_position()` 走向目标。
 `IN_PLACE`: 直接在目标位置生成。
 
-**一波多兵的安全性**：靠 `QuiverEnemyCharacter._ready` 的 attributes **深拷**
-（R11 账本隔离，§2 案卷）——同场景实例化 N 只各自独立血/池/修饰账本；
+**一波多兵的安全性**：靠 `QuiverEnemyCharacter._ready` 的 attributes
+`duplicate(true)` **断根级共享**（R11，§2 案卷；b3 收口波实测：隔离由
+duplicate 调用本身完成，浅/深零可观测差）——同场景实例化 N 只各自独立血/池/
+修饰账本；
 转型 `as QuiverEnemyCharacter` 意味着喂进 spawner 的必须是敌人壳（创建器
 AI 档死结挂 B5，见 §2）。
 

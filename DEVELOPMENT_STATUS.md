@@ -225,15 +225,17 @@
     =24 跑，79 断言+横幅=80 口径，M/P/Q 三流）** + 数值治理法入 AGENTS。
     T7 收口三件：**测试强度强化**（P11c 全录像判停破窗盲、P6c/P8e 命中帧起
     ≤15 帧回执护栏堵 300f 窗缘假绿）、**R11 hotfix**（`quiver_enemy_character`
-    attributes 浅拷→深拷，B′ 账本个体隔离，knockout_contract 多 spar 实例为
+    attributes 补 `duplicate(true)` 隔离调用；归因经 b3 收口波实测勘误：断根
+    由 duplicate 调用本身完成、浅/深零可观测差，knockout_contract 多 spar 实例为
     直接消费腿）、H3 停摆窗随模板基线迁长**按 B2.5 预批随动**重校准（比率锚
     0.7×length+停摆机构换生产 HitFreeze 同款 paused，红判据不变）。
     批末**全矩阵 24/24 绿**。挂账移交 B5 设计会前置清单（三件）：
-    ① AI 档隔离×spawner 硬转型双头死结裁决（make_attributes_local() 双写
+    ① AI 档缺 :39 式隔离调用×spawner 硬转型双头死结裁决（make_attributes_local() 双写
     vs 创建器改产 QuiverCharacterEnemy 壳，二选一立案，账本 R11③）；
     ② 短动画×≥4 帧定格浅位信标死格异象——B5 开工前读探针案卷
     `/tmp/opencode/b3_t7/h3probe*.log` 并补 F5 眼"被弹反方连段窗不死"；
-    ③ 深拷账本隔离锁已由 iso_leg 入 knockout 契约（本波）。F5 单三眼见
+    ③ 账本隔离红锁已由 iso_leg 入 knockout 契约（本波；隔离=断根级共享，浅/深
+    零可观测差，归因勘误同步入契约 D9 头注）。F5 单三眼见
     `docs/superpowers/plans/2026-09-23-s2-b3-block-parry-f5.md`。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
