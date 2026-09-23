@@ -33,16 +33,16 @@ var session := ChapterSession.new()
 var _instances := {}          # segment_id -> 实例（常驻缓存，spec D12 缓存面）
 var _order: Array[StringName] = []
 var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first-wins；
-                              # 位置双轨在跳过坏段时会错位映射，判例修正）
+							  # 位置双轨在跳过坏段时会错位映射，判例修正）
 var _seg_spawner_set := {}    # segment_id -> Array[QuiverEnemySpawner]（R9：段清判定
-                              # 的 spawner 集实源于接线期检测器 paths 并集）
+							  # 的 spawner 集实源于接线期检测器 paths 并集）
 var _current: StageContent = null
 var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
 var _transition_gen := 0              # I2：转场意图代际（switch/restart/强制推进共用，
-                                      # 最新意图胜出；链尾对号，陈旧链静默让位）
+									  # 最新意图胜出；链尾对号，陈旧链静默让位）
 var _suppress_state := {"gen": 0, "orig": {}}   # R12：屏蔽窗代际+检测器原值存证
-                                                # （字典按引用被恢复 lambda 捕获，
-                                                # 壳先亡也可安全清算）
+												# （字典按引用被恢复 lambda 捕获，
+												# 壳先亡也可安全清算）
 var _chapter_finished_emitted := false          # chapter_finished 闩锁（恰一次）
 
 
