@@ -233,7 +233,7 @@
     ① AI 档缺 :39 式隔离调用×spawner 硬转型双头死结裁决（make_attributes_local() 双写
     vs 创建器改产 QuiverCharacterEnemy 壳，二选一立案，账本 R11③）；
     ② 短动画×≥4 帧定格浅位信标死格异象——B5 开工前读探针案卷
-    `/tmp/opencode/b3_t7/h3probe*.log` 并补 F5 眼"被弹反方连段窗不死"；
+    `/tmp/opencode/b3_t7/h3probe*.log`（/tmp 易失，失则按 b3 收口波报告方法一分钟重生成）并补 F5 眼"被弹反方连段窗不死"；
     ③ 账本隔离红锁已由 iso_leg 入 knockout 契约（本波；隔离=断根级共享，浅/深
     零可观测差，归因勘误同步入契约 D9 头注）。F5 单三眼见
     `docs/superpowers/plans/2026-09-23-s2-b3-block-parry-f5.md`。
