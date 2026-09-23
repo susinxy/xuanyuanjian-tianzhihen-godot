@@ -1,5 +1,11 @@
 # S2-M1-B2.5 测试主权批 · F5 人工验收单（Windows）
 
+> **关账状态（2026-09-23）**：眼①**结构性关闭**——生产场景/模板 grep 零 `playable_override`
+> 设置（null 路径成立），且用户以生产内嵌 chen 实跑 it2/it3（E 响应正常）顺带实证；
+> 眼②**由 R10 三方探针关闭**（chen 本体同 harness 亦报 3×，"新角色独有病"前提证伪，非产线缺陷）。
+> 本单两眼均无需再人工执行。Syncthing 忽略 `characters/playable/test_actor*` 建议随下次
+> Windows 会话顺手设置（运维项，不阻塞）。
+
 批范围 headless 已跑：**全矩阵首通 23 跑 RED=0**（含转治的 input_channel 与
 R8/R9 诚实化后的 attack_freeze_repro、wp2 overlay_e2e）。本单只做机器测不了的事。
 
