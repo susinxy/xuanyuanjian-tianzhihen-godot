@@ -202,7 +202,7 @@
     chen attack1=0.1s 为用户有意创作，矩阵验证模板血统、**有意不覆盖 live 手感；
     模板回刷=控制器决策，届时 H3 pos≥0.30 停摆窗判据同批随动**。R10 三方告警
     对比裁决（Task6 探针）：产线新建 probe_throw / 驻留 test_actor / chen 在同 harness
-    下**各报 3× "AnimationNode is null"**——"chen 不告警"前提不成立，定性为插件
+    下**各报 3× "AnimationNode is null"**——"chen 不告警"前提不成立，定性为插件（消音批注：告警源为**双生 walker**——quiver_character_skin_anim_tree 与 spells/_base/spell_skin_anim_tree 同型 null 槽白名单问题，将来消音须两处同治）
     anim tree walker（quiver_character_skin_anim_tree.gd `_handle_animation_node`）
     撞引擎空槽属性（BlendTree/TimeScale/StateMachine 的名为 `AnimationNode` 的
     AnimationNode 型属性）的**预存噪音**（入册备案，非产线缺陷，不立案；addons
