@@ -148,14 +148,15 @@ func _recompute(attribute: StringName) -> void:
 
 ## 清账（reset 与死亡重跑共用）：全记录作废+受管属性回 base。
 func _clear_all_modifiers() -> void:
-	var attrs := _modifier_bases.keys()
+	var bases := _modifier_bases.duplicate(true)   # 先快照（回写要读表，防清序陷阱）
 	_modifier_records.clear()
 	_modifier_bases.clear()
-	for attr in attrs:
-		set(attr, _restored_base... )   # 注意：base 表已清，先取后清——见下
+	for attr in bases:
+		var base_d: Dictionary = bases[attr]
+		set(attr, roundi(float(base_d["value"])) if base_d["is_int"] else float(base_d["value"]))
 ```
 
-**实施修正**（防把上面注释当代码抄）：`_clear_all_modifiers` 先快照 `var bases := _modifier_bases.duplicate(true)`，再 clear 两表，最后按快照逐项回写（int 属性回写 `roundi`）。`reset()` 体内追加 `_clear_all_modifiers()` 一行，注中文判据（护人态不跨死亡）。
+**实施修正**（防把上面注释当代码抄）：`_clear_all_modifiers` 先快照 `var bases := _modifier_bases.duplicate(true)`，再 clear 两表，最后按快照逐项回写（int 属性回写 `roundi`）。`reset()` 体内追加 `_clear_all_modifiers()` 一行（中文注判据：护人/locomotion 修饰不跨死亡）。
 
 - [ ] **Step 4: M 流全绿复跑**（含 Step1 里两条"两世界同值"哨兵 M1a 未漂移）。
 - [ ] **Step 5: 等价哨兵复跑两旧套**（locomotion 是手术区唯一活体消费方）：`... res://tools/input_channel_test/test_runner.tscn` 与 `... res://tools/stage_contract/stage_contract.tscn` → 17/17 与 128/128。任一红=手术动了语义，回炉。
@@ -216,6 +217,7 @@ block={
   - **P1 回归**：A 出拳打无防 V → `hp0-10±ε`（ε=1 吸收 float/int），V 曾入 `Ground/Hurt`（`_watch_visual` 移植）；
   - **P2 格挡**：`V.attributes.is_blocking=true; V.attributes.block_started_frame = Engine.get_physics_frames()-99`（超窗内部捷径，中文注记"判定缝测试豁免 OS 链——E2E 归 P7"）→ 出拳 → 掉血**恰 4**（`_watch_hit` 帽 120 后取精确差），V 不入 Hurt、V `resistance_current==600` 不动、A 无变化；
   - **P3 窗界**：预置 `is_blocking` 真+`block_started_frame=now-3`（delta=3<6）出拳 → V 掉血 0、V 池 600、**A 池 540 且 A 入其 Hurt 态**；再一发预置 delta=6（严格 `<` 归格挡）→ 掉血 4；
+  - **P4 每角色窗配置**（兼受管字段走修饰的合法姿势）：`V.attributes.add_modifier(&"t_p4", &"parry_window_frames", "add", -4.0)` → 窗 6→2；预置 delta=3 出拳 → 应走**格挡**（掉血 4）而非弹反（旧常量世界会弹反=红）；摘修饰复测 delta=3 → 弹反成立。禁裸写受管字段（治理法），配置经修饰路；
   - **P6 弹体被挡**：V `is_blocking` 超窗，投 lane/法术既有弹体（复用 spell_hit 的 fire_ball 发射 helper 或 A 的 air 弹——以 spell_cast_test 现行发射形制最小移植），断言弹体命中走格挡支（掉血=弹伤×0.4；若弹体 `hit_box.character_attributes` 实测为 null → `attack_output` 按 1.0 生效的探针结论进注释）。
 - [ ] **Step 2:** 红据入报告（is_blocking 尚不存在=parse 级红亦可算红，注明）。
 - [ ] **Step 3:** 实施两插件文件（**代码以 spec §2.3 时间轴表为准绳**；hurtbox 重构后原 else 支保持原三行语义、只把 `apply_damage` 换成经 `apply_damage_value(attack.attack_damage * out_mult, ...)` 且 `out_mult := 1.0 if atk_attrs == null else atk_attrs.attack_output`；`_flash(V attrs, true)` / `_flash(A attrs, false)` 两挂点按 spec 三件套）。
@@ -279,10 +281,10 @@ func _physics_process(_delta: float) -> void:
 	if sm.state == self:
 		if not _character.channel.is_held(&"block"):
 			sm.transition_to(_path_idle_state)
-	else:
-		if _character.channel.is_held(&"block") \
-				and sm.state.name in _entry_whitelist:
-			sm.transition_to("Ground/Block")
+	elif _character.channel.is_held(&"block") \
+			and StringName(str(sm.state.name)) in _entry_whitelist:
+		# StringName 显式转换：state.name 是 String，裸 in 白名单恒假（类型陷阱）
+		sm.transition_to("Ground/Block")
 
 func exit() -> void:
 	_character.attributes.is_blocking = false
@@ -295,7 +297,7 @@ func exit() -> void:
 （`_state_machine/_character/_skin/_should_*` 成员名以 `quiver_character_action.gd`/cast 实文件为准，装配前先读一眼。）
 
 - [ ] **Step 3:** chen.tscn 装配 Block 节点（Cast 形制同款：`[node name="Block" type="Node" parent="StateMachine/Ground"]` + script + `parent_should_*` 三真）；`--import`；`python3 tools/sync_template_from_chen.py` 后 `bash tools/matrix_runner/run_matrix.sh --ensure-only` 重建替身带入 Block。
-- [ ] **Step 4:** P7 补全绿：K 按下→Block 态；B（第二个替身，内部捷径出手）打 A → A 掉血 4（格挡支生效，非 10）；raw 注入 K up → `_wait_until(state=="Ground/Move/Idle")`；再验 P7d：Block 期间注入 Space（跳跃键）**无反应**（输入窗关=姿态不吞别的键，让位判据）。
+- [ ] **Step 4:** P7 补全绿：K 按下→Block 态；B（第二个替身，内部捷径出手）打 A → A 掉血 4（格挡支生效，非 10）；raw 注入 K up → `_wait_until(state=="Ground/Move/Idle")`；P7d：Block 存续期间注入 Space → **无反应**（输入窗关，姿态不吞别的键）；P7e：回 Idle 后注入 Space → `_wait_until(state 含 "Air", 30)`（K 让位后跳跃仍可用的 OS 链实证）。
 - [ ] **Step 5:** 复跑 `interact_contract`（其 X 流用 chen/替身树，防装配回归）与 `input_channel`；提交（新状态+chen.tscn+templates 变更+契约，点名；报告附 chen 备份路径）。`feat: QuiverActionBlock 姿态状态自选进出，chen/模板/替身三处落地+真键盘 K E2E`。
 
 ---
