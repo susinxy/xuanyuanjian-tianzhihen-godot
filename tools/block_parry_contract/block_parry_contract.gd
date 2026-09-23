@@ -8,6 +8,15 @@ extends Node
 ## Q 流=T5 姿态状态自选进出 × 真键盘 K 链（P7 腿）：raw 注入 K → Block 态、
 ## 姿态中挨拳走格挡支（OS 链×缝整合）、松键回 Idle、窗口关不劫持、K 让位后
 ## 跳跃仍可用。旗标成对写入零内部捷径——生产写方只有 QuiverActionBlock。
+## T6 补腿（评审点名，R9④⑤/M4）：P8=弹体弹反（窗内格挡弹道 → 反顶施法者
+## 池 540 + 弹体消亡，spell_base 绑施法者属性的悬案钉死）；P9=反顶升格
+## （攻击方池预削 50，K60≥R → 统一模型 knockout，Air/Knockout/Launch）；
+## P10/P11=M4 姿态×发射器双向——P10 格挡支整颗吞 1200 重击（spec §2.3
+## "飞天变站桩"经真实姿态旗活体钉死），P11 经 CombatSystem 公开入口直推
+## knockout_requested → Block 经 Ground 挂线被打断退场、exit 注销旗标
+## （键仍按住也不复活，白名单不回流非 locomotion）。两流收尾 queue_free
+## 残场（评审 I3：后流绝不看见前流的幻影键盘/共享原体）。
+## 本套自 T6 起入 run_matrix 名册，身份见证=ACTOR-GATE（守卫通过行）。
 ##
 ## Step0 探针实锤（2026-09-23，tools/tmp_b3probe 一次性台已毁尸，逐字记录见
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
@@ -109,35 +118,6 @@ func _wait_state(ch: QuiverCharacter, path: String, cap: int = 600) -> bool:
 	return str(ch.state_machine.state_name) == path
 
 
-## 观察靶子掉血（命中即提前 true；全程未掉血 false）
-func _watch_hit(vendor: QuiverCharacter, hp0: float, cap: int) -> bool:
-	for _i in cap:
-		if vendor.attributes.health_current < hp0:
-			return true
-		await get_tree().physics_frame
-	return vendor.attributes.health_current < hp0
-
-
-## 表现层记录窗：逐帧记录 掉血/入Hurt状态/hurt_high动画 三旗。转 Hurt 是
-## call_deferred、动画节点切换要真实帧提交才可见——早退式断言会出竞态假红，
-## 窗满或三旗齐才回（knockout 批"信标要 process 提交阶段才发"同款纪律）
-func _watch_visual(vendor: QuiverCharacter, hp0: float, cap: int) -> Dictionary:
-	var seen := {"hit": false, "hurt_state": false, "hurt_anim": false}
-	for _i in cap:
-		if vendor.attributes.health_current < hp0:
-			seen.hit = true
-		if str(vendor.state_machine.state_name) == "Ground/Hurt":
-			seen.hurt_state = true
-		# _playback 声明在皮肤组件子类上，走无类型局部避免基类静态检查误杀
-		var pb = vendor._skin._playback
-		if pb != null and String(pb.get_current_node()) == "hurt_high":
-			seen.hurt_anim = true
-		if seen.hit and seen.hurt_state and seen.hurt_anim:
-			return seen
-		await get_tree().physics_frame
-	return seen
-
-
 ## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建）
 func _guard_actor() -> bool:
 	var remedy := "先跑 bash tools/matrix_runner/run_matrix.sh --ensure-only 建好 test_actor"
@@ -194,7 +174,7 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
 		"f_call": 0, "f_hit": -1,
 		"v_hp0": 0.0, "v_hp_drop": 0.0, "v_pool_min": POOL0, "v_hurt": false,
 		"a_hp0": 0.0, "a_hp_drop": 0.0, "a_pool_min": POOL0, "a_hurt": false,
-		"paused_seen": false,
+		"a_knockout": false, "paused_seen": false,
 	}
 	r.v_hp0 = vendor.attributes.health_current
 	r.a_hp0 = actor.attributes.health_current
@@ -223,6 +203,9 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
 			r.v_hurt = true
 		if str(actor.state_machine.state_name) == "Ground/Hurt":
 			r.a_hurt = true
+		# 反顶升格观察窗（P9）：攻击者被自己的弹反顶进 Air/Knockout/*
+		if str(actor.state_machine.state_name).contains("Knockout"):
+			r.a_knockout = true
 	return r
 
 
@@ -388,6 +371,69 @@ func _flow_parry() -> void:
 	if ball_spent and is_instance_valid(ball):
 		ball.destroy()
 
+	# ── P8 弹体弹反（R9④）：hold 构造 delta≡1 ⇒ 缝对弹道走弹反支；反顶继承
+	#    spell_base 绑定的施法者属性 ⇒ A 池 600→540，弹体经 on_target_hit 回执离场。
+	#    （M1 悬案苗子钉死：弹体弹反不是"打到空气"，公共义务双向都算账）──
+	await _clean(vendor, actor)
+	vendor.attributes.reset()
+	vendor.attributes.is_blocking = true
+	var ball2 := spell_scene.instantiate() as SpellBase
+	stage.add_child(ball2)
+	ball2.global_position = Vector2(vendor.global_position.x - 160.0, vendor.global_position.y)
+	ball2.cast(actor, spell_def, Vector2.RIGHT)
+	var hp8: float = vendor.attributes.health_current
+	var a_hp8_0: float = actor.attributes.health_current
+	var v_hurt8 := false
+	var v_pool8_min := POOL0
+	var a_pool8_min := POOL0
+	var a_hurt8 := false
+	var ball8_spent := false
+	var grace8 := 0
+	for _i in 300:
+		await get_tree().physics_frame
+		# hold 重写（与 _shot 同款 j=0 约定）：命中落在哪帧都 delta≡1 在窗内
+		vendor.attributes.block_started_frame = Engine.get_physics_frames()
+		if str(vendor.state_machine.state_name) == "Ground/Hurt":
+			v_hurt8 = true
+		v_pool8_min = minf(v_pool8_min, vendor.attributes.resistance_current)
+		a_pool8_min = minf(a_pool8_min, actor.attributes.resistance_current)
+		if str(actor.state_machine.state_name) == "Ground/Hurt":
+			a_hurt8 = true
+		if ball8_spent:
+			# 弹体离场后再采样：反顶的 Hurt 落态是 call_deferred，+帧才可见
+			grace8 += 1
+			if grace8 >= 30:
+				break
+		if not is_instance_valid(ball2) or ball2.state != SpellBase.SpellState.ACTIVE:
+			ball8_spent = true
+	_check(hp8 - vendor.attributes.health_current == 0.0,
+			"P8a 弹体弹反 V 免伤（实际掉 %.1f）" % (hp8 - vendor.attributes.health_current))
+	_check(v_pool8_min >= POOL0 and not v_hurt8,
+			"P8b 弹反不磨 V 池不入受击态（池最低 %.0f）" % v_pool8_min)
+	_check(a_pool8_min == POOL0 - 60.0,
+			"P8c 弹体反顶回施法者头上来：A 池 600→540（实际最低 %.0f）" % a_pool8_min)
+	_check(a_hurt8 and actor.attributes.health_current == a_hp8_0,
+			"P8d 施法者被反顶进 Hurt 但零伤害（弹反支无反顶伤害要素）")
+	_check(ball8_spent, "P8e 弹反支公共义务：弹体回执照常离场（否则穿体飞到判例复发）")
+
+	# ── P9 反顶升格（R9⑤）：攻击方余池 50 吃弹反 K=60 ⇒ 统一模型破池自动
+	#    升格 knockout（apply_knock 唯一判定点不偏袒攻守哪一侧）──
+	await _clean(vendor, actor)
+	vendor.attributes.reset()
+	vendor.attributes.is_blocking = true
+	actor.attributes.resistance_current = 50.0
+	var r9 := await _shot(vendor, actor, true)
+	_check(r9.v_hp_drop == 0.0 and r9.v_pool_min >= POOL0,
+			"P9a 格挡方 V 全程无伤（实际掉 %.1f）" % r9.v_hp_drop)
+	_check(r9.a_knockout and not r9.a_hurt,
+			"P9b K60≥R50 ⇒ 施法者被顶进 Air/Knockout/*（升格，非 Hurt）")
+	_check(r9.a_pool_min == 0.0,
+			"P9c 升格清空池（apply_knock launched 支 =0 定档，实际最低 %.0f）" % r9.a_pool_min)
+	_check(r9.a_hp_drop == 0.0,
+			"P9d 升格轰飞不掉施法者血（反顶只位移硬直不带伤害）" )
+
+	# ── 收场（评审 I3）：拆除残场——后流绝不看见前流的幻影键盘/共享原体 ──
+	stage.queue_free()
 	_finished_p = true
 
 
@@ -514,4 +560,52 @@ func _flow_stance() -> void:
 	var ok7e: bool = await _wait_state_contains(a, "Air", 60)
 	_check(ok7e, "P7e 最终释放后 Space 按下 → 跳跃仍工作（state 含 Air）")
 	_press_key(KEY_SPACE, false)
+	_check(await _wait_state(a, "Ground/Move/Idle", 180), "P7f 跳后落回 Idle（M4 组前置）")
+
+	# ── P10 M4a 姿态整口吞发射器（spec §2.3"飞天变站桩"经真实姿态旗活体验收）──
+	# B 的 Attack1 盒换挂私制重拳（attack_data 是共享导出资源严禁原地 mutate，
+	# duplicate→改→回挂盒=实例级，随场死）：damage 30 / K=1200 是"池破必飞天"
+	# 规格（同 chen 拳3 数值域）。防守方=真姿态（K 按住、超窗），缝读 enter
+	# 落笔的旗 ⇒ 格挡支：-12 血、站桩、池一分不扣、派发零产生。
+	_press_key(KEY_K, true)
+	var ok10s: bool = await _wait_state(a, "Ground/Block", 60)
+	_check(ok10s, "P10a 第三次起架（M4 组前置：姿态旗由生产写方点亮）")
+	await _frames(12)  # 超窗纪律（同 P7b）：命中帧 delta≈20+ > 6 ⇒ 落格挡支
+	await _drain_freeze()
+	for hb in b._skin.hitboxes:
+		if str(hb.name) == "Attack1":
+			var launcher := hb.attack_data.duplicate(true) as QuiverAttackData
+			launcher.attack_damage = 30.0
+			launcher.knock_strength = 1200.0
+			hb.attack_data = launcher
+			break
+	await _place(a, b, Vector2(80, 30))
+	var r10 := await _shot(a, b)
+	_check(r10.v_hp_drop == 12.0,
+			"P10b 格挡整口吞必飞天重击：掉血恰 12=30×0.4（实际 %.1f）" % r10.v_hp_drop)
+	_check(not r10.v_hurt and r10.v_pool_min >= POOL0,
+			"P10c 1200 击退值整颗作废：不扣池不受击（池最低 %.0f）" % r10.v_pool_min)
+	_check(str(a.state_machine.state_name) == "Ground/Block",
+			"P10d 挨完必飞天一发姿态纹丝不动（飞天变站桩，无升格无派发）")
+	_check(a.attributes.is_blocking, "P10e 键按住期间旗标存活（单写者无人抢笔）")
+
+	# ── P11 M4b 打断注销旗标（Ground 挂线在姿态下仍活着，exit 闭环）──
+	# 格挡支吞 K ⇒ 姿态不可被"被挡下的发射器"打断（P10 已钉）；打断者必须来自
+	# 不可挡源：走 CombatSystem.apply_knockback 公开入口直推防守方 K=1200
+	#（本契约内部捷径族同款：只借生产信号链 knockout_requested→Ground 挂线→
+	# transition，不绕任何生产判则）→ Block.exit 注销旗标+开窗；键仍按住时
+	# 白名单必须拒回流态姿态复活。
+	CombatSystem.apply_knockback(QuiverKnockbackData.new(
+			1200.0, CombatSystem.HurtTypes.HIGH, Vector2.UP), a.attributes)
+	var ok11a: bool = await _wait_state_contains(a, "Knockout", 60)
+	_check(ok11a, "P11a 不可挡发射器打断姿态：A 升空进 Air/Knockout/*")
+	_check(not a.attributes.is_blocking,
+			"P11b Block 经父挂线被打断时 exit 照跑、旗标注销（单写者闭环）")
+	await _frames(30)  # 键仍按住 30 帧：白名单外（Knockout 系）绝不回流起架
+	_check(not str(a.state_machine.state_name).contains("Block"),
+			"P11c 打断后持键 30 帧不复活姿态（白名单外禁入的活体面）")
+	_press_key(KEY_K, false)
+
+	# ── 收场（评审 I3）：拆除残场，键位已净 ──
+	stage.queue_free()
 	_finished_q = true

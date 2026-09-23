@@ -3,9 +3,10 @@
 ## run_matrix.sh —— 回归矩阵通跑编排器（S2-M1-B2.5 测试主权批）
 ##
 ## 名册规则（AGENTS.md「关卡装配」段权威）：**名册以 tools/ 下实存 runner 为准**。
-## 本脚本内嵌 22 套 / 23 跑名册（validator 双模=2 跑），与 AGENTS 收口一致；
-## 新增/删除套件须同批改本脚本 + AGENTS 名册。spike 类（dialogic_spike /
-## container_prototype）故意不入册。
+## 本脚本内嵌 23 套 / 24 跑名册（validator 双模=2 跑），与 AGENTS 收口一致；
+## 新增/删除套件须同批改本脚本 + AGENTS 名册；新套注册须过 R8 体检
+## （破坏性证红再复原——block_parry_contract T4/T5 红绿档即先例）。
+## spike 类（dialogic_spike / container_prototype）故意不入册。
 ##
 ## 生命周期铁律（不可协商，Task1 评审 R5 定档）：
 ##   1. `--import` 退出码非 0 → **致命终止**（绝不带着半导入缓存跑测试）。
@@ -22,9 +23,9 @@
 ##      .ctex 健在，ensure 合法报 0=健康态）；0 态打"复活形态"行并**跳过
 ##      --import**（避免对完好缓存强跑双导入的窗口风险）。
 ##
-## 退出码分区（终审波 FIX3：FATAL 全部 ≥64，与红套数 0-23 命名空间分离，
+## 退出码分区（终审波 FIX3：FATAL 全部 ≥64，与红套数 0-24 命名空间分离，
 ## CI 消费方可靠 rc 区分"判定=有红"和"环境=没跑成"）：
-##   0-23 = 红套数（正常判定路径）；64 = 参数/环境错误；65 = destroy 先行失败；
+##   0-24 = 红套数（正常判定路径）；64 = 参数/环境错误；65 = destroy 先行失败；
 ##   66 = ensure [2/3] 非 {0,42}；67 = --import 非 0（半导入窗口）；
 ##   68 = import 后 ensure 非 0；69 = --only 子串零命中。
 ##
@@ -44,7 +45,7 @@ LOG_ROOT="/tmp/opencode/matrix/${STAMP}"
 ENSURE_ENTRY="tools/matrix_runner/test_actor_ensure.gd"
 DESTROY_ENTRY="tools/matrix_runner/test_actor_destroy.gd"
 
-# ── 22 套名册（23 跑）：kind|标签|res 路径 ────────────────────────────────────
+# ── 23 套名册（24 跑）：kind|标签|res 路径 ────────────────────────────────────
 # kind: scene=直接跑场景；script=-s 脚本；validator=脚本双模（默认+fixtures）。
 ROSTER=(
 	"scene|attack_freeze_repro|tools/attack_freeze_repro/repro.tscn"
@@ -63,6 +64,7 @@ ROSTER=(
 	"scene|wp2_creation_test|tools/wp2_creation_test/overlay_e2e.tscn"
 	"scene|wp3_formal|tools/wp3_formal/verify.tscn"
 	"scene|attack_lane_contract|tools/attack_lane_contract/attack_lane_contract.tscn"
+	"scene|block_parry_contract|tools/block_parry_contract/block_parry_contract.tscn"
 	"script|blend_domain|tools/blend_domain_test/project_test.gd"
 	"script|contour_sort|tools/contour_sort_test/trace_sort.gd"
 	"script|editor_scripts_check|tools/editor_scripts_check/check.gd"
@@ -89,6 +91,7 @@ ATTEST=(
 	"wp2_creation_test|ACTOR-GATE"
 	"wp3_formal|ACTOR-GATE"
 	"attack_lane_contract|ACTOR-GATE"
+	"block_parry_contract|ACTOR-GATE"
 )
 
 # 颜色（仅 tty 时上色，日志文件里留纯文本判读方便 grep）
