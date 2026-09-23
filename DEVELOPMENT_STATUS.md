@@ -187,6 +187,28 @@
     B1 开账四件全清（SwitchFlow await-self 收口/E8 结构锁、mark_cleared 落点终裁/D5、
     段文件执法、夹具视觉皮肤化——B1 撤销的人眼验收项由 it2/it3 游乐场复活进 F5 单）。
     headless 23 跑 22 绿 + 1 红归因用户侧 chen 资产回写（input_channel AI 路，非本批）。
+  - **S2-M1-B2.5 测试主权批 ✅ 已交付（2026-09-23，SDD 6 任务）**：回归矩阵与生产角色
+    chen 断绑——`TestActorKit`（替身 test_actor 全套创建/销毁走**真实产线**
+    CharacterCreator/CharacterDeleter；导入判据=头像 sidecar+`.ctex` 实体双核验，
+    破 Syncthing 半同步假就绪）+ `tools/matrix_runner/run_matrix.sh` 通跑编排器
+    （每轮 destroy 先行→ensure(42)→--import→ensure(0)→22 套 23 跑→末销毁零残余；
+    ATTEST 身份见证封"静默跳腿假绿"；Task6 修正：同套多标记缺席并**一条**红判定，
+    不再虚增 RED）。消费面：直载类测试套全迁替身 + `base_stage`/`chapter_shell`
+    新增 `playable_override` 接缝（默认 null=生产逐位不变）；豁免申报入文件头
+    （wp2 产线镜像腿、spell_cast 在册外取证台等）。诚实化两件：**R8**
+    `attack_freeze_repro` 转正为在册断言台——判红必退 rc=1（旧取证台设计红也退 0；
+    破坏演练实证 绿→rc0 / 强红→rc1）；**R9** `overlay_e2e._check` 改失败计数
+    唯一存放点（旧版第二腿 FAIL 只打印不计数=判绿盲区）。**打击感定案备案**：
+    chen attack1=0.1s 为用户有意创作，矩阵验证模板血统、**有意不覆盖 live 手感；
+    模板回刷=控制器决策，届时 H3 pos≥0.30 停摆窗判据同批随动**。R10 三方告警
+    对比裁决（Task6 探针）：产线新建 probe_throw / 驻留 test_actor / chen 在同 harness
+    下**各报 3× "AnimationNode is null"**——"chen 不告警"前提不成立，定性为插件
+    anim tree walker（quiver_character_skin_anim_tree.gd `_handle_animation_node`）
+    撞引擎空槽属性（BlendTree/TimeScale/StateMachine 的名为 `AnimationNode` 的
+    AnimationNode 型属性）的**预存噪音**（入册备案，非产线缺陷，不立案；addons
+    只读未触；皮肤每入树一次报 3，编辑器+运行时双入树形态下即见报的 6×）。
+    批末全矩阵首通 **23 跑 RED=0**、末销毁后 `characters/playable/` 仅剩 chen+testme。
+    F5 腿见 `docs/superpowers/plans/2026-09-22-s2-m1-b25-test-sovereignty-f5.md`。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
