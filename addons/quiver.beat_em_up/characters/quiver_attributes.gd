@@ -134,6 +134,10 @@ var grabbed_offset: Marker2D = null
 
 # Modifier system for buffs/debuffs
 var _modifier_records: Array[Dictionary] = []
+## 方式 B′（2026-09-23 手术）配套账本：attribute → {value: float, is_int: bool}。
+## base 只在该属性**首个修饰到来时**捕获一次（此后重算永远以此为锚，不再读现场值），
+## 摘除/清账均回写到锚上——旧方式 B 的"入册即抄走当时的被污染值"踩踏链从此断根。
+var _modifier_bases := {}
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
@@ -224,6 +228,9 @@ func reset() -> void:
 	can_be_grabbed = true
 	in_knockout = false
 	skin_direction = Vector2.ZERO
+	# 清账判据（2026-09-23 B′ 手术）：护人/locomotion 等修饰不跨死亡——
+	# reset 一律作废全部记录并还原 base，防止上一命的增益/减速尸体泄漏到下世。
+	_clear_all_modifiers()
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -250,35 +257,81 @@ func _set_mana_current(value: float) -> void:
 
 ### Public Methods --------------------------------------------------------------------------------
 
+## 属性修饰器三件套（公开签名自法术时代起逐字未动，调用方零改动=宪法）。
+## 设计源流：docs/SPELL_SYSTEM_DESIGN.md §11.1 定案的"方式 B"（记录 base_value、
+## 添加即裸改、移除写回记录值）——本实现升级为**方式 B′**：属性值永远是
+## "base+Σ加"×"Π乘"的**重算回写**（读路径零改动）；base 只在该属性首个修饰
+## 到来时捕获一次。叠挂踩踏、乱序摘除踩踏、跨 reset 尸体账三类旧世界风险
+## 在结构上不可能（回归锁 tools/block_parry_contract M 流）。
 func add_modifier(mod_id: StringName, attribute: StringName, type: String, value: float, source: Node = null) -> void:
-	var base_value: float = get(attribute)
+	if type != "add" and type != "multiply":
+		push_warning("未知修饰操作型: %s（%s→%s 被拒）" % [type, mod_id, attribute])
+		return
+	remove_modifier(mod_id)   # 同 id 刷新=替换（M3），杜绝叠乘踩踏
+	if not _modifier_bases.has(attribute):
+		# is_int 必须在任何改动之前从现场类型捕获（move_speed 等 int 型 @export
+		# 回写走 roundi，防类型漂移）
+		_modifier_bases[attribute] = {
+			"value": float(get(attribute)),
+			"is_int": typeof(get(attribute)) == TYPE_INT,
+		}
 	_modifier_records.append({
 		"id": mod_id,
 		"attribute": attribute,
 		"type": type,
 		"value": value,
 		"source": source,
-		"base_value": base_value,
 	})
-	if type == "add":
-		set(attribute, base_value + value)
-	elif type == "multiply":
-		set(attribute, base_value * value)
+	_recompute(attribute)
+
 
 func remove_modifier(mod_id: StringName) -> void:
 	for i in range(_modifier_records.size() - 1, -1, -1):
-		if _modifier_records[i]["id"] == mod_id:
-			var record: Dictionary = _modifier_records[i]
-			set(record["attribute"], record["base_value"])
+		if StringName(_modifier_records[i]["id"]) == mod_id:
+			var attr: StringName = _modifier_records[i]["attribute"]
 			_modifier_records.remove_at(i)
-			break
+			_recompute(attr)
+			return   # id 唯一（add 已强制），摘一个就够
+
 
 func remove_modifiers_from_source(source: Node) -> void:
+	var touched := {}
 	for i in range(_modifier_records.size() - 1, -1, -1):
 		if _modifier_records[i]["source"] == source:
-			var record: Dictionary = _modifier_records[i]
-			set(record["attribute"], record["base_value"])
+			var attr: StringName = _modifier_records[i]["attribute"]
 			_modifier_records.remove_at(i)
+			touched[attr] = true
+	for attr in touched:
+		_recompute(attr)
+
+
+### Private Methods --------------------------------------------------------------------------------
+
+## 单一重算点：属性值=按全部在册修饰重算的回写结果，永不读现场值做增量。
+func _recompute(attribute: StringName) -> void:
+	var base_d: Dictionary = _modifier_bases.get(attribute, {})
+	if base_d.is_empty():
+		return
+	var sum := 0.0
+	var prod := 1.0
+	for r in _modifier_records:
+		if r["attribute"] == attribute:
+			if r["type"] == "add":
+				sum += float(r["value"])
+			else:
+				prod *= float(r["value"])
+	var out: float = (float(base_d["value"]) + sum) * prod
+	set(attribute, roundi(out) if base_d["is_int"] else out)
+
+
+## 清账（reset 与死亡重跑共用）：全记录作废+受管属性回 base。
+func _clear_all_modifiers() -> void:
+	var bases := _modifier_bases.duplicate(true)   # 先快照（回写要读表，防清序陷阱）
+	_modifier_records.clear()
+	_modifier_bases.clear()
+	for attr in bases:
+		var base_d: Dictionary = bases[attr]
+		set(attr, roundi(float(base_d["value"])) if base_d["is_int"] else float(base_d["value"]))
 
 ### -----------------------------------------------------------------------------------------------
 

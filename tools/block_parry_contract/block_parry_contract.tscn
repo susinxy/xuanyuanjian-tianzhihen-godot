@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://s2b3blockparry01"]
+
+[ext_resource type="Script" path="res://tools/block_parry_contract/block_parry_contract.gd" id="1_bp"]
+
+[node name="BlockParryContract" type="Node"]
+script = ExtResource("1_bp")
