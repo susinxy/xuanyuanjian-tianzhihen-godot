@@ -6,6 +6,7 @@ extends Node
 ##  轮询段（chen 读到）→ 闸口段（四闸逐一放行状态）→ 出手段（法术体计数）
 ## 对照组：直接 channel.press（helper_e2e 证明过可用的旁路）。
 ## 运行：godot --headless --path . res://tools/spell_cast_test/repro_spell_scene.tscn
+## 【豁免】在册外取证台：直载 test_scenes Run-Test 生成物（插件硬编码主角镜像），不迁替身（B2.5 新法申报）。
 
 const SCENE := "res://test_scenes/_test_spell_fire_ball.tscn"
 

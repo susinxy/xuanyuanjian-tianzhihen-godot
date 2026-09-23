@@ -223,14 +223,20 @@ for row in "${ROSTER[@]}"; do
 			IFS='|' read -r alabel amarker <<< "${a}"
 			[ "${alabel}" = "${label}" ] && markers+=("${amarker}")
 		done
-		# T5 起一可多标记：任一缺席都记红（${markers[@]:-} 兼容 set -u 空数组）
+		# T5 起一可多标记：任一缺席都记红（${markers[@]:-} 兼容 set -u 空数组）。
+		# Task6 R11 修正：多标记同缺旧版会把 RED 虚增成 N——改为**一次红判定、
+		# 缺席名全列出**（判定粒度=本次跑，与 RED 计数语义对齐）。
+		missing=""
 		for marker in "${markers[@]:-}"; do
 			[ -z "${marker}" ] && continue
 			if [ "${rc}" -eq 0 ] \
 					&& ! grep -qa -- "${marker}" "${LOG_ROOT}/${label}${extra:+_fixtures}.log"; then
-				verdict="${C_RED}RED(M4 见证标记「${marker%% *}」缺席)${C_RST}"; RED=$((RED + 1))
+				missing="${missing:+${missing}、}${marker%% *}"
 			fi
 		done
+		if [ -n "${missing}" ]; then
+			verdict="${C_RED}RED(M4 见证标记缺席：${missing})${C_RST}"; RED=$((RED + 1))
+		fi
 		printf '%s %-28s rc=%-3s %s  %s\n' \
 			"${C_YEL}=>${C_RST}" "${tag}" "${rc}" "${verdict}" "${LAST_PASS_LINE}"
 		RESULTS+=("${tag}|${rc}|${LAST_PASS_LINE}")

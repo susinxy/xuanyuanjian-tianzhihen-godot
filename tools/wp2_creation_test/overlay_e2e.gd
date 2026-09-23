@@ -12,6 +12,10 @@ extends Node
 const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 const SUBJECT := "res://characters/enemies/spar_enemy/spar_enemy.tscn"
 
+## 失败计数唯一存放点（R9 诚实化：旧版 _check 只打印不计数，第二腿 FAIL
+## 仍汇总 PASS+退 0——判红盲区根治）
+var _fails := 0
+
 
 ## 头部三态守卫（input_channel 同款只读阶梯；缺席打可读红、绝不代 runner 创建——
 ## 生成物在运行时真实例化主角位，替身缺席/未导入都会把本套打成假现场）
@@ -32,9 +36,8 @@ func _guard_actor() -> bool:
 
 
 func _ready() -> void:
-	var fails := 0
 	if not _guard_actor():
-		print("════════ overlay-e2e: %s ════════" % ("PASS" if fails == 0 else "FAIL"))
+		print("════════ overlay-e2e: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 		get_tree().quit(1)
 		return
 	
@@ -53,17 +56,17 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	
 	var ovh: Node = stage.get_node("DebugHeightOverlay")
-	var okh: bool = ovh.character != null and String(ovh.character.name) == "Subject"
-	_check(okh, "高度竖条真正跟随被测者")
-	if not okh:
-		fails += 1
+	_check(ovh.character != null and String(ovh.character.name) == "Subject",
+			"高度竖条真正跟随被测者")
 	_check(stage.get_node("DebugLabel").visible == false,
 			"操作说明牌已隐身（文字进 Dock[帮助]页）")
 	
-	print("════════ overlay-e2e: %s ════════" % ("PASS" if fails == 0 else "FAIL"))
+	print("════════ overlay-e2e: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	stage.queue_free()
-	get_tree().quit(0 if fails == 0 else 1)
+	get_tree().quit(0 if _fails == 0 else 1)
 
 
 func _check(ok: bool, name: String) -> void:
 	print("  %s: %s" % ["PASS" if ok else "FAIL", name])
+	if not ok:
+		_fails += 1

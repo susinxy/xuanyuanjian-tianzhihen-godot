@@ -1,6 +1,7 @@
 extends Node
 
-## 攻击冻结复现台（2026-09-16 悬案取证，tools/attack_freeze_repro/ 第二版）：
+## 攻击冻结在册断言台（矩阵名册常驻；原 2026-09-16 悬案取证台第二版转正——
+## 在册即红必须红：判红退出码 1，见 _finish）：
 ## 真 test_actor 皮肤（模板快照血缘）+真 attack 动画，AnimationTree 走**真实物理帧管线**
 ## （B2.5 主权迁移：原绑活体 chen 皮肤——用户调打击感（attack1 0.333s→0.1s）会
 ## 直接改写本台的末帧/停摆窗时序前提；替身动画=模板快照，与生产手感调优解耦。）
@@ -257,4 +258,6 @@ func _finish() -> void:
 		if r.begins_with("红"):
 			all_ok = false
 	print("════════ attack-freeze-repro: %s ════════" % ("绿（未复现）" if all_ok else "红（抓到冻结）"))
-	get_tree().quit(0)
+	# R8 诚实化（B2.5 Task6）：在册断言台判红必须 rc=1——历史取证台"红也退 0"
+	# 的设计在入册后就是假绿矩阵的敞口。
+	get_tree().quit(0 if all_ok else 1)
