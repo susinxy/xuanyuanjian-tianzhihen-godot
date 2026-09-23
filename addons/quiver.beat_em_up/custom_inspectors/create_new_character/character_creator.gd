@@ -42,6 +42,9 @@ const DEFAULT_STATS := {
 	"can_be_grabbed": false,
 	"is_invulnerable": false,
 	"has_superarmor": false,
+	"parry_window_frames": 6.0,
+	"block_damage_ratio": 0.4,
+	"attack_output": 1.0,
 }
 
 ## 招式槽表（文件名固定，与皮肤场景 ext_resource 引用对齐；
@@ -136,7 +139,8 @@ func create_character(
 	return true
 
 
-## 全量合成 <name>_attributes.tres（出生属性 13 行全落盘=最大透明度；
+## 全量合成 <name>_attributes.tres（出生属性全字段逐行落盘=最大透明度；
+## （原"13 行"计数随盾反批 +3 受管字段过时，改全字段措辞防再腐）
 ## 文件引用走包内固定路径，头像/渐变演示资产由模板复制而来必然在位）。
 func _synthesize_attributes(
 		target_dir: String, pkg: String, char_name: String,
@@ -164,7 +168,10 @@ func _synthesize_attributes(
 			+ "hit_lane_offset = %s\n" % _num(s.hit_lane_offset) \
 			+ "can_be_grabbed = %s\n" % ("true" if s.can_be_grabbed else "false") \
 			+ "is_invulnerable = %s\n" % ("true" if s.is_invulnerable else "false") \
-			+ "has_superarmor = %s\n" % ("true" if s.has_superarmor else "false")
+			+ "has_superarmor = %s\n" % ("true" if s.has_superarmor else "false") \
+			+ "parry_window_frames = %s\n" % _num(s.parry_window_frames) \
+			+ "block_damage_ratio = %s\n" % _num(s.block_damage_ratio) \
+			+ "attack_output = %s\n" % _num(s.attack_output)
 	return _write_text(res.path_join(char_name + "_attributes.tres"), text, "attributes 合成")
 
 

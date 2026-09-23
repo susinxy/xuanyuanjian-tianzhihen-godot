@@ -102,6 +102,18 @@ const LAUNCH_MIN_IMPULSE := 50.0
 
 @export var can_be_grabbed := true
 
+## 弹反窗物理帧数（盾反批 B3）：格挡开局后严格 delta < 本值 的打击判弹反。
+## 受管字段单写者纪律：入册（首个修饰捕获 base）后只准走修饰 API，
+## 裸写=重算锚漂移（执行手段同 _modifier_bases 处注释）。
+@export var parry_window_frames: int = 6
+
+## 格挡伤害系数（盾反批 B3）：Block 态受击的结算伤害=原伤害×本值。受管同上。
+@export var block_damage_ratio: float = 0.4
+
+## 自身输出乘算（盾反批 B3）：本角色出招伤害的全局乘数，
+## 护人态等增益以修饰表达而非裸写。受管同上。
+@export var attack_output: float = 1.0
+
 ## Character's current health. What the health bar will be showing.
 var health_current := health_max:
 	set=_set_health_current
@@ -125,6 +137,15 @@ var in_knockout := false
 ## 横攻比双方"排"（Y/ground_level），纵攻比双方"列"（X，is_in_same_column_as）。
 ## 零向量=当前非已出手态（空攻/法术/抓取/待机恒零，旧 Y 语义零扰动）。
 var skin_direction := Vector2.ZERO
+
+## 格挡状态闸门（盾反批 B3，非数值不进 tres）：Block 姿态状态的 enter/exit
+## 是唯一写入者（与 in_knockout 同款生命周期旗），判定缝据此分流结算。
+var is_blocking: bool = false
+
+## 弹反窗时基（盾反批 B3）：进入 Block 当帧的 Engine.get_physics_frames() 读数，
+## 判定缝比较 当前帧 − 本值 < parry_window_frames（严格小于）。
+## 与 is_blocking 成对写入（同 enter/exit 括弧）。
+var block_started_frame: int = 0
 
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
@@ -231,6 +252,8 @@ func reset() -> void:
 	can_be_grabbed = true
 	in_knockout = false
 	skin_direction = Vector2.ZERO
+	is_blocking = false
+	block_started_frame = 0
 	# 清账判据（2026-09-23 B′ 手术）：护人/locomotion 等修饰不跨死亡——
 	# reset 一律作废全部记录并还原 base，防止上一命的增益/减速尸体泄漏到下世。
 	_clear_all_modifiers()
@@ -306,6 +329,15 @@ func remove_modifiers_from_source(source: Node) -> void:
 			touched[attr] = true
 	for attr in touched:
 		_recompute(attr)
+
+
+## 展示用快照，非第二真相（B3 dock 账本）：逐条深拷贝全部在册修饰记录，
+## 外部读改不回流 _modifier_records；写入仍只认修饰 API（单写者纪律）。
+func modifier_snapshot() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for r in _modifier_records:
+		out.append((r as Dictionary).duplicate(true))
+	return out
 
 
 ### Private Methods --------------------------------------------------------------------------------

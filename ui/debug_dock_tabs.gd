@@ -207,6 +207,13 @@ func _provide_knockout() -> Array[String]:
 		out.append("  无敌=%s 霸体=%s HP %.0f/%.0f 状态=%s" % [
 				str(a.is_invulnerable), str(a.has_superarmor),
 				a.health_current, a.health_max, st])
+		# 盾反批 B3：三受管字段实时值 + 修饰账本一行（快照非第二真相）
+		out.append("  弹反窗 %d帧 格挡系数 %.2f 输出×%.2f" % [
+				a.parry_window_frames, a.block_damage_ratio, a.attack_output])
+		var parts := PackedStringArray()
+		for r in a.modifier_snapshot():
+			parts.append("%s→%s(%s·%s)" % [r["id"], r["attribute"], r["type"], str(r["value"])])
+		out.append("  修饰账本: %s" % ("无" if parts.is_empty() else "; ".join(parts)))
 		var snap: Dictionary = _knock_snapshots.get(a.get_instance_id(), {})
 		if not snap.is_empty():
 			out.append("  [起飞记录] K=%.0f → 冲量=%.0f×重量%.1f  初速=%s" % [

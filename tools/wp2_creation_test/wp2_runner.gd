@@ -16,7 +16,8 @@ const TMP_CHARS := [
 	"stats": {"health_max": 77.0, "mana_max": 33.0, "knockout_resistance_max": 900.0,
 		"move_speed": 501.0, "walk_speed": 201.0, "air_control": 0.42,
 		"jump_force": -1500.0, "knockback_weight": 2.5, "hit_lane_offset": 7.0,
-		"can_be_grabbed": true, "is_invulnerable": false, "has_superarmor": false},
+		"can_be_grabbed": true, "is_invulnerable": false, "has_superarmor": false,
+		"parry_window_frames": 5.0, "block_damage_ratio": 0.25, "attack_output": 0.66},
 	"attacks": [
 		{"attack_damage": 7.0, "hurt_type": 0, "knock_strength": 300.0, "launch_angle": 60.0},
 		{"attack_damage": 8.0, "hurt_type": 1, "knock_strength": 100.0, "launch_angle": 20.0},
@@ -25,7 +26,8 @@ const TMP_CHARS := [
 	"expect_attrs": ["health_max = 77", "mana_max = 33", "knockout_resistance_max = 900",
 		"move_speed = 501", "walk_speed = 201", "air_control = 0.42",
 		"jump_force = -1500", "knockback_weight = 2.5", "hit_lane_offset = 7",
-		"can_be_grabbed = true", "is_invulnerable = false", "has_superarmor = false"],
+		"can_be_grabbed = true", "is_invulnerable = false", "has_superarmor = false",
+		"parry_window_frames = 5", "block_damage_ratio = 0.25", "attack_output = 0.66"],
 	"expect_punch1": ["attack_damage = 7", "hurt_type = 0", "knock_strength = 300", "launch_angle = 60"]},
 	{"name": "tmp_wp_enemy", "pkg": "enemies", "mode": 1, "tags": "enemy",
 	"pascal": "TmpWpEnemy", "display": "临时敌人"},
@@ -116,7 +118,9 @@ func _create_phase() -> void:
 				"health_max = 100", "mana_max = 100", "knockout_resistance_max = 600",
 				"move_speed = 600", "walk_speed = 300", "air_control = 0.6",
 				"jump_force = -1200", "knockback_weight = 1", "hit_lane_offset = 0",
-				"can_be_grabbed = false"])
+				"can_be_grabbed = false",
+				"parry_window_frames = 6", "block_damage_ratio = 0.4",
+				"attack_output = 1"])
 		for line in expect_attrs:
 			_check(syn_attrs.contains("\n" + line + "\n"),
 					"%s attributes 行: %s" % [spec.name, line])
