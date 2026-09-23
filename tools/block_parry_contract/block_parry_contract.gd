@@ -5,7 +5,9 @@ extends Node
 ## reset 清账。
 ## P 流=判定缝三分支（Task4 批入）：靶场仿 attack_lane_contract——test_actor(A)
 ## 出拳 × street_vendor(V) 受击，场景 helper 逐字移植自 lane（99-107 家族）。
-## Q 流（姿态状态/真键盘链）等由后续任务在本文件生长。
+## Q 流=T5 姿态状态自选进出 × 真键盘 K 链（P7 腿）：raw 注入 K → Block 态、
+## 姿态中挨拳走格挡支（OS 链×缝整合）、松键回 Idle、窗口关不劫持、K 让位后
+## 跳跃仍可用。旗标成对写入零内部捷径——生产写方只有 QuiverActionBlock。
 ##
 ## Step0 探针实锤（2026-09-23，tools/tmp_b3probe 一次性台已毁尸，逐字记录见
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
@@ -33,6 +35,7 @@ const POOL0 := 600.0
 var _fails := 0
 var _finished_m := false
 var _finished_p := false
+var _finished_q := false
 
 
 func _ready() -> void:
@@ -41,6 +44,8 @@ func _ready() -> void:
 	_check(_finished_m, "M 流全序列执行完成（协程静默中断防线）")
 	await _flow_parry()
 	_check(_finished_p, "P 流全序列执行完成（协程静默中断防线）")
+	await _flow_stance()
+	_check(_finished_q, "Q 流全序列执行完成（协程静默中断防线）")
 	print("════════ block-parry-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
 
@@ -384,3 +389,129 @@ func _flow_parry() -> void:
 		ball.destroy()
 
 	_finished_p = true
+
+
+# ═══════════════ Q 流：姿态状态自选进出 × 真键盘 K 链（T5 · P7 腿） ═══════════════
+# A=格挡方（test_actor 玩家档：raw K 只进它自己的私有通道，串台免疫）；
+# B=提线木偶攻击方（行为总开关关→K 不会劫持它的 Block；战斗盒阵营手术见下方
+# 注释→能咬 A 且不咬自己）。本流**零写入** is_blocking/block_started_frame——
+# 旗标全由 QuiverActionBlock enter/exit 落笔（单写者活体=OS 链×缝整合命题）。
+# raw 键注入按 T2 判例：InputEventKey 逐字段显式构造（pressed 默认 false 陷阱），
+# device=-1 对齐绑定文本，physical 键位走 Input.parse_input_event 全链路。
+
+## raw 键注入（down/up 同构造，pressed 显式指定；keycode 与 physical 双填
+## ——interact helper_e2e 实证形制）
+func _press_key(p_key: int, p_pressed: bool) -> void:
+	var ev := InputEventKey.new()
+	ev.device = -1
+	ev.keycode = p_key
+	ev.physical_keycode = p_key
+	ev.pressed = p_pressed
+	Input.parse_input_event(ev)
+
+
+## 等 state_name 含子串（P7e 跳跃腿：Air/Jump/*）
+func _wait_state_contains(ch: QuiverCharacter, token: String, cap: int = 60) -> bool:
+	for _i in cap:
+		if str(ch.state_machine.state_name).contains(token):
+			return true
+		await get_tree().physics_frame
+	return str(ch.state_machine.state_name).contains(token)
+
+
+func _flow_stance() -> void:
+	if not _guard_actor():
+		return
+	var stage := Node2D.new()
+	add_child(stage)
+	var a: QuiverCharacter = (load(ACTOR_SCENE) as PackedScene).instantiate()
+	# 属性私有副本（红跑尸检定案）：同 .tres 被两实例按引用共享——不 duplicate
+	# 则 A/B（及 P 流本体）的血/池/姿态旗全是一个对象，A 挨一发拳 B 也会
+	# 幻影入 Hurt。两处都要换：root.attributes（动作状态 _on_owner_ready 的
+	# 缓存源）+ 皮肤.attributes（战斗盒 character_attributes 经 group 推送源）；
+	# 入树前 root setter 够不到 @onready 的 _skin，故显式双写。B 保留共享原体：
+	# 其断言全为相对读数，Q 流窗口内原体无人可咬。
+	var dup: QuiverAttributes = a.attributes.duplicate(true)
+	a.get_node(a._path_skin).attributes = dup
+	a.attributes = dup
+	var b: QuiverCharacter = (load(ACTOR_SCENE) as PackedScene).instantiate()
+	stage.add_child(a)
+	stage.add_child(b)
+	# 出生位整体偏到 P 靶场（500,400）以西 ≥2000px——三具玩家档角色共用键盘
+	# 广播但通道私有，身体层再互不沾边，Q 流几何零污染
+	a.global_position = Vector2(-2100, 400)
+	b.global_position = Vector2(-2400, 400)
+	await _frames(18)
+	var ok0: bool = await _wait_state(a, "Ground/Move/Idle", 120)
+	_check(ok0 and str(b.state_machine.state_name) != "", "Q0 双替身入场就绪（test_actor 含 Block 节点）")
+	# B 提线化：行为总开关=产品级原语（通道零写/零投递），K 按住也架不起 B 的盾
+	(b.behavior as QuiverBehavior).active = false
+	# B 战斗盒阵营手术=摘 player 换挂 q_puppet（红跑判例，task-5-report 在案）：
+	# ① B 盒 {q_puppet} vs A 受击盒 {player} 无公共标签 ⇒ 免伤门放行；
+	# ② B 盒 vs B 自己受击盒 {player,q_puppet} 公共 ⇒ 自伤豁免保住——裸剥成空
+	# 会让冲刺步中攻击盒擦过自身受击盒自伤（击退位移再弹第二次入射=A 双咬 20）。
+	# remove 经 Variant 动态调用触发脚本层 override 刷缓存（AGENTS 判例：typed
+	# 直调绕过 override 缓存冻结）；add 一律走公开入口 add_faction_group。
+	for node in b.find_children("*", "Area2D", true, false):
+		var box = node
+		if box is QuiverHitBox:
+			box.remove_from_group(&"area2d:player")
+			box.add_faction_group(&"area2d:q_puppet")
+		elif box is QuiverHurtBox:
+			box.add_faction_group(&"area2d:q_puppet")
+	await _frames(2)
+
+	# ── P7a raw K-down → Block 姿态 + enter 同帧成对旗标（生产唯一写方首验）──
+	_press_key(KEY_K, true)
+	var ok7a: bool = await _wait_state(a, "Ground/Block", 60)
+	var f_now: int = Engine.get_physics_frames()
+	_check(ok7a, "P7a K 按住 → state=Ground/Block（自选进入，60 帧内）")
+	_check(a.attributes.is_blocking, "P7a' is_blocking=true（enter 落笔，本流零内部写）")
+	_check(absi(f_now - a.attributes.block_started_frame) <= 2,
+			"P7a'' block_started_frame 同帧成对（R4 宪章，实际帧差 %d）"
+			% (f_now - a.attributes.block_started_frame))
+
+	# ── P7b 姿态存续中 B 出一拳（内部捷径）→ A 被格挡：掉血恰 4 ──
+	# 先睡 12 帧再出手：命中帧 delta ≥ 12+w_cal > 6 ⇒ 落格挡支而非弹反支；
+	# 成对旗标沿用 P7a enter 的写入（本腿 _shot 只读不写）
+	await _frames(12)
+	await _drain_freeze()
+	await _place(a, b, Vector2(80, 30))
+	var rq := await _shot(a, b)
+	_check(rq.v_hp_drop == 4.0,
+			"P7b OS 链×缝整合：K 按住的 A 挨拳掉血恰 4=10×0.4（非 10，实际 %.1f）" % rq.v_hp_drop)
+	_check(not rq.v_hurt and rq.v_pool_min >= POOL0,
+			"P7b' 格挡支 A 不受击不扣池（池最低读 %.0f）" % rq.v_pool_min)
+	_check(str(a.state_machine.state_name) == "Ground/Block",
+			"P7b'' 挨拳后姿态存续（格挡支零击退派发，Ground 挂线无事可做）")
+	_check(rq.a_hp_drop == 0.0, "P7b''' 超窗无反顶：B 掉血 0（实际 %.1f）" % rq.a_hp_drop)
+	_check(rq.a_pool_min >= POOL0, "P7b'''' B 池不动（最低 %.0f）" % rq.a_pool_min)
+	_check(not rq.a_hurt, "P7b''''' B 不入 Hurt（hurt=%s）" % str(rq.a_hurt))
+
+	# ── P7c K-up → exit 自选回 Idle，旗标注销 ──
+	await _drain_freeze()
+	_press_key(KEY_K, false)
+	var ok7c: bool = await _wait_state(a, "Ground/Move/Idle", 60)
+	_check(ok7c, "P7c K 松开 → 回 Ground/Move/Idle（引擎虚函数自选退出）")
+	_check(not a.attributes.is_blocking, "P7c' exit 注销旗标 is_blocking=false")
+
+	# ── P7d 二次姿态（re-entered stance）：输入窗关闭期间注入 Space 不劫持 ──
+	_press_key(KEY_K, true)
+	var ok7d0: bool = await _wait_state(a, "Ground/Block", 60)
+	_check(ok7d0, "P7d 再进入姿态成功（re-entered stance）")
+	_press_key(KEY_SPACE, true)
+	await _frames(12)
+	_check(str(a.state_machine.state_name) == "Ground/Block",
+			"P7d' 姿态中注入 Space → 状态仍 Block（输入窗关，无劫持）")
+	_press_key(KEY_SPACE, false)
+	await _frames(2)
+	_press_key(KEY_K, false)
+	var ok7d2: bool = await _wait_state(a, "Ground/Move/Idle", 60)
+	_check(ok7d2, "P7d'' 释放路径清理：先松 Space 再松 K → 回 Idle")
+
+	# ── P7e K 让位之后：Space 独跳链路仍可用（游戏侧实证 T2 让位判例）──
+	_press_key(KEY_SPACE, true)
+	var ok7e: bool = await _wait_state_contains(a, "Air", 60)
+	_check(ok7e, "P7e 最终释放后 Space 按下 → 跳跃仍工作（state 含 Air）")
+	_press_key(KEY_SPACE, false)
+	_finished_q = true

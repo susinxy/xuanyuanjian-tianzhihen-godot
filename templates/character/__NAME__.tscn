@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://balf4y7e847je" path="res://addons/quiver.beat_em_up/characters/action_states/quiver_action_air.gd" id="9_o5gfu"]
 [ext_resource type="Script" uid="uid://dn0suaipld76s" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/quiver_action_hurt.gd" id="9_pb6nh"]
 [ext_resource type="Script" path="res://_beat_em_up/action_states/quiver_action_cast.gd" id="99_quivercast"]
+[ext_resource type="Script" path="res://_beat_em_up/action_states/quiver_action_block.gd" id="99_quiverblock"]
 [ext_resource type="Script" uid="uid://bk7de3oj5q6h4" path="res://addons/quiver.beat_em_up/characters/action_states/ground_actions/quiver_action_recovery.gd" id="11_a7lbg"]
 [ext_resource type="Script" uid="uid://4hnoudpo5o6b" path="res://addons/quiver.beat_em_up/characters/action_states/air_actions/jump_actions/quiver_action_impulse.gd" id="11_wf2ss"]
 [ext_resource type="Script" uid="uid://obetuxp2u2do" path="res://addons/quiver.beat_em_up/characters/action_states/air_actions/jump_actions/quiver_action_mid_air.gd" id="12_4dbtu"]
@@ -126,6 +127,12 @@ script = ExtResource("99_quivercast")
 _start_state = &"spell_start"
 _loop_state = &"spelling"
 _path_next_state = "Ground/Move/Idle"
+parent_should_enter = true
+parent_should_exit = true
+parent_should_process = true
+
+[node name="Block" type="Node" parent="StateMachine/Ground" index="7"]
+script = ExtResource("99_quiverblock")
 parent_should_enter = true
 parent_should_exit = true
 parent_should_process = true

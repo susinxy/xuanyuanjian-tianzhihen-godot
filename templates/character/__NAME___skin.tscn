@@ -126,7 +126,7 @@ disabled = true
 [node name="Attack2" type="Area2D" parent="Attacks" index="1" unique_id=1176018773]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(16, -50)
+position = Vector2(5, -50)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("9_cutyj")
@@ -141,7 +141,7 @@ disabled = true
 [node name="Attack3" type="Area2D" parent="Attacks" index="2" unique_id=1669235653]
 visible = false
 modulate = Color(1, 0.2, 0.101961, 1)
-position = Vector2(16, -50)
+position = Vector2(-5, -50)
 monitoring = false
 script = ExtResource("5_f1o2m")
 attack_data = ExtResource("11_7yi7m")
