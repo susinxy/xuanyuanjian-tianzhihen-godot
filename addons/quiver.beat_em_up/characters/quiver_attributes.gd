@@ -137,6 +137,9 @@ var _modifier_records: Array[Dictionary] = []
 ## 方式 B′（2026-09-23 手术）配套账本：attribute → {value: float, is_int: bool}。
 ## base 只在该属性**首个修饰到来时**捕获一次（此后重算永远以此为锚，不再读现场值），
 ## 摘除/清账均回写到锚上——旧方式 B 的"入册即抄走当时的被污染值"踩踏链从此断根。
+## 受管字段单写者纪律：属性入册（首个修饰捕获 base）后只准走修饰 API，
+## 裸写=重算锚漂移（现行执行手段为本注释+契约哨兵，运行时守卫按 plan 从简未建；
+## AGENTS 立法随 T6 落条目）。
 var _modifier_bases := {}
 
 #--- private variables - order: export > normal var > onready -------------------------------------
