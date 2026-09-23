@@ -1786,9 +1786,15 @@ signal mana_depleted
 
 **新增 Modifier 系统**：
 
-Modifier 系统允许 Buff/Debuff 法术动态修改角色属性。采用方式 B：添加/移除时直接修改属性值。
+Modifier 系统允许 Buff/Debuff 法术动态修改角色属性。本节当年定案**方式 B**
+（添加/移除时直接修改属性值）——**已于 2026-09-23（S2-B3）被方式 B′ 取代**：
+公开签名逐字保留，内核改为"base 首捕一次 + `(base+Σ加)×Π乘` 重算回写"
+（叠挂/乱序摘除/跨 reset 三类踩踏结构性消灭）。**权威语义与受管字段名单见
+`docs/PLUGIN_ARCHITECTURE.md` §4 的 Modifier 章**；下方代码块为当年方式 B
+历史草案原样存档（"恢复 base_value"键在实装中早已不存在），读实现勿以其为准。
 
 ```gdscript
+## 【历史草案·方式 B（2026-08 定案，2026-09-23 被 B′ 取代）】
 ## Modifier 记录（内部使用）
 ## 每个 modifier 记录：id、属性名、修改类型、修改值、来源、修改前的 base_value
 var _modifier_records: Array[Dictionary] = []

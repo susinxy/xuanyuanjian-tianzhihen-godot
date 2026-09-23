@@ -212,6 +212,26 @@
     只读未触；皮肤每入树一次报 3，编辑器+运行时双入树形态下即见报的 6×）。
     批末全矩阵首通 **23 跑 RED=0**、末销毁后 `characters/playable/` 仅剩 chen+testme。
     F5 腿见 `docs/superpowers/plans/2026-09-22-s2-m1-b25-test-sovereignty-f5.md`。
+  - **S2-B3 盾反批 ✅ 已交付（2026-09-23，SDD 7 任务全过审查门）**：修饰内核
+    **方式 B′ 手术**（base 首捕一次+`(base+Σ加)×Π乘` 重算回写+int roundi 类型锁+
+    同 id 替换+reset 清账——叠挂/乱序/尸体账三类踩踏结构性消灭）+ 受管三导出
+    （parry_window_frames/block_damage_ratio/attack_output）与格挡成对旗入册 +
+    判定缝三分支（弹反=免伤反顶攻击者池+6 帧定格自发拍+白闪；格挡=×0.4 且
+    **击退值整颗作废**"飞天变站桩"；常规=out_mult 乘算 1.0 逐字等价哨兵；
+    `on_target_hit` 升格公共义务）+ `apply_damage_value` 数值伤害唯一入口 +
+    **姿态状态 QuiverActionBlock**（引擎虚 `_physics_process` 自武装新判例、
+    单写者成对旗、locomotion 进入白名单；chen/模板/替身三处落地，block=K
+    上轴 jump 让位 Space）+ **契约套 `tools/block_parry_contract`（矩阵第 23 套
+    =24 跑，79 断言+横幅=80 口径，M/P/Q 三流）** + 数值治理法入 AGENTS。
+    T7 收口三件：**测试强度强化**（P11c 全录像判停破窗盲、P6c/P8e 命中帧起
+    ≤15 帧回执护栏堵 300f 窗缘假绿）、**R11 hotfix**（`quiver_enemy_character`
+    attributes 浅拷→深拷，B′ 账本个体隔离，knockout_contract 多 spar 实例为
+    直接消费腿）、H3 停摆窗随模板基线迁长**按 B2.5 预批随动**重校准（比率锚
+    0.7×length+停摆机构换生产 HitFreeze 同款 paused，红判据不变）。
+    批末**全矩阵 24/24 绿**。挂账移交 B5 设计会前置清单：AI 档壳×spawner
+    双头死结（创建器改产 EnemyCharacter 壳 vs make_attributes_local 双写入口
+    二选一立案，账本 R11③）。F5 单三眼见
+    `docs/superpowers/plans/2026-09-23-s2-b3-block-parry-f5.md`。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）

@@ -145,15 +145,27 @@ attrs.add_modifier(&"escort_power",  &"attack_output",       "multiply", 0.3)   
 ```
 `attack_data` 是攻击方共享导出资源——**任何路径不得 mutate**（`emit_changed` 判例）；缩放一律走 §6.2 数值入口。
 
-### 6.2 新入口 `CombatSystem.apply_damage_value(p_damage: int, target: QuiverAttributes)`
+### 6.2 新入口 `CombatSystem.apply_damage_value(p_damage: float, target: QuiverAttributes)`
 `apply_damage` 现有函数体抽出：invulnerable 免疫检查 + 扣血（clamp/HUD 信号经 setter 族）+ `HitFreeze.start()` 默认拍——三行复用，不新增旁路真相。
+
+> **勘误（T7 批，brief 改案注）**：原案 `p_damage: int` 系笔误——判定缝的
+> 输出/格挡乘算全程浮点（如 10×0.4=4.0、×0.3 护人路），本层取整会制造
+> 两世界算术歧义；实装为 **float 且不取整**（health_current 是 int 存储，
+> 整值 float 无声吞收——T4 Step0 探针 D 实锤）。
 
 ## 7. 装配面
 - `chen.tscn`（非 git，生产主角）与 `templates/character/`（入库，同步工具链）：`StateMachine/Ground` 挂 `Block` 状态节点（同 Cast 形制：脚本 + 皮肤槽导出指 idle）；AnimTree **零改动**（idle 占位经降级梯）。
 - 敌人/被动角色出生不挂 Block=默认无姿态（v1 玩家专属；B5 都尉走常驻格挡+方向闸，届时定形）。
 - 新契约套 `tools/block_parry_contract/` 入 `run_matrix.sh` 名册（矩阵第 26 runner），身份腿走 ATTEST 登记。
+  **勘误（T7）**：入册实数=**第 23 套（=24 跑**，stage_validator 双模占两跑）——"26"系写作期把
+  spike 类也误计入册，名册计数以 `run_matrix.sh` ROSTER 与 AGENTS 名册条为准。
 
 ## 8. 测试设计（契约 `block_parry_contract`，靶场复用 lane 骨架：test_actor 攻 × street_vendor 守，peek 三态守卫 + 真键盘腿）
+
+> **腿号映射勘误（T7）**：本案的 P8/P9 描述的是"死亡清账/单写者守卫"，最终落在
+> 契约的 **M 流**（M5 清账 + M2/M3 乱序摘除·同 id 替换）；契约里实存的
+> **P8–P11 是 T6 评审补腿**（弹体弹反/反顶升格/格挡吞发射器/打断注销旗），
+> 与本案 P8/P9 无对应关系——读账时勿以号索骥。
 - P1 回归：未格挡→伤害/击退逐字如旧；
 - P2 格挡减伤：架盾受击掉血=基础×0.4 精确；不击退不换状态；
 - P3 窗界（速查表实测值代入）：delta=5 击=弹反（防守零伤零池耗；攻击者池 600→540 且进其 Hurt 态、本连段后续零命中）；delta=6（=窗）与 delta=8 击=格挡（小贩拳1 掉血恰 **4**、无位移无池耗）；攻击者池预置 50 再弹反=破防 knockout（impulse 60）；
