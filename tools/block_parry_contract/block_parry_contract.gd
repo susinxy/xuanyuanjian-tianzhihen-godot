@@ -325,14 +325,16 @@ func _flow_parry() -> void:
 	_check(r3.paused_seen, "P3e 弹反支自发加强定格可观测（免伤路不经 apply_damage 的自发拍，探针 B1 佐证）")
 	# 弹反三件套之视觉两件（spec §2.4 修订形制：闪白 material 挂/摘）；缝帧=攻击方池
 	# 首降帧（免伤路 V 血不降，f_hit 恒 -1）。双方同拍挂 ⇒ 共用 seam。
+	# 摘净窗 ≤30→≤40（同日三调时长后强闪 ≈23 帧+定格冻存余量；本腿语义=残留
+	# 哨兵——若有残留末见帧会冲到 240 窗尾，窗放宽不钝化判据）。
 	_check(r3.a_pool_seam >= 0 and r3.v_ov_first >= 0 and r3.v_ov_first - r3.a_pool_seam <= 2,
 			"P3j 弹反：防守方强白闪 ≤2 帧内挂上（seam=%s 首见=%s）"
 			% [r3.a_pool_seam, r3.v_ov_first])
 	_check(r3.a_pool_seam >= 0 and r3.a_ov_first >= 0 and r3.a_ov_first - r3.a_pool_seam <= 2,
 			"P3k 弹反：攻击方同拍弱白闪 ≤2 帧内挂上（首见=%s）" % r3.a_ov_first)
 	_check(r3.a_pool_seam >= 0 and r3.v_ov_last >= 0 and r3.a_ov_last >= 0
-			and maxf(float(r3.v_ov_last), float(r3.a_ov_last)) - r3.a_pool_seam <= 30,
-			"P3l 弹反双方白闪 ≤30 帧内全摘净（防守末见=%s / 攻击末见=%s）"
+			and maxf(float(r3.v_ov_last), float(r3.a_ov_last)) - r3.a_pool_seam <= 40,
+			"P3l 弹反双方白闪 ≤40 帧内全摘净（防守末见=%s / 攻击末见=%s）"
 			% [r3.v_ov_last, r3.a_ov_last])
 	# P3 第二发：delta==窗 精确预置 → 严格 `<` 归格挡
 	await _clean(vendor, actor)

@@ -31,12 +31,13 @@ const _PARRY_FREEZE_FRAMES := 6
 const _FLASH_PEAK_STRONG := 1.0
 const _FLASH_PEAK_WEAK := 0.55
 ## 白闪时序=瞬白峰形制（命中帧直顶峰值→HOLD 持帧"咬"住→SINE/EASE_OUT 缓落；
-## 2026-09-24 F5 手感版：旧 0.12/0.07 线性升降被用户判"短且生硬"）：
-## 弹反 hold≈3.6 帧+落 0.22s，格挡 hold≈1.8 帧+落 0.14s。时长单一出处。
-const _FLASH_STRONG_HOLD := 0.06
-const _FLASH_STRONG_FADE := 0.22
-const _FLASH_WEAK_HOLD := 0.03
-const _FLASH_WEAK_FADE := 0.14
+## 2026-09-24 F5 手感版：旧 0.12/0.07 线性升降被用户判"短且生硬"；同日三调
+## "再长一点"）：弹反 hold≈4.8 帧+落 0.30s，格挡 hold≈2.4 帧+落 0.18s。
+## 时长单一出处；上限受契约"≤30 帧摘净"哨兵约束（弹反≈23 帧+定格冻存余量）。
+const _FLASH_STRONG_HOLD := 0.08
+const _FLASH_STRONG_FADE := 0.30
+const _FLASH_WEAK_HOLD := 0.04
+const _FLASH_WEAK_FADE := 0.18
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
