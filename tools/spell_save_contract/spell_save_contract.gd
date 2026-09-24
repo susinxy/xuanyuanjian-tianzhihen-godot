@@ -1,0 +1,180 @@
+extends Node
+
+## S2-B4 法术接入 + 存档账本体制契约（spell_save_contract，矩阵第 24 套）：
+## GameSave 单账本执法五门（spec §3）的实体承载，流按任务生长（spec §5）。
+## S 流（T0，本文件现状）=账本核心：
+## 　门一·单一门洞——未开户 namespace 写入拒收且账本无痕，claim 后放行；
+## 　门二·类型闸——Object/Dictionary/嵌套数组值拒写，bool/int/float/
+## 　String/StringName/Array[StringName] 放行；
+## 　幂等——record 首记 true 重复 false，has_record 跟手，ids() 为副本；
+## 　JSON 兼容快照——to_dict→stringify→parse→from_dict 逐键一致，
+## 　且 from_dict 后键归一化回 StringName（JSON 把键变 String 的判例点）；
+## 　坏快照（缺 version/形挫/版本不符）=拒收保旧账；
+## 　new_profile 全清（含 checkpoint 三件套）——账本唯一重置口；
+## 　四账兼容层与 chapter_session.gd 语义逐位对齐（flag/chest/cleared/
+## 　checkpoint），三信号存在且**首记才发**（connect 计数断言）。
+## M 流（T1）=壳迁移回归；G 流（T2）=秘籍/补学/SpellRegistry 缺件降级；
+## E 流（T3）=正式壳 fixture 生产链 E2E 施法；R 流（T3）=重演等价双跑+
+## 申报单名册；X 流（T3）=静态清点——预留于流注册表 _flows，逐任务追加
+## "流即函数"，S 流之外的键在本 T0 不出现。
+## 【豁免】无——本套不消费生产角色（纯账本核心，无 test_actor/chen 依赖，
+## 故不设 ACTOR-GATE；E 流夹具腿在 T3 随章壳夹具一并登记）。
+## 运行：godot --headless --path . res://tools/spell_save_contract/spell_save_contract.tscn
+
+const NS_TEST := &"b4_contract_probe"
+
+## 流注册表：后续任务在数组尾追加 {key,label,fn}，_ready 循环自动消费
+var _flows := [
+	{"key": "S", "label": "S 流 账本核心", "fn": "flow_save_core"},
+]
+
+var _fails := 0
+var _flow_done := {}
+## GameSave autoload 引用（无 class_name 故不静态定型，动态调用；
+## RED 期/缺席 = null → S0 可读红，不靠 Parse Error 炸整脚本）
+var _save
+
+# 信号计数（判例：lambda 按值捕获局部变量，计数一律走成员变量）
+var _sig_flag := 0
+var _sig_chest := 0
+var _sig_cleared := 0
+
+
+func _ready() -> void:
+	for flow in _flows:
+		await call(flow.fn)
+		# 判例（AGENTS）：子协程运行时炸掉后主协程照常续跑到汇总——每流完成旗单独锁
+		_check(_flow_done.get(flow.key, false), "%s 全序列执行完成（协程静默中断防线）" % flow.label)
+	print("════════ spell-save-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
+	get_tree().quit(0 if _fails == 0 else 1)
+
+
+func _check(ok: bool, label: String) -> void:
+	if not ok:
+		_fails += 1
+	print("  %s: %s" % ["PASS" if ok else "FAIL", label])
+
+
+func _on_flag_added(_id: StringName) -> void:
+	_sig_flag += 1
+
+
+func _on_chest_opened(_id: StringName) -> void:
+	_sig_chest += 1
+
+
+func _on_segment_cleared(_id: StringName) -> void:
+	_sig_cleared += 1
+
+
+func flow_save_core() -> void:
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "S0 GameSave autoload 在场（scene runner 必在场，缺席=plan 假设错上报）")
+	if _save == null:
+		_flow_done["S"] = false
+		return  # 无账本不硬闯：后续腿依赖账本本体，S0+完成旗双红即完整 RED 证据
+
+	# ── S1 门一·单一门洞：未开户拒写无痕，claim 后放行且开户幂等 ──
+	# （预期噪音：本段门洞/类型闸/坏快照各腿按宪章打 push_error 中文报错=被试行为）
+	var ghost_ns := &"b4_not_claimed_ns"
+	var ghost_ret: bool = _save.record(ghost_ns, &"x")
+	_check(ghost_ret == false, "S1a 未开户 ns 写入返回 false（实际=%s）" % str(ghost_ret))
+	_check(_save.has_record(ghost_ns, &"x") == false, "S1b 未开户 ns 拒写后账本无痕（has_record false）")
+	_check(_save.ids(ghost_ns).is_empty(), "S1c 未开户 ns ids 为空数组（实际=%s）" % str(_save.ids(ghost_ns)))
+	_save.claim_namespace(NS_TEST, &"spell_save_contract")
+	_check(_save.record(NS_TEST, &"first") == true, "S1d claim_namespace 开户后 record 成功")
+	_save.claim_namespace(NS_TEST, &"other_owner")  # 再开户应幂等静默（不炸不换手不扰账）
+	_check(_save.record(NS_TEST, &"first") == false, "S1e 重复开户幂等·前账不受扰（同键再记 false）")
+
+	# ── S2 幂等账目：has_record 跟手，ids 返回 StringName 且为副本 ──
+	_check(_save.has_record(NS_TEST, &"first") == true, "S2a has_record 跟手为真")
+	var ids1: Array = _save.ids(NS_TEST)
+	_check(ids1.size() == 1 and ids1[0] == &"first", "S2b ids 键清单含 first（实际=%s）" % str(ids1))
+	_check(ids1[0] is StringName, "S2c ids 元素是 StringName（实际类型=%s）" % type_string(typeof(ids1[0])))
+	ids1.append(&"polluted")
+	_check(_save.ids(NS_TEST).size() == 1, "S2d ids 是副本：外改返回值不污染账本（重取 size 实际=%d）" % _save.ids(NS_TEST).size())
+	_check(_save.has_record(NS_TEST, &"polluted") == false, "S2e ids 副本：污染键未入账")
+
+	# ── S3 门二·类型闸：Object/Dictionary/嵌套数组拒写，白名单放行 ──
+	var junk := Node.new()
+	_check(_save.record(NS_TEST, &"v_node", junk) == false, "S3a Object 值（Node.new()）拒写 false")
+	_check(_save.has_record(NS_TEST, &"v_node") == false, "S3b 拒写值无痕（不入账）")
+	junk.free()
+	_check(_save.record(NS_TEST, &"v_dict", {"a": 1}) == false, "S3c Dictionary 值拒写 false")
+	_check(_save.record(NS_TEST, &"v_nested", [[&"a"]]) == false, "S3d 嵌套数组（二层非白名单）拒写 false")
+	_check(_save.record(NS_TEST, &"v_bool", true) == true, "S3e bool 通过")
+	_check(_save.record(NS_TEST, &"v_int", 7) == true, "S3f int 通过")
+	_check(_save.record(NS_TEST, &"v_float", 1.5) == true, "S3g float 通过")
+	_check(_save.record(NS_TEST, &"v_str", "hello") == true, "S3h String 通过")
+	_check(_save.record(NS_TEST, &"v_sn", &"sn") == true, "S3i StringName 通过")
+	var arr: Array[StringName] = [&"a", &"b"]
+	_check(_save.record(NS_TEST, &"v_arr", arr) == true, "S3j Array[StringName] 通过")
+
+	# ── S6 四账兼容层：与 chapter_session.gd 语义逐位对齐 + 信号首记才发 ──
+	_save.flag_added.connect(_on_flag_added)
+	_save.chest_opened.connect(_on_chest_opened)
+	_save.segment_cleared.connect(_on_segment_cleared)
+	_check(_save.NS_FLAGS == &"flags" and _save.NS_CHESTS == &"chests"
+		and _save.NS_CLEARED == &"cleared_segments" and _save.NS_SPELLS == &"spells_known",
+		"S6a 系统户常量名册=[flags, chests, cleared_segments, spells_known]（NS_SPELLS 系 T0 预列，T2 秘籍复查开户）实际=%s/%s/%s/%s"
+		% [str(_save.NS_FLAGS), str(_save.NS_CHESTS), str(_save.NS_CLEARED), str(_save.NS_SPELLS)])
+	_check(_save.has_flag(&"f_probe") == false, "S6b 新档 flags 空（对齐 chapter_session 空表起点）")
+	_save.add_flag(&"f_probe")
+	_save.add_flag(&"f_probe")  # 重复 add 不重发信号（chapter_session 同形）
+	_check(_save.has_flag(&"f_probe") == true, "S6c add_flag/has_flag 对齐")
+	_check(_sig_flag == 1, "S6d flag_added 仅首记发射（计数实际=%d）" % _sig_flag)
+	_check(_save.open_chest(&"c_probe") == true, "S6e open_chest 首次 true（拾取方）")
+	_check(_save.open_chest(&"c_probe") == false, "S6f open_chest 重复 false（消费方据此不吐宝）")
+	_check(_save.is_chest_open(&"c_probe") == true, "S6g is_chest_open")
+	_check(_save.has_record(_save.NS_CHESTS, &"c_probe") == true, "S6h chests 账同源一致（兼容层底层=record 门洞）")
+	_check(_sig_chest == 1, "S6i chest_opened 仅首记发射（计数实际=%d）" % _sig_chest)
+	_save.mark_cleared(&"seg_probe")
+	_save.mark_cleared(&"seg_probe")
+	_check(_save.is_cleared(&"seg_probe") == true, "S6j mark_cleared/is_cleared 对齐")
+	_check(_sig_cleared == 1, "S6k segment_cleared 仅首记发射（计数实际=%d）" % _sig_cleared)
+	_check(_save.checkpoint_segment() == &"" and _save.checkpoint_entry() == &"default",
+		"S6l 初始 checkpoint=空段+default 入口（对齐 chapter_session 空表默认值）实际=%s/%s"
+		% [str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
+
+	# ── S4 JSON 兼容快照回环（B4.5 落盘日=一个字典写盘的前置门）──
+	_save.record_checkpoint(&"seg_rt", &"entry_rt")
+	var snap_text := JSON.stringify(_save.to_dict())
+	var snap: Dictionary = JSON.parse_string(snap_text)
+	_check(int(snap.get("version", -1)) == 1, "S4a to_dict 含 version=1（JSON 后仍是 int，实际=%s）" % type_string(typeof(snap.get("version", -1))))
+	_save.new_profile()
+	_check(_save.has_record(NS_TEST, &"first") == false, "S4b 回环前先清账（证明还原真写账，防假绿）")
+	_save.from_dict(snap)
+	_check(_save.has_record(NS_TEST, &"first") == true, "S4c 回环后逐键行为一致（first）")
+	_check(_save.has_record(NS_TEST, &"v_arr") == true, "S4d 回环后数组值账恢复")
+	_check(_save.has_flag(&"f_probe") == true, "S4e 回环后 flags 系统户恢复")
+	_check(_save.is_chest_open(&"c_probe") == true, "S4f 回环后 chests 系统户恢复")
+	_check(_save.is_cleared(&"seg_probe") == true, "S4g 回环后 cleared 系统户恢复")
+	_check(_save.checkpoint_segment() == &"seg_rt" and _save.checkpoint_entry() == &"entry_rt",
+		"S4h 回环后 checkpoint 两件套还原（实际=%s/%s）" % [str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
+	var rt_ids: Array = _save.ids(NS_TEST)
+	var all_sn := true
+	for sid in rt_ids:
+		if not (sid is StringName):
+			all_sn = false
+	_check(all_sn and not rt_ids.is_empty(), "S4i from_dict 后键归一化回 StringName（JSON 判例点：键变 String 必归一，实际=%s）" % str(rt_ids))
+	# 坏快照三连拒收保旧账（预期 push_error 各一条=被试行为）
+	_save.from_dict({"ledges": {}})
+	_check(_save.has_record(NS_TEST, &"first") == true, "S4j 缺 version 坏快照=拒收保旧账")
+	_save.from_dict({"version": 1, "ledges": 5})
+	_check(_save.has_record(NS_TEST, &"first") == true, "S4k ledges 非字典坏快照=拒收保旧账")
+	_save.from_dict({"version": 99})
+	_check(_save.has_record(NS_TEST, &"first") == true, "S4l version 不符坏快照=拒收保旧账")
+
+	# ── S5 new_profile 全清（账本唯一重置口，spec §2 开局=新开局语义）──
+	_save.new_profile()
+	_check(_save.has_flag(&"f_probe") == false, "S5a 清账后 flags 空")
+	_check(_save.is_chest_open(&"c_probe") == false, "S5b 清账后 chests 空")
+	_check(_save.is_cleared(&"seg_probe") == false, "S5c 清账后 cleared 空")
+	_check(_save.ids(NS_TEST).is_empty(), "S5d 清账后非系统户账目空（实际=%s）" % str(_save.ids(NS_TEST)))
+	_check(_save.checkpoint_segment() == &"" and _save.checkpoint_entry() == &"default",
+		"S5e 清账含 checkpoint 三件套回默认（实际=%s/%s）" % [str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
+	_check(_save.open_chest(&"c_probe") == true, "S5f 清账=新档：同宝箱可再开（首记语义复位）")
+	_check(_sig_chest == 2, "S5g 新档重开照发 chest_opened（计数实际=%d，首记才发规则不因清账失效）" % _sig_chest)
+	_save.new_profile()  # 测试自洁：探针键不外溢后续流/他套（单例账随进程）
+
+	_flow_done["S"] = true

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://s2b4spellsave01"]
+
+[ext_resource type="Script" path="res://tools/spell_save_contract/spell_save_contract.gd" id="1_ssc"]
+
+[node name="SpellSaveContract" type="Node"]
+script = ExtResource("1_ssc")

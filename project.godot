@@ -28,6 +28,7 @@ Dialogic="*uid://bxavuh4l8nyru"
 DayNightManager="*res://scripts/day_night/day_night_manager.gd"
 ShadowSoftEdge="*res://scripts/shadow_soft_edge.gd"
 GameEvents="*res://scripts/game_events.gd"
+GameSave="*res://scripts/save/game_save.gd"
 
 [dialogic]
 
