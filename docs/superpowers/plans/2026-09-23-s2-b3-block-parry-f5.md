@@ -64,3 +64,11 @@
   ——最后这条是白名单设计语义（落地即 locomotion，可再起手）。
 
 任何一条异常：截图/日志发回，按 SDD 修复轮回炉。
+
+---
+
+## 附注（2026-09-24 吞改事件实录，判例兑现）
+
+- 本单发出后首跑即遇 **project.godot 编辑器回写吞改**（未重启的 Windows 旧会话把 jump=Space+K 的旧内存版保存回盘并经 Syncthing 推回 Linux，block 动作消失——AGENTS 既有判例的复现）。已 `git restore` 还原。
+- **哨兵已在位**：block_parry_contract 的 Q 流（真键盘 K 腿）依赖 `interact`/`block` 动作注册——下次任何吞改，`run_matrix.sh` 该套直接响亮红，不必再靠 F5 人肉发现。矩阵=输入表守护进程。
+- **重开编辑器前的顺序纪律**：Windows 端先看一眼 `project.godot` 里 `block=` 行已在（Syncthing 到齐），再开编辑器；开后进 Project Settings → Input Map 肉眼确认 block=K、jump 只剩 Space。
