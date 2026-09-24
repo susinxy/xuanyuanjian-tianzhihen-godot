@@ -25,15 +25,18 @@ const _PARRY_STUN_KNOCK := 60.0
 ## ⇒ 弹反窗按全局物理帧计，在途定格会蚕食窗口——Block 态 enter 写
 ## block_started_frame（按下瞬间读数），蚕食属规则本意（spec §10 帧计数定案）。
 const _PARRY_FREEZE_FRAMES := 6
-## 白闪双档峰值（混白 amount 0→峰值→0；弹反=防守强档+攻击同拍弱档，
+## 白闪双档峰值（混白 amount 瞬顶峰值→持帧→缓落；弹反=防守强档+攻击同拍弱档，
 ## 格挡=防守弱档。spec §2.4 时长/色单一出处；2026-09-24 LDR 修订：
 ## 旧 over-bright modulate 峰值色被钳制不可见，改合成器混白量）
 const _FLASH_PEAK_STRONG := 1.0
 const _FLASH_PEAK_WEAK := 0.55
-## 白闪总时长（秒）：弹反 ≈0.12 亮档 / 格挡 ≈0.07 微档，升/降段统一 40/60 拆分
-const _FLASH_STRONG_DUR := 0.12
-const _FLASH_WEAK_DUR := 0.07
-const _FLASH_UP_RATIO := 0.4
+## 白闪时序=瞬白峰形制（命中帧直顶峰值→HOLD 持帧"咬"住→SINE/EASE_OUT 缓落；
+## 2026-09-24 F5 手感版：旧 0.12/0.07 线性升降被用户判"短且生硬"）：
+## 弹反 hold≈3.6 帧+落 0.22s，格挡 hold≈1.8 帧+落 0.14s。时长单一出处。
+const _FLASH_STRONG_HOLD := 0.06
+const _FLASH_STRONG_FADE := 0.22
+const _FLASH_WEAK_HOLD := 0.03
+const _FLASH_WEAK_FADE := 0.14
 
 #--- public variables - order: export > normal var > onready --------------------------------------
 
@@ -265,8 +268,8 @@ const _FLASH_TWEEN_META := &"b3_flash_tween"
 ## LDR-2D 判例（2026-09-24 用户 F5 定罪）：modulate>1 在光栅化处钳回 1，
 ## 乘法调不来白——闪白必须走合成器；且本构建（4.7.1 headless 探针实锤）
 ## CanvasItem **没有** material_overlay 属性，合成通道 = `material` 换挂：
-## 皮肤精灵挂运行时构建的混白 ShaderMaterial，amount 双段 tween（升 40%/
-## 降 60%）跑完摘回原底材（皮肤场景资产零改动、不开全局 HDR）。
+## 皮肤精灵挂运行时构建的混白 ShaderMaterial，amount=瞬白峰→持帧→SINE
+## 缓出回落，跑完摘回原底材（皮肤场景资产零改动、不开全局 HDR）。
 ## 连续闪白：新闪接管——旧 tween kill，"true 原底材"经闪白 material 的 meta
 ## 接力传递，摘除恒回正本尊。bind_node 让节点中途释放时 tween 自动夭折
 ## （击飞链 free 判例防线）；null/失效率安全——反馈件永无资格炸结算链。
@@ -301,15 +304,18 @@ void fragment() {
 		var old: Tween = sprite.get_meta(_FLASH_TWEEN_META)
 		if old != null and old.is_valid():
 			old.kill()
-	sprite.material = mat
-	var total: float = _FLASH_STRONG_DUR if strong else _FLASH_WEAK_DUR
 	var peak: float = _FLASH_PEAK_STRONG if strong else _FLASH_PEAK_WEAK
+	var hold: float = _FLASH_STRONG_HOLD if strong else _FLASH_WEAK_HOLD
+	var fade: float = _FLASH_STRONG_FADE if strong else _FLASH_WEAK_FADE
+	# 瞬白：挂上即峰值（命中帧就白，无爬坡）；持帧后 SINE/EASE_OUT 缓落
+	mat.set_shader_parameter("amount", peak)
+	sprite.material = mat
 	var tw := sprite.create_tween()
 	tw.bind_node(sprite)
-	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("amount", v),
-			0.0, peak, total * _FLASH_UP_RATIO)
-	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("amount", v),
-			peak, 0.0, total * (1.0 - _FLASH_UP_RATIO))
+	tw.tween_interval(hold)
+	var decay := tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("amount", v),
+			peak, 0.0, fade)
+	decay.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func() -> void:
 		if is_instance_valid(sprite) and sprite.material == mat:
 			sprite.material = prev)
