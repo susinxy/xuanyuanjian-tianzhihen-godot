@@ -29,7 +29,10 @@ const SHELL_SCENE_FILE := "res://scenes/chapter/chapter_shell.tscn"
 ## 消费方=test fixtures 的 .tscn（回归矩阵夹具把 chen 换成 test_actor）。
 @export var playable_override: PackedScene = null
 
-var session := ChapterSession.new()
+## 账本引用（B4-T1 迁移，spec §6）：ChapterSession 退役，session 指向
+## /root/GameSave 单例；类型放宽为 Node（GameSave 无 class_name，消费点
+## shell.session.xxx 零改动，动态派发）。兜底实例化见 _ready 首段。
+var session: Node = null
 var _instances := {}          # segment_id -> 实例（常驻缓存，spec D12 缓存面）
 var _order: Array[StringName] = []
 var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first-wins；
@@ -53,10 +56,18 @@ var _chapter_finished_emitted := false          # chapter_finished 闩锁（恰�
 
 
 func _ready() -> void:
+	# 账本接线（B4-T1 迁移，spec §6）：正常运行必走 /root/GameSave 单例；
+	# 非 autoload 环境兜底=编辑器工具/独立夹具场境（自造一份进程内账本挂壳下，
+	# 生命周期随壳）。置于函数首行——晚于任何 session 消费点即炸。
+	session = get_node_or_null(^"/root/GameSave")
+	if session == null:
+		session = load("res://scripts/save/game_save.gd").new()
+		add_child(session)
 	# 五职责齐平（T5，spec §3.1"五壳件"）：进章节注册检查点 + 回跳一次性消费，
-	# 路径解析与 BaseStage 同源（SessionRules）。注意：章节形态的回跳=整章
-	# 场景重载=会话重置（清场/旗标丢失，playable 回出生位）——段粒度续档归 S5；
-	# D4 已把死亡改走段重跑，回跳仅服务暂停壳"回本地点入口"与未来 S5。
+	# 路径解析与 BaseStage 同源（SessionRules）。注意（B4-T1 语义更新）：章节
+	# 形态的回跳=整章场景重载，playable 回出生位，但**账目不丢**——GameSave
+	# 单例账随进程（spec §2：重跑/回跳/换章一律不碰账，旧"会话重置清旗标"
+	# 概念已废除）；D4 已把死亡改走段重跑，回跳仅服务暂停壳"回本地点入口"与 B4.5。
 	var scene_path := _scene_path()
 	GameEvents.add_checkpoint(chapter_id, scene_path)
 	SessionRules.consume_pending_jump(scene_path)
@@ -159,7 +170,8 @@ func _on_back_title() -> void:
 
 
 func _on_replay() -> void:
-	# 章节重走=原型重载（新会话：清场/旗标丢失——会话续档归 S5，D4 注同文）。
+	# 章节重走=原型重载（B4-T1 语义更新：清场=场景重建，账目保留——账随进程，
+	# D4 注同文）。
 	# 解冻收口在 SessionRules.reload_prototype 共享腿（B7：冻结树不得跨重载）
 	reload_prototype()
 

@@ -81,6 +81,17 @@ func has_record(ns: StringName, id: StringName) -> bool:
 	return _ledges.get(ns, {}).has(id)
 
 
+## 销账（record 对偶，B4-T1/D-T1-1）：语义=合法销账（测试复原/未来剧情复位），
+## 私有账本不开裸口——契约腿需要"复原未清场"等反向操作时仅此一门洞。
+## 返回：确有该账目且已删除 true；无此账目 false（静默幂等，不报错）。
+func erase_record(ns: StringName, id: StringName) -> bool:
+	var ledge: Dictionary = _ledges.get(ns, {})
+	if not ledge.has(id):
+		return false
+	ledge.erase(id)
+	return true
+
+
 ## 键清单副本：改返回值不污染账本；元素恒 StringName（from_dict 归一化保证）
 func ids(ns: StringName) -> Array:
 	var out := []

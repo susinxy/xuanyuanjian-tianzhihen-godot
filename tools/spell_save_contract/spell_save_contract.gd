@@ -13,19 +13,31 @@ extends Node
 ## 　new_profile 全清（含 checkpoint 三件套）——账本唯一重置口；
 ## 　四账兼容层与 chapter_session.gd 语义逐位对齐（flag/chest/cleared/
 ## 　checkpoint），三信号存在且**首记才发**（connect 计数断言）。
-## M 流（T1）=壳迁移回归；G 流（T2）=秘籍/补学/SpellRegistry 缺件降级；
+## M 流（T1，本批在册）=壳迁移回归：shell.session 指向 /root/GameSave 单例的
+## 身份钉；两壳先后（不 new_profile）账目互见=账随进程（旧"换壳=清账"判据
+## 废除，spec §2）；new_profile 后清账不污染新档；erase_record 销账门洞往返
+## （record→has→erase→not has→再 record 首记信号复数）。章壳腿经 container
+## 的 chapter_fix 夹具（test_actor 主权消费，kit 缺席=NOTICE 大声跳过）。
+## G 流（T2）=秘籍/补学/SpellRegistry 缺件降级；
 ## E 流（T3）=正式壳 fixture 生产链 E2E 施法；R 流（T3）=重演等价双跑+
 ## 申报单名册；X 流（T3）=静态清点——预留于流注册表 _flows，逐任务追加
 ## "流即函数"，S 流之外的键在本 T0 不出现。
-## 【豁免】无——本套不消费生产角色（纯账本核心，无 test_actor/chen 依赖，
-## 故不设 ACTOR-GATE；E 流夹具腿在 T3 随章壳夹具一并登记）。
+## 【豁免】无——本套不消费生产角色；M 流章壳腿复用 container 的 chapter_fix
+## 夹具（内部=矩阵代管 test_actor，kit 缺席只 NOTICE 跳过、绝不代建，
+## B2.5 主权法消费铁律）；ATTEST 登记随 T3 入册一并按名册裁决。
 ## 运行：godot --headless --path . res://tools/spell_save_contract/spell_save_contract.tscn
 
 const NS_TEST := &"b4_contract_probe"
 
+## M 流章壳腿依赖：container 夹具（playable_override=test_actor）+ 主权 kit
+## （preload 路径引用=全局类缓存判例同款；缺席=NOTICE 大声跳腿）
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
+const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
+
 ## 流注册表：后续任务在数组尾追加 {key,label,fn}，_ready 循环自动消费
 var _flows := [
 	{"key": "S", "label": "S 流 账本核心", "fn": "flow_save_core"},
+	{"key": "M", "label": "M 流 壳迁移回归", "fn": "flow_migration"},
 ]
 
 var _fails := 0
@@ -178,3 +190,78 @@ func flow_save_core() -> void:
 	_save.new_profile()  # 测试自洁：探针键不外溢后续流/他套（单例账随进程）
 
 	_flow_done["S"] = true
+
+
+# ── M 流（T1）：壳迁移回归（spec §5/§6；D-T1-6 三腿制）──
+
+func _m_frames(n: int) -> void:
+	for _i in n:
+		await get_tree().physics_frame
+
+
+## 章壳建造体（**不含** new_profile——M1c/M1d 要的正是"换壳不建档=保账"面；
+## 流水起点的清账由 flow_migration 头部显式供给，与 container/interact 的
+## 建壳 helper 同款隔离规约，只是本套刻意把两者拆开各演一面）
+func _m_make_shell() -> ChapterShell:
+	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _m_frames(20)
+	return shell
+
+
+func flow_migration() -> void:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "M0 GameSave autoload 在场（scene runner 恒在场；缺席=S0 同红）")
+	if _save == null:
+		_flow_done["M"] = false
+		return
+
+	if not Kit.exists():
+		print("  NOTICE: 跳过 M1/M2 章壳腿——test_actor 替身缺席，chapter_fix 夹具"
+				+ "不可解析（处方：bash tools/matrix_runner/run_matrix.sh "
+				+ "--ensure-only 建好替身后复跑；壳无关腿 M0/M3 照跑）")
+	else:
+		# ── M1 单例本性钉死：两壳先后，A 记账 B 不建档仍见 ──
+		var shell_a := await _m_make_shell()
+		_check(shell_a.session == _save,
+				"M1a shell.session 指向 /root/GameSave 单例（迁移身份钉）")
+		_check(shell_a.session.open_chest(&"m_solo_chest") == true,
+				"M1b 壳 A 经 session 开宝箱首记 true")
+		shell_a.queue_free()
+		await _m_frames(6)
+		var shell_b := await _m_make_shell()   # 故意不 new_profile=换壳保账面
+		_check(shell_b.session.has_record(_save.NS_CHESTS, &"m_solo_chest") == true,
+				"M1c 换壳不 new_profile 仍见旧账（账随进程——旧'新壳=新账'判据"
+				+ "废除，B4-T1 改判，spec §2）")
+		_check(shell_b.session.open_chest(&"m_solo_chest") == false,
+				"M1d 壳 B 重复开 false（重建节点不再吐宝）")
+		shell_b.queue_free()
+		await _m_frames(6)
+		# ── M2 新档=清账、档间互不污染 ──
+		GameSave.new_profile()
+		_check(_save.has_record(_save.NS_CHESTS, &"m_solo_chest") == false,
+				"M2a new_profile 后旧档宝箱清零（new_profile=清账唯一口）")
+		_check(_save.open_chest(&"m_solo_chest") == true,
+				"M2b 新档同键首记 true（换壳不建档=保账 / 建档=清账，两面对偶）")
+
+	# ── M3 erase_record 销账门洞往返（D-T1-1：record 对偶，不开裸字典口）──
+	var cnt := {"flag": 0}   # 字典引用捕获判例（lambda 对标量捕获=拷贝不适用）
+	var cb := func(_id): cnt["flag"] += 1
+	_save.flag_added.connect(cb)
+	_check(_save.has_flag(&"m_erase") == false, "M3a 新档旗标空")
+	_save.add_flag(&"m_erase")
+	_check(int(cnt["flag"]) == 1 and _save.has_flag(&"m_erase") == true,
+			"M3b add_flag 首计入账+信号恰一")
+	_check(_save.erase_record(_save.NS_FLAGS, &"m_erase") == true,
+			"M3c 有账销账返回 true")
+	_check(_save.has_flag(&"m_erase") == false, "M3d 销账后 has_record false")
+	_check(_save.erase_record(_save.NS_FLAGS, &"m_erase") == false,
+			"M3e 无账再销 false（幂等静默，不报错）")
+	_save.add_flag(&"m_erase")   # 销账后重记=首记（信号复数计数）
+	_check(int(cnt["flag"]) == 2 and _save.has_flag(&"m_erase") == true,
+			"M3f 销账后重记走首记语义：信号计数复数（实际=%d）" % int(cnt["flag"]))
+	_save.flag_added.disconnect(cb)
+
+	GameSave.new_profile()   # 测试自洁：M 流探针键不外溢（单例账随进程）
+	_flow_done["M"] = true

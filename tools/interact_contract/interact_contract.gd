@@ -111,8 +111,12 @@ func _wait_until(pred: Callable, cap: int = 600) -> bool:
 	return pred.call()
 
 
-## 一次一场：新壳实例化（新 session、段丢弃重建=触发件全新生效态）
+## 一次一场：新壳实例化。B4-T1 改判（spec §2/§6）：旧判据"新壳⇒新 session⇒
+## 新账"已随 ChapterSession 退役——账本=GameSave 单例（账随进程），清账动作
+## 显式化为本流水起点的 new_profile()；换壳不 new_profile ⇒ 保账（单例本性
+## 由 spell_save_contract M 流钉死）。段丢弃重建=触发件全新生效态不变。
 func _make_shell(path: String = FIX_CHAPTER) -> ChapterShell:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	var ps := load(path) as PackedScene
 	var shell: ChapterShell = ps.instantiate()
 	get_tree().root.add_child.call_deferred(shell)
@@ -421,6 +425,8 @@ func _flow_g() -> void:
 	_check(armed and landed3 and whys == [&"death"]
 			and shell.current_segment_id() == &"seg_gate",
 			"G3b 重跑链赢：落回闸段入口、被顶 force 链零信标")
+	# B4-T1 改判注：本腿"闸段未判清"的前置由 _make_shell 的 new_profile 建档
+	# 供给（旧"新壳=新账"语义已废除，spec §2——清账动作显式化，判据本身不变）
 	_check(not shell.session.is_cleared(&"seg_gate"),
 			"G3c 输链不留判清（T2 判词实船集成面：重跑走丢弃重建）")
 	await _frames(300)

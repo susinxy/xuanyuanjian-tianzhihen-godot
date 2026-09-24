@@ -1,8 +1,12 @@
 extends Node
 
-## 舞台容器契约（S2-M1-B1）：ChapterSession 语义（S 组）、壳切换（E 组）、
-## 段检查点（D 组）、壳件五职责（H 组）。运行：
+## 舞台容器契约（S2-M1-B1）：壳切换（E 组）、段检查点（D 组）、
+## 壳件五职责（H 组）。运行：
 ## godot --headless --path . res://tools/container_contract/container_contract.tscn
+##
+## B4-T1 迁移注记：原 S 组（ChapterSession 语义直测）移交 spell_save_contract
+## （S6 兼容层腿，B4-T1 改判）——账本单例化后"新壳=新账"语义废除，
+## 本套各建壳流水起点显式 GameSave.new_profile()（spec §2/§6 隔离规约）。
 ##
 ## B2.5/T5 主权迁移：chapter_fix 夹具经 playable_override 接缝把模板内嵌 chen
 ## 换成矩阵代管 test_actor（E/D/H 全流经 shell.playable 泛型消费，替身在场即
@@ -44,7 +48,6 @@ func _ready() -> void:
 		print("════════ container-contract: FAIL ════════")
 		get_tree().quit(1)
 		return
-	await _flow_session()
 	await _flow_enter()
 	await _flow_switch()
 	await _flow_agg()
@@ -75,24 +78,6 @@ func _frames(n: int) -> void:
 		await get_tree().physics_frame
 
 
-func _flow_session() -> void:
-	var s := ChapterSession.new()
-	var got_flag: Array[StringName] = []
-	s.flag_added.connect(func(id): got_flag.append(id))
-	s.add_flag(&"key_lantern")
-	s.add_flag(&"key_lantern")
-	_check(s.has_flag(&"key_lantern") and got_flag.size() == 1,
-			"S1 旗标幂等（信号只发一次）")
-	_check(s.open_chest(&"chest_a") and not s.open_chest(&"chest_a")
-			and s.is_chest_open(&"chest_a"), "S2 宝箱一次性语义")
-	s.mark_cleared(&"seg_01")
-	_check(s.is_cleared(&"seg_01") and not s.is_cleared(&"seg_02"),
-			"S3 清场记录按段隔离")
-	s.record_checkpoint(&"seg_02", &"gate")
-	_check(s.checkpoint_segment() == &"seg_02" and s.checkpoint_entry() == &"gate",
-			"S4 检查点记录段+入口名")
-
-
 func _wait_until(pred: Callable, cap: int = 600) -> bool:
 	for _i in cap:
 		if pred.call():
@@ -110,6 +95,7 @@ func _spar_count() -> int:
 
 
 func _flow_enter() -> void:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账（账随进程不随壳）
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
@@ -128,6 +114,7 @@ func _flow_enter() -> void:
 
 
 func _flow_switch() -> void:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
@@ -197,6 +184,7 @@ func _first_detector(seg: StageContent) -> QuiverPlayerDetector:
 
 func _flow_agg() -> void:
 	# E6 聚合链真覆盖（R10）：杀穿 spawner→段清广播→壳自动推进下一段。
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
@@ -310,6 +298,7 @@ func _run_probe_subprocess(target_scene: String, out_path: String,
 ## 在本平台不可达 → E8b 在 Linux 恒绿、仅作 Windows 侧回归锁（R7 定档）。
 func _flow_orphan() -> void:
 	# E8c：结构守卫（进程内动态调用，修复前必红）
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	add_child(shell)
 	await _frames(20)   # 让 _ready 进首段链跑完
@@ -346,6 +335,7 @@ func _one_shot_attack() -> QuiverAttackData:
 ## 假快照陷阱的成立前提），且必须在检测器 one-shot 自毁前跑——故置于首次扫线
 ## 之前；D2 靠"实例 id 变化+新实例检测器再触"锁真·丢弃重建，不搭 R12 的便车。
 func _flow_death() -> void:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
@@ -365,7 +355,9 @@ func _flow_death() -> void:
 	var det_a := _first_detector(shell._current)
 	_check(det_a != null and is_instance_valid(det_a) and det_a.monitoring,
 			"R12b 双入窗内：检测器最终恢复 monitoring=true（假快照免疫）")
-	shell.session.cleared_segments.erase(&"seg_a")  # 复原"未清场"（丢弃重建语义有效）
+	# 复原"未清场"（丢弃重建语义有效）：账本私有化后走销账门洞 erase_record
+	# （B4-T1/D-T1-1——合法销账=record 对偶，不开裸字典口）
+	shell.session.erase_record(shell.session.NS_CLEARED, &"seg_a")
 	var entry_inst_id: int = shell._current.get_instance_id()
 	# --- 真死链：跨线引刷→血尽→knockout→Die→player_died→段重跑
 	# R7 判例：跨线必须逐帧扫（瞬移跳变零宽线永不判交）
@@ -473,6 +465,7 @@ func _flow_death() -> void:
 ## raw ESC 全链 + 检查点注册/回跳消费 + 章节终点语义 + set_playable 接口位。
 ## 注入判例（stage_contract A3 同源）：未处理输入流只收原始按键，有界轮询等落定。
 func _flow_shellkit() -> void:
+	GameSave.new_profile()   # B4-T1 隔离规约：建壳流水起点清账
 	# 回跳消费真验前置：pending 预置为章节外层文件，壳 _ready 一次性吃掉
 	GameEvents.pending_jump_stage = FIX_CHAPTER
 	var shell: ChapterShell = (load(FIX_CHAPTER) as PackedScene).instantiate()
