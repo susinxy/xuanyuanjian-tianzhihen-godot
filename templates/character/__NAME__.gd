@@ -31,6 +31,15 @@ func _ready() -> void:
 		attributes.reset()
 	
 	_spell_manager = SpellManager.new(self)
+	# 法术出生补学（S2-B4 spec §4：节点会重建——换章/回跳/测试接缝/读档，
+	# 账不重建——《秘籍》增量记在 GameSave.spells_known，新实例在此查账回填）。
+	# get_node_or_null 守卫：-s 无 autoload 环境静默跳过（判例全套同款）
+	var ledger := get_node_or_null(^"/root/GameSave")
+	if ledger != null:
+		for sid in ledger.ids(ledger.NS_SPELLS):
+			var def := SpellRegistry.definition_for(sid)
+			if def != null:
+				_spell_manager.learn_spell(def)
 	Events.player_died.connect(_on_player_died)
 	
 	if QuiverEditorHelper.is_standalone_run(self):

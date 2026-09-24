@@ -18,8 +18,9 @@ extends Node
 ## （自 chapter_session.gd 迁入，底层统一走 record 门洞），三信号随迁且仅首记发射。
 ##
 ## 开户决定申报（plan T0 Step2）：NS_SPELLS 在 _ready 随三系统户预列，供契约
-## S 流先行使用；T2 由 InteractSpellBook 对自己的户复查式 claim（claim 幂等，
-## 重复开户静默通过）——届时在此更新备注。
+## S 流先行使用；T2 已落地（2026-09-25）：InteractSpellBook._on_interacted 触发
+## 时对自己的户再复查式 claim（owner 申报 InteractSpellBook；claim 幂等，
+## 预列在前故不换手，语义=所有权再确认注记，本行即当时的"届时更新"兑现）。
 
 signal flag_added(id: StringName)
 signal chest_opened(id: StringName)

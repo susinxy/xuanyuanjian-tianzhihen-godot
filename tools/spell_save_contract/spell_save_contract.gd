@@ -18,10 +18,14 @@ extends Node
 ## 废除，spec §2）；new_profile 后清账不污染新档；erase_record 销账门洞往返
 ## （record→has→erase→not has→再 record 首记信号复数）。章壳腿经 container
 ## 的 chapter_fix 夹具（test_actor 主权消费，kit 缺席=NOTICE 大声跳过）。
-## G 流（T2）=秘籍/补学/SpellRegistry 缺件降级；
+## G 流（T2，本批在册）=法术生产链：SpellRegistry 约定路径解析（fire_ball 命中
+## /缺件 null 降级）、反应件申报基类（InteractReaction 默认红+InteractSpellBook
+## 实报 persists=[spells_known]）、出生补学（账本预记→test_actor 入树即会）、
+## 《秘籍》端到端轻量腿（代码造 Trigger+Book→emit→入账+学会→二次 emit 不重发）、
+## 键权现状钉腿（AI/被动档 channel 空转无劫持，spec §4"仅验证不新建机制"）；
 ## E 流（T3）=正式壳 fixture 生产链 E2E 施法；R 流（T3）=重演等价双跑+
 ## 申报单名册；X 流（T3）=静态清点——预留于流注册表 _flows，逐任务追加
-## "流即函数"，S 流之外的键在本 T0 不出现。
+## "流即函数"。
 ## 【豁免】无——本套不消费生产角色；M 流章壳腿复用 container 的 chapter_fix
 ## 夹具（内部=矩阵代管 test_actor，kit 缺席只 NOTICE 跳过、绝不代建，
 ## B2.5 主权法消费铁律）；ATTEST 登记随 T3 入册一并按名册裁决。
@@ -38,6 +42,7 @@ const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
 var _flows := [
 	{"key": "S", "label": "S 流 账本核心", "fn": "flow_save_core"},
 	{"key": "M", "label": "M 流 壳迁移回归", "fn": "flow_migration"},
+	{"key": "G", "label": "G 流 法术接入", "fn": "flow_spells"},
 ]
 
 var _fails := 0
@@ -265,3 +270,154 @@ func flow_migration() -> void:
 
 	GameSave.new_profile()   # 测试自洁：M 流探针键不外溢（单例账随进程）
 	_flow_done["M"] = true
+
+
+# ── G 流（T2）：法术生产链（spec §4；registry/申报单/秘籍/补学/键权现状）──
+# 新件一律 load() 动态引用（判例：S0 红期不靠 Parse Error 炸整脚本——
+# SpellRegistry/InteractSpellBook 等 class_name 未出生时本流须能跑出可读红）
+
+const REGISTRY_PATH := "res://spells/_base/spell_registry.gd"
+const REACTION_BASE_PATH := "res://scripts/chapter/reactions/interact_reaction.gd"
+const SPELL_BOOK_PATH := "res://scripts/chapter/reactions/interact_spell_book.gd"
+const TRIG_SCENE := "res://scenes/chapter/interact_trigger.tscn"
+const SPAR_SCENE := "res://characters/enemies/spar_enemy/spar_enemy.tscn"
+const VENDOR_SCENE := "res://characters/neutrals/street_vendor/street_vendor.tscn"
+
+
+## raw 键注入（B3-T2 判例：down 事件逐字段显式写，禁依赖 pressed 默认值；
+## keycode+physical 双填、device=-1 对齐绑定文本，block_parry _press_key 同形制）
+func _g_press_key(p_key: int, p_pressed: bool) -> void:
+	var ev := InputEventKey.new()
+	ev.device = -1
+	ev.keycode = p_key
+	ev.physical_keycode = p_key
+	ev.pressed = p_pressed
+	Input.parse_input_event(ev)
+
+
+func flow_spells() -> void:
+	GameSave.new_profile()
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "G0 GameSave autoload 在场（scene runner 恒在场）")
+	if _save == null:
+		_flow_done["G"] = false
+		return
+
+	# ── G1 SpellRegistry：约定路径命中 fire_ball；缺件 null+push_warning 不崩 ──
+	var reg: GDScript = load(REGISTRY_PATH)
+	_check(reg != null, "G1a SpellRegistry 脚本在场（%s）" % REGISTRY_PATH)
+	if reg != null:
+		var def = reg.definition_for(&"fire_ball")
+		_check(def != null, "G1b definition_for(fire_ball) 非 null（约定路径=SpellCreator 产线镜像）")
+		if def != null:
+			_check(def.spell_id == &"fire_ball",
+					"G1c 解析出的 def.spell_id==fire_ball（实际=%s）" % str(def.spell_id))
+		var ghost_def = reg.definition_for(&"no_such_spell_zzz")
+		_check(ghost_def == null,
+				"G1d 缺件 spell 返回 null 不崩（push_warning 中文=被试行为）")
+
+	# ── G2 反应件申报基类 + 秘籍件申报单 ──
+	var base: GDScript = load(REACTION_BASE_PATH)
+	_check(base != null, "G2a InteractReaction 基类脚本在场")
+	if base != null:
+		var probe = base.new()   # 无 class_name 编译期引用：动态调用（红期不炸解析）
+		var claim0: Dictionary = probe.save_claim()   # 基类默认=push_error+空单（门三）
+		_check(claim0.is_empty(),
+				"G2b 基类默认 save_claim 返回空字典（push_error 响=被试行为，子类必须申报）")
+		probe.free()
+	var bs: GDScript = load(SPELL_BOOK_PATH)
+	_check(bs != null, "G2c InteractSpellBook 脚本在场")
+	if bs != null and base != null:
+		_check(bs.get_base_script() == base,
+				"G2d InteractSpellBook 挂 InteractReaction 基类（申报门对新生件即时生效）")
+		var book = bs.new()
+		var claim: Dictionary = book.save_claim()
+		_check(claim.get(&"persists", []) == [_save.NS_SPELLS]
+				and claim.get(&"resets", []) == [],
+				"G2e 秘籍件申报单 persists=[spells_known]/resets=[]（实际=%s）" % str(claim))
+		book.free()
+
+	# ── 替身门（消费铁律 B2.5）：G3/G4 需要 test_actor（模板同文双写的产线
+	# 镜像验证主体）；peek() 只读三态，缺席/未导入=NOTICE 大声跳腿不代建 ──
+	var actor_ready: bool = Kit.peek() == Kit.READY
+	if not actor_ready:
+		print("  NOTICE: 跳过 G3/G4 补学与秘籍腿——test_actor 非就绪态（peek=%d，" % Kit.peek()
+				+ "处方：bash tools/matrix_runner/run_matrix.sh --ensure-only）；"
+				+ "G1/G2/G5 与键权腿照跑")
+
+	if actor_ready:
+		# ── G3 出生补学：账本预记→替身入树即会（节点会重建、账不重建，spec §4）──
+		_check(_save.record(_save.NS_SPELLS, &"fire_ball") == true,
+				"G3a 预记 spells_known/fire_ball 首记 true")
+		var actor: QuiverCharacter = load(Kit.ACTOR_SCENE).instantiate()
+		get_tree().root.add_child.call_deferred(actor)
+		await _m_frames(6)
+		var sm: SpellManager = actor.get_spell_manager()
+		_check(sm != null, "G3b 替身 spell_manager 在场（补学块挂在 _spell_manager 之后）")
+		if sm != null:
+			var slot0: SpellSlot = sm.get_spell_slot(0)
+			_check(slot0 != null and not slot0.is_empty(),
+					"G3c 出生补学腿：账本有账→入树即会（slot0 非空）")
+			if slot0 != null and not slot0.is_empty():
+				_check(slot0.definition.spell_id == &"fire_ball",
+						"G3d 补学内容=账本键对应的 registry 产物（实际=%s）"
+						% str(slot0.definition.spell_id))
+		actor.free()
+		GameSave.new_profile()   # 自洁：不留账防 G4 首记语义被污染
+
+		# ── G4 秘籍件端到端（轻量，代码造件）：emit→入账+学会→二次 emit 不重发──
+		# （真键盘 E2E 归 T3 E 流 raw 键腿，本腿钉反应件合同形制）
+		var shell := await _m_make_shell()
+		var trig: InteractTrigger = (load(TRIG_SCENE) as PackedScene).instantiate()
+		if bs != null:
+			var book2 = bs.new()
+			book2.spell_id = &"fire_ball"   # manual_id 留空=回落 spell_id 作账本键
+			trig.add_child(book2)
+			shell.add_child(trig)
+			await _m_frames(2)
+			trig.interacted.emit()
+			trig.interacted.emit()   # 同帧二发：first=false 腿（不重学）
+			_check(_save.has_record(_save.NS_SPELLS, &"fire_ball") == true,
+					"G4a 触发后账本 has_record(spells_known, fire_ball)")
+			_check(_save.ids(_save.NS_SPELLS).size() == 1,
+					"G4b 二次触发不重记账（ids size==1，实际=%s）"
+					% str(_save.ids(_save.NS_SPELLS)))
+			var psm: SpellManager = shell.playable.get_spell_manager()
+			_check(psm != null and not psm.get_spell_slot(0).is_empty(),
+					"G4c 首触发即学会（playable slot0 非空）")
+			if psm != null:
+				_check(psm.get_spell_slot(1).is_empty(),
+						"G4d 二次触发不重学（slot1 仍空=槽不超发）")
+			# 消失演出尾巴：0.4s tween 后 trig queue_free——等它收场再拆壳（防孤儿报错）
+			await _m_frames(30)
+		shell.queue_free()
+		await _m_frames(6)
+		GameSave.new_profile()
+
+	# ── G5 键权现状钉腿（spec §4"仅加验证腿钉住现状，不新建机制"）──
+	# 现状实读：模板壳法术键只经私有输入通道 channel.just_pressed 读取（无
+	# 全局键盘监听、无 _unhandled_input 直读），非玩家行为档不向 channel 盖戳
+	# ——raw 键注入下 AI/被动出生无 spell 键劫持（quiver_behavior_ai/idle 零
+	# _unhandled_input 盖戳路径，player 档才有）。
+	var spar: QuiverCharacter = load(SPAR_SCENE).instantiate()
+	var vendor: QuiverCharacter = load(VENDOR_SCENE).instantiate()
+	get_tree().root.add_child.call_deferred(spar)
+	get_tree().root.add_child.call_deferred(vendor)
+	await _m_frames(6)
+	_g_press_key(KEY_1, true)
+	_g_press_key(KEY_1, false)
+	await _m_frames(3)
+	var no_hijack := true
+	for ch in [spar, vendor]:
+		if ch.channel != null and ch.channel.just_pressed("spell_1"):
+			no_hijack = false
+		if str(ch.state_machine.state_name).contains("Cast"):
+			no_hijack = false
+	_check(no_hijack,
+			"G5 现状钉腿：AI/被动档 raw 按 1 后 channel 无戳、状态非 Cast"
+			+ "（现状：非玩家档 channel 空转无劫持）")
+	spar.free()
+	vendor.free()
+
+	GameSave.new_profile()   # 测试自洁：G 流探针键不外溢（单例账随进程）
+	_flow_done["G"] = true
