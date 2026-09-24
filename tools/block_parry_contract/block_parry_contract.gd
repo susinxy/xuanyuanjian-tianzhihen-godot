@@ -24,6 +24,13 @@ extends Node
 ## "命中帧起 ≤15 帧离场"护栏（max_lifetime=300f 与本采样窗同长，只判最终
 ## 离场则穿体飞到超时仍绿=窗缘假绿边角；缝栈内回执与结算同帧，正常帧距 0）。
 ##
+## T8 白闪可见性腿（2026-09-24 用户 F5 定罪缺陷的回归锁）：LDR-2D 下
+## modulate>1 被钳制闪不出白（旧 helper 空转），修复=运行时混白 shader 换挂
+## 皮肤精灵 material（本构建无 material_overlay，探针实锤）。新 5 腿 P2g/P2h
+## （格挡弱闪挂/摘）+ P3j/P3k/P3l（弹反双闪挂/挂/摘），逐物理帧采样
+## sprite.material 非空首末帧，对旧 modulate 形制恒红（red_run2 档：五腿
+## 首见=-1），断言总数 79→84。
+##
 ## Step0 探针实锤（2026-09-23，tools/tmp_b3probe 一次性台已毁尸，逐字记录见
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
 ## 照走（定格 12 帧 → 帧号 +12），但 Area 回调被暂停门扣到恢复帧才发；
@@ -168,6 +175,16 @@ func _drain_freeze() -> void:
 	await _frames(2)
 
 
+## 皮肤精灵解析（白闪可见性腿的前置快照，R15 判例：先取引用再进采样环，
+## 途中失效率低且红据可诊断）——与 _flash 同款形制：角色子树第一个
+## AnimatedSprite2D（chen 系皮肤 = Skin/AnimatedSprite2D，find_children 抗路径改动）。
+## 注意（2026-09-24 判例）：本构建 CanvasItem 无 material_overlay 属性（探针实锤），
+## 闪白合成通道 = sprite.material 换挂，本流探测物随之为 material。
+func _skin_sprite(ch: QuiverCharacter) -> CanvasItem:
+	var sprites := ch.find_children("*", "AnimatedSprite2D", true, false)
+	return sprites[0] if not sprites.is_empty() else null
+
+
 ## 通用一发：同帧记录出手帧→开火→逐帧采样双方血量/池轨迹、Hurt 落态、暂停可见。
 ## hold=true：每帧重写 V.block_started_frame=当前帧，模拟"被打前一瞬按下 K"
 ##   （探针 j=0 实锤 ⇒ 缝读到 delta≡1，与动画前摇长度无关——免歧义构造）。
@@ -175,12 +192,17 @@ func _drain_freeze() -> void:
 ##   （w_cal 来自 P1 同几何实测出手→命中帧距，同场景确定性）。
 ## 池轨迹用 min 捕获：受击回 Idle 后 refill 会把余量抬回，事后采样会漏判。
 func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
-		target_delta := -1, w_cal := 0) -> Dictionary:
+		target_delta := -1, w_cal := 0,
+		v_ov: CanvasItem = null, a_ov: CanvasItem = null) -> Dictionary:
 	var r := {
 		"f_call": 0, "f_hit": -1,
 		"v_hp0": 0.0, "v_hp_drop": 0.0, "v_pool_min": POOL0, "v_hurt": false,
 		"a_hp0": 0.0, "a_hp_drop": 0.0, "a_pool_min": POOL0, "a_hurt": false,
 		"a_knockout": false, "paused_seen": false,
+		# 白闪可见性腿（LDR 判例 2026-09-24）：overlay 挂/摘首末帧 + 弹反缝帧
+		# （攻击方池首降帧——免伤路 V 血不降，f_hit 恒 -1，须另立 seam）
+		"v_ov_first": -1, "v_ov_last": -1,
+		"a_ov_first": -1, "a_ov_last": -1, "a_pool_seam": -1,
 	}
 	r.v_hp0 = vendor.attributes.health_current
 	r.a_hp0 = actor.attributes.health_current
@@ -205,6 +227,16 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
 			r.a_hp_drop = r.a_hp0 - actor.attributes.health_current
 		r.v_pool_min = minf(r.v_pool_min, vendor.attributes.resistance_current)
 		r.a_pool_min = minf(r.a_pool_min, actor.attributes.resistance_current)
+		if r.a_pool_seam < 0 and actor.attributes.resistance_current < POOL0:
+			r.a_pool_seam = Engine.get_physics_frames()
+		if v_ov != null and v_ov.material != null:
+			if r.v_ov_first < 0:
+				r.v_ov_first = Engine.get_physics_frames()
+			r.v_ov_last = Engine.get_physics_frames()
+		if a_ov != null and a_ov.material != null:
+			if r.a_ov_first < 0:
+				r.a_ov_first = Engine.get_physics_frames()
+			r.a_ov_last = Engine.get_physics_frames()
 		if str(vendor.state_machine.state_name) == "Ground/Hurt":
 			r.v_hurt = true
 		if str(actor.state_machine.state_name) == "Ground/Hurt":
@@ -261,23 +293,47 @@ func _flow_parry() -> void:
 	# ── P2 格挡超窗：伤害×ratio、击退值整颗作废 ──
 	# 判定缝测试内部捷径：直写 is_blocking/block_started_frame（超窗 started=now−99）。
 	# OS 链（K 按住→Block 态 enter 写旗）归 T5 P7，本流只钉缝的读值语义。
+	# 白闪腿前置：皮肤精灵引用在采样环前快照（R15 判例），P2/P3 共用。
+	var ov_v := _skin_sprite(vendor)
+	var ov_a := _skin_sprite(actor)
+	print("[b3-flash] 皮肤精灵 v=%s a=%s" % [ov_v, ov_a])
 	vendor.attributes.is_blocking = true
 	vendor.attributes.block_started_frame = Engine.get_physics_frames() - 99
-	var r2 := await _shot(vendor, actor)
+	var r2 := await _shot(vendor, actor, false, -1, 0, ov_v, ov_a)
 	_check(r2.v_hp_drop == 4.0, "P2a 格挡掉血恰 4=10×0.4（超窗，实际 %.1f）" % r2.v_hp_drop)
 	_check(not r2.v_hurt, "P2b 格挡 V 不入 Hurt（击退派发整颗吞掉）")
 	_check(r2.v_pool_min >= POOL0, "P2c 格挡 V 池一分不扣（%.0f）" % r2.v_pool_min)
 	_check(r2.a_hp_drop == 0.0 and r2.a_pool_min >= POOL0, "P2d 格挡下攻击方无波及")
+	# 白闪可见性（LDR 判例 2026-09-24：modulate>1 被钳制闪不出白⇒用户 F5 定罪
+	# 不可见；修复=运行时混白着色器换挂 sprite.material。本组腿对旧 modulate
+	# 形制恒红，即该缺陷的机器回声——闪白 material 从未被挂上）：
+	_check(r2.f_hit >= 0 and r2.v_ov_first >= 0 and r2.v_ov_first - r2.f_hit <= 2,
+			"P2g 格挡命中后 ≤2 物理帧防守方皮肤闪白 material 挂上（缝帧=%s 首见=%s）"
+			% [r2.f_hit, r2.v_ov_first])
+	_check(r2.f_hit >= 0 and r2.v_ov_last >= 0 and r2.v_ov_last - r2.f_hit <= 30,
+			"P2h 格挡弱闪 ≤30 帧后已摘净（末见=%s；240 帧全采样无残留=自动含'回原底材'）"
+			% r2.v_ov_last)
 	await _clean(vendor, actor)
 
 	# ── P3 弹反（hold 构造：缝读 delta≡1 < 6）──
 	vendor.attributes.is_blocking = true
-	var r3 := await _shot(vendor, actor, true)
+	var r3 := await _shot(vendor, actor, true, -1, 0, ov_v, ov_a)
 	_check(r3.v_hp_drop == 0.0, "P3a 弹反 V 免伤（实际 %.1f）" % r3.v_hp_drop)
 	_check(r3.v_pool_min >= POOL0, "P3b 弹反 V 池一分不扣（%.0f）" % r3.v_pool_min)
 	_check(r3.a_pool_min == POOL0 - 60.0, "P3c 弹反反顶：A 池 600→540（实际 %.0f）" % r3.a_pool_min)
 	_check(r3.a_hurt, "P3d 弹反反顶：A 被拽进自己的 Ground/Hurt（顶回去=播自己的挨打姿势）")
 	_check(r3.paused_seen, "P3e 弹反支自发加强定格可观测（免伤路不经 apply_damage 的自发拍，探针 B1 佐证）")
+	# 弹反三件套之视觉两件（spec §2.4 修订形制：闪白 material 挂/摘）；缝帧=攻击方池
+	# 首降帧（免伤路 V 血不降，f_hit 恒 -1）。双方同拍挂 ⇒ 共用 seam。
+	_check(r3.a_pool_seam >= 0 and r3.v_ov_first >= 0 and r3.v_ov_first - r3.a_pool_seam <= 2,
+			"P3j 弹反：防守方强白闪 ≤2 帧内挂上（seam=%s 首见=%s）"
+			% [r3.a_pool_seam, r3.v_ov_first])
+	_check(r3.a_pool_seam >= 0 and r3.a_ov_first >= 0 and r3.a_ov_first - r3.a_pool_seam <= 2,
+			"P3k 弹反：攻击方同拍弱白闪 ≤2 帧内挂上（首见=%s）" % r3.a_ov_first)
+	_check(r3.a_pool_seam >= 0 and r3.v_ov_last >= 0 and r3.a_ov_last >= 0
+			and maxf(float(r3.v_ov_last), float(r3.a_ov_last)) - r3.a_pool_seam <= 30,
+			"P3l 弹反双方白闪 ≤30 帧内全摘净（防守末见=%s / 攻击末见=%s）"
+			% [r3.v_ov_last, r3.a_ov_last])
 	# P3 第二发：delta==窗 精确预置 → 严格 `<` 归格挡
 	await _clean(vendor, actor)
 	vendor.attributes.reset()

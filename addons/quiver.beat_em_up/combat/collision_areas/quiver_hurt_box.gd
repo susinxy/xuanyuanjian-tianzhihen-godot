@@ -25,10 +25,11 @@ const _PARRY_STUN_KNOCK := 60.0
 ## ⇒ 弹反窗按全局物理帧计，在途定格会蚕食窗口——Block 态 enter 写
 ## block_started_frame（按下瞬间读数），蚕食属规则本意（spec §10 帧计数定案）。
 const _PARRY_FREEZE_FRAMES := 6
-## 白闪双档峰值色（over-bright modulate 回弹；弹反=防守强档+攻击同拍弱档，
-## 格挡=防守弱档。spec §2.4 时长/色单一出处）
-const _FLASH_STRONG := Color(2.5, 2.5, 2.5, 1.0)
-const _FLASH_WEAK := Color(1.8, 1.8, 1.8, 1.0)
+## 白闪双档峰值（混白 amount 0→峰值→0；弹反=防守强档+攻击同拍弱档，
+## 格挡=防守弱档。spec §2.4 时长/色单一出处；2026-09-24 LDR 修订：
+## 旧 over-bright modulate 峰值色被钳制不可见，改合成器混白量）
+const _FLASH_PEAK_STRONG := 1.0
+const _FLASH_PEAK_WEAK := 0.55
 ## 白闪总时长（秒）：弹反 ≈0.12 亮档 / 格挡 ≈0.07 微档，升/降段统一 40/60 拆分
 const _FLASH_STRONG_DUR := 0.12
 const _FLASH_WEAK_DUR := 0.07
@@ -251,23 +252,68 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		hit_box.on_target_hit.call(self)
 
 
-## 白闪 helper（spec §2.4：出处定档一处，弹反/格挡共用）：角色根节点
-## modulate 双段回弹（升段 40% / 降段 60%）。bind_node 让节点中途释放时
-## tween 自动夭折（击飞链 free 判例防线）；null/失效率安全——反馈件永不
-## 有资格炸掉结算链。
+## 白闪合成器着色器（惰性构建一次全体复用；脚本热重载丢 static 后下次
+## 闪白自动重建，主帧单线程无竞态）。
+static var _flash_shader: Shader
+
+## 闪白互踩防线 meta 键：闪白 material 携带"true 原底材"、sprite 携带在途 tween
+const _FLASH_PREV_META := &"b3_flash_prev_material"
+const _FLASH_TWEEN_META := &"b3_flash_tween"
+
+
+## 白闪 helper（spec §2.4 修订形制，弹反/格挡共用，出处定档一处）：
+## LDR-2D 判例（2026-09-24 用户 F5 定罪）：modulate>1 在光栅化处钳回 1，
+## 乘法调不来白——闪白必须走合成器；且本构建（4.7.1 headless 探针实锤）
+## CanvasItem **没有** material_overlay 属性，合成通道 = `material` 换挂：
+## 皮肤精灵挂运行时构建的混白 ShaderMaterial，amount 双段 tween（升 40%/
+## 降 60%）跑完摘回原底材（皮肤场景资产零改动、不开全局 HDR）。
+## 连续闪白：新闪接管——旧 tween kill，"true 原底材"经闪白 material 的 meta
+## 接力传递，摘除恒回正本尊。bind_node 让节点中途释放时 tween 自动夭折
+## （击飞链 free 判例防线）；null/失效率安全——反馈件永无资格炸结算链。
 static func _flash(target_attrs: QuiverAttributes, strong: bool) -> void:
 	if target_attrs == null:
 		return
 	var node := target_attrs.character_node
 	if node == null or not is_instance_valid(node):
 		return
-	node.modulate = Color.WHITE
+	if _flash_shader == null:
+		_flash_shader = Shader.new()
+		_flash_shader.code = """shader_type canvas_item;
+uniform float amount: hint_range(0.0, 1.0) = 0.0;
+void fragment() {
+	COLOR.rgb = mix(COLOR.rgb, vec3(1.0), amount);
+}"""
+	# 皮肤精灵=角色子树第一个 AnimatedSprite2D（chen 系皮肤形制=Skin/
+	# AnimatedSprite2D，find_children 抗路径改动）
+	var sprites := node.find_children("*", "AnimatedSprite2D", true, false)
+	if sprites.is_empty():
+		return
+	var sprite: CanvasItem = sprites[0]
+	# 原底材快照：当前已是闪白 material（连续闪白）→ 从其 meta 挖出真原版
+	var prev: Material = sprite.material
+	if prev is ShaderMaterial and (prev as ShaderMaterial).shader == _flash_shader:
+		prev = prev.get_meta(_FLASH_PREV_META)
+	var mat := ShaderMaterial.new()
+	mat.shader = _flash_shader
+	mat.set_meta(_FLASH_PREV_META, prev)
+	# 掐掉在途旧闪（防其收尾回调摘走新闪的 baton）
+	if sprite.has_meta(_FLASH_TWEEN_META):
+		var old: Tween = sprite.get_meta(_FLASH_TWEEN_META)
+		if old != null and old.is_valid():
+			old.kill()
+	sprite.material = mat
 	var total: float = _FLASH_STRONG_DUR if strong else _FLASH_WEAK_DUR
-	var peak: Color = _FLASH_STRONG if strong else _FLASH_WEAK
-	var tw := node.create_tween()
-	tw.bind_node(node)
-	tw.tween_property(node, "modulate", peak, total * _FLASH_UP_RATIO)
-	tw.tween_property(node, "modulate", Color.WHITE, total * (1.0 - _FLASH_UP_RATIO))
+	var peak: float = _FLASH_PEAK_STRONG if strong else _FLASH_PEAK_WEAK
+	var tw := sprite.create_tween()
+	tw.bind_node(sprite)
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("amount", v),
+			0.0, peak, total * _FLASH_UP_RATIO)
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("amount", v),
+			peak, 0.0, total * (1.0 - _FLASH_UP_RATIO))
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(sprite) and sprite.material == mat:
+			sprite.material = prev)
+	sprite.set_meta(_FLASH_TWEEN_META, tw)
 
 
 func _handle_wall_hit_box(wall_hit_box: WallHitBox) -> void:

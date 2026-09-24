@@ -1080,7 +1080,9 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
      delta==窗 归格挡）：**免伤免退**——零伤害、防守方池一分不扣、不进受击态；
      `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` **自发拍**（免伤路不经
      apply_damage_value，遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+
-     攻击弱档）；`apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
+     攻击弱档；形制=运行时混白 shader 换挂皮肤精灵 `material` 摘回原底材——
+     LDR-2D 下 modulate>1 被钳制不可见，2026-09-24 修订，见 spec §2.4 注记）；
+     `apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
      池——统一模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，
      P9 实证；霸体鼠洞知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌
      弹反空转，B5 都尉若发护甲须正式裁决，届时改规则不改这里）。

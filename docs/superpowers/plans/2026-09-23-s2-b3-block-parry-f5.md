@@ -72,3 +72,14 @@
 - 本单发出后首跑即遇 **project.godot 编辑器回写吞改**（未重启的 Windows 旧会话把 jump=Space+K 的旧内存版保存回盘并经 Syncthing 推回 Linux，block 动作消失——AGENTS 既有判例的复现）。已 `git restore` 还原。
 - **哨兵已在位**：block_parry_contract 的 Q 流（真键盘 K 腿）依赖 `interact`/`block` 动作注册——下次任何吞改，`run_matrix.sh` 该套直接响亮红，不必再靠 F5 人肉发现。矩阵=输入表守护进程。
 - **重开编辑器前的顺序纪律**：Windows 端先看一眼 `project.godot` 里 `block=` 行已在（Syncthing 到齐），再开编辑器；开后进 Project Settings → Input Map 肉眼确认 block=K、jump 只剩 Space。
+
+---
+
+## 补注（2026-09-24 白闪修复）：重验白闪可见性
+
+- 本单眼①/格挡档的"白闪"此前因 LDR-2D modulate 钳制**实际不可见**（用户 F5
+  定罪）；已改运行时混白 shader 换挂皮肤 `material`（peak 强 1.0/弱 0.55，
+  时长不变）。**修复后需再 F5 一眼**：弹反=防守方爆白+攻击方同拍微白，格挡=
+  防守方微白，且闪完皮肤必须恢复原色（无残留白底材）。
+- 本次只动了 .gd（插件 helper + 契约 5 新腿），未碰场景/资源——"Windows 端
+  重启编辑器"纪律不适用；Syncthing 到齐后直接 F5 即可。
