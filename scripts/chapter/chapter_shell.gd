@@ -40,6 +40,9 @@ var _scene_by_id := {}        # segment_id -> PackedScene（扫描期建，first
 var _seg_spawner_set := {}    # segment_id -> Array[QuiverEnemySpawner]（R9：段清判定
 							  # 的 spawner 集实源于接线期检测器 paths 并集）
 var _current: StageContent = null
+var _scene_file := ""                 # B4.5-T2：_scene_path() 结果缓存（_ready 解析
+									  # 后填；enter_segment 传检查点与 resume 比对共用，
+									  # 免每段重复两形态解析）
 var applied_lighting := Color.WHITE   # 壳最近一次复位写入的画布色（契约断言面）
 var _transition_gen := 0              # I2：转场意图代际（switch/restart/强制推进共用，
 									  # 最新意图胜出；链尾对号，陈旧链静默让位）
@@ -69,6 +72,10 @@ func _ready() -> void:
 	# 单例账随进程（spec §2：重跑/回跳/换章一律不碰账，旧"会话重置清旗标"
 	# 概念已废除）；D4 已把死亡改走段重跑，回跳仅服务暂停壳"回本地点入口"与 B4.5。
 	var scene_path := _scene_path()
+	# B4.5-T2 缓存（spec §4）：本壳场景文件=检查点第三键（record_checkpoint 传参）
+	# 与 resume 比对（checkpoint_scene 命中本壳才消费旗）的单一依据；解析一次
+	# 全流共用（enter_segment 在 _ready 尾之后还会反复触达，不重解）。
+	_scene_file = scene_path
 	# B4.5-T1 改口（spec §3 裁决 R2）：回跳表迁账 GameSave（本壳由场景 runner
 	# 消费恒有 autoload，标识符直用与 GameEvents 同形制；编辑器提示环境不跑）
 	GameSave.add_location_checkpoint(chapter_id, scene_path)
@@ -103,7 +110,24 @@ func _ready() -> void:
 		chapter_error.emit("零段可进（segment_scenes 空/全坏）")
 		return
 	Events.player_died.connect(_on_player_died)
-	enter_segment(_order[0], &"default")
+	# B4.5-T2 读档落位（spec §4，与 B4 pending_jump 传渡判例同构）：
+	# resume_pending=「回检查点」一次性意图旗（易失不入账，GameSave 声明侧钉死），
+	# 且检查点场景==本文件才消费——first-wins 读后即清（转场目标若是他章，
+	# 旗原样留给那个场景的壳）。读档=全新场景加载，满状态天然成立（裁决 B4-R0b
+	# 零实现成本）。检查点段不在 _order（档与章漂移）push_error 响亮回退首段
+	# 不炸，旗同样已消费（读档失败不重试不滞留——P4b 判据）。
+	var seg := _order[0]
+	var entry: StringName = &"default"
+	if GameSave.resume_pending and GameSave.checkpoint_scene() == _scene_file:
+		GameSave.resume_pending = false
+		var cp := GameSave.checkpoint_segment()
+		if _order.has(cp):
+			seg = cp
+			entry = GameSave.checkpoint_entry()
+		else:
+			push_error("ChapterShell: 读档检查点段 %s 不在本章节 _order（档章漂移），回退首段"
+					% str(cp))
+	enter_segment(seg, entry)
 
 
 func _on_player_died() -> void:
@@ -260,7 +284,9 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 	playable.global_position = _current.to_global(
 			_current.entry_position(entry))
 	_suppress_detectors(_current)   # R8/C4：落位既成重叠不得误判为"跨线"
-	session.record_checkpoint(id, entry)
+	# B4.5-T2（spec §4）：检查点带场景第三键——死亡重跑/暂停回跳/读档三通道
+	# 共用同一份 checkpoint 数据，读档侧没有本行就永远找不到回家的路。
+	session.record_checkpoint(id, entry, _scene_file)
 	_wire_segment(_current)
 	_apply_lighting(_current)
 	segment_entered.emit(id)
@@ -311,6 +337,11 @@ func _maybe_finish_chapter() -> void:
 	if sid == &"" or not session.is_cleared(sid):
 		return
 	_chapter_finished_emitted = true
+	# B4.5-T2 通关事实入账（spec §2 影子条款：记账=自动落盘，内容件零自觉调用；
+	# NS_CHAPTERS_DONE 系统户 GameSave._ready 预开）——"打过哪一章"跨档记住，
+	# 重跑/回跳不抹（new_profile 唯一清账口，新开局归零重来）。闩锁在前，
+	# 本行恒恰一次首记（chapter_finished 二次广播结构性不可能）。
+	session.record(GameSave.NS_CHAPTERS_DONE, chapter_id)
 	chapter_finished.emit()
 
 

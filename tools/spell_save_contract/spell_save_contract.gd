@@ -40,6 +40,14 @@ extends Node
 ## has_save false；resume_pending 置真后 to_dict 不含它（传渡条款钉死）；无 .tmp
 ## 残骸；生产槽零污染总断腿（T1 A2 形制改判：套头重定向+清 scratch+清生产槽名，
 ## 套尾删净 scratch、D9b 断生产槽不存在——单机自证，跨套防线在各套 scratch 重定向）。
+## P 流（B4.5-T2，本批在册）=读档管线拆段腿（spec §4；标题钮真点击链归 F5）：
+## 无旗对照落位 _order[0] + enter_segment 生产腿带 scene 入检查点行为锁；scratch
+## 落含 checkpoint 的档→new_profile 清零→load_game 三件套还原→置 resume_pending
+## 直建壳=「继续钮后半场」的拆段等价（落位检查点段+入口位、旗 first-wins 消费、
+## 坏段（不在 _order）push_error 响亮回退首段且照样消费；通关入账：resume 落终点段
+## →判清→终点墙同步链（container H6 判例）→chapter_finished 恰一次+chapters_done
+## 首记入账+影子带盘（scratch 文件含该户键）。全部壳腿吃 chapter_fix 夹具（test_actor
+## 主权，kit 缺席=NOTICE 大声跳腿，M1 形制）。
 ## X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
 ## （game_save.gd 之外命中=0，被禁 token 运行期拼接不自伤）+ 旧公共字典形态=0；
 ## ②reactions/ 每 class_name 件必实存 save_claim；③申报名册=报表（DirAccess+基类
@@ -74,8 +82,9 @@ var _flows := [
 	{"key": "E", "label": "E 流 施法端到端", "fn": "flow_cast_e2e"},
 	{"key": "R", "label": "R 流 重演等价", "fn": "flow_replay_equiv"},
 	{"key": "D", "label": "D 流 影子落盘", "fn": "flow_disk"},
+	{"key": "P", "label": "P 流 读档管线", "fn": "flow_resume"},
 	# X 流压轴：其③"每反应件类名须被 G/R/E 至少一根腿点名"依赖前流执行期
-	# 登记的 _named_by_streams，故必须排在所有行为流之后（D 流不点名反应件，
+	# 登记的 _named_by_streams，故必须排在所有行为流之后（D/P 流不点名反应件，
 	# 置于 X 前不破坏该依赖）。
 	{"key": "X", "label": "X 流 静态清点", "fn": "flow_static_scan"},
 ]
@@ -1193,3 +1202,117 @@ func flow_disk() -> void:
 	await _d_frames(2)       # 排干 ⑧ 记账的在途帧尾落盘（先写后删，否则删完又复活=残骸过夜）
 	_sys.delete_save()       # 套尾删净 scratch（测试卫生条款：不留残骸）
 	_flow_done["D"] = true
+
+
+# ── P 流（B4.5-T2）：读档管线拆段腿（spec §4；plan Task2 Step1 全量）────────────
+# 套件不点钮（点=真转场拆套，T1 移交②）：title 函数体由「无档 has_save false 钮
+# disabled」（stage_contract A4 改判腿）+代码走查覆盖，真点击链归 F5；本流按
+# 「落盘→load_game→置旗→直建壳」走继续钮后半场的等价拆段，另钉落位/旗消费/
+# 坏段回退/通关入账四判。checkpoint_scene 比对与消费全在壳 _ready（chapter_shell
+# T2 分支），夹具章 id=fix、段序 seg_a→seg_b→seg_c（均非 auto_complete，落位后
+# 无在途推进链，纯落位验证——无合用多段夹具时按 seg_it 形制新建的预案未触发）。
+
+func flow_resume() -> void:
+	_save = get_node_or_null(^"/root/GameSave")
+	_sys = get_node_or_null(^"/root/SaveSystem")
+	if _save == null or _sys == null:
+		_check(false, "P0 GameSave/SaveSystem autoload 缺席（D0 同红，不硬闯）")
+		_flow_done["P"] = false
+		return
+	GameSave.resume_pending = false   # 起手清旗（传渡不外溢本流判据）
+	if not Kit.exists():
+		print("  NOTICE: 跳过 P 流全部壳腿——test_actor 替身缺席，chapter_fix 夹具"
+				+ "不可解析（处方：bash tools/matrix_runner/run_matrix.sh --ensure-only"
+				+ " 建好替身后复跑；M1 形制，B2.5 主权法不代建）")
+		_flow_done["P"] = true
+		return
+	# 本流自足起点：scratch 重定向+清场清账（不赌 D 流尾态）
+	_sys.slot_path = SCRATCH_D
+	await _d_frames(2)   # 排干前流在途帧尾落盘（D1a 判例）
+	GameSave.new_profile()
+	_sys.delete_save()
+
+	# ── P1 对照腿：无旗自然落位 _order[0]（兼 T2 生产行"enter_segment 传 scene"锁）──
+	var shell_a := await _m_make_shell()
+	_check(shell_a.current_segment_id() == &"seg_a",
+			"P1a 无旗对照落位 _order[0]=seg_a（resume 分支缺席态零变，B4 行为面）")
+	_check(_save.checkpoint_scene() == FIX_CHAPTER,
+			"P1b enter_segment 生产腿带 scene 入检查点（spec §4 三通道共用坐标源；实际=%s）"
+			% _save.checkpoint_scene())
+
+	# ── P2 落盘→清账→load_game 还原检查点（继续钮第一步）──
+	_save.record_checkpoint(&"seg_b", &"e", FIX_CHAPTER)   # 三参显式挪游标到非首段
+	_check(_sys.save_now() == true, "P2a scratch 落一份含 checkpoint 的档")
+	shell_a.queue_free()
+	await _m_frames(6)
+	GameSave.new_profile()
+	_check(_save.checkpoint_scene() == "" and _save.checkpoint_segment() == &"",
+			"P2b load 前内存清零（R 流『还原真写』防假绿判例沿用）")
+	_check(_sys.load_game() == true, "P2c load_game true（盘=继续钮的数据源）")
+	_check(_save.checkpoint_scene() == FIX_CHAPTER
+			and _save.checkpoint_segment() == &"seg_b" and _save.checkpoint_entry() == &"e",
+			"P2d checkpoint 三件套还原（实际=%s/%s/%s）" % [_save.checkpoint_scene(),
+				str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
+
+	# ── P3 旗→壳落位（继续钮后半场：置旗+直建壳，等价 _continue_game 转场终点）──
+	GameSave.resume_pending = true
+	var shell_b := await _m_make_shell()
+	_check(shell_b.current_segment_id() == &"seg_b",
+			"P3a resume 落位检查点段（≠_order[0] 可辨识，spec §4 壳端消费）")
+	var seg_inst: StageContent = shell_b._current
+	# 落位判据形制注（P3b 首跑绿期校准）：x 恒精确（无横向漂移源），y 有物理
+	# 沉降窗（出生 (500,600)→20 帧稳定后 ≈580，地板/高度层吸附所致）——放 64px
+	# 沉降容差；段身份 conjunction 在位，RED 期"落错段但坐标巧合"不得假绿。
+	var tgt := seg_inst.to_global(seg_inst.entry_position(&"e")) \
+		if seg_inst != null else Vector2.INF
+	_check(seg_inst != null and seg_inst.segment_id == &"seg_b"
+			and shell_b.playable != null
+			and is_equal_approx(shell_b.playable.global_position.x, tgt.x)
+			and absf(shell_b.playable.global_position.y - tgt.y) <= 64.0,
+			"P3b 落位=段 b 入口位（entry 通道随段走，y 容差=物理沉降窗，实际=%s 目标=%s）"
+			% [str(shell_b.playable.global_position if shell_b.playable else Vector2.INF),
+				str(tgt)])
+	_check(_save.resume_pending == false, "P3c 旗 first-wins 消费（读后即清，B4 传渡判例同构）")
+
+	# ── P4 错误路径：检查点段不在 _order（档章漂移）→ push_error 响亮回退首段不炸 ──
+	shell_b.queue_free()
+	await _m_frames(6)
+	_save.record_checkpoint(&"ghost_seg", &"default", FIX_CHAPTER)
+	GameSave.resume_pending = true
+	var shell_c := await _m_make_shell()
+	_check(shell_c.current_segment_id() == &"seg_a",
+			"P4a 坏段落位回退 _order[0]（push_error 中文报错=被试行为）")
+	_check(_save.resume_pending == false, "P4b 回退也消费旗（读档失败不重试不滞留）")
+
+	# ── P5 通关入账：resume 落终点段→判清→终点墙同步链→chapters_done 入账+带盘 ──
+	shell_c.queue_free()
+	await _m_frames(6)
+	_save.record_checkpoint(&"seg_c", &"default", FIX_CHAPTER)
+	GameSave.resume_pending = true
+	var shell_d := await _m_make_shell()
+	_check(shell_d.current_segment_id() == &"seg_c",
+			"P5a resume 可落终点段（入账驱动的廉价前置落位，plan Step1③）")
+	var evs := {"failed": 0, "finished": 0}
+	shell_d.segment_advance_failed.connect(func(_r): evs["failed"] += 1)
+	shell_d.chapter_finished.connect(func(): evs["finished"] += 1)
+	shell_d.session.mark_cleared(&"seg_c")
+	shell_d.switch_segment(&"", &"default")   # 终点墙=同步链（container H6 判例，无在途转场）
+	_check(int(evs["finished"]) == 1 and int(evs["failed"]) == 1,
+			"P5b 终点段判清→chapter_finished 恰一次（入账腿挂载点真实到达）")
+	_check(_save.has_record(_save.NS_CHAPTERS_DONE, &"fix"),
+			"P5c 通关事实入账 chapters_done/fix（_maybe_finish_chapter 成功分支新行）")
+	await _d_frames(2)   # 帧尾合并落盘（断言前必 await，spec §7.2 判例）
+	var snap: Variant = JSON.parse_string(FileAccess.get_file_as_string(SCRATCH_D))
+	var led5: Dictionary = (snap as Dictionary).get("ledges", {}) \
+		if typeof(snap) == TYPE_DICTIONARY else {}
+	var cd5: Dictionary = led5.get(String(_save.NS_CHAPTERS_DONE), {})
+	_check(cd5.has("fix"), "P5d 入账即影子带盘（scratch 文件含 chapters_done 户键）")
+
+	# ── 流尾自洁：壳灭、账清、旗落、盘净（不外溢 X 流/他套）──
+	shell_d.queue_free()
+	await _m_frames(6)
+	GameSave.new_profile()
+	GameSave.resume_pending = false
+	await _d_frames(2)
+	_sys.delete_save()
+	_flow_done["P"] = true

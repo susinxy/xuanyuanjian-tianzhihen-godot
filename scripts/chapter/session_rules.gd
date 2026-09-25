@@ -115,3 +115,16 @@ static func reload_prototype(tree: SceneTree) -> void:
 	tree.paused = false
 	Events.characters_reseted.emit()
 	tree.call_deferred("reload_current_scene")
+
+
+## 新开局收口（B4.5-T2，spec §4 读档管线"开始游戏"两分支共用）：
+## 清账（new_profile 唯一重置口）+ 删盘（影子档随账走，delete_save 幂等静默）
+## + 清传渡（pending_jump_stage 经 reset_session、resume_pending 易失旗同步落零
+## ——两枚传渡旗一步清光，防"半清"）。调用点收口：标题「开始游戏」无档直进/
+## 覆盖确认框 confirmed/契约 stage_contract A7 腿——防"清了账忘了删盘"漂移。
+## 转场动作**不在**本腿职责（留调用方：继续/新开转场目标不同）。
+static func begin_new_profile() -> void:
+	GameSave.new_profile()
+	SaveSystem.delete_save()
+	GameEvents.reset_session()
+	GameSave.resume_pending = false

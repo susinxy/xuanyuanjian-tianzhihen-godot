@@ -26,7 +26,8 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
-const EXPECTED_ASSERTS := 128
+## B4.5-T2：A7 读档入口腿 +9（128→137；A4 改判不增不减）。
+const EXPECTED_ASSERTS := 137
 
 var _fails := 0
 var _finished := false
@@ -46,8 +47,11 @@ func _ready() -> void:
 	# B4.5-T1 A1 卫生扩展（spec §2 测试卫生条款）：A 组探针+真壳 _ready 的
 	# add_location_checkpoint 触泛信号=影子自动落盘源，重定向到本套 scratch，
 	# 生产槽零污染（与 T0 container/block_parry 等四套同款一行、零逻辑侵入）；
-	# 尾不清——残 scratch 与判据无关，下轮起手重定向即覆盖
+	# B4.5-T2 起手清场（spec §4 改判配套）：A4 继续钮 disabled==!has_save() 与
+	# A7"有档→只弹窗"判据都吃 scratch 存缺真值——T1"尾不清残档与判据无关"
+	# 自此不再成立，起手 delete_save 钉死"当下无档"起点（尾仍不清，下轮同此）
 	get_node_or_null(^"/root/SaveSystem").slot_path = "user://b45_stage_scratch.json"
+	get_node_or_null(^"/root/SaveSystem").delete_save()
 	await _flow()
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	_check(_checks == EXPECTED_ASSERTS,
@@ -82,6 +86,9 @@ func _flow() -> void:
 	await _b5_fixture_jump()
 	await _b7_end_panel()
 	await _flow_c()
+	# A7 排在 C0 存活化（runner 挂 root 直属）之后：RED 期旧 _start_game 会起
+	# 真转场，唯有此位形 runner 不陪葬拆套（spec §4 拆段腿，T1 移交②）
+	await _a7_load_game()
 	_finished = true
 
 
@@ -148,7 +155,9 @@ func _wait_state(cond: Callable, max_frames := 240) -> bool:
 	return cond.call()
 
 
-## A4 add_entry 计数与 disabled 态（读条钮=数据驱动占位，不点击）
+## A4 add_entry 计数与状态（B4.5-T2 改判，spec §4：占位"读取存档"已退役换真钮
+## 「继续游戏」——enabled=SaveSystem.has_save() 于 title._ready 评估，起手清场后
+## 当下无档=disabled；旧判据"读档钮 disabled 占位"作废，新判据随盘态动态对偶）
 func _a4_entries() -> void:
 	var pc: VBoxContainer = _pause.get_node("ContentLayer")
 	_check(pc.get_child_count() == 4, "A4 pause 条目=4（实际 %d）" % pc.get_child_count())
@@ -156,7 +165,9 @@ func _a4_entries() -> void:
 	_check(tc.get_child_count() == 3, "A4 title 条目=3（实际 %d）" % tc.get_child_count())
 	var load_btn := tc.get_child(1) as Button
 	var start_btn := tc.get_child(0) as Button
-	_check(load_btn != null and load_btn.disabled, "A4 title 读档钮 disabled 占位")
+	_check(load_btn != null and load_btn.text == "继续游戏" \
+			and load_btn.disabled == (not SaveSystem.has_save()),
+			"A4 title 钮2=「继续游戏」且 disabled==!has_save()（spec §4，当下无档=disabled）")
 	_check(start_btn != null and not start_btn.disabled, "A4 title 开始钮可用")
 
 
@@ -198,6 +209,58 @@ func _a6_latest_checkpoint() -> void:
 	_check(latest.scene_path == "res://tools/stage_contract/_fake_new.tscn",
 			"A6 pause 跳转目标=注册表尾部（最新）")
 	GameSave.new_profile()   # 表随档案：清账=清表（B4.5-T1 改判）
+
+
+## A7 读档入口腿（B4.5-T2，spec §4；在 _flow 尾执行——C0 存活化后，理由见彼注）：
+## 「开始游戏」有档=运行时构建 ConfirmationDialog 只到弹窗即返（弹窗与转场分相
+## 天然可测；真确认→转场链归 F5，T1 移交②"套件不点钮"经 call 直入回调函数、
+## 且判据先行拦在弹窗相）；begin_new_profile=清账+删档+清传渡收口单一出处
+## （title 确认/无档直进/本腿三调用点共吃，防"清账忘删盘"漂移——plan Interfaces
+## 注记）。落盘全程只吃本套 scratch（起手已重定向+清场）。
+func _a7_load_game() -> void:
+	GameSave.new_profile()
+	GameSave.add_flag(&"a7_probe")
+	GameSave.add_location_checkpoint(&"a7_loc", "res://tools/stage_contract/_fake_a7.tscn")
+	SaveSystem.save_now()   # 同步落一份进 scratch（有档前提）
+	_check(SaveSystem.has_save(), "A7a scratch 有档（有档分支前提，落盘=T0 影子面）")
+	var dialogs := _title.find_children("*", "ConfirmationDialog", true, false)
+	_check(dialogs.size() == 1,
+			"A7b 覆盖确认框运行时构建恰 1 枚在册（标题壳子节点，无新 .tscn，spec §4）")
+	# 型注：ConfirmationDialog 沿 Window→Viewport→Node 血统，**不是 Control**
+	# （A7 首跑实锤："Trying to assign ConfirmationDialog to Control" 炸吞 7 腿）
+	var dlg: ConfirmationDialog = dialogs[0] if dialogs.size() == 1 else null
+	_check(dlg != null and not dlg.visible, "A7c 弹窗未触发前初始隐")
+	var scene_before := get_tree().current_scene
+	_title.call(&"_start_game")   # 模拟点击入口函数（typed Control 禁直调脚本方法判例）
+	if dlg != null:
+		_check(dlg.visible, "A7d 有档点开始=只到弹窗步（弹窗显+账未清，转场另相）")
+		_check(get_tree().current_scene == scene_before,
+				"A7e 弹窗相不触发真转场（套根场景原样，拆套防线）")
+	else:
+		_check(false, "A7d 弹窗缺位无从'只到弹窗'（RED 现场：旧实现无账检查直转场）")
+		_check(get_tree().current_scene == scene_before,
+				"A7e 不触发真转场（RED 现场：旧实现已把套根场景换掉）")
+	var sr: GDScript = load("res://scripts/chapter/session_rules.gd")
+	# GDScript 资源 has_method 可见静态方法（T2 前置探针 P8/P9 实锤 4.7.1：
+	# 在册静态=true、缺席=false——门判据单一调用式，免 method-list 遍历）
+	var has_bnp: bool = sr.has_method("begin_new_profile")
+	_check(has_bnp, "A7f SessionRules.begin_new_profile 在册（清账+删档+清传渡收口单一出处）")
+	# 传渡双旗预置脏（begin 的"清传渡"判据要有的放矢；resume_pending 由 P 流/D5
+	# 证不入账，这里只证 begin 落旗）
+	GameSave.resume_pending = true
+	GameEvents.pending_jump_stage = "res://tools/stage_contract/_fake_a7.tscn"
+	if has_bnp:
+		sr.call("begin_new_profile")   # Object.call 静态派发（红期不炸 typed 解析，G1 形制等价）
+	_check(has_bnp and GameSave.has_flag(&"a7_probe") == false
+			and GameSave.locations().is_empty(),
+			"A7g begin_new_profile 账清（旗+表随档案归零；RED 期旧 _start_game 的裸"
+			+ "new_profile 同形抹账，故判据捆在册门防假绿）")
+	_check(SaveSystem.has_save() == false, "A7h begin_new_profile 盘删（scratch 随档清）")
+	_check(GameEvents.pending_jump_stage == "" and GameSave.resume_pending == false,
+			"A7i begin_new_profile 传渡清（pending_jump_stage+resume_pending 双易失旗）")
+	GameSave.new_profile()
+	await _frames(2)   # 排干在途影子冲刷再删（"删完又复活=残骸过夜"判例，D 尾同款）
+	SaveSystem.delete_save()   # 尾净（起手清场判据对下轮恒成立）
 
 
 ## B 段共享桩：计数替身房——覆写 setup_after_fight_room 记录调用次数
