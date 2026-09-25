@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 expect="R12"]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="PackedScene" path="res://scenes/chapter/interact_trigger.tscn" id="2_trig"]
+[ext_resource type="Script" path="res://scripts/chapter/reactions/interact_chest.gd" id="3_chest"]
+[ext_resource type="Script" path="res://scripts/chapter/reactions/interact_spell_book.gd" id="4_book"]
+
+[node name="SegR12BadEmpty" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"seg_r12_bad_empty"
+
+[node name="ChestT" parent="." instance=ExtResource("2_trig")]
+position = Vector2(400, 600)
+
+[node name="Reaction" type="Node" parent="ChestT"]
+script = ExtResource("3_chest")
+
+[node name="BookT" parent="." instance=ExtResource("2_trig")]
+position = Vector2(700, 600)
+
+[node name="Reaction" type="Node" parent="BookT"]
+script = ExtResource("4_book")
+spell_id = &""

@@ -39,8 +39,9 @@ extends Node
 ## 反射派生，逐类打印 persists/resets，并断言每类被 G/R/E 至少一根腿点名）；
 ## ④R-T2b「-s 无 autoload load 不炸」轻腿（@tool 角色脚本只 load 断非空、绝不 .new()）。
 ## 【豁免】无——本套不消费生产角色；M 流章壳腿复用 container 的 chapter_fix
-## 夹具（内部=矩阵代管 test_actor，kit 缺席只 NOTICE 跳过、绝不代建，
-## B2.5 主权法消费铁律）；ATTEST 登记随 T3 入册一并按名册裁决。
+## 夹具（内部=矩阵代管 test_actor，kit 缺席只 NOTICE 大声跳过、绝不代建，
+## B2.5 主权法消费铁律）；T3b 入册：ATTEST 登记 ACTOR-GATE（_ready 头部只读
+## 三态守卫就绪喊行，矩阵 M4 见证；缺席态不另加红、维持各流 NOTICE 跳腿形制）。
 ## 运行：godot --headless --path . res://tools/spell_save_contract/spell_save_contract.tscn
 
 const NS_TEST := &"b4_contract_probe"
@@ -86,6 +87,10 @@ var _sig_cleared := 0
 
 
 func _ready() -> void:
+	# T3b 入册身份见证（M4）：只读三态守卫（peek 零副作用），就绪才喊
+	# ACTOR-GATE；非就绪不另加红——缺席跳腿维持各流既有 NOTICE 形制（B2.5）
+	if Kit.peek() == Kit.READY:
+		print("ACTOR-GATE: test_actor 就绪（只读三态守卫通过）")
 	for flow in _flows:
 		await call(flow.fn)
 		# 判例（AGENTS）：子协程运行时炸掉后主协程照常续跑到汇总——每流完成旗单独锁

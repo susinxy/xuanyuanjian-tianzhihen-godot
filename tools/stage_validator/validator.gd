@@ -1,6 +1,6 @@
 extends SceneTree
 
-## 关卡装配校验器（S1-T4，矩阵第 21 项）：对 spec §5 地点契约做 R1-R11 十一条
+## 关卡装配校验器（S1-T4，矩阵第 21 项）：对地点/章节契约做 R1-R12 十二条
 ## 独立规则的机械执法。**只读 .tscn 文本**（FileAccess+逐行解析），不走
 ## ResourceLoader——避免加载副作用与对未落地依赖的真实解析。
 ## 运行：
@@ -39,7 +39,21 @@ extends SceneTree
 ##   R11 触发件（script 路径尾 interact_trigger.gd 的节点）必有 CollisionShape2D
 ##       后代（零宽/缺形=隐身不可交互，法典第十条；经 instance= 引入的触发件
 ##       自带形状在**其本体文件**里，本文件无 script 属性行不误伤）
-##   空根守卫（T4 评审 R12）：零节点 .tscn（垃圾/截断）记 R1 早退，
+##   R12 章节轨反应件装配防呆（B4 门五，spec §3）：管辖=章节轨三形态
+##       （根实例 chapter_shell / ③段形态 / ④壳模板本体）。InteractChest 的
+##       chest_id、InteractSpellBook 的 spell_id（manual_id 若设则为账本键、
+##       空=回落 spell_id，与件内运行时回落一致）必须非空——缺行=吃导出默认
+##       &""（R5 缺行同罪：多件共写一笔空账/幽灵账）；**同户**（chest 记
+##       chests 户、book 记 spells_known 户）键值全章唯一——两件争一笔账=红。
+##       跨户撞名**不算撞**（chests 的 ch_a 与 spells_known 的 ch_a 各记各账，
+##       夹具 r12_ok_seg_b 钉死此判例：book 键撞段 A 宝箱 id 必须全绿）；
+##       grants_flag 不在管辖（可选奖励旗、重复挂旗幂等无害，非争账键）。
+##       "同章"=壳文件沿 PackedScene+.tscn 引用闭包递归（segment_scenes 数组
+##       与各层 instance 引入、内联 Segments 子段皆覆盖；visited 防环；缺文件
+##       不告——加载期自会响亮报）。base 单地点形态不管：无壳 find_shell=null，
+##       反应件在其下静默不反应，账本无从争抢。在施章节走 .wip 整树豁免惯例。
+##   空根守卫（T4 评审意见第 12 条，规则码记 R1 早退——勿与门五 R12 混读）：
+##       零节点 .tscn（垃圾/截断）记 R1 早退，
 ##       不得流进 R2/R11 臂（root={} → .props null 崩）
 
 const BASE_PATH := "res://scenes/base/base_stage.tscn"
@@ -53,6 +67,12 @@ const DET_GD := "quiver_player_detector.gd"
 const SPAWN_GD := "quiver_enemy_spawner.gd"
 const EXIT_GD := "stage_exit.gd"
 const TRIG_GD := "interact_trigger.gd"
+# R12（门五）反应件脚本与账本户桶名：户名字符串镜像 GameSave 的
+# NS_CHESTS/NS_SPELLS 值——文本级扫描不加载 autoload，桶名仅用于分户查重
+const CHEST_GD := "interact_chest.gd"
+const BOOK_GD := "interact_spell_book.gd"
+const NS_CHESTS_BUCKET := "chests"
+const NS_SPELLS_BUCKET := "spells_known"
 # R5 白名单双形（spec D10/C6）：base 轨房挂 FightRooms 下恒 3 级到根；
 # shell 轨段挂壳 Segments 下、房直接挂段根，恒 4 级到壳根 Players
 const LEGAL_SPAWN_PARENTS := [
@@ -187,6 +207,9 @@ func _check_file(path: String) -> Array:
 	_check_r9(rooms, detectors, add)
 	_check_r10(model, add)
 	_check_r11(model, add)
+	# R12 管辖=章节轨三形态（壳实例/③段/④壳模板本体）；base 单地点不查（头注）
+	if is_shell or is_segment or is_template:
+		_check_r12(path, text, add, is_shell)
 	return out
 
 
@@ -403,6 +426,111 @@ func _check_r11(model: Dictionary, add: Callable) -> void:
 				break
 		if not has_shape:
 			add.call("R11", "触发件 %s 无感应形状（零宽/缺形=隐身不可交互）" % trig.full)
+
+
+#--- R12 章节轨反应件装配防呆（B4 门五）------------------------------------------------------------
+
+## 反应件账本键抽取：返回 {empty=[违例文案...], keys={户: {键: [出处...]}}}。
+## 主文件与章节闭包段文件共用；tag=出处文件名前缀（闭包文件报"谁家的哪件"）。
+func _r12_scan(text: String, tag: String) -> Dictionary:
+	var model := _parse(text)
+	var empty_list: Array = []
+	# 判例（4.7 探针）：`{NS_X = v}` 字面量的键=标识符**字面名**非变量值，
+	# 必须用冒号形 `{NS_X: v}` 才按常量值（户名字符串）建桶
+	var keys := {NS_CHESTS_BUCKET: {}, NS_SPELLS_BUCKET: {}}
+	for n in model.nodes:
+		var script := _script_path_of(n, model)
+		if script.ends_with(CHEST_GD):
+			var cid := _r12_id(n.props.get("chest_id", ""))
+			if cid.is_empty():
+				empty_list.append("%s宝箱反应件 %s 缺/空 chest_id（缺行=吃导出默认 &\"\""
+						% [tag, n.full] + "=多件共写一笔空账）")
+			else:
+				_r12_put(keys[NS_CHESTS_BUCKET], cid, tag + String(n.full))
+		elif script.ends_with(BOOK_GD):
+			var sid := _r12_id(n.props.get("spell_id", ""))
+			if sid.is_empty():
+				empty_list.append("%s秘籍反应件 %s 缺/空 spell_id（键空=账本记幽灵法术，"
+						% [tag, n.full] + "registry 必缺件）")
+			else:
+				# manual_id 设了才算键、空=回落 spell_id（件内运行时同款回落）；
+				# manual_id=&"" 不是违例（语义=未设），故此处永不因 manual_id 报空
+				var mid := _r12_id(n.props.get("manual_id", ""))
+				var eff_key: String = mid if not mid.is_empty() else sid
+				_r12_put(keys[NS_SPELLS_BUCKET], eff_key, tag + String(n.full))
+	return {empty = empty_list, keys = keys}
+
+
+func _r12_put(bucket: Dictionary, key: String, where: String) -> void:
+	if not bucket.has(key):
+		bucket[key] = []
+	bucket[key].append(where)
+
+
+## 提取 &"xxx" StringName 字面量本体；缺行、&""（空）一律回空串
+func _r12_id(raw: String) -> String:
+	var s := raw.strip_edges()
+	if s.begins_with('&"') and s.ends_with('"') and s.length() > 3:
+		return s.substr(2, s.length() - 3)
+	return ""
+
+
+## 文件的 PackedScene+.tscn 引用清单（res:// 路径，章节闭包 BFS 的边；
+## Script/Texture 等类型不跟）
+func _r12_scene_deps(path: String) -> Array:
+	var out: Array = []
+	for raw in FileAccess.get_file_as_string(path).split("\n"):
+		var line := raw.strip_edges()
+		if not line.begins_with("[ext_resource"):
+			continue
+		if _attr(line, "type") != "PackedScene":
+			continue
+		var p := _attr(line, "path")
+		if p.ends_with(".tscn"):
+			out.append(p)
+	return out
+
+
+func _check_r12(path: String, text: String, add: Callable, is_shell: bool) -> void:
+	var own: Dictionary = _r12_scan(text, "")
+	for e in own["empty"]:
+		add.call("R12", String(e))
+	var per_ns := {}
+	_r12_merge(per_ns, own["keys"])
+	# 同章闭包（仅壳文件起算）：沿引用链逐层收段内键——两箱分家两个段
+	# 仍算同章争账（夹具 r12_bad_dup_chapter 钉死）；缺文件静默跳过
+	# （加载期自会响亮报，不属本律管辖）
+	if is_shell:
+		var visited := {path: true}
+		var queue: Array = _r12_scene_deps(path)
+		while not queue.is_empty():
+			var p: String = queue.pop_front()
+			if visited.has(p) or not FileAccess.file_exists(p):
+				continue
+			visited[p] = true
+			var sub: Dictionary = _r12_scan(FileAccess.get_file_as_string(p),
+					"%s/" % p.get_file())
+			for e in sub["empty"]:
+				add.call("R12", "%s（章节 %s 沿引用链查见）" % [String(e), path.get_file()])
+			_r12_merge(per_ns, sub["keys"])
+			queue.append_array(_r12_scene_deps(p))
+	for ns in per_ns:
+		for key in per_ns[ns]:
+			var owners: Array = per_ns[ns][key]
+			if owners.size() >= 2:
+				add.call("R12", "同户 %s 键 %s 被 %d 件争抢（两件争一笔账）：%s"
+						% [ns, key, owners.size(), str(owners)])
+
+
+## 键集按户合并（dst/ns/key 追加 src 的出处清单）
+func _r12_merge(dst: Dictionary, src: Dictionary) -> void:
+	for ns in src:
+		if not dst.has(ns):
+			dst[ns] = {}
+		for key in src[ns]:
+			if not dst[ns].has(key):
+				dst[ns][key] = []
+			dst[ns][key].append_array(src[ns][key])
 
 
 #--- 值解析小件 ------------------------------------------------------------------------------------
