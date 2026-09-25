@@ -36,10 +36,18 @@ func _ready() -> void:
 	# get_node_or_null 守卫：-s 无 autoload 环境静默跳过（判例全套同款）
 	var ledger := get_node_or_null(^"/root/GameSave")
 	if ledger != null:
+		# 补学去噪（B4.5-T3）：账本可能多键同学科（manual_id 分户形制——
+		# 键是户名不是科目名），良性重提在补学侧用 seen 消化，
+		# 基础类 learn_spell 的报警只留真违规（spec §5 双层分工）
+		var seen: Array[StringName] = []
 		for sid in ledger.ids(ledger.NS_SPELLS):
 			var def := SpellRegistry.definition_for(sid)
-			if def != null:
-				_spell_manager.learn_spell(def)
+			if def == null:
+				continue
+			if seen.has(def.spell_id):
+				continue
+			seen.append(def.spell_id)
+			_spell_manager.learn_spell(def)
 	Events.player_died.connect(_on_player_died)
 	
 	if QuiverEditorHelper.is_standalone_run(self):

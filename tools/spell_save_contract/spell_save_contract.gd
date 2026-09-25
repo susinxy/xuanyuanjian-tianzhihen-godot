@@ -22,7 +22,9 @@ extends Node
 ## /缺件 null 降级）、反应件申报基类（InteractReaction 默认红+InteractSpellBook
 ## 实报 persists=[spells_known]）、出生补学（账本预记→test_actor 入树即会）、
 ## 《秘籍》端到端轻量腿（代码造 Trigger+Book→emit→入账+学会→二次 emit 不重发）、
-## 键权现状钉腿（AI/被动档 channel 空转无劫持，spec §4"仅验证不新建机制"）；
+## 键权现状钉腿（AI/被动档 channel 空转无劫持，spec §4"仅验证不新建机制"）、
+## G7 learn_spell 契约三式（B4.5-T3 立法腿，spec §5：null 拒学/正常占槽/同学科
+## 去重——裸 SpellManager 形制，与 G3/G4 账本预记腿零互作）；
 ## E 流（T3，本批在册）=正式壳 fixture 生产链施法 E2E：加载章壳夹具
 ## （playable_override=test_actor，替身缺席=NOTICE 大声跳腿）→ 驱动替身入秘籍触发区
 ## → trig.interacted.emit() 经 InteractSpellBook 生产链学会 → raw 数字键1（原始按键
@@ -525,6 +527,32 @@ func flow_spells() -> void:
 			+ "（现状：非玩家档 channel 空转无劫持）")
 	spar.free()
 	vendor.free()
+
+	# ── G7 learn_spell 基础类契约三式（B4.5-T3 立法，spec §5）──
+	# 裸 SpellManager 形制：学习腿不触角色（施法字段全用不到），与 G3/G4 的
+	# test_actor 出生补学/秘籍腿零互作（账本预记形制勿破——本段零写账）。
+	# 判据只认 spell_id 不认资源引用：G7e 用 duplicate 双引用钉"幻影家族判例
+	# 镜像不误伤"（同 tres 两副本=同学科，照样拒收）。
+	if reg != null:
+		var sm7 := SpellManager.new(null)
+		_check(sm7.learn_spell(null) == false,
+				"G7a learn_spell(null) 拒学 false（B4.5 立法红主体：旧实现 null 落空槽假报 true）")
+		_check(sm7.get_spell_slot(0).is_empty(),
+				"G7a' null 拒学无痕（slot0 仍空，不产幻影槽）")
+		var def7: SpellDefinition = reg.definition_for(&"fire_ball")
+		_check(def7 != null, "G7b 前置：registry 解析 fire_ball 定义（真产件当教材）")
+		if def7 != null:
+			_check(sm7.learn_spell(def7) == true, "G7c 正常 def 新学会占槽 true")
+			_check(sm7.get_spell_slot(0).definition == def7,
+					"G7c' 占槽落位 slot0 且 definition 同一（进槽对象核对）")
+			_check(sm7.learn_spell(def7) == false,
+					"G7d 同 def 再学拒收 false（同学科去重；push_warning=预期报警噪音）")
+			var twin7: SpellDefinition = def7.duplicate(true)
+			_check(twin7 != null and twin7.get_instance_id() != def7.get_instance_id()
+					and sm7.learn_spell(twin7) == false,
+					"G7e 异资源同 spell_id 亦拒收（只按 id 判学科，防'同-tres-双引用幻影'判例镜像误伤）")
+			_check(sm7.get_spell_slot(1).is_empty(),
+					"G7e' 去重无痕（重复科目不叠槽，slot1 仍空）")
 
 	GameSave.new_profile()   # 测试自洁：G 流探针键不外溢（单例账随进程）
 	_flow_done["G"] = true

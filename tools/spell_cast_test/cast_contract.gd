@@ -113,9 +113,12 @@ func _main_flow() -> void:
 	_stage.add_child(_actor)
 	await _frames(3)
 	
+	# B4.5 立法改判：异课异槽语义——双槽测试本意是"两门科目各占一槽"，
+	# 变体本即不同科目；def_a 保持 fire_ball（第一变体原科目名不动）
 	var def_a := _make_def(0.5, 10.0)
 	_check(_actor.learn_spell(def_a), "slot0 学会 0.5s 施法版火球")
 	var def_h := _make_def(0.0, 0.0)
+	def_h.spell_id = &"fire_ball_direct"  # 换科名占 slot1（同学科双槽已被 learn_spell 契约拒收）
 	_check(_actor.learn_spell(def_h), "slot1 学会零引导版火球")
 	
 	# ── A/B/C/F：起手 → 锁定 → 到点释放 ──

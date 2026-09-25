@@ -29,7 +29,26 @@ func tick(delta: float) -> void:
         if not slot.is_empty():
             slot.tick(delta)
 
+## 学习契约（B4.5-T3 立法，spec §5）：
+## 返回语义：true=新学会并占首个空槽；false=拒收且既有槽位一字不动。
+## 拒收两式均 push_warning 报警（真违规才报——补学侧的良性重提由
+## 角色壳 seen 去重在调用方消化，基础类不替账本幂等背噪音）：
+##  ① spell_def 为 null：无效请求，拒学（旧实现 null 落空槽假报 true=本条补洞）；
+##  ② 同学科去重：任一已有槽 definition.spell_id 与传入相同 → 拒收
+##    （防多入口叠槽；《秘籍》/补学本就靠账本幂等，两层双保险互不替代）。
+## 判学科只按 spell_id、不按资源同引用——同一 tres 的两个 duplicate 副本
+## 也视为同学科（"共享 attributes 幻影"家族判例的镜像防误伤：若按引用判，
+## 产线上 duplicate/load 双引用会让去重静默失灵，叠槽幻影卷土重来）。
+## 槽位全满（四科占毕再来新科）：静默 false（现状保留，知情窄口见 T4 批报告）。
 func learn_spell(spell_def: SpellDefinition) -> bool:
+    if spell_def == null:
+        push_warning("SpellManager: learn_spell 收到 null 定义，拒收（契约：仅非空 SpellDefinition 可占槽）")
+        return false
+    for slot in _slots:
+        if not slot.is_empty() and slot.definition.spell_id == spell_def.spell_id:
+            push_warning("SpellManager: 法术 %s 已学会（spell_id 去重），拒收重复学习请求"
+                    % spell_def.spell_id)
+            return false
     for i in _slots.size():
         if _slots[i].is_empty():
             _slots[i].definition = spell_def
