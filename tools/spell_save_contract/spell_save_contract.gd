@@ -33,7 +33,14 @@ extends Node
 ## （新档=清账，cleared 归零=未来该段未清将丢弃重建的 ledger 侧证据）；申报单联动
 ## （遍历 X③名册逐 persists 户 record→回环→has_record 真，逐户执法非硬编码）；
 ## 逐类申报形制回归锁（据实比对 persists/resets + 点名供 X③）；NIT-1 探针一次性信号
-## 形制示范。X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
+## 形制示范。
+## D 流（B4.5-T0，本批在册）=SaveSystem 影子落盘真盘腿（spec §2/§6）：scratch 注入
+## →record→帧尾后文件存在且 JSON version1、与账本逐键一致；new_profile→load_game
+## 还原真写账（R 流"还原真写"判例沿用）；写垃圾=load_game false 且现账无损；无档
+## has_save false；resume_pending 置真后 to_dict 不含它（传渡条款钉死）；无 .tmp
+## 残骸；生产槽零污染总断腿（全套只吃 user://b45_d_stream.json，套头重定向+清场、
+## 套尾删净——B4.5 测试卫生条款的机器锁）。
+## X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
 ## （game_save.gd 之外命中=0，被禁 token 运行期拼接不自伤）+ 旧公共字典形态=0；
 ## ②reactions/ 每 class_name 件必实存 save_claim；③申报名册=报表（DirAccess+基类
 ## 反射派生，逐类打印 persists/resets，并断言每类被 G/R/E 至少一根腿点名）；
@@ -45,6 +52,11 @@ extends Node
 ## 运行：godot --headless --path . res://tools/spell_save_contract/spell_save_contract.tscn
 
 const NS_TEST := &"b4_contract_probe"
+## D 流 scratch 槽（B4.5 测试卫生条款，spec §2）：全套落盘腿只读写此文件，
+## 永不触碰 AUTOSAVE_PATH 生产档
+const SCRATCH_D := "user://b45_d_stream.json"
+## D 流探针户（plan Task0 Step2 钉名）
+const NS_D := &"b45_probe"
 
 ## M 流章壳腿依赖：container 夹具（playable_override=test_actor）+ 主权 kit
 ## （preload 路径引用=全局类缓存判例同款；缺席=NOTICE 大声跳腿）
@@ -61,8 +73,10 @@ var _flows := [
 	{"key": "G", "label": "G 流 法术接入", "fn": "flow_spells"},
 	{"key": "E", "label": "E 流 施法端到端", "fn": "flow_cast_e2e"},
 	{"key": "R", "label": "R 流 重演等价", "fn": "flow_replay_equiv"},
+	{"key": "D", "label": "D 流 影子落盘", "fn": "flow_disk"},
 	# X 流压轴：其③"每反应件类名须被 G/R/E 至少一根腿点名"依赖前流执行期
-	# 登记的 _named_by_streams，故必须排在所有行为流之后。
+	# 登记的 _named_by_streams，故必须排在所有行为流之后（D 流不点名反应件，
+	# 置于 X 前不破坏该依赖）。
 	{"key": "X", "label": "X 流 静态清点", "fn": "flow_static_scan"},
 ]
 
@@ -79,6 +93,9 @@ var _x_roster := {}
 ## GameSave autoload 引用（无 class_name 故不静态定型，动态调用；
 ## RED 期/缺席 = null → S0 可读红，不靠 Parse Error 炸整脚本）
 var _save
+## SaveSystem autoload 引用（B4.5 D 流，同款动态引用形制：无 class_name，
+## 全经 get_node_or_null——scene runner 恒在场，缺席=D0 响亮红）
+var _sys
 
 # 信号计数（判例：lambda 按值捕获局部变量，计数一律走成员变量）
 var _sig_flag := 0
@@ -87,6 +104,13 @@ var _sig_cleared := 0
 
 
 func _ready() -> void:
+	# B4.5 测试卫生条款（spec §2）：影子落盘一律吃 scratch——S/M/G/E/R 真写账同样
+	# 触发泛信号，帧尾合并落盘绝不许碰生产槽（D9a 总断言查整进程，任一泄漏=红）。
+	# RED 期 stub 无 slot_path/save_now → 静默跳过本行，缺席态由 D0 响亮报红。
+	_sys = get_node_or_null(^"/root/SaveSystem")
+	if _sys != null and _sys.has_method("delete_save") and _sys.has_method("save_now"):
+		_sys.slot_path = SCRATCH_D
+		_sys.delete_save()   # 套头起手清场（scratch 不带上轮残骸）
 	# T3b 入册身份见证（M4）：只读三态守卫（peek 零副作用），就绪才喊
 	# ACTOR-GATE；非就绪不另加红——缺席跳腿维持各流既有 NOTICE 形制（B2.5）
 	if Kit.peek() == Kit.READY:
@@ -958,3 +982,191 @@ func flow_replay_equiv() -> void:
 
 	GameSave.new_profile()
 	_flow_done["R"] = true
+
+
+# ── D 流（B4.5-T0）：SaveSystem 影子落盘真盘腿（spec §2/§6；plan Task0 Step2 八组）──
+# 判例：SaveSystem 无 class_name，全经 get_node_or_null 动态消费（缺席=响亮红不硬闯）；
+# 泛信号 connect 一律 lambda 形参对齐信号实参（4.7 探针实锤：0 参回调接 2 参信号
+# 在 emit 时报 "Method expected 0 argument(s)"——少参不算兼容）；帧尾合并落盘的断言
+# 前必 await 帧（测试卫生条款）；全套只吃 SCRATCH_D，D9a 总断言钉生产槽零污染。
+
+const PROD_SLOT := "user://save_auto.json"   # 生产槽字面镜像（save_system.gd AUTOSAVE_PATH）
+
+
+func _d_frames(n: int) -> void:
+	for _i in n:
+		await get_tree().process_frame
+
+
+func flow_disk() -> void:
+	_save = get_node_or_null(^"/root/GameSave")
+	_sys = get_node_or_null(^"/root/SaveSystem")
+	_check(_save != null, "D0a GameSave autoload 在场（scene runner 恒在场）")
+	_check(_sys != null, "D0b SaveSystem autoload 在场（scene runner 恒在场，缺席=响亮红）")
+	if _save == null or _sys == null:
+		_flow_done["D"] = false
+		return
+	var api_ok: bool = _sys.has_method("has_save") and _sys.has_method("save_now") \
+		and _sys.has_method("load_game") and _sys.has_method("delete_save")
+	_check(api_ok, "D0c SaveSystem API 面齐（has_save/save_now/load_game/delete_save）")
+	var gs_ok: bool = _save.has_signal("recorded") and _save.has_signal("checkpoint_recorded") \
+		and _save.has_signal("location_visited") \
+		and _save.has_method("checkpoint_scene") \
+		and _save.has_method("add_location_checkpoint") and _save.has_method("locations") \
+		and _save.get("resume_pending") != null
+		# ↑传渡旗生育核验（4.7 探针 P2-6：属性缺失时 get 回 null、set 静默丢——
+		# RED 期本门挡下 ⑤ 腿，避免 GameSave.xxx 静态属性访问在旧脚本上编译期炸）
+	_check(gs_ok, "D0d GameSave 扩展面齐（三信号/checkpoint_scene/locations 双口）")
+	if not (api_ok and gs_ok):
+		# RED 期：八组腿各记一条可读红（缺门不硬闯缺失 API——S0 判例同款）
+		for leg_name in ["D1 scratch 清场", "D2 首记→帧尾自动落盘", "D3 影子自动触发合并腿",
+				"D4 save_now→load_game 还原真写账", "D5 传渡条款 resume_pending 不落盘",
+				"D6 坏文件拒收保现账", "D7 version1 形状兼容默认值", "D8 信号纪律首记才发",
+				"D9 生产槽零污染总断言"]:
+			_check(false, "%s——D0c/D0d 门缺位跳过调用（RED 现场）" % leg_name)
+		_flow_done["D"] = true   # 本流序列完整执行（红在门，非协程炸段）
+		return
+
+	# ── ① scratch 注入 + 清场 ──
+	_sys.slot_path = SCRATCH_D
+	await _d_frames(2)   # 先排干前流（S/M/G/E/R 真写账）在途帧尾落盘，防串扰本流判据
+	GameSave.new_profile()
+	_sys.delete_save()
+	_check(_sys.has_save() == false, "D1a delete_save 清场后 has_save false（scratch 起点确无档）")
+
+	# ── ② 首记→帧尾自动落盘：文件+version1+账键在+无 .tmp 残骸 ──
+	_save.claim_namespace(NS_D, &"D流")
+	_check(_save.record(NS_D, &"d_rec") == true, "D2a record 首记 true（影子触发源）")
+	await _d_frames(2)
+	_check(_sys.has_save(), "D2b 首记帧尾后 scratch 文件自动出现（未调 save_now=影子语义）")
+	var snap2: Variant = JSON.parse_string(FileAccess.get_file_as_string(SCRATCH_D))
+	_check(typeof(snap2) == TYPE_DICTIONARY, "D2c JSON.parse_string 可读回字典")
+	if typeof(snap2) == TYPE_DICTIONARY:
+		_check(int((snap2 as Dictionary).get("version", -1)) == 1, "D2d 快照 version==1")
+		var led2: Variant = (snap2 as Dictionary).get("ledges", {})
+		var probe2: Dictionary = led2.get(String(NS_D), {}) if typeof(led2) == TYPE_DICTIONARY else {}
+		_check(probe2.has("d_rec"), "D2e ledges.%s 含 d_rec（与账本逐键一致的最小钉）" % String(NS_D))
+	_check(FileAccess.file_exists(SCRATCH_D + ".tmp") == false, "D2f 无 .tmp 残骸（tmp→rename 原子替换收口）")
+
+	# ── ③ 影子自动触发合并腿（本批宪法腿：文件回来只可能来自信号）──
+	_sys.save_now()      # 基线一笔（此后除本行外全腿禁再直调 save_now）
+	_sys.delete_save()
+	GameSave.new_profile()
+	_check(_sys.has_save() == false, "D3a 清场后确无文件（后续出现即影子铁证）")
+	_save.claim_namespace(NS_D, &"D流")
+	# 一帧内三来源各记一笔：recorded / location_visited / checkpoint_recorded
+	_save.record(NS_D, &"d3_rec")                                          # 来源一
+	_save.add_location_checkpoint(&"d3_stage", "res://d3_fake.tscn")       # 来源二
+	_save.record_checkpoint(&"d3_seg", &"d3_entry", "res://d3_fake.tscn")  # 来源三
+	_check(_sys.has_save() == false, "D3b 三笔记毕同帧内文件未回（帧尾合并≠逐笔记逐笔写）")
+	await _d_frames(2)
+	_check(_sys.has_save() == true, "D3c 帧尾后文件自动回来且全程未直调 save_now（影子存在性证明）")
+	var snap3: Variant = JSON.parse_string(FileAccess.get_file_as_string(SCRATCH_D))
+	if typeof(snap3) != TYPE_DICTIONARY:
+		_check(false, "D3d 影子落盘内容不可解析（实际=%s）" % str(snap3))
+	else:
+		var led3: Variant = (snap3 as Dictionary).get("ledges", {})
+		var probe3: Dictionary = led3.get(String(NS_D), {}) if typeof(led3) == TYPE_DICTIONARY else {}
+		_check(probe3.has("d3_rec"), "D3d 三笔之一 record 在档")
+		var cp3: Variant = (snap3 as Dictionary).get("checkpoint", {})
+		var cp3d: Dictionary = cp3 if typeof(cp3) == TYPE_DICTIONARY else {}
+		_check(cp3d.get("segment") == "d3_seg" and cp3d.get("scene") == "res://d3_fake.tscn",
+				"D3e 三笔之二 checkpoint 在档（scene 三键形状，实际=%s）" % str(cp3d))
+		var locs3: Variant = (snap3 as Dictionary).get("locations", [])
+		var l3ok: bool = typeof(locs3) == TYPE_ARRAY and (locs3 as Array).size() == 1 \
+			and ((locs3 as Array)[0] as Dictionary).get("stage_id") == "d3_stage"
+		_check(l3ok, "D3f 三笔之三 locations 在档（String 化落 JSON，实际=%s）" % str(locs3))
+	_check(FileAccess.file_exists(SCRATCH_D + ".tmp") == false, "D3g 合并写后仍无 .tmp 残骸")
+
+	# ── ④ roundtrip：save_now→new_profile→load_game 还原真写账 ──
+	GameSave.new_profile()
+	_save.record(NS_D, &"d4_key", 7)
+	_save.add_flag(&"d4_flag")
+	_save.open_chest(&"d4_chest")
+	_save.record_checkpoint(&"d4_seg", &"d4_entry", "res://fake.tscn")
+	_save.add_location_checkpoint(&"d4_stage_a", "res://a.tscn")
+	_save.add_location_checkpoint(&"d4_stage_a", "res://a2.tscn")   # 摘旧追新现场
+	_save.add_location_checkpoint(&"d4_stage_b", "res://b.tscn")
+	_check(_sys.save_now() == true, "D4a save_now 同步强存 true")
+	GameSave.new_profile()
+	_check(_save.has_record(NS_D, &"d4_key") == false, "D4b 还原前先清账（R 流'还原真写'判例防假绿）")
+	_check(_sys.load_game() == true, "D4c load_game true")
+	_check(_save.has_record(NS_D, &"d4_key") and _save.has_flag(&"d4_flag") \
+		and _save.is_chest_open(&"d4_chest"), "D4d 逐键 has_record 还原（探针户+兼容层双验）")
+	_check(_save.checkpoint_scene() == "res://fake.tscn" \
+		and _save.checkpoint_segment() == &"d4_seg" and _save.checkpoint_entry() == &"d4_entry",
+		"D4e checkpoint 三件套还原（实际=%s/%s/%s）" % [_save.checkpoint_scene(),
+			str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
+	var locs4: Array = _save.locations()
+	_check(locs4.size() == 2 and locs4[1].stage_id == &"d4_stage_b" \
+		and locs4[0].scene_path == "res://a2.tscn",
+		"D4f locations 还魂 2 笔·摘旧追新·尾=最新（实际=%s）" % str(locs4))
+
+	# ── ⑤ 传渡条款腿（resume_pending 易失：不入账不落盘，spec §3）──
+	# 形制注：旗读写走 _save.set()（动态通道）而非 GameSave.resume_pending——
+	# 后者是 autoload 静态类型访问，RED 期旧 game_save.gd 无此属性=整脚本
+	# Parse Error 级联（手写 .tscn 判例同族的"红期不炸解析"纪律；D0d 门已证属性在场）
+	_save.set("resume_pending", true)
+	var td: Dictionary = _save.to_dict()
+	_check(td.has("resume_pending") == false, "D5a to_dict 顶层无 resume_pending 键")
+	_check(JSON.stringify(td).find("resume_pending") == -1, "D5b JSON 串不含 resume_pending 子词")
+	_save.set("resume_pending", false)   # 清场（传渡旗不外溢后续流/T2 消费面）
+
+	# ── ⑥ 坏文件腿：拒收=false 且现账一字不动 ──
+	var fp_before: String = JSON.stringify(_save.to_dict())
+	var fw6 := FileAccess.open(SCRATCH_D, FileAccess.WRITE)
+	if fw6 != null:
+		fw6.store_string("{{{垃圾")
+		fw6.close()
+	_check(_sys.load_game() == false, "D6a 垃圾文件 load_game false（push_warning=被试行为）")
+	_check(JSON.stringify(_save.to_dict()) == fp_before, "D6b 拒收后现账逐键无损（快照串等值）")
+
+	# ── ⑦ 形状兼容腿：version1 旧形状（缺 scene/缺 locations）→ 默认值 ──
+	var fw7 := FileAccess.open(SCRATCH_D, FileAccess.WRITE)
+	if fw7 != null:
+		fw7.store_string('{"version":1,"ledges":{},"checkpoint":{"segment":"s7","entry":"e7"}}')
+		fw7.close()
+	_check(_sys.load_game() == true, "D7a 缺键旧形状 load_game true（向后兼容形状扩展钉）")
+	_check(_save.checkpoint_scene() == "", "D7b 缺 scene 键→默认空串")
+	_check(_save.checkpoint_segment() == &"s7" and _save.checkpoint_entry() == &"e7",
+			"D7c 既有 segment/entry 仍正确还魂")
+	_check(_save.locations().is_empty(), "D7d 缺 locations 键→默认空表")
+
+	# ── ⑧ 信号纪律腿（recorded 首记一发/重记零发；checkpoint_recorded 三键拷贝）──
+	GameSave.new_profile()
+	await _d_frames(2)   # 排干在途落盘再起步计数（防他流脏影干扰观感，非判据主体）
+	var cnt8 := {"rec": 0, "cp": 0, "bad": 0, "cpd": {}}
+	var cb_rec := func(_ns, _id) -> void: cnt8["rec"] += 1
+	var cb_cp := func(cp: Dictionary) -> void:
+		cnt8["cp"] += 1
+		if not (cp.has("scene") and cp.has("segment") and cp.has("entry")):
+			cnt8["bad"] += 1
+		cnt8["cpd"] = cp
+	_save.recorded.connect(cb_rec)
+	_save.checkpoint_recorded.connect(cb_cp)
+	_save.claim_namespace(NS_D, &"D流")
+	_save.record(NS_D, &"d8_one")
+	_check(int(cnt8["rec"]) == 1, "D8a recorded 首记恰一发（实际=%d）" % int(cnt8["rec"]))
+	_save.record(NS_D, &"d8_one")
+	_save.record(NS_D, &"d8_one", false)   # 同键重记（值不覆盖也不重发）
+	_check(int(cnt8["rec"]) == 1, "D8b 重记零发（首记才发，实际=%d）" % int(cnt8["rec"]))
+	_save.record_checkpoint(&"d8_seg", &"d8_entry")
+	_check(int(cnt8["cp"]) == 1 and int(cnt8["bad"]) == 0,
+			"D8c checkpoint_recorded 恰一发且三键齐（scene/segment/entry）")
+	# 拷贝纪律：emit 字典被外部改写不得回染账本（emit 每次现造新档）
+	(cnt8["cpd"] as Dictionary)["segment"] = &"polluted"
+	_check(_save.checkpoint_segment() == &"d8_seg", "D8d emit 三键是拷贝：外染不回账本")
+	_save.recorded.disconnect(cb_rec)
+	_save.checkpoint_recorded.disconnect(cb_cp)   # 用完即摘（NIT-1 形制）
+
+	# ── D9 生产槽零污染总断腿（裁决形制：headless 全程 scratch 纪律的机器锁，破=红）──
+	var consts_map: Dictionary = (_sys.get_script() as GDScript).get_script_constant_map()
+	_check(consts_map.get("AUTOSAVE_PATH") == PROD_SLOT,
+			"D9a SaveSystem.AUTOSAVE_PATH 常量=plan 钉名（实际=%s）" % str(consts_map.get("AUTOSAVE_PATH")))
+	_check(FileAccess.file_exists(PROD_SLOT) == false,
+			"D9b 生产槽 %s 全程未出现（本进程所有落盘只吃 scratch）" % PROD_SLOT)
+
+	GameSave.new_profile()   # 流尾自洁（探针键不外溢 X 流；单例账随进程）
+	await _d_frames(2)       # 排干 ⑧ 记账的在途帧尾落盘（先写后删，否则删完又复活=残骸过夜）
+	_sys.delete_save()       # 套尾删净 scratch（测试卫生条款：不留残骸）
+	_flow_done["D"] = true

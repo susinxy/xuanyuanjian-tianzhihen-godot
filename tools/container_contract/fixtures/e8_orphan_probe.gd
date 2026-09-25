@@ -13,6 +13,9 @@ const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
 
 
 func _ready() -> void:
+	# B4.5 测试卫生条款（spec §2）：靶面建壳触泛信号=影子落盘源，与父套同槽
+	# 重定向 scratch（父侧 OS.execute 阻塞收尸，父套尾 delete_save 一并删净）
+	get_node_or_null(^"/root/SaveSystem").slot_path = "user://b45_container_scratch.json"
 	var shell: ChapterShell = load(FIX_CHAPTER).instantiate()
 	add_child(shell)
 	await get_tree().physics_frame   # 等 _ready 进首段链走完

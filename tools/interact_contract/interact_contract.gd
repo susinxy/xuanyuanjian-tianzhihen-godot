@@ -37,6 +37,12 @@ var _flag_ids: Array[StringName] = []    # session.flag_added 收录（C 组）
 
 
 func _ready() -> void:
+	# B4.5 测试卫生条款（spec §2）：影子落盘一律重定向 scratch，永不碰生产槽
+	#（本套 add_flag/mark_cleared/open_chest+建壳链全是泛信号触发源；plan T0
+	# Step5 名册漏列本套——矩阵序 interact 在 spell_save 之前跑，缺此重定向则
+	# 影子污染生产档、spell_save D9b 总断言恒红=锁死矩阵，据实补同形制一行；
+	# scene runner 里 /root/SaveSystem 恒在场，取空即当场炸=响亮红）
+	get_node_or_null(^"/root/SaveSystem").slot_path = "user://b45_interact_scratch.json"
 	# 替身门（消费铁律②，B2.5/T5）：chapter_it* 夹具经 playable_override 接缝
 	# ext_resource 引用 test_actor——缺席=夹具整体解析失败，I/C/G/Q/X 各流全是
 	# 炸点。判 exists() 即跳主体并记 FAIL（rc=1，处方走 --ensure-only 通道，
@@ -88,6 +94,7 @@ func _ready() -> void:
 	_check(bool(_done.get("s")), "S 流全序列执行完成（协程静默中断防线）")
 	_finished = true
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
+	get_node_or_null(^"/root/SaveSystem").delete_save()   # B4.5 测试卫生：套尾删净 scratch 不过夜
 	print("════════ interact-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
 

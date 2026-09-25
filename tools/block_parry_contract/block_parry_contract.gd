@@ -61,6 +61,9 @@ var _finished_q := false
 
 
 func _ready() -> void:
+	# B4.5 测试卫生条款（spec §2）：影子落盘一律重定向 scratch，永不碰生产槽
+	#（scene runner 里 /root/SaveSystem 恒在场，取空即当场炸=响亮红，不静默跳闸）
+	get_node_or_null(^"/root/SaveSystem").slot_path = "user://b45_block_parry_scratch.json"
 	await _flow_modifiers()
 	# 判例（AGENTS）：子协程运行时炸掉后主协程照常续跑——每流自带完成旗单独锁
 	_check(_finished_m, "M 流全序列执行完成（协程静默中断防线）")
@@ -68,6 +71,7 @@ func _ready() -> void:
 	_check(_finished_p, "P 流全序列执行完成（协程静默中断防线）")
 	await _flow_stance()
 	_check(_finished_q, "Q 流全序列执行完成（协程静默中断防线）")
+	get_node_or_null(^"/root/SaveSystem").delete_save()   # B4.5 测试卫生：套尾删净 scratch 不过夜
 	print("════════ block-parry-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
 
