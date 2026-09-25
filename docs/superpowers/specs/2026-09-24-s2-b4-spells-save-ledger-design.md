@@ -15,7 +15,7 @@
 
 **本批做**：GameSave autoload 立户（吸收 ChapterSession 四账+新户 spells_known）、
 执法五门+申报单、契约"重演=清账"语义改判、《秘籍》反应件、玩家出生补学、
-SpellRegistry 约定路径解析、正式壳场景 E2E 新套（矩阵 23 套=25 跑）、
+SpellRegistry 约定路径解析、正式壳场景 E2E 新套（矩阵 24 套=25 跑）、
 validator 装配查重、标题"新游戏"=建档清账、文档收口。
 **本批不做**（各归其批）：落盘/读档 UI/槽位（B4.5，§8 概要）；褚遂愿建角
 （占位纪律=chen 皮即序章皮，人物等美术，B6）；第二门法术（美术无图）；
@@ -38,7 +38,7 @@ GameSave（autoload，内存账本，随进程活）
   "检查点段入口落位+满状态"规则推导（与现行死亡段重跑 D4 同一条腿；
   `_revive_playable` 已是这条腿的内存版，B4.5 读档复用它）。
 - **入册纪律**：账本值只收普通类型（bool/int/String/StringName 及上述数组），
-  API 运行时校验拒收 Object 类值——S5 落盘日=一个字典写盘，不许有格式惊喜。
+  API 运行时校验拒收 Object 类值——B4.5 落盘日=一个字典写盘，不许有格式惊喜。
 - **入册键命名空间**：`StringName` 键带章前缀惯例（如 `ch0_manual_fireball`），
   同章内由 validator 查重（§3 门五）。
 
@@ -55,7 +55,7 @@ GameSave（autoload，内存账本，随进程活）
 
 | 门 | 机制 | 拦截形态 |
 |---|---|---|
-| 一门·单一门洞 | 账本只经 `record(ns,id)` / `has_record(ns,id)` / `ids(ns)` 读写；namespace 须先经 `claim_namespace(ns, owner)` 开户，未开户写入=push_error+拒写。flags/chests/cleared 为系统户（GameSave 自开） | 绕门私存 |
+| 一门·单一门洞 | 账本只经 `record(ns,id)` / `has_record(ns,id)` / `ids(ns)` 读写，销账只经合法销账门洞 `erase_record(ns,id)`（测试复原/未来剧情复位，R-T1b 补录）；namespace 须先经 `claim_namespace(ns, owner)` 开户，未开户写入=push_error+拒写。flags/chests/cleared 为系统户（GameSave 自开） | 绕门私存 |
 | 二门·类型闸 | `record()` 校验值域（§2 入册纪律），违规拒写报错 | 存了存不了的东西 |
 | 三门·申报单+清点 | 反应件基类 `InteractReaction.save_claim() -> Dictionary`（`{&"persists": [ns...], &"resets": [ns...]}`）三件齐报；静态扫描契约腿：①账本内部结构私有（`_ledges`），门洞之外直戳内部者=0（白名单自证）②`reactions/` 每个子类必须实存 `save_claim` ③每个反应件类名必须出现在重演套名册（每类型至少一腿） | 新件不填表/零重演腿/绕门直改内部 |
 | 四门·重演等价（主力） | 脚本化操作序列跑两遍：第一遍记行为流指纹；账本 `to_dict→new_profile→from_dict` 假存档还原后重跑同序列；**双向断言**=入册项必须不变（还会/不再吐宝）+豁免项必须重置（敌人复活）。忘注册的持久态在第二遍必然分叉 | "它觉得不用记，直到玩家发现" |

@@ -241,6 +241,40 @@
     无恙、格挡掉血不飞天；白闪经三轮 F5 迭代定档（LDR 不可见→瞬白+缓落→
     三调加长，用户验"时间正好且自然"）；定格 6 帧用户裁决暂不动（强化留
     B6 音效位，勿当 bug 回炉——裁决全文见 spec §2.4 附注）。
+  - **S2-B4 法术接入+存档账本体制批 ✅ 已交付（2026-09-25，SDD T0-T4 全过审查门；
+    F5 五眼单见 `docs/superpowers/plans/2026-09-24-s2-b4-spells-save-ledger-f5.md`，
+    tag `s2-b4-done`）**：范围=**单账本 GameSave**（autoload 吸收 ChapterSession
+    四账+新户 spells_known；门洞 record/has_record/ids + 合法销账 erase_record +
+    claim_namespace 开户 + 类型闸 + to_dict/from_dict JSON 回环 + new_profile 唯一
+    重置口）+ **执法五门与申报单**（一门门洞/二门类型闸/三门申报单+静态清点/四门
+    重演等价双跑/五门 validator R12 装配查重；新内容件必挂 InteractReaction 实填
+    save_claim，判项表=X 流③自动打印报表禁手抄）+ 契约改判"重演=清账"为
+    **"新档=清账"**（重跑/回跳/换章一律不碰账，24 建壳点 new_profile 全覆盖）+
+    **《秘籍》InteractSpellBook + chen/模板出生补学同文双写 + SpellRegistry 约定
+    路径**（法术生产链开张，此前 learn_spell 生产调用点=0）+ 标题"开始游戏"=建档
+    清账。**契约套 `tools/spell_save_contract`（矩阵第 24 套=25 跑，124 断言，
+    S/M/G/E/R/X 六流；E 流章壳夹具 raw 键施法 E2E）入册**；账本纪律法入根 AGENTS；
+    法典扩**条十一/R12**。批末全矩阵 **RED=0**（证据 commit `28b2391`，快照
+    `/tmp/opencode/b4_t3b/matrix_full.log`）。
+    **★生产缺口战果（E2E 首抓）**：`fire_ball_definition.tres` 从未挂
+    `spell_scene`+spell_manager 无 null 守卫=游戏内按 1 必崩（此前被 cast/hit 套
+    运行时打补丁掩盖），T3a 补接线修复——E2E 测试抓真生产 bug 首例。
+    **七裁决**（2026-09-24 用户签字）全录 spec §10：单账废会话概念/满状态复活/
+    单自动档/B4.5 紧随/《秘籍》路线且第二门不做/扩展保障机制化/申报单+双向重演。
+    **R8 入册红据（无红据不入册）**：red_a 摘秘籍 record→G4a-c+E3-E5 七项响亮红
+    `/tmp/opencode/b4_t3/red_a.log`；red_b 注入绕门直戳私有域+摘 save_claim→
+    X1a/X2b 精确点名 `/tmp/opencode/b4_t3/red_b.log`；red_c validator 坏例
+    expect 翻转→fixtures 模 rc=1 `/tmp/opencode/b4_t3/red_c.log`；复原全绿
+    `/tmp/opencode/b4_t3/green.log`（/tmp 易失，再造法见 plan Task3 Step5 配方）。
+    **B4.5 存档批预告**（spec §8，另立 spec）：SaveSystem 落盘（tmp→rename 原子写
+    +version）、标题"继续"=from_dict+检查点段落位+满状态（与死亡重跑同一条腿，
+    "回到检查点"三通道合一）、双检查点表合并（GameEvents 地点级 vs 段级）、
+    重演套假存档源换真盘（套零改动）；插件项登记=R-T3b：learn_spell(null) 假报
+    成功+SpellManager null 早退属 addons 红线，本批仅登记不改判（B4.5/B5 插件窗口）。
+    **遗留移交**：① validator R12 章闭包 BFS 的 visited 集按**文件**去重——同一
+    .tscn 被壳双实例装配（同段挂两次）时第二份键不计入，理论漏检"同文件双实例=
+    两件争一账"边角（T3b 评审 T4 备忘，非阻塞，下次碰 R12 顺修）；② E6 敌血下降
+    腿 headless 全窗未捕获命中（NOTICE 据实报非静默），命中观感终审移交 F5 眼①。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
