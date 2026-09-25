@@ -5,8 +5,10 @@ extends InteractReaction
 ## InteractTrigger 子节点、_ready 订阅 interacted。E 触发→对 GameSave 的
 ## spells_known 户记账（manual_id 空则回落 spell_id 作账本键）→**首开**即时
 ## 把 registry 解析出的定义教给 shell.playable（def 缺件=push_error 不炸链，
-## 账已记=道具确被拾取，降级不吞事件）→无论首开与否 consume()+0.4s 缩小消失
-## （再触发不重发学习、再出现不吐第二份——chest 判例⑤同法）。
+## 账已记=道具确被拾取，降级不吞事件）→无论首开与否 consume()+0.4s 缩小消失。
+## **外观判重**（用户 F5 裁决 2026-09-25，_ready 腿）：账本有账=学会过，本件
+## 出生帧连触发件整体退场——一次性知识件不重弹提示（与 chest"空箱物理语义"
+## 分道：箱可再见只是不再吐宝，书见过即永别）。
 ## 与出生补学的分工：本件只管增量（拾取瞬间教当前实例），重建节点的学习
 ## 由玩家壳 _ready 的补学块查账回填（spec §4"节点会重建、账不重建"）。
 
@@ -23,8 +25,20 @@ const _GameSaveScript := preload("res://scripts/save/game_save.gd")
 
 func _ready() -> void:
 	var trig := get_parent() as InteractTrigger
-	if trig:
-		trig.interacted.connect(_on_interacted)
+	if trig == null:
+		return
+	# 外观判重（用户 F5 裁决 2026-09-25）：一次性知识件——账本已有账=学会过，
+	# 本件出生帧连触发件整体退场，不再弹"拾取秘籍"（死亡段重跑/段重建后同理；
+	# 与 chest 物理语义分道：空箱可再演诱惑，已读的知识不可）。无壳=无账可查，
+	# 维持现状静默在场（独立跑测场境）。queue_free 帧尾收：physics 未走=无
+	# body_entered 竞态面；订阅随之不建立（本帧起永不响应）。
+	var shell := trig.find_shell()
+	if shell != null and shell.session != null:
+		var key: StringName = manual_id if manual_id != &"" else spell_id
+		if shell.session.has_record(_GameSaveScript.NS_SPELLS, key):
+			trig.queue_free()
+			return
+	trig.interacted.connect(_on_interacted)
 
 
 ## 申报单（spec §3 门三）：秘籍账入册（重演不重学）；无豁免面

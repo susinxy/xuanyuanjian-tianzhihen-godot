@@ -69,7 +69,9 @@ GameSave（autoload，内存账本，随进程活）
 - **《秘籍》反应件 `InteractSpellBook`**（家族第四型，chest 同门形制）：
   `@export spell_id`（要学的法术）、`@export manual_id`（账本键，默认=spell_id）。
   E 触发→`record(&"spells_known", manual_id)` 首开=即时对 `shell.playable`
-  执行学习→无论首开与否 consume+消失演出（再出现也不吐第二份，与 chests 同法）。
+  执行学习→无论首开与否 consume+消失演出。**外观判重**（2026-09-25 用户 F5 裁决，
+  契约 G6a/b 双锁）：`_ready` 查账，有账=连触发件出生帧整体退场——一次性知识件
+  不重弹"拾取秘籍"（与 chest 分道：空箱可再见不再吐宝，书读过即永别）。
   申报单：persists=[spells_known]。
 - **出生补学**：玩家壳 `chen.gd` / 模板 `__NAME__.gd` `_ready` 尾，经
   `get_node_or_null(^"/root/GameSave")` 守卫取账（`-s` 无 autoload 环境静默跳过），

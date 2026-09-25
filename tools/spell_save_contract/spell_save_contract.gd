@@ -433,6 +433,35 @@ func flow_spells() -> void:
 		await _m_frames(6)
 		GameSave.new_profile()
 
+		# ── G6 外观判重（用户 F5 裁决 2026-09-25，spec §4 注记）：一次性知识件
+		# 学会后禁止再弹"拾取秘籍"——死亡段重跑/段重建后本件出生帧即整体消失
+		# （账本有账→触发件 queue_free）。G6a 负对照（无账→正常在场）判重腿非真空 ──
+		var bs6: GDScript = load(SPELL_BOOK_PATH)
+		var shell6 := await _m_make_shell()
+		var trig_ok: InteractTrigger = (load(TRIG_SCENE) as PackedScene).instantiate()
+		var book_ok = bs6.new()
+		book_ok.spell_id = &"fire_ball"
+		trig_ok.add_child(book_ok)
+		shell6.add_child(trig_ok)
+		await _m_frames(3)
+		_check(is_instance_valid(trig_ok),
+				"G6a 无账：秘籍触发件正常在场（负对照=判重腿非真空）")
+		_check(_save.record(_save.NS_SPELLS, &"fire_ball") == true,
+				"G6a' 预记账本首记 true（构造已学会世界）")
+		var trig_gone: InteractTrigger = (load(TRIG_SCENE) as PackedScene).instantiate()
+		var book_gone = bs6.new()
+		book_gone.spell_id = &"fire_ball"
+		trig_gone.add_child(book_gone)
+		shell6.add_child(trig_gone)
+		await _m_frames(3)
+		_check((not is_instance_valid(trig_gone)) or trig_gone.is_queued_for_deletion(),
+				"G6b 有账：秘籍触发件出生帧即消失（学会过=外观不复活，F5 眼③改判）")
+		if is_instance_valid(trig_ok):
+			trig_ok.free()
+		shell6.free()
+		await _m_frames(4)
+		GameSave.new_profile()
+
 	# ── G5 键权现状钉腿（spec §4"仅加验证腿钉住现状，不新建机制"）──
 	# 现状实读：模板壳法术键只经私有输入通道 channel.just_pressed 读取（无
 	# 全局键盘监听、无 _unhandled_input 直读），非玩家行为档不向 channel 盖戳
@@ -784,9 +813,9 @@ func flow_cast_e2e() -> void:
 				+ "（弹体生成已硬钉；命中时序脆弱属 plan Task3 Step1 知情面，红据留"
 				+ " T3b R8 正式验，非静默假绿）")
 
-	shell.queue_free()
-	await _m_frames(6)
-	GameSave.new_profile()
+		shell.queue_free()
+		await _m_frames(6)
+		GameSave.new_profile()
 	_flow_done["E"] = true
 
 
