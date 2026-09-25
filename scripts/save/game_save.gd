@@ -38,8 +38,8 @@ signal segment_cleared(id: StringName)
 signal recorded(ns: StringName, id: StringName)
 ## 检查点记账完成即发；载荷={scene, segment, entry} 三键拷贝（外改不回染账本）
 signal checkpoint_recorded(checkpoint: Dictionary)
-## 地点访问入账（原 GameEvents.story_checkpoint_added 语义随迁，T0 双轨并存、
-## T1 拆旧轨）
+## 地点访问入账（原 GameEvents.story_checkpoint_added 语义随迁；T1 已拆旧轨，
+## 本表为唯一存放）
 signal location_visited(stage_id: StringName)
 
 ## 快照格式版本（B4.5 落盘文件同字段；不符=拒收保旧账）

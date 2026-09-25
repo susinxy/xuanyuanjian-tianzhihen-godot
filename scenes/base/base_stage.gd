@@ -44,7 +44,9 @@ func _ready() -> void:
 		_apply_playable_override()
 	# 计划草稿的 resource_path 系 Node 上不存在的杜撰属性（T3 探针裁决弃用）；
 	# 可转场路径的三形态解析收口在 _scene_path()
-	GameEvents.add_checkpoint(stage_id, _scene_path())
+	# B4.5-T1 改口（spec §3 裁决 R2）：回跳表迁账 GameSave——本行即地点访问入账，
+	# 泛信号 location_visited 触发影子落盘（GameSave 为 autoload 恒在场，标识符直用）
+	GameSave.add_location_checkpoint(stage_id, _scene_path())
 	# 层级军规 canary（法典 R10 runtime 腿）：背景 CanvasLayer ≥0 会盖掉全部世界
 	# 内容（文本校验看不见"忘写 layer=默认 1"这类缺失，这里兜底）。子 _ready 先跑，
 	# debug 背景已置 -10；正式背景换件同样必须负档——软边自动档落位的承重墙。
@@ -166,6 +168,7 @@ func _on_back_title() -> void:
 
 func _on_replay() -> void:
 	get_tree().paused = false
+	# B4.5-T1 语义注：reset_session 只清传渡不清账（重跑=不碰账，spec §3）
 	GameEvents.reset_session()
 	# 守卫仅作文件缺失防御（A 已由 T5 落地，正常链路走 transition）
 	if not ResourceLoader.exists(STAGE_A_PATH):

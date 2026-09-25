@@ -69,7 +69,9 @@ func _ready() -> void:
 	# 单例账随进程（spec §2：重跑/回跳/换章一律不碰账，旧"会话重置清旗标"
 	# 概念已废除）；D4 已把死亡改走段重跑，回跳仅服务暂停壳"回本地点入口"与 B4.5。
 	var scene_path := _scene_path()
-	GameEvents.add_checkpoint(chapter_id, scene_path)
+	# B4.5-T1 改口（spec §3 裁决 R2）：回跳表迁账 GameSave（本壳由场景 runner
+	# 消费恒有 autoload，标识符直用与 GameEvents 同形制；编辑器提示环境不跑）
+	GameSave.add_location_checkpoint(chapter_id, scene_path)
 	SessionRules.consume_pending_jump(scene_path)
 	# B7 锁语义容器版：终点面板 ALWAYS + 两钮代码接线（自动弹出无接入——
 	# 章节终点演出=chapter_finished 的 B7 过场批消费口，面板留给消费方拉起）

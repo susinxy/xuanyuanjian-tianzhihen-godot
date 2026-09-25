@@ -38,8 +38,8 @@ extends Node
 ## →record→帧尾后文件存在且 JSON version1、与账本逐键一致；new_profile→load_game
 ## 还原真写账（R 流"还原真写"判例沿用）；写垃圾=load_game false 且现账无损；无档
 ## has_save false；resume_pending 置真后 to_dict 不含它（传渡条款钉死）；无 .tmp
-## 残骸；生产槽零污染总断腿（全套只吃 user://b45_d_stream.json，套头重定向+清场、
-## 套尾删净——B4.5 测试卫生条款的机器锁）。
+## 残骸；生产槽零污染总断腿（T1 A2 形制改判：套头重定向+清 scratch+清生产槽名，
+## 套尾删净 scratch、D9b 断生产槽不存在——单机自证，跨套防线在各套 scratch 重定向）。
 ## X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
 ## （game_save.gd 之外命中=0，被禁 token 运行期拼接不自伤）+ 旧公共字典形态=0；
 ## ②reactions/ 每 class_name 件必实存 save_claim；③申报名册=报表（DirAccess+基类
@@ -105,12 +105,18 @@ var _sig_cleared := 0
 
 func _ready() -> void:
 	# B4.5 测试卫生条款（spec §2）：影子落盘一律吃 scratch——S/M/G/E/R 真写账同样
-	# 触发泛信号，帧尾合并落盘绝不许碰生产槽（D9a 总断言查整进程，任一泄漏=红）。
+	# 触发泛信号，帧尾合并落盘绝不许碰生产槽（D9b 单机自证，T1 A2 形制改判）。
 	# RED 期 stub 无 slot_path/save_now → 静默跳过本行，缺席态由 D0 响亮报红。
 	_sys = get_node_or_null(^"/root/SaveSystem")
 	if _sys != null and _sys.has_method("delete_save") and _sys.has_method("save_now"):
 		_sys.slot_path = SCRATCH_D
 		_sys.delete_save()   # 套头起手清场（scratch 不带上轮残骸）
+		# B4.5-T1 A2 形制改判：生产槽名也经 delete_save 起手清掉（借道 slot_path
+		# 即删即回，只删生产档+其 .tmp 残骸，其余 scratch 不动；同帧无 await
+		# 引擎无法在借道窗口排入帧尾落盘）——D9b 由此单机自证，不再依赖矩阵内套序
+		_sys.slot_path = PROD_SLOT
+		_sys.delete_save()
+		_sys.slot_path = SCRATCH_D
 	# T3b 入册身份见证（M4）：只读三态守卫（peek 零副作用），就绪才喊
 	# ACTOR-GATE；非就绪不另加红——缺席跳腿维持各流既有 NOTICE 形制（B2.5）
 	if Kit.peek() == Kit.READY:
@@ -1101,6 +1107,20 @@ func flow_disk() -> void:
 	_check(locs4.size() == 2 and locs4[1].stage_id == &"d4_stage_b" \
 		and locs4[0].scene_path == "res://a2.tscn",
 		"D4f locations 还魂 2 笔·摘旧追新·尾=最新（实际=%s）" % str(locs4))
+	# ── D4g/D4h 空参不覆写已记 scene（B4.5-T0 评审 F1 移交补腿，spec §3）──
+	# 先三参带 scene 记账 → 两参/空参再记：段入更新但坐标必保——三通道共用
+	# 检查点坐标不被传渡腿洗掉（game_save.record_checkpoint 保 scene 分支的行为锁）
+	_save.record_checkpoint(&"f1_seg", &"f1_entry", "res://f1_scene.tscn")
+	_save.record_checkpoint(&"f1b_seg", &"f1b_entry")            # 两参旧调用形
+	_check(_save.checkpoint_scene() == "res://f1_scene.tscn" \
+		and _save.checkpoint_segment() == &"f1b_seg" \
+		and _save.checkpoint_entry() == &"f1b_entry",
+		"D4g 两参再记：换段不抹 scene（实际=%s/%s）" % [_save.checkpoint_scene(),
+			str(_save.checkpoint_segment())])
+	_save.record_checkpoint(&"f1c_seg", &"f1c_entry", "")        # 显式空参形
+	_check(_save.checkpoint_scene() == "res://f1_scene.tscn" \
+		and _save.checkpoint_segment() == &"f1c_seg",
+		"D4h 空参再记：换段不抹 scene（与两参同义，实际=%s）" % _save.checkpoint_scene())
 
 	# ── ⑤ 传渡条款腿（resume_pending 易失：不入账不落盘，spec §3）──
 	# 形制注：旗读写走 _save.set()（动态通道）而非 GameSave.resume_pending——
@@ -1159,12 +1179,15 @@ func flow_disk() -> void:
 	_save.recorded.disconnect(cb_rec)
 	_save.checkpoint_recorded.disconnect(cb_cp)   # 用完即摘（NIT-1 形制）
 
-	# ── D9 生产槽零污染总断腿（裁决形制：headless 全程 scratch 纪律的机器锁，破=红）──
+	# ── D9 生产槽零污染总断腿（B4.5-T1 A2 形制改判：单机自证）──
+	# 套头已 delete_save 清生产槽名，本腿"不存在"判据自此只证本套落盘只吃
+	# scratch；跨套互写生产槽的防线=各套自己的 scratch 重定向（含 stage_contract
+	# A1 扩展），不再依赖矩阵内套序。
 	var consts_map: Dictionary = (_sys.get_script() as GDScript).get_script_constant_map()
 	_check(consts_map.get("AUTOSAVE_PATH") == PROD_SLOT,
 			"D9a SaveSystem.AUTOSAVE_PATH 常量=plan 钉名（实际=%s）" % str(consts_map.get("AUTOSAVE_PATH")))
 	_check(FileAccess.file_exists(PROD_SLOT) == false,
-			"D9b 生产槽 %s 全程未出现（本进程所有落盘只吃 scratch）" % PROD_SLOT)
+			"D9b 生产槽 %s 套内零出现（起手清名→尾断不存在，单机自证）" % PROD_SLOT)
 
 	GameSave.new_profile()   # 流尾自洁（探针键不外溢 X 流；单例账随进程）
 	await _d_frames(2)       # 排干 ⑧ 记账的在途帧尾落盘（先写后删，否则删完又复活=残骸过夜）

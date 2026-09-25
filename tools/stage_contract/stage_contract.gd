@@ -43,6 +43,11 @@ var _c_stage_exited := 0
 
 
 func _ready() -> void:
+	# B4.5-T1 A1 卫生扩展（spec §2 测试卫生条款）：A 组探针+真壳 _ready 的
+	# add_location_checkpoint 触泛信号=影子自动落盘源，重定向到本套 scratch，
+	# 生产槽零污染（与 T0 container/block_parry 等四套同款一行、零逻辑侵入）；
+	# 尾不清——残 scratch 与判据无关，下轮起手重定向即覆盖
+	get_node_or_null(^"/root/SaveSystem").slot_path = "user://b45_stage_scratch.json"
 	await _flow()
 	_check(_finished, "全序列执行完成（协程静默中断防线）")
 	_check(_checks == EXPECTED_ASSERTS,
@@ -155,13 +160,14 @@ func _a4_entries() -> void:
 	_check(start_btn != null and not start_btn.disabled, "A4 title 开始钮可用")
 
 
-## A5 死亡壳被动重建：open 时从 GameEvents 清旧再生成（新→旧），末条固定回标题；
-## 全程不按压（跳转=真实换场景，归 C 段/T5 验）。
-## 注：T1 add_checkpoint 为"摘旧追新+append"，数组尾部=最新访问，渲染取逆。
+## A5 死亡壳被动重建：open 时从 GameSave 地点访问表清旧再生成（新→旧），末条
+## 固定回标题；全程不按压（跳转=真实换场景，归 C 段/T5 验）。
+## 注（B4.5-T1 改判，spec §3 裁决 R2）：回跳表迁账 GameSave，
+## add_location_checkpoint 仍"摘旧追新+append"，数组尾部=最新访问，渲染取逆。
 func _a5_death_rebuild() -> void:
-	GameEvents.add_checkpoint(&"probe_a", "res://tools/stage_contract/_fake_a.tscn")
-	GameEvents.add_checkpoint(&"probe_b", "res://tools/stage_contract/_fake_b.tscn")
-	GameEvents.add_checkpoint(&"probe_a", "res://tools/stage_contract/_fake_a2.tscn")
+	GameSave.add_location_checkpoint(&"probe_a", "res://tools/stage_contract/_fake_a.tscn")
+	GameSave.add_location_checkpoint(&"probe_b", "res://tools/stage_contract/_fake_b.tscn")
+	GameSave.add_location_checkpoint(&"probe_a", "res://tools/stage_contract/_fake_a2.tscn")
 	_death.open_screen()
 	var dc: VBoxContainer = _death.get_node("ContentLayer")
 	_check(dc.get_child_count() == 3, "A5 条目=2 检查点+1 回标题（实际 %d）" % dc.get_child_count())
@@ -176,19 +182,22 @@ func _a5_death_rebuild() -> void:
 	_death.open_screen()
 	_check(dc.get_child_count() == 3, "A5 二次 open 仍 3 条（无叠加残留）")
 	_death.close_screen()
-	GameEvents.reset_session()
-	_check(GameEvents.get_checkpoints().is_empty(), "A5 收尾清会话（测试自洁）")
+	# 收尾自洁改判（B4.5-T1，spec §3"表随档案：清账=清表"）：清表唯一口=
+	# GameSave.new_profile（reset_session 已收缩为只清传渡，不再担此职）
+	GameSave.new_profile()
+	_check(GameSave.locations().is_empty(), "A5 收尾自洁（new_profile 随档案清表）")
 
 
 ## A6 回跳取序（T2 裁决）：注册表旧→新，最新在尾——pause"回本地点入口"与
 ## death 可见首条（A5 锁）同源于 cps.back()；不按压，只核对目标读径
+## （B4.5-T1 改判：注册表迁账 GameSave.locations，尾=最新语义原样，spec §3）
 func _a6_latest_checkpoint() -> void:
-	GameEvents.add_checkpoint(&"probe_old", "res://tools/stage_contract/_fake_old.tscn")
-	GameEvents.add_checkpoint(&"probe_new", "res://tools/stage_contract/_fake_new.tscn")
+	GameSave.add_location_checkpoint(&"probe_old", "res://tools/stage_contract/_fake_old.tscn")
+	GameSave.add_location_checkpoint(&"probe_new", "res://tools/stage_contract/_fake_new.tscn")
 	var latest: Dictionary = _pause._latest_checkpoint()
 	_check(latest.scene_path == "res://tools/stage_contract/_fake_new.tscn",
 			"A6 pause 跳转目标=注册表尾部（最新）")
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案：清账=清表（B4.5-T1 改判）
 
 
 ## B 段共享桩：计数替身房——覆写 setup_after_fight_room 记录调用次数
@@ -232,18 +241,19 @@ func _b1_structure() -> void:
 
 
 ## B2 进地点注册检查点：_ready 即以 (stage_id, _scene_path()) 入注册表；
-## 空 stage_id 走 GameEvents 守卫拒录腿（全套件唯一预期内警告一行）
+## 空 stage_id 走 GameSave 守卫拒录腿（全套件唯一预期内警告一行）
+## （B4.5-T1 改判：注册表=GameSave 地点访问表，spec §3 裁决 R2）
 func _b2_checkpoint() -> void:
-	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	var cps: Array[Dictionary] = GameSave.locations()
 	var found := false
 	for cp in cps:
 		if cp.stage_id == &"t_base" and cp.scene_path == str(_stage.get_path()):
 			found = true
 	_check(found, "B2 _ready 自动注册腿：(t_base, 裸骨架解析径) 入表")
 	# 守卫腿真验：空 id 再注册应被拒且 push_warning（噪音控制：仅此一处）
-	var before: int = GameEvents.get_checkpoints().size()
-	GameEvents.add_checkpoint(&"", "res://x.tscn")
-	_check(GameEvents.get_checkpoints().size() == before, "B2 空 stage_id 被守卫拒录")
+	var before: int = GameSave.locations().size()
+	GameSave.add_location_checkpoint(&"", "res://x.tscn")
+	_check(GameSave.locations().size() == before, "B2 空 stage_id 被守卫拒录")
 	_check(GameEvents.pending_jump_stage == "", "B2 直载未命中 → pending 不被误消费（消费真验在 B5）")
 
 
@@ -253,7 +263,7 @@ func _b3_aggregation() -> void:
 	_check(_stage._rooms.is_empty(), "B3 空 FightRooms → 聚合表空")
 	_stage.queue_free()
 	await _frames(2)
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
 	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
 	_stage.stage_id = &"t_base"
 	add_child(_stage)
@@ -293,7 +303,7 @@ func _b3_aggregation() -> void:
 	_stage.queue_free()
 	_stage = null
 	await _frames(2)
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
 
 
 ## B4 死亡转交：player_died → 冻结树 + DeathScreen 开机（列表=t_base 检查点
@@ -342,7 +352,7 @@ func _b5_fixture_jump() -> void:
 	_check(scene.scene_file_path == FIXTURE_PROBE,
 			"B5 场景树内实例化根 scene_file_path=外层文件（实际 %s）" % scene.scene_file_path)
 	_check(scene.stage_id == &"probe", "B5 覆写 stage_id=probe 生效")
-	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	var cps: Array[Dictionary] = GameSave.locations()
 	var hit := false
 	for cp in cps:
 		if cp.stage_id == &"probe" and cp.scene_path == FIXTURE_PROBE:
@@ -352,7 +362,7 @@ func _b5_fixture_jump() -> void:
 	_check(scene._end_panel.get_node("PanelBox/BackTitle") != null, "B5 实例内终点钮就位")
 	get_tree().current_scene = self
 	scene.free()
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
 
 
 ## B7 终点面板冻结树活性（评审轮1 死锁修复闭环）：_show_end_panel 冻结全树，
@@ -375,7 +385,7 @@ func _b7_end_panel() -> void:
 	_stage.queue_free()
 	_stage = null
 	await _frames(2)
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
 
 
 ### -----------------------------------------------------------------------------------------------
@@ -457,7 +467,7 @@ func _flow_c() -> void:
 	_check(_cs().get("stage_id") == &"stage_ref_a", "C1 地点 stage_id 覆写生效")
 	_check((_cs().get_node("HudLayer/GameHUD/Frame") as Control).visible,
 			"C1 GameHUD 入场并跟手 chen")
-	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	var cps: Array[Dictionary] = GameSave.locations()
 	_check(not cps.is_empty() and cps.back().stage_id == &"stage_ref_a",
 			"C1 检查点表含 stage_ref_a（真换场形态注册）")
 	_check(GameEvents.pending_jump_stage == "", "C1 pending_jump_stage 干净")
@@ -595,7 +605,7 @@ func _flow_c() -> void:
 	if not jumped:
 		return
 	await _frames(4)
-	_check(GameEvents.get_checkpoints().back().stage_id == &"stage_ref_b",
+	_check(GameSave.locations().back().stage_id == &"stage_ref_b",
 			"C5 检查点追新（尾=b）")
 
 	# —— C5.5 ref_b 光照正例对偶锁（A 负 B 正；60 秒活循环+区域实配） ——
@@ -652,4 +662,4 @@ func _flow_c() -> void:
 	_check(is_equal_approx(_stage_chen().global_position.x, 300.0),
 			"C7 玩家回出生位（场景重载语义，实际 x=%.0f）" % _stage_chen().global_position.x)
 	_check(consumed and GameEvents.pending_jump_stage == "", "C7 pending 落位即消费")
-	GameEvents.reset_session()
+	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）

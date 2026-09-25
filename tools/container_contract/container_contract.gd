@@ -479,8 +479,9 @@ func _flow_shellkit() -> void:
 	_check(GameEvents.pending_jump_stage == "",
 			"H1 地点回跳由壳 _ready 一次性消费（与 BaseStage 同规则）")
 	# H2 检查点注册：(fix → 外层章节文件)，回跳目标可解析
+	#（B4.5-T1 改判，spec §3 裁决 R2：回跳表迁账 GameSave.locations()）
 	var hit := false
-	for cp in GameEvents.get_checkpoints():
+	for cp in GameSave.locations():
 		if cp.stage_id == &"fix" and cp.scene_path == FIX_CHAPTER:
 			hit = true
 	_check(hit, "H2 章节检查点注册（fix→外层文件，B5 同形态）")
@@ -579,6 +580,8 @@ func _flow_shellkit() -> void:
 	ally.free()
 	shell.queue_free()
 	await _frames(6)
-	GameEvents.reset_session()
-	_check(GameEvents.get_checkpoints().is_empty(), "H8 会话自洁（测试收尾清表）")
+	# H8 自洁改判（B4.5-T1，spec §3"表随档案：清账=清表"）：清表唯一口=
+	# GameSave.new_profile，reset_session 已收缩为只清传渡不再担此职
+	GameSave.new_profile()
+	_check(GameSave.locations().is_empty(), "H8 测试收尾清表（new_profile 随档案）")
 	_kit_done = true

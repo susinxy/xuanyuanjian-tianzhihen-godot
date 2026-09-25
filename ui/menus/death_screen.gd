@@ -48,10 +48,12 @@ func unpause_now() -> void:
 
 
 ## 注册表旧→新，最新在尾（摘旧追新+append）：取逆渲染得可见序"新→旧"
+## （B4.5-T1 改口，spec §3 裁决 R2：回跳表迁账 GameSave.locations()；
+## 浅拷只读够用——F2 定档，菜单不写返回数组）
 func _rebuild_entries() -> void:
 	for child in _entries.get_children():
 		child.free()
-	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	var cps: Array[Dictionary] = GameSave.locations()
 	for i in range(cps.size() - 1, -1, -1):
 		var cp: Dictionary = cps[i]
 		add_entry(String(cp.stage_id), _jump_to.bind(cp))

@@ -1,40 +1,24 @@
 extends Node
-## 项目侧事件总线（S1 立法）：一切"项目概念"（房间/检查点/切场）的事件与
-## 会话状态住这里；插件 Events 保持上游三信号不动，职责互不侵入。
-## 后续子项目只往本文件加信号（S2 flag、S3 item_picked、S4 xp_gained……
-## 用到才加，YAGNI）。
+## 项目侧事件总线（S1 立法，B4.5-T1 降纯总线）：插件 Events 保持上游三信号不动，
+## 职责互不侵入。后续子项目只往本文件加信号（S2 flag、S3 item_picked、S4
+## xp_gained……用到才加，YAGNI）。
+## 历史注记（S1 立法句"一切项目概念的事件与**会话状态**住这里"中的"会话状态"
+## 四字已出历史）：回跳表数据 B4.5-T1 迁账 GameSave（add_location_checkpoint/
+## locations 随快照，spec §3 裁决 R2），story_checkpoint_added 信号随迁更名
+## location_visited；本文件只留事件两条 + pending_jump_stage 传渡 +
+## reset_session（语义收缩为只清传渡）。
 
 ## 某战斗房的全部波次清场（载荷=房节点名 StringName）
 signal room_cleared(room_id: StringName)
-## 检查点注册完成（S5 的自动存档触发源；S1 消费方=DeathScreen 重建列表）
-signal story_checkpoint_added(stage_id: StringName)
 ## 玩家触发地点出口（切场前发；S2 对话/S5 存档挂点）
 signal stage_exited(stage_id: StringName)
 
 ## 检查点回跳传渡：死亡/暂停界面置目标场景路径，重载后的地点经 BaseStage 消费一次即清空
 var pending_jump_stage: String = ""
 
-## 会话检查点表：[{stage_id, scene_path}]，新进入追加；同 stage_id 重入时
-## 摘旧追新（保持"新→旧"渲染顺序稳定）
-var _session_checkpoints: Array[Dictionary] = []
 
-
-func add_checkpoint(stage_id: StringName, scene_path: String) -> void:
-	if stage_id == &"" or scene_path.is_empty():
-		push_warning("GameEvents: 检查点参数不全，忽略 (id=%s path=%s)" % [stage_id, scene_path])
-		return
-	for i in _session_checkpoints.size():
-		if _session_checkpoints[i].stage_id == stage_id:
-			_session_checkpoints.remove_at(i)
-			break
-	_session_checkpoints.append({stage_id = stage_id, scene_path = scene_path})
-	story_checkpoint_added.emit(stage_id)
-
-
-func get_checkpoints() -> Array[Dictionary]:
-	return _session_checkpoints.duplicate()
-
-
-## 清会话（回标题时调用；"重走一遍"同）
+## 清传渡（回标题/重跑时调用）：只清 pending_jump_stage，**不清账**——
+## 清账唯一口 GameSave.new_profile（spec §3：回标题≠清档）。旧"会话检查点表
+## 清空"语义随 B4.5-T1 迁账寿终（表随档案：new_profile 清账=清表）。
 func reset_session() -> void:
-	_session_checkpoints.clear()
+	pending_jump_stage = ""

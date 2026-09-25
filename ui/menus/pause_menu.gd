@@ -72,8 +72,9 @@ func unpause_now() -> void:
 
 
 ## 注册表旧→新，最新在尾（brief 原文 cps[0] 系计划笔误，T2 裁决修正）
+## （B4.5-T1 改口，spec §3 裁决 R2：回跳表迁账 GameSave.locations()，浅拷只读够用）
 func _latest_checkpoint() -> Dictionary:
-	var cps: Array[Dictionary] = GameEvents.get_checkpoints()
+	var cps: Array[Dictionary] = GameSave.locations()
 	return {} if cps.is_empty() else cps.back()
 
 
