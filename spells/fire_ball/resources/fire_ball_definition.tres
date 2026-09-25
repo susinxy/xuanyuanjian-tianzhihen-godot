@@ -1,11 +1,13 @@
 [gd_resource type="Resource" script_class="SpellDefinition" format=3 uid="uid://dc31bxaech8is"]
 
 [ext_resource type="Script" uid="uid://kec2mjg6vctf" path="res://spells/_base/spell_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://spells/fire_ball/fire_ball.tscn" id="2_scene"]
 
 [resource]
 script = ExtResource("1_script")
 spell_id = &"fire_ball"
 display_name = "火球术"
+spell_scene = ExtResource("2_scene")
 cooldown = 3.0
 caster_cast_time = 0.5
 release_ratio = Vector2(1, 0.34)

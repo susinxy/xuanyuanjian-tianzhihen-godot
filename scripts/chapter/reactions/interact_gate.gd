@@ -1,5 +1,5 @@
 class_name InteractGate
-extends Node
+extends InteractReaction
 
 ## 船闸反应件（S2-M1-B2 G 组，法典第十条⑤）：interacted→门体 Polygon2D 上提
 ## 开门（position:y 单轴 tween，复合属性标量陷阱绕行）+ gate_seconds 限时
@@ -16,6 +16,18 @@ extends Node
 var _door: Polygon2D
 # 一次性闩：见 _on_interacted 顶部说明——封堵 repeatable 触发件的"双推跳段"雷。
 var _armed := false
+
+
+## 申报单（spec §3 门三；B4-T3a 补，R-T2a）——三连问据实（实读：本件对
+## shell.session **零账本写点**，只调 force_advance_current 推段）：
+## 　Q1 游玩中会变吗？门体"开/关"会变——但它是场景本地态；段推进→段清属账本，
+## 　　可写入主体是**壳**（_finish_segment/switch_flow 记 NS_CLEARED），非本件；
+## 　Q2 不存能推导吗？门体动画可随段重建推导、限时倒计时是运行时过程量——均不入册。
+## 　故 persists=[]（本件不写任何账本户；段清账归属壳，不重复申报）；
+## 　resets=[]（本件无"依赖某账本户且重演须归零"的语义——force advance 的判清
+## 　副作用由壳的 NS_CLEARED 承担，本件与账本无涉）。
+func save_claim() -> Dictionary:
+	return {&"persists": [], &"resets": []}
 
 
 func _ready() -> void:

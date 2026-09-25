@@ -23,9 +23,21 @@ extends Node
 ## 实报 persists=[spells_known]）、出生补学（账本预记→test_actor 入树即会）、
 ## 《秘籍》端到端轻量腿（代码造 Trigger+Book→emit→入账+学会→二次 emit 不重发）、
 ## 键权现状钉腿（AI/被动档 channel 空转无劫持，spec §4"仅验证不新建机制"）；
-## E 流（T3）=正式壳 fixture 生产链 E2E 施法；R 流（T3）=重演等价双跑+
-## 申报单名册；X 流（T3）=静态清点——预留于流注册表 _flows，逐任务追加
-## "流即函数"。
+## E 流（T3，本批在册）=正式壳 fixture 生产链施法 E2E：加载章壳夹具
+## （playable_override=test_actor，替身缺席=NOTICE 大声跳腿）→ 驱动替身入秘籍触发区
+## → trig.interacted.emit() 经 InteractSpellBook 生产链学会 → raw 数字键1（原始按键
+## 直投，B3-T2 判例）→ 硬钉①进入 Ground/Cast 施法态 → 硬钉②场上生成 SpellBase 弹体
+## → 敌血下降 best-effort（命中时序脆弱面，未捕获=NOTICE 据实报，红据留 T3b R8 验）；
+## R 流（T3，本批在册）=重演等价：脚本序列采指纹 v1→内存假存档回环（to_dict→JSON→
+## from_dict）→ v2 断言入册项逐位不变（门四主力面）；new_profile→ v3 全 false/空
+## （新档=清账，cleared 归零=未来该段未清将丢弃重建的 ledger 侧证据）；申报单联动
+## （遍历 X③名册逐 persists 户 record→回环→has_record 真，逐户执法非硬编码）；
+## 逐类申报形制回归锁（据实比对 persists/resets + 点名供 X③）；NIT-1 探针一次性信号
+## 形制示范。X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
+## （game_save.gd 之外命中=0，被禁 token 运行期拼接不自伤）+ 旧公共字典形态=0；
+## ②reactions/ 每 class_name 件必实存 save_claim；③申报名册=报表（DirAccess+基类
+## 反射派生，逐类打印 persists/resets，并断言每类被 G/R/E 至少一根腿点名）；
+## ④R-T2b「-s 无 autoload load 不炸」轻腿（@tool 角色脚本只 load 断非空、绝不 .new()）。
 ## 【豁免】无——本套不消费生产角色；M 流章壳腿复用 container 的 chapter_fix
 ## 夹具（内部=矩阵代管 test_actor，kit 缺席只 NOTICE 跳过、绝不代建，
 ## B2.5 主权法消费铁律）；ATTEST 登记随 T3 入册一并按名册裁决。
@@ -37,16 +49,32 @@ const NS_TEST := &"b4_contract_probe"
 ## （preload 路径引用=全局类缓存判例同款；缺席=NOTICE 大声跳腿）
 const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 const FIX_CHAPTER := "res://tools/container_contract/fixtures/chapter_fix.tscn"
+## E 流正式壳夹具（T3）：chapter_shell + seg_b4_manual（秘籍触发件+spar 敌），
+## playable_override=test_actor（B2.5 主权法：替身缺席=NOTICE 大声跳腿不代建）
+const FIX_B4_CHAPTER := "res://tools/spell_save_contract/fixtures/chapter_b4.tscn"
 
 ## 流注册表：后续任务在数组尾追加 {key,label,fn}，_ready 循环自动消费
 var _flows := [
 	{"key": "S", "label": "S 流 账本核心", "fn": "flow_save_core"},
 	{"key": "M", "label": "M 流 壳迁移回归", "fn": "flow_migration"},
 	{"key": "G", "label": "G 流 法术接入", "fn": "flow_spells"},
+	{"key": "E", "label": "E 流 施法端到端", "fn": "flow_cast_e2e"},
+	{"key": "R", "label": "R 流 重演等价", "fn": "flow_replay_equiv"},
+	# X 流压轴：其③"每反应件类名须被 G/R/E 至少一根腿点名"依赖前流执行期
+	# 登记的 _named_by_streams，故必须排在所有行为流之后。
+	{"key": "X", "label": "X 流 静态清点", "fn": "flow_static_scan"},
 ]
 
 var _fails := 0
 var _flow_done := {}
+
+## X 流③登记面：各行为腿用 _name_class() 显式点名的反应件类名集合
+## （非由目录名册派生——新件被忘记点名时，目录扫描会把它纳入名册却查无名点
+##  → 响亮红，此即 spec §3 门三"新件零重演腿"的机器执法）。
+var _named_by_streams := {}
+## X 流③派生的申报名册：class_name(String) -> {persists:Array, resets:Array, path:String}
+## R 流"申报单联动"遍历此名册取每类的 persists/resets 户做真写回读。
+var _x_roster := {}
 ## GameSave autoload 引用（无 class_name 故不静态定型，动态调用；
 ## RED 期/缺席 = null → S0 可读红，不靠 Parse Error 炸整脚本）
 var _save
@@ -192,6 +220,12 @@ func flow_save_core() -> void:
 		"S5e 清账含 checkpoint 三件套回默认（实际=%s/%s）" % [str(_save.checkpoint_segment()), str(_save.checkpoint_entry())])
 	_check(_save.open_chest(&"c_probe") == true, "S5f 清账=新档：同宝箱可再开（首记语义复位）")
 	_check(_sig_chest == 2, "S5g 新档重开照发 chest_opened（计数实际=%d，首记才发规则不因清账失效）" % _sig_chest)
+	# NIT-1（R-T1a 硬化）：S6 探针信号到此用尽，立即断连——单例信号跨流常驻会
+	# 让后续 M/G/E/R 流真写账目时把 _sig_* 计数继续往上顶（虽本流断言已跑完，
+	# 但"连着不摘"是脆弱态，示范 M3 的一次性形制）。
+	_save.flag_added.disconnect(_on_flag_added)
+	_save.chest_opened.disconnect(_on_chest_opened)
+	_save.segment_cleared.disconnect(_on_segment_cleared)
 	_save.new_profile()  # 测试自洁：探针键不外溢后续流/他套（单例账随进程）
 
 	_flow_done["S"] = true
@@ -421,3 +455,472 @@ func flow_spells() -> void:
 
 	GameSave.new_profile()   # 测试自洁：G 流探针键不外溢（单例账随进程）
 	_flow_done["G"] = true
+
+
+# ── X 流（T3）：静态清点（spec §3 门三；判项表=报表，文档不手抄）──────────────
+# 四检（注：本注释与标签刻意不连续拼写被禁 token——连写会让扫描器把契约自身
+# 源码当违规现场；待查串一律运行期拼接，见 _x_split_token 与正则直写）：
+#  ①账本内部私有域（下划线 + l e d g e s 复数）"绕门裸写"扫描——game_save.gd
+#    之外全仓命中=0（白名单自证：唯一合法持有者=该文件自身，其 from_dict/erase/
+#    claim 内部写点天然落此文件内故合规）；旧公共字典形态（点 fl a g s 方括号 /
+#    点 ch e s t s 方括号）全仓=0（防四账回潮）。扫描器把被禁形态拆两段字面量
+#    持有故不自我命中，白名单严格=仅 game_save.gd（与 spec 措辞一致，且让 T3b R8
+#    往反应件注入的绕过门保持可被抓获）。
+#  ②reactions/*.gd 每个含 class_name 的脚本必实存 `func save_claim`（本任务后 4/4）。
+#  ③申报名册=报表：枚举全部 InteractReaction 子类，打印"类名 | persists | resets"，
+#    并断言每类名已被 G/R/E 某腿点名（_name_class 登记，新件漏网=红）。
+#  ④R-T2b 轻腿：chen.gd（@tool，补学块经 get_node_or_null 守卫）可编译加载不炸
+#    ——证明"非 chapter/无 autoload"环境不会因缺 GameSave 在装载期报错
+#    （判例：@tool 角色脚本 bare .new() 会崩，故此腿只 load 断非空、绝不实例化）。
+
+const REACTIONS_DIR := "res://scripts/chapter/reactions"
+const GAME_SAVE_PATH := "res://scripts/save/game_save.gd"
+const CHEN_SCRIPT := "res://characters/playable/chen/chen.gd"
+
+
+## 行为腿点名登记（独立于目录名册派生——见 _named_by_streams 头注）
+func _name_class(cls_name: String) -> void:
+	_named_by_streams[cls_name] = true
+
+
+## 递归收集某目录树下全部 .gd 绝对 res:// 路径（跳过以 . 开头的隐藏项：
+## .godot 导入缓存等）；返回相对 res:// 全路径便于与白名单比对
+func _x_collect_gd(dir_path: String, out: Array) -> void:
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return
+	d.list_dir_begin()
+	var n := d.get_next()
+	while n != "":
+		if not n.begins_with("."):   # 隐藏目录/文件（.godot/.import 等）整支跳过
+			var full := dir_path.path_join(n)
+			if d.current_is_dir():
+				_x_collect_gd(full, out)
+			elif n.ends_with(".gd"):
+				out.append(full)
+		n = d.get_next()
+	d.list_dir_end()
+
+
+## 构造"被禁形态"的字面量：用拼接令其在扫描器自身源码里也非连续，
+## 从而实现"白名单严格仅 game_save.gd"而不自我误伤（见 X 流头注①说明）
+func _x_split_token(a: String, b: String) -> String:
+	return a + b
+
+
+func flow_static_scan() -> void:
+	GameSave.new_profile()
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "X0 GameSave autoload 在场（scene runner 恒在场）")
+	if _save == null:
+		_flow_done["X"] = false
+		return
+
+	# 拆分后的待查 token（源码内不连续 → 扫描器自读零命中）
+	var tok_led := _x_split_token("_led", "ges")
+	# 正则直写：`.` 手工反斜杠转义，token 拆两段保证源码非连续（免依赖版本漂移的
+	# escape 静态口，判例：引擎 API 零信任）；运行时串= `\.flags *\[` / `\.chests *\[`
+	var re_flags := RegEx.new()
+	re_flags.compile("\\.fl" + "ags *\\[")
+	var re_chests := RegEx.new()
+	re_chests.compile("\\.ch" + "ests *\\[")
+
+	# 全仓 .gd 扫描（相对 res:// 根）：账本私有域白名单外命中 + 旧公共字段形态命中
+	var all_gd: Array = []
+	_x_collect_gd("res://", all_gd)
+	var ledges_hits := 0
+	var field_hits := 0
+	var ledges_hit_paths: Array = []
+	# 报表显示 token（运行期拼接，源码非连续 → 扫描器不自我命中，标签输出仍可读）
+	var disp_led := _x_split_token("_led", "ges")
+	var disp_flags := _x_split_token(".fl", "ags[")
+	var disp_chests := _x_split_token(".ch", "ests[")
+	for gp in all_gd:
+		var p: String = gp
+		if p == GAME_SAVE_PATH:
+			continue   # 唯一合法持有者（门洞/快照/销账/开户的内部写点全在此文件）
+		var text := FileAccess.get_file_as_string(p)
+		if text.is_empty() and not FileAccess.file_exists(p):
+			continue
+		if text.contains(tok_led):
+			ledges_hits += 1
+			ledges_hit_paths.append(p)
+		if re_flags.search(text) != null or re_chests.search(text) != null:
+			field_hits += 1
+	_check(ledges_hits == 0,
+			"X1a game_save.gd 之外全仓 %s 命中=0（实际=%d %s）"
+			% [disp_led, ledges_hits, str(ledges_hit_paths)])
+	_check(field_hits == 0,
+			"X1b 旧公共字段形态 %s/%s 全仓=0（防四账回潮，实际=%d）"
+			% [disp_flags, disp_chests, field_hits])
+
+	# ②reactions/*.gd 每个 class_name 脚本必实存 func save_claim（非递归列目录）
+	var d := DirAccess.open(REACTIONS_DIR)
+	_check(d != null, "X2a reactions 目录可枚举（%s）" % REACTIONS_DIR)
+	var claim_missing: Array = []
+	var claim_ok := 0
+	var class_total := 0
+	if d != null:
+		d.list_dir_begin()
+		var n := d.get_next()
+		while n != "":
+			if n.ends_with(".gd") and not n.ends_with(".uid"):
+				var text := FileAccess.get_file_as_string(REACTIONS_DIR.path_join(n))
+				if text.contains("class_name"):
+					class_total += 1
+					if text.contains("func save_claim"):
+						claim_ok += 1
+					else:
+						claim_missing.append(n)
+			n = d.get_next()
+		d.list_dir_end()
+	# 基数=chest/gate/qte/spell_book 四件（InteractReaction 基类自身亦含 save_claim，
+	# 计入 class_total/save_ok 不影响"每子类必有 save_claim"判据；据实 4 子类 + 1 基类）
+	_check(claim_missing.is_empty(),
+			"X2b 每个 class_name 反应件脚本必实存 save_claim（缺失=%s 覆盖=%d/%d 文件）"
+			% [str(claim_missing), claim_ok, class_total])
+
+	# ③申报名册派生（按基类反射，非 GCL 基字段）+ 打印=报表
+	_check(load(REACTION_BASE_PATH) != null,
+			"X3a InteractReaction 基类脚本在场（名册派生锚）")
+	var names: Array = _x_derive_roster()
+	if not names.is_empty():
+		# 判项表=报表：逐类打印申报两列（供报告与 F5 单尾引用，禁手抄进文档）
+		print("  ── X3 申报名册（判项表=报表，spec §2.1/§3 门三）──")
+		for cname in names:
+			var rec: Dictionary = _x_roster[cname]
+			print("    %s | persists=%s | resets=%s" % [
+				cname, str(rec.persists), str(rec.resets)])
+		_check(names.size() == 4,
+				"X3b InteractReaction 子类名册恰 4 件（chest/gate/qte/spell_book，实际=%d %s）"
+				% [names.size(), str(names)])
+		# 每类名须被 G/R/E 某腿显式点名（_named_by_streams 由行为腿填，非此处填）
+		var unnamed: Array = []
+		for cname in names:
+			if not _named_by_streams.has(cname):
+				unnamed.append(cname)
+		_check(unnamed.is_empty(),
+				"X3c 名册每类均被 G/R/E 至少一根腿点名（漏网=%s 已点名=%s）"
+				% [str(unnamed), str(_named_by_streams.keys())])
+	else:
+		_check(false, "X3b/X3c 名册腿跳过（基类缺失）")
+
+	# ④R-T2b 轻腿：@tool 角色脚本可编译加载不炸（守卫 get_node_or_null 结构性证明）
+	var chen: GDScript = load(CHEN_SCRIPT)
+	_check(chen != null and chen is GDScript,
+			"X4 -s 无 autoload load 不炸轻腿：chen.gd 可编译加载非空"
+			+ "（补学块 get_node_or_null 守卫=装载期不依赖 GameSave；@tool 角色"
+			+ "脚本 bare .new() 会崩故本腿只 load 不实例化）")
+
+	GameSave.new_profile()
+	_flow_done["X"] = true
+
+
+## path→class_name 反查表（class_name 与基字段无关，故 extends 改判不影响取键）
+func _x_build_class_name_map() -> Dictionary:
+	var m := {}
+	for e in ProjectSettings.get_global_class_list():
+		var pth: String = String(e.get("path", ""))
+		if pth.is_empty():
+			continue
+		m[pth] = String(e.get("class", ""))
+	return m
+
+
+## 反射判"脚本继承链是否抵达 InteractReaction"（不依赖 GCL 的 base 字段——
+## 该字段只在 --import 后刷新，extends 改判当期可能陈旧；链走 get_base_script 实源）
+func _x_extends_reaction(s: GDScript, base: GDScript) -> bool:
+	var cur: GDScript = s
+	while cur != null:
+		if cur == base:
+			return true
+		cur = cur.get_base_script()
+	return false
+
+
+## 名册派生单一入口（X 流打印/③点名判据 与 R 流"申报单联动"共用）：DirAccess
+## 枚举 reactions/*.gd → load → 反射基类走查 → .new() 取 save_claim（不依赖 GCL
+## base 字段，见 _x_extends_reaction 判例）→ 填充 _x_roster，返回类名清单。
+## 幂等：每次清空重建；.new()/free 平衡（探针纪律：Node 型显式 free，防退出泄漏）。
+func _x_derive_roster() -> Array:
+	var names: Array = []
+	_x_roster.clear()
+	var base: GDScript = load(REACTION_BASE_PATH)
+	if base == null:
+		return names
+	var path_to_class := _x_build_class_name_map()
+	var d := DirAccess.open(REACTIONS_DIR)
+	if d == null:
+		return names
+	d.list_dir_begin()
+	var n := d.get_next()
+	while n != "":
+		if n.ends_with(".gd") and not n.ends_with(".uid"):
+			var abs_path: String = REACTIONS_DIR.path_join(n)
+			var s: GDScript = load(abs_path)
+			if s != null and s != base and _x_extends_reaction(s, base):
+				var cname: String = path_to_class.get(abs_path, n.get_basename())
+				var inst: Object = s.new()
+				var claim: Dictionary = inst.save_claim() if inst.has_method("save_claim") else {}
+				if inst is Node:
+					(inst as Node).free()
+				_x_roster[cname] = {
+					"persists": claim.get(&"persists", []),
+					"resets": claim.get(&"resets", []),
+					"path": abs_path,
+				}
+				names.append(cname)
+		n = d.get_next()
+	d.list_dir_end()
+	return names
+
+
+# ── E 流（T3）：正式壳生产链施法端到端（spec §5；plan Task3 Step1）───────────
+# 唯一真键盘腿：加载章壳夹具（playable_override=test_actor）→ 驱动替身入秘籍触发
+# 区 → trig.interacted.emit() 学会（判重/入账/即时教学全走生产链 InteractSpellBook）
+# → raw 数字键 1（Input.parse_input_event 原始按键，B3-T2 判例非 InputEventAction）
+# → 断言进入 Cast 态 → 断言场上生成弹体（SpellBase）→ 敌血下降（best-effort）。
+# 硬钉两段（Cast 进入 + 弹体生成，确定性强）；命中链在 headless 下时序脆弱（敌 AI
+# 自由度/咏唱窗竞态），按 plan Task3 Step1 明文设 best-effort：命中=PASS，未捕获=
+# NOTICE 大声据实报（红据留 T3b R8 正式验），绝不静默假绿。
+
+func _e_find(node: Node, pred: Callable) -> Node:
+	for c in node.get_children():
+		if pred.call(c):
+			return c
+		var found := _e_find(c, pred)
+		if found != null:
+			return found
+	return null
+
+
+func flow_cast_e2e() -> void:
+	GameSave.new_profile()
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "E0 GameSave autoload 在场（scene runner 恒在场）")
+	if _save == null:
+		_flow_done["E"] = false
+		return
+
+	if Kit.peek() != Kit.READY:
+		print("  NOTICE: 跳过 E 流——test_actor 非就绪态（peek=%d，处方：bash " % Kit.peek()
+				+ "tools/matrix_runner/run_matrix.sh --ensure-only）；章壳夹具"
+				+ "playable_override 不可解析（主权法 B2.5：只读消费不代建）")
+		GameSave.new_profile()
+		_flow_done["E"] = true
+		return
+
+	_name_class("InteractSpellBook")   # E 流真腿点名（独立于 X③目录派生）
+	var shell: ChapterShell = (load(FIX_B4_CHAPTER) as PackedScene).instantiate()
+	get_tree().root.add_child.call_deferred(shell)
+	await _m_frames(20)
+	_check(shell.playable != null and shell.playable.is_in_group("area2d:player"),
+			"E1 章壳加载且 playable 换人为 test_actor（area2d:player 身份在位）")
+
+	# 找段内秘籍触发件（InteractTrigger，其子挂 InteractSpellBook）
+	var trig: InteractTrigger = _e_find(shell, func(c): return c is InteractTrigger) as InteractTrigger
+	_check(trig != null, "E2 段内 InteractTrigger 在场")
+	if trig == null:
+		shell.queue_free()
+		await _m_frames(6)
+		GameSave.new_profile()
+		_flow_done["E"] = true
+		return
+
+	# 驱动替身入触发区（判例：位置写完整构造式；触发区默认 160×160 已覆出生点，
+	# 显式贴脸保证 body_entered 计数确定，再走 emit 生产学习路径）
+	shell.playable.global_position = trig.global_position
+	await _m_frames(4)
+	_check(trig.in_range(), "E2b 替身已入秘籍触发区（in_range 真）")
+
+	trig.interacted.emit()   # 生产学习链（入账+首开教学当前实例）
+	await _m_frames(4)
+	_check(_save.has_record(_save.NS_SPELLS, &"fire_ball"),
+			"E3 经 InteractSpellBook 生产链：账本 has_record(spells_known, fire_ball)")
+	var psm: SpellManager = shell.playable.get_spell_manager()
+	_check(psm != null and not psm.get_spell_slot(0).is_empty(),
+			"E3b 当前 playable 实例即时学会（slot0 非空——增量教学腿）")
+
+	# 替身朝向敌（右）：弹体出手方向读 skin.skin_direction，显式定右让 best-effort
+	# 命中窗最大化（硬钉 Cast/弹体与本朝向无关，此为给敌血下降腿创造确定性条件）
+	if shell.playable._skin != null:
+		shell.playable._skin.skin_direction = Vector2.RIGHT
+	# raw 数字键 1（唯一真键盘腿，_g_press_key 逐字段显式：device/keycode/physical/pressed）
+	_g_press_key(KEY_1, true)
+	_g_press_key(KEY_1, false)
+
+	# 硬钉①：进入 Cast 态（state_name 路径含 "Cast"，spell_manager CAST_STATE_PATH 同源）
+	var entered_cast := false
+	for _i in 40:
+		await get_tree().physics_frame
+		if str(shell.playable.state_machine.state_name).contains("Cast"):
+			entered_cast = true
+			break
+	_check(entered_cast, "E4【硬钉①】raw 数字键1 → 角色进入 Ground/Cast 施法态")
+
+	# 硬钉②：场上生成弹体（SpellBase 上场，递归查壳）+ best-effort 敌血下降
+	var enemy := _e_find(shell, func(c): return c is QuiverCharacter and c.is_in_group("area2d:spar_enemy"))
+	var hp_prev: float = enemy.attributes.health_current if enemy != null else 0.0
+	var proj_found := false
+	var hp_dropped := false
+	for _i in 120:
+		await get_tree().physics_frame
+		if not proj_found and _e_find(shell, func(c): return c is SpellBase) != null:
+			proj_found = true
+		if enemy != null and not hp_dropped and enemy.attributes.health_current < hp_prev:
+			hp_dropped = true
+		if proj_found and (hp_dropped or _i > 80):
+			break
+	_check(proj_found, "E5【硬钉②】场上生成弹体（SpellBase 上场——施法链真放体）")
+	if hp_dropped:
+		_check(true, "E6 敌血下降（best-effort 命中链本次已捕获：弹体真命中 spar）")
+	else:
+		print("  NOTICE: E6 敌血下降 best-effort——本次 headless 窗内未捕获命中"
+				+ "（弹体生成已硬钉；命中时序脆弱属 plan Task3 Step1 知情面，红据留"
+				+ " T3b R8 正式验，非静默假绿）")
+
+	shell.queue_free()
+	await _m_frames(6)
+	GameSave.new_profile()
+	_flow_done["E"] = true
+
+
+# ── R 流（T3）：重演等价（spec §3 门四，plan Step2）─────────────────────────
+# 用账本可观测面做确定性双跑（不跑敌人 AI、不进战斗，规避非确定源，spec §7.5）：
+#  脚本序列 seq（全走 GameSave 公开面）→ 采指纹 v1 →
+#  to_dict→JSON.stringify→JSON.parse_string→from_dict（内存"假存档"，B4.5 换真盘）
+#  → 重采 v2 → 断言 v1==v2（入册项跨快照不变=还原保账，门四主力面）；
+#  new_profile() 后采 v3 → 全 false/空（新档=清账，含 cleared 归零=未来该段未清
+#  将丢弃重建的 ledger 侧证据，避免真 spawn）。
+#  申报单联动：遍历 X③名册，对每 persists 户用代表 key 做 record→假存档回环→
+#  has_record 真（证明"还原保账"是按申报单逐户执法，非硬编码某账目）；本批三件
+#  resets 皆空（gate/qte 据实申报零账本足迹），无豁免归零腿可验，据实打点。
+
+## 指纹采样（只采账本可查确定观测量，禁采血/池/冷却等满状态可推项，spec §7.5）
+func _r_fingerprint() -> Array:
+	return [
+		_save.is_chest_open(&"b4_r_chest"),
+		_save.has_record(_save.NS_SPELLS, &"fire_ball"),
+		_save.has_flag(&"b4_r_flag"),
+		_save.is_cleared(&"b4_r_seg"),
+		"%s|%s" % [str(_save.checkpoint_segment()), str(_save.checkpoint_entry())],
+	]
+
+
+## 脚本化操作序列（走 GameSave 公开门洞，非直戳内部）
+func _r_run_seq() -> void:
+	_save.open_chest(&"b4_r_chest")
+	_save.record(_save.NS_SPELLS, &"fire_ball")
+	_save.add_flag(&"b4_r_flag")
+	_save.mark_cleared(&"b4_r_seg")
+	_save.record_checkpoint(&"b4_r_seg", &"entry_default")
+
+
+## 内存"假存档"回环（B4.5 落盘日此三行换成真盘写读，套零改动，spec §8）
+func _r_fake_restore() -> void:
+	var snap: Dictionary = JSON.parse_string(JSON.stringify(_save.to_dict()))
+	_save.from_dict(snap)
+
+
+func _r_rep_key(ns: StringName) -> StringName:
+	match ns:
+		_save.NS_CHESTS: return &"b4_r_rep_chest"
+		_save.NS_FLAGS: return &"b4_r_rep_flag"
+		_save.NS_SPELLS: return &"b4_r_rep_spell"
+		_: return &"b4_r_rep_any"
+
+
+## 单件申报形制回归锁 + 点名：实读该类 save_claim 与据实期望比对（忘改申报单/
+## 悄悄增写账本户=当场红），并显式 _name_class 供 X③判"每类被行为腿点名"。
+func _r_claim_leg(cls_name: String, script_path: String, exp_p: Array, exp_r: Array) -> void:
+	_name_class(cls_name)
+	var s: GDScript = load(script_path)
+	_check(s != null, "R5a %s 脚本在场（申报形制腿）" % cls_name)
+	if s == null:
+		return
+	var inst: Object = s.new()
+	var claim: Dictionary = inst.save_claim() if inst.has_method("save_claim") else {}
+	if inst is Node:
+		(inst as Node).free()
+	_check(claim.get(&"persists", []) == exp_p and claim.get(&"resets", []) == exp_r,
+			"R5b %s 申报单据实：persists=%s resets=%s（实际=%s/%s）"
+			% [cls_name, str(exp_p), str(exp_r), str(claim.get(&"persists", [])), str(claim.get(&"resets", []))])
+
+
+func flow_replay_equiv() -> void:
+	GameSave.new_profile()
+	_save = get_node_or_null(^"/root/GameSave")
+	_check(_save != null, "R0 GameSave autoload 在场（scene runner 恒在场）")
+	if _save == null:
+		_flow_done["R"] = false
+		return
+
+	# ── 门四·重演等价（双跑入册项不变）──
+	_r_run_seq()
+	var v1: Array = _r_fingerprint()
+	_r_fake_restore()
+	var v2: Array = _r_fingerprint()
+	_check(v1 == v2,
+			"R1 重演等价·入册项跨假存档不变：v1==v2（v1=%s v2=%s）" % [str(v1), str(v2)])
+	# 逐项等（v1==v2 已覆盖，但失败时逐项定位——且首跑必须全 true，防"两遍都空"假绿）
+	var all_set := true
+	for i in v1.size():
+		if i < 4 and v1[i] != true:
+			all_set = false
+	_check(all_set,
+			"R1b seq 真把四类入册项置真（前四指纹全 true，实际=%s）" % str(v1))
+
+	# ── 豁免/重置向：新档=清账（含 cleared 归零=段将丢弃重建的 ledger 侧证据）──
+	_save.new_profile()
+	var v3: Array = _r_fingerprint()
+	_check(v3 == [false, false, false, false, "|default"],
+			"R2 新档=清账：v3 全 false/空（cleared 归零即'未清将重建'证据，实际=%s）" % str(v3))
+
+	# ── 申报单联动：逐 persists 户 record→假存档回环→has_record 真 ──
+	_x_derive_roster()   # R 流自带派生（X 流在其后跑，名册同源不依赖顺序）
+	var tested_ns := {}
+	for cname in _x_roster:
+		for ns in (_x_roster[cname] as Dictionary).persists:
+			if tested_ns.has(ns):
+				continue
+			tested_ns[ns] = true
+			var key: StringName = _r_rep_key(ns)
+			_save.record(ns, key)
+			_r_fake_restore()
+			_check(_save.has_record(ns, key),
+					"R3 %s 的 persists 户 %s 经假存档还原后 has_record 真（逐户执法非硬编码）"
+					% [cname, str(ns)])
+	_check(not tested_ns.is_empty(),
+			"R3b 联动至少覆盖名册全部 persists 户（实际户集=%s）" % str(tested_ns.keys()))
+	# 重置面（resets）据实：本批三件皆报空 → 无豁免归零腿可验，据实打点非静默
+	var any_reset := false
+	for cname in _x_roster:
+		if not (_x_roster[cname] as Dictionary).resets.is_empty():
+			any_reset = true
+	if not any_reset:
+		print("  NOTICE: R4 resets 面——本批全部反应件 resets=[]（gate/qte 零账本足迹，"
+				+ "chest/spell_book 纯持久户），据实无豁免归零腿可验；有件报 resets 时此腿激活")
+
+	# ── 申报形制回归锁（逐类据实比对 + 点名供 X③）──
+	GameSave.new_profile()
+	_r_claim_leg("InteractChest", REACTIONS_DIR.path_join("interact_chest.gd"),
+			[_save.NS_CHESTS, _save.NS_FLAGS], [])
+	_r_claim_leg("InteractGate", REACTIONS_DIR.path_join("interact_gate.gd"), [], [])
+	_r_claim_leg("InteractQte", REACTIONS_DIR.path_join("interact_qte.gd"), [], [])
+	_r_claim_leg("InteractSpellBook", SPELL_BOOK_PATH, [_save.NS_SPELLS], [])
+
+	# ── NIT-1 示范形制：跨流探针信号一次性计数 + 用完即摘（单例信号常驻=串扰雷）──
+	GameSave.new_profile()
+	var probe_cnt := {"n": 0}
+	var probe_cb := func(_id) -> void: probe_cnt["n"] += 1
+	_save.flag_added.connect(probe_cb)
+	_save.add_flag(&"b4_r_probe")
+	_save.add_flag(&"b4_r_probe")   # 重复 add 不重发（首记才发）
+	_save.flag_added.disconnect(probe_cb)   # 立即摘连（不跨流常驻）
+	_save.add_flag(&"b4_r_probe2")   # 摘连后再发信号不再计入本探针
+	_check(int(probe_cnt["n"]) == 1,
+			"R6 探针信号一次性形制：计数恰 1 且 disconnect 后不复增（实际=%d）"
+			% int(probe_cnt["n"]))
+
+	GameSave.new_profile()
+	_flow_done["R"] = true

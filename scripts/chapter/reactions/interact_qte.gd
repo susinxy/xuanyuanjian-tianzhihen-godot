@@ -1,5 +1,5 @@
 class_name InteractQte
-extends Node
+extends InteractReaction
 
 ## 跳河 QTE 反应件（S2-M1-B2 Q 组，法典第十条⑤）：固定悲剧——玩家至此必落河，
 ## 本件只决定"多久后落"。窗口循环：开窗 window 秒→窗内收到父触发件 interacted
@@ -26,6 +26,18 @@ var window_open := false   # 当前是否处开态（QTE 据此接单，距外�
 var failures := 0          # 已失败轮数
 
 var _phase: Phase = Phase.IDLE
+
+
+## 申报单（spec §3 门三；B4-T3a 补，R-T2a）——三连问据实（实读：本件对
+## shell.session **零账本写点**，只钳制 playable 当前血量 + force_advance_current）：
+## 　Q1 游玩中会变吗？会——窗口相位、失败轮数、玩家血量都在动；
+## 　Q2 不存能推导吗？皆能：相位/计数是纯运行时过程量，血量按 spec §2"读档/
+## 　　回检查点=满状态复活"规则**一律不入账**（可由满状态推导）；force advance
+## 　　的判清副作用归壳 NS_CLEARED（写入主体是壳非本件）。
+## 　故 persists=[]（本件不写任何账本户）；resets=[]（血量非账本户，无从"归零账本"；
+## 　　段清账归属壳，本件与账本无涉）。
+func save_claim() -> Dictionary:
+	return {&"persists": [], &"resets": []}
 
 
 func _ready() -> void:
