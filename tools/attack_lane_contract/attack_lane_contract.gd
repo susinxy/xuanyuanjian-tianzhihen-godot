@@ -12,6 +12,9 @@ extends Node
 ## B7-B9（2026-09-20 决策定档批）表现层防"乌龙"断言：命中后防守方必达 Ground/Hurt、
 ## 皮肤 AnimTree 必落 hurt_high、纵攻受击全程不改写 facing_x——把"纵向受击动画方向 =
 ## 防守方上一次水平朝向（与上下跳跃同源机制）"从口头共识钉成机器契约。
+## H 腿组（S2-B4.6 攻击朝向模式批）：横模（全局默认）出手向=跳跃同源 facing_x 记忆、
+## 纵向输入出手"同排可中+邻列免疫"端到端、双模式切换快照生命周期对称、纵站出手
+## 不吃零向量退化；B 组纵向机制腿活在四向行为上，按 spec §4 覆写自洁形制就地括弧。
 ## 运行：godot --headless --path . res://tools/attack_lane_contract/attack_lane_contract.tscn
 
 const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
@@ -101,6 +104,37 @@ func _attack(actor: QuiverCharacter, dir: Vector2) -> void:
 	actor.state_machine.transition_to("Ground/Combo1")
 
 
+## raw 键注入（block_parry T2 判例形制：down/up 同构造、pressed 显式写、
+## keycode+physical 双填）——H2 正上行走走 OS 同款输入链
+func _press_key(p_key: int, p_pressed: bool) -> void:
+	var ev := InputEventKey.new()
+	ev.device = -1
+	ev.keycode = p_key
+	ev.physical_keycode = p_key
+	ev.pressed = p_pressed
+	Input.parse_input_event(ev)
+
+
+# ── 攻击朝向模式覆写自洁（S2-B4.6 spec §4 形制）──────────────────────────────
+# 纵向机制腿活在四向行为上：腿组开覆写 FOUR_DIRECTION、腿组尾还原覆写前原值
+# （成对括弧纪律，参 QuiverActionBlock 生命周期旗的 enter/exit 写形）。
+# 禁改 test_actor 落盘 tres"修"契约（生成物+共享替身，plan 红线）。
+# 【红相申报】本组辅助首版（red_h.log 取证时）走 Object.set/get 动态形制——
+# 旧运行时字段缺席时 get 静默 null、set 静默 no-op，红只落在 H 腿值面；
+# 运行时枚举行落地后切换为本 typed 直写形制（探针判例档 b46_t0/probe_dyn）。
+
+## 纵向机制腿组开：覆写为四向档，返回覆写前原值供腿尾 _restore_axis（成对括弧）
+func _use_4dir(actor: QuiverCharacter) -> int:
+	var prev: int = actor.attributes.attack_axis_mode
+	actor.attributes.attack_axis_mode = QuiverAttributes.AttackAxisMode.FOUR_DIRECTION
+	return prev
+
+
+## 纵向机制腿组尾：还原覆写前原值（括弧收口，防覆写泄漏串腿）
+func _restore_axis(actor: QuiverCharacter, prev: int) -> void:
+	actor.attributes.attack_axis_mode = prev
+
+
 func _place(vendor: QuiverCharacter, actor: QuiverCharacter, offset: Vector2) -> void:
 	vendor.global_position = actor.global_position + offset
 	await _frames(6)
@@ -148,9 +182,102 @@ func _flow() -> void:
 	_check(actor.attributes.skin_direction == Vector2.ZERO,
 			"B0b 待机镜像=零向量（非出手态旧语义护城河）")
 
+	# ════ H 腿组（S2-B4.6）：横模语义 + 跳跃同源直证（默认档，先红后绿）════
+	# H1 横模+面向正上：skin_direction=UP 出手，快照恰 (-1,0)=facing_x 记忆
+	# （旧代码无本旗、主轴塌缩出 (0,-1) 纵快照——本条即 R8 定罪红据）
+	actor._skin.facing_x = -1.0
+	_attack(actor, Vector2.UP)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(-1, 0)),
+			"H1 横模 UP 输入出手快照=(-1,0)（facing_x 记忆，实际 %s）"
+			% actor.attributes.skin_direction)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H1z 出手窗结束回 Idle")
+
+	# H2 跳跃同源直证：raw W 注入正上行走全程（输入 x=0）——facing_x 记忆
+	# 不动（locomotion:88-90 规则原文锁），纵向上行中出手=上一次左右向横拳。
+	# 对照腿：出手前记录 facing_x，出手后快照 x==facing_x 且 y==0。
+	var fx0: float = actor._skin.facing_x  # 承 H1 的 -1.0
+	_press_key(KEY_W, true)
+	var walked_up := false
+	for _i in 60:
+		await get_tree().physics_frame
+		if actor.global_position.y < 399.0 \
+				and actor._skin.skin_direction.is_equal_approx(Vector2.UP):
+			walked_up = true
+			break
+	_check(walked_up, "H2a 正上行走成立（位置北移+皮肤纵向 UP，raw 键全链路）")
+	_check(actor._skin.facing_x == fx0,
+			"H2b 正上行走全程不改写左右记忆（facing_x 恒 %.0f）" % fx0)
+	_press_key(KEY_W, false)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 120), "H2w 松键回 Idle")
+	_attack(actor, Vector2.UP)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(fx0, 0))
+			and absf(actor.attributes.skin_direction.y) < 0.01,
+			"H2c 纵向上行后出手=同向横拳（快照 x=facing_x=%.0f 且 y=0，实际 %s）"
+			% [fx0, actor.attributes.skin_direction])
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H2z 出手窗结束回 Idle")
+
+	# H3 端到端（复用 B 组摆位骨架）：横模纵向输入出手——同排可中 + 邻列免疫
+	# 成对钉"列比对形迹为零"（若快照仍纵向：H3a 列比 Δx=80 出窗必红、
+	# H3b 列比 Δx=0 必中撞不中判据——两腿双世界互斥，无一假绿）
+	actor._skin.facing_x = 1.0  # 夹具定向东：出手向=记忆值，与下面的纵向输入无关
+	await _place(vendor, actor, Vector2(80, 30))
+	var hp_h3: float = vendor.attributes.health_current
+	_attack(actor, Vector2.UP)
+	var hit_h3a: bool = await _watch_hit(vendor, hp_h3, 240)
+	_check(hit_h3a, "H3a 横模纵输入出手同排可中（排比 Δy=30 收；旧纵快照列比拒——红）")
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H3az 出手窗结束回 Idle")
+	await _reset_target(vendor)
+	await _place(vendor, actor, Vector2(0, -120))
+	var hp_h3b: float = vendor.attributes.health_current
+	_attack(actor, Vector2.UP)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H3bz 出手窗结束回 Idle")
+	_check(vendor.attributes.health_current >= hp_h3b,
+			"H3b 横模纵输入出手邻列免疫（排比 Δy=120 拒；旧纵快照列比必中——红）")
+	await _reset_target(vendor)
+
+	# H4 切换无残影：同角色先后两模式各出手，快照生命周期对称
+	# （横档快照=(facing,0)、四向档=(0,-1)，exit 归零两档共用零特判）
+	await _place(vendor, actor, Vector2(600, 400))  # 撤离靶位，免命中定格干扰
+	_attack(actor, Vector2.UP)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(1, 0)),
+			"H4a 横模出手快照=(1,0)（切换前模式）")
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H4b 横模出手窗结束回 Idle")
+	_check(actor.attributes.skin_direction == Vector2.ZERO,
+			"H4b' 横模 exit 镜像归零（生命周期成对）")
+	var prev_axis := _use_4dir(actor)
+	_attack(actor, Vector2.UP)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(0, -1)),
+			"H4c 四向模式出手快照=(0,-1)（切换零残影，实际 %s）"
+			% actor.attributes.skin_direction)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H4d 四向出手窗结束回 Idle")
+	_check(actor.attributes.skin_direction == Vector2.ZERO,
+			"H4d' 四向 exit 镜像同形归零（两档对称）")
+	_restore_axis(actor, prev_axis)
+
+	# H5 纵向上站立静止（无移动输入）出手：吃 facing_x 现值（=1 右），
+	# 恒出横快照不塌成零向量（零镜像=非出手态暗号，绝不能被出招态写出）
+	actor._skin.skin_direction = Vector2.UP
+	_attack(actor, Vector2.UP)
+	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(1, 0)),
+			"H5 纵向上静止出手=(facing_x,0) 不退化零快照（实际 %s）"
+			% actor.attributes.skin_direction)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 600), "H5z 出手窗结束回 Idle")
+
+	# ———— H 组收场：回 B 组初始摆位（B1 依赖绝对摆位骨架，H2 位移须归零）————
+	actor.velocity = Vector2.ZERO
+	actor.global_position = Vector2(500, 400)
+	vendor.global_position = Vector2(500, 280)
+	await _frames(6)
+	var vendor_back := await _wait_state(vendor, "Ground/Move/Idle", 120)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 120) and vendor_back,
+			"Hz H 组收场：出手位/靶位回 Idle 就位（B 组摆位骨架复原）")
+
 	# B1/B2/B3/B7/B8/B9 正北 120px → 纵攻必中 + 镜像生命周期 + 表现层断言组。
 	# B9 决策锁：受击/击飞处理永不写防守方面向（动画走上一次水平朝向，同纵跳机制）
 	# ——未来若有人实现"北来→强制 right"类映射，会先撞红本条。
+	# [覆写自洁 spec §4] 本腿组（B1..B4 含比列家族）是纵向机制覆盖：活在四向
+	# 行为上，腿组前覆写 FOUR_DIRECTION、腿组尾还原——机制与角色配置解耦。
+	var prev_axis_b := _use_4dir(actor)
 	vendor._skin.facing_x = -1.0
 	_attack(actor, Vector2.UP)
 	# 精确 == 会死于 from_angle(±90°) 的 6e-17 浮点 eps（B2 首跑实锤）：用近似
@@ -179,11 +306,14 @@ func _flow() -> void:
 	await _wait_state(actor, "Ground/Move/Idle", 600)
 	_check(vendor.attributes.health_current >= hp4,
 			"B4 北偏东 100px 上攻不中（列窗 60 拒，%.0f）" % vendor.attributes.health_current)
+	_restore_axis(actor, prev_axis_b)  # 括弧收口：B1..B4 四向覆写到此为止
 
-	# B5 正东 80px 南偏 30（排内）→ 横攻回归
+	# B5 正东 80px 南偏 30（排内）→ 横攻回归。横模（全局默认）腿不括弧：
+	# 出手向=facing_x 记忆，夹具显式定向东钉死快照 (1,0) 与旧塌缩同形
 	await _reset_target(vendor)
 	await _place(vendor, actor, Vector2(80, 30))
 	hp4 = vendor.attributes.health_current
+	actor._skin.facing_x = 1.0  # 横模夹具：出手向=记忆，定向东钉死 (1,0)
 	_attack(actor, Vector2.RIGHT)
 	_check(actor.attributes.skin_direction.is_equal_approx(Vector2(1, 0)),
 			"B5a 横攻镜像=(1,0)（选轴判据走旧 Y 分支）")

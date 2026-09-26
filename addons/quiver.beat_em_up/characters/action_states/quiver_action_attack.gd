@@ -87,10 +87,18 @@ func enter(msg: = {}) -> void:
 		_state_machine.input_window_open = _can_combo
 	
 	var dir := _skin.skin_direction
-	if abs(dir.x) >= abs(dir.y):
-		_skin.skin_direction = Vector2(sign(dir.x), 0)
+	if _attributes.attack_axis_mode == QuiverAttributes.AttackAxisMode.HORIZONTAL_ONLY:
+		# 横向模式（S2-B4.6 全局默认）：出手向=跳跃同源——吃 facing_x 持久记忆。
+		# 记忆由 locomotion（输入水平分量=0 绝不改写，quiver_action_locomotion.gd:88-90）
+		# 与 mid_air（空中水平速度≠0 才覆写，quiver_action_mid_air.gd:130-138）维护，
+		# 故"面朝正上/正下出手"=最近一次左右朝向，与面朝正上起跳播同向跳姿同一数据源。
+		_skin.skin_direction = Vector2(_skin.facing_x, 0)
 	else:
-		_skin.skin_direction = Vector2(0, sign(dir.y))
+		# 四向模式：现行两分支逐字保留（含斜向主轴裁决与纵向档）
+		if abs(dir.x) >= abs(dir.y):
+			_skin.skin_direction = Vector2(sign(dir.x), 0)
+		else:
+			_skin.skin_direction = Vector2(0, sign(dir.y))
 	# 出手方向镜像（车道换轴批）：把刚塌缩的轴向快照进属性资源——防守方受击
 	# 判定据此在"比排(Y)/比列(X)"间选轴；exit/中断清零。空攻/法术/抓取不走
 	# 本类（镜像恒零=旧 Y 语义零扰动）。

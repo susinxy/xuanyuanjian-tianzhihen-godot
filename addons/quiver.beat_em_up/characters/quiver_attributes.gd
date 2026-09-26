@@ -35,6 +35,10 @@ signal grab_denied
 
 #--- enums ----------------------------------------------------------------------------------------
 
+## 地面攻击朝向模式（S2-B4.6）：FOUR_DIRECTION=现行主轴塌缩四向档；
+## HORIZONTAL_ONLY=出手向恒取 facing_x 水平记忆（与跳跃同源，spec §2.2 分流）。
+enum AttackAxisMode { FOUR_DIRECTION, HORIZONTAL_ONLY }
+
 #--- constants ------------------------------------------------------------------------------------
 
 ## 起飞保底冲量（统一模型 2026-09-18）：任何击飞的最小初速度，
@@ -113,6 +117,13 @@ const LAUNCH_MIN_IMPULSE := 50.0
 ## 自身输出乘算（盾反批 B3）：本角色出招伤害的全局乘数，
 ## 护人态等增益以修饰表达而非裸写。受管同上。
 @export var attack_output: float = 1.0
+
+@export_group("Behavior")
+## 地面攻击朝向模式（行为路由设置，单写者=创建面板/Inspector；只读不进修饰域，
+## reset() 不清——它是档案配置非运行时状态。合法旗论证见 spec §5）。
+## 代码默认=横向：一切无本字段的既有 tres（chen/spar/vendor/模板）加载即横，
+## 零迁移（S2-B4.6 用户裁决②）。
+@export var attack_axis_mode: AttackAxisMode = AttackAxisMode.HORIZONTAL_ONLY
 
 ## Character's current health. What the health bar will be showing.
 var health_current := health_max:
