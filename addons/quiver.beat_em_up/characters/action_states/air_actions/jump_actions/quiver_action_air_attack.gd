@@ -68,6 +68,11 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 func enter(msg: = {}) -> void:
 	super(msg)
+	# 罚站封形释放·空中路（C1 评审定档，与地面 QuiverActionAttack.enter
+	# 同调）：封形关的是角色全部攻击盒 monitorable，本旁支类不经地面
+	# attack.enter——此漏调=弹反后首发跳攻的空袭盒恒静默穿人（契约 P6d
+	# 红档现形判例）。遍历体单一存放点在 QuiverCharacter.release_hitboxes。
+	_character.release_hitboxes()
 	_skin.transition_to(_skin_state)
 
 

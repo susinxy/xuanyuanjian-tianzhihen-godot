@@ -300,6 +300,31 @@ func attack_anim_length_ms() -> float:
 func hitboxes() -> Array[QuiverHitBox]:
 	return _hitboxes
 
+
+## 罚站封形（B4.7 T2 扩权，判例链 §17.7）：弹反支同拍由受击盒经本门面关死
+## 本角色全部攻击盒 monitorable（主刀——皮肤 AnimTree 值轨每帧回写形状
+## disabled，活 blend 下一次性形状禁用存活 ≤1 拍不作承重；形状预关=意图
+## 留痕）。与 release_hitboxes() 成对，遍历体单一存放点。
+func silence_hitboxes() -> void:
+	for hb in _hitboxes:
+		if hb == null or not is_instance_valid(hb):
+			continue
+		hb.set_deferred("monitorable", false)
+		for shape in hb.get_children():
+			if shape is CollisionShape2D:
+				shape.set_deferred("disabled", true)
+
+
+## 罚站封形释放（silence 的对偶，C1 评审定档）：地面 QuiverActionAttack.enter
+## 与空中 QuiverActionJumpAttack.enter **双路同调调用**——封形关的是全盒，
+## 任一攻击入场口漏调=那条攻击线永久静默穿人（判例：地面独占释放时代，弹反
+## 后首发跳攻的空袭盒 monitorable 恒 false，契约 P6d 红档现形）。形状 disabled
+## 由各动画值轨自行回写，不在此管。
+func release_hitboxes() -> void:
+	for hb in _hitboxes:
+		if hb != null and is_instance_valid(hb):
+			hb.set_deferred("monitorable", true)
+
 ### -----------------------------------------------------------------------------------------------
 
 

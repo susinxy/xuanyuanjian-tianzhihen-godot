@@ -233,8 +233,9 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 				# 踏出再踏回可二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道
 				# 新辟）。处置=随定格同拍封攻击者攻击盒（monitorable 主刀，形状
 				# 预关为辅——活 blend 会回写 disabled，判例见 helper 文档注释）；
-				# 解封落点=QuiverActionAttack.enter（"下次攻击照常接管"的实现形）；
-				# "受击不位移"基线下正常流零误伤面。
+				# 解封=地面/空中两路攻击 enter 同调调角色门面 release_hitboxes
+				# （C1 判例：单路独占=另一条攻击线永久静默穿人）；"受击不位移"
+				# 基线下正常流零误伤面。
 				_silence_attacker_hitboxes(hit_box.attacker)
 			_flash(defender_attrs, true)
 			_flash(atk_attrs, false)
@@ -305,24 +306,18 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		hit_box.on_target_hit.call(self)
 
 
-## 罚站同拍攻击盒封形（B4.7 T2 扩权裁决，T3 实现判例增强）：攻击盒的
-## `:disabled` 由皮肤 AnimTree **值轨 blend 输出**驱动——冻结的 attack 节点
-## 仍"激活且零速"，每帧照常回写开窗态，一次性 set_deferred(形状, disabled)
-## 会被活 blend 淹没、存活 ≤1 拍（P6 绿世界实伤判例，2026-09-27 定罪）。
-## 故封形主刀=Area2D.`monitorable`：零动画轨道盯这扇门、角色层零写点，
-## 受方 monitoring 看不见该盒=无进窗通道；形状 disabled 一并预关（意图保留，
-## 非承重）。解封=QuiverActionAttack.enter（"下次攻击照常接管"的落点，
-## 零帧数猜测，令牌延长/劫持一律跟随时间面实况）。封释两处同文件族互注。
+## 罚站同拍攻击盒封形（B4.7 T2 扩权裁决，T3 实现判例增强）：主刀
+## Area2D.`monitorable`、形状 disabled 预关=意图非承重（皮肤 AnimTree 值轨
+## 每帧回写 disabled，一次性形状禁用存活 ≤1 拍——P6 绿世界实伤判例定罪，
+## 判例链见 §17.7）。遍历体上收角色门面 QuiverCharacter.silence_hitboxes()
+## （封释成对、单一存放点）；释放**双路同调**=地面 QuiverActionAttack.enter
+## 与空中 QuiverActionJumpAttack.enter（C1 判例：单路独占=另一条攻击线
+## 永久静默穿人，契约 P6d 红档现形）。本静态函数保留=物理回调内
+## null/失效守卫 + R8 红档 d 锚点。
 static func _silence_attacker_hitboxes(attacker: QuiverCharacter) -> void:
 	if attacker == null or not is_instance_valid(attacker):
 		return
-	for hb in attacker.hitboxes():
-		if hb == null or not is_instance_valid(hb):
-			continue
-		hb.set_deferred("monitorable", false)
-		for shape in hb.get_children():
-			if shape is CollisionShape2D:
-				shape.set_deferred("disabled", true)
+	attacker.silence_hitboxes()
 
 
 ## 白闪合成器着色器（惰性构建一次全体复用；脚本热重载丢 static 后下次

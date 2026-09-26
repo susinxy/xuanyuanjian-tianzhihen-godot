@@ -106,10 +106,10 @@ func enter(msg: = {}) -> void:
 	
 	# 罚站封形释放（B4.7 T2 扩权判例的配对写点，封形见
 	# quiver_hurt_box._silence_attacker_hitboxes）：弹反把攻击盒
-	# monitorable 关到"下次攻击照常接管"——本行即接管点：新攻击意图=
-	# 合法重开伤害通道（形状 disabled 由各动画值轨自行回写，不在此管）。
-	for hb in _skin.hitboxes:
-		hb.set_deferred("monitorable", true)
+	# monitorable 关到"下次攻击照常接管"——本行即地面路接管点；
+	# **空中路同调调用见 QuiverActionJumpAttack.enter（C1 判例：两路
+	# 缺一即该攻击线永久静默穿人）**，遍历体单一存放点在角色门面。
+	_character.release_hitboxes()
 	
 	_skin.transition_to(_skin_state)
 

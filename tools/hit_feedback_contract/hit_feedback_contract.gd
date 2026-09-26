@@ -49,9 +49,12 @@ extends Node
 ## F8 预铺形制源码锁（K1b：InputMap.has_action 短路三连——hit_fx_toggle
 ## 缺席零报错零行为，controller 登记 [input] 后自动通电）+ 关闭态命中
 ## 零特效但慢放照常（K2a/K2b，视觉/时间双腿独立锁）。
-## P6 腿·罚站封形（T2 扩权裁决并入）：弹反罚站中守方踏出再踏回攻击盒区
-## →零二次扣血（P6a）零 hurt 派发（P6b）；P6c 见证"再入期间攻击者仍冻"
-## （防窗口自然恢复后的假绿）。红档对照=摘 hurtbox 罚站封形调用。
+## P6 腿·罚站封形（T2 扩权裁决并入）：弹反罚站中封形在场证明=全盒
+## monitorable 关（P6a，形状 disabled 因活 blend 回写作废不作证人）；守方
+## 踏出再踏回→零二次扣血（P6b）零 hurt 派发（P6c）；P6c 兼见证"再入期间
+## 攻击者仍冻"（防窗口自然恢复后的假绿）；P6d（C1 评审）封形后强制空袭
+## 入场，全盒 monitorable 须回 true——地面独占释放的旧形制让空袭盒恒静默
+## 穿人，本腿先红后绿。红档对照=摘封形调用（d）/摘 jump-attack 释放（e）。
 ##
 ## 裸舞台沉降判例（T2 探针 d/e 实锤，P/E/K 流装配纪律）：角色在空 Node2D
 ## 舞台入场后**不会停在摆放位**——先悬停数拍再以 ~400px/拍初速下落、匀减速
@@ -791,17 +794,19 @@ func _p_clean() -> void:
 
 
 # ═══════════ P6 腿：罚站封形（T2 扩权裁决，B4.7 评审实证并入 T3） ═══════════
-# 弹反改道后攻击者动画冻结⇒攻击盒 enable 轨停在开窗态，守方可动——踏出
-# 再踏回即可二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道新辟暴露面；
-# 评审实证无单发去重机制）。处置=罚站同拍把攻击者全部攻击盒形状
-# set_deferred(disabled)，下次攻击动画轨道键照常接管。
+# 弹反改道后攻击者动画冻结⇒攻击盒停在开窗态，守方可动——踏出再踏回即可
+# 二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道新辟暴露面；评审实证
+# 无单发去重机制）。处置=罚站同拍把攻击者全部攻击盒 monitorable 关死
+# （主刀；形状 disabled 预关仅意图——活 blend 每帧回写，不作证人），
+# 解封=角色门面 release_hit_silence()，地面 attack.enter 与空中
+# jump-attack.enter 双路同调（C1 判例：单路独占=空袭盒恒静默穿人）。
 
 ## P6 主腿（霸体鼠洞形制，spec §2.3 知情条款的暴露面正面化）：攻击方挂
 ## has_superarmor——弹反反顶的 K 被 apply_knock 归零制吞掉**且不发任何信号**
 ## ⇒无 hurt 落态，攻击者冻在 attack1 开窗态整窗不脱（T3 实测判例：普通攻击
 ## 方反顶→Hurt 落态→attack1 节点出活→enable 值轨 reset 在 ~3 拍内自愈关盒，
 ## "二次进窗满伤"在自愈形制下测不出；自愈缺席的护甲档才是裁决钉的暴露面）。
-## 流程：弹反成立（倍速掉 0 且守方血不动）→封形见证（形状全 disabled）→
+## 流程：弹反成立（倍速掉 0 且守方血不动）→封形见证（全盒 monitorable 关）→
 ## 守方解除格挡挪出再挪回→观察段零二次扣血零 hurt 派发（全程攻击者仍冻）。
 ## R8 对照档 d：摘 _silence_attacker_hitboxes 调用→P6a 永不开=红、
 ## P6b/P6c 二次进窗满伤=红（两世界差异由护甲档消自愈撑住，腿内自证）。
@@ -877,6 +882,25 @@ func _leg_parry_seal() -> void:
 	_check(not hurt_seen and unfrozen == 0,
 			"P6c 观察段零 hurt 派发且攻击者全程仍罚站（解冻拍 %d/14；" % unfrozen \
 			+ "若解冻=封形未生效窗口照走，判据作废）")
+	# —— P6d（C1 评审腿）：罚站封形后、地面攻击解救前，先打一发空袭——
+	# 旧形制释放只住在地面 attack.enter（QuiverActionJumpAttack 是旁支类），
+	# 空袭盒 monitorable 恒 false=该角色空中攻击永久静默穿人。跳攻 enter
+	# 必须自带释放（≤6 拍，deferred 落拍裕量）。红档对照 e=摘跳攻释放行。
+	_atk2.state_machine.transition_to("Air/Jump/Attack")
+	var released := false
+	for _i in 6:
+		await get_tree().physics_frame
+		var all_open := true
+		for hb in _atk2.hitboxes():
+			if not hb.monitorable:
+				all_open = false
+		released = all_open and not _atk2.hitboxes().is_empty()
+		if released:
+			break
+	_check(released,
+			"P6d 空袭解救：封形后跳攻 enter ≤6 拍全盒 monitorable 回 true"
+			+ "（地面独占释放旧形制=本腿红，空袭静默穿人现形）")
+	_atk2.state_machine.transition_to("Ground/Move/Idle")
 	_atk2.attributes.has_superarmor = false
 	_def.attributes.parry_stun_frames = 6
 	await _p_clean()
@@ -1079,10 +1103,13 @@ func _leg_toggle_form() -> void:
 	_check(before != mid and bool(_fx.enabled) == before,
 			"K1 toggle() 公开入口翻旗（%s→%s→%s，直改属性等价）" % [before, mid, _fx.enabled])
 	var src := FileAccess.get_file_as_string(HIT_FX_PATH)
+	# 第三子句收紧（I3 评审）：裸 "toggle()" 被 `func toggle()` 定义行恒真满足，
+	# 必须锁"_process 内被调用"的制表缩进现场形（\n\t\t 前缀），否则通电契约没被锁。
 	_check(src.contains("InputMap.has_action(&\"hit_fx_toggle\")")
 			and src.contains("Input.is_action_just_pressed(\"hit_fx_toggle\")")
-			and src.contains("toggle()"),
-			"K1b F8 预铺形制源码锁（has_action 短路三连在场；headless 轮询判例→端到端归 F5 单）")
+			and src.contains("\n\t\ttoggle()"),
+			"K1b F8 预铺形制源码锁（has_action 短路+动作判定+_process 内 toggle() 调用现场；" \
+			+ "headless 轮询判例→端到端归 F5 单）")
 
 
 ## K2：关闭态命中=零特效节点但慢放照常——视觉/时间双腿独立锁（R5 铁律的
