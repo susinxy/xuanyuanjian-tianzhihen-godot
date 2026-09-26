@@ -242,12 +242,18 @@ QuiverBaseCharacter (CharacterBody2D)
   重播（首帧抽搐）；③**rising/falling 播完停尾帧=悬停姿势的设计意图**，
   幂等登记永扰动（H6 双断言：钉死后幂等=0.200 保持、新意图=倒带重播）。
   法术皮肤 `SpellSkinAnimTree` 同构同修。
-- `end_of_skin_animation()`: **吞信标守卫**——`get_travel_path()` 非空（转换
-  挂起中）时静默丢弃本次信标（上游作者注释自陈"不记得为什么"， Combo 链
-  上用于防止被替换动画的尾帧信标误结束新状态）。攻击边全 AT_INSTANT 时
-  平时 path 恒空，该守卫仅在转换挂起瞬间开窗；勿在守卫外再加重试消费。
-  **架构评估完整记录（守卫/名牌/边锁/看门狗三案推演与知情搁置）见
-  `docs/ATTACK_BEACON_DESIGN_NOTES.md`。**
+- `end_of_skin_animation()`: ~~吞信标守卫~~ **已于 2026-09-26 拆除（实测定案）**——
+  该覆写（`get_travel_path()` 非空即吞）系上游 3.x 遗产，作者自陈"不记得为什么"。
+  4.7.1 探针验尸（案卷 `/tmp/opencode/b46_guardprobe/`，XFADE 0.3s/即时双形态、
+  打断在途/短动画双场景）：**状态离开后旧动画时钟冻结，尾铃不跨过；六次合法
+  发射全部发生在 path 清空后**——守卫零触发面；§2.3 推演的"xfade 盲区"实测
+  不存在（B 侧时钟自 travel 瞬间即推进，非窗毕才起走），其保留的反向风险
+  （吞真信标致冻结）才是实在的。基类 `QuiverCharacterSkin.end_of_skin_animation`
+  直接接管（记日志+emit），全矩阵等价绿。
+  **架构评估完整记录（守卫/名牌/边锁/看门狗三案推演史）见
+  `docs/ATTACK_BEACON_DESIGN_NOTES.md`——§2.1"故事二"推理级假说今由实验收编为否。**
+- **同款守卫尚存一处（知情在册）**：`SpellSkinAnimTree.end_of_spell_animation()`
+  （spells/_base/，独立类未拆）——若未来信标案卷再开，按同款实验形制验尸。
 - `_populate_animation_list()`: 递归遍历 AnimationTree 所有 AnimationNode，构建可用状态列表 `_animation_list`
 - `_update_blend_directions()`: 把所有 `*_blend_position` 参数设为 `skin_direction`（-1 或 +1），驱动 BlendSpace1D 的 left/right 混合
 

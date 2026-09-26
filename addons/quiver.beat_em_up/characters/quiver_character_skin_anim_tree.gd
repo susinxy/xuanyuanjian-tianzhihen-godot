@@ -93,15 +93,12 @@ func transition_to(anim_state: StringName) -> void:
 		_playback.travel(anim_state)
 
 
-func end_of_skin_animation(_animation_name := "") -> void:
-	# I really don't remember why this is here, or if it is still necessary. I think I added this
-	# as a workaround for some AnimationTree bug, but really don't know it I need it. Maybe to help
-	# with the method being triggered more than once??
-	if not _playback.get_travel_path().is_empty():
-		QuiverDebugLogger.log_message([get_path(), "end of skin animation", _animation_name])
-		return
-	
-	super()
+## 历史注记（2026-09-26 拆除）：本类曾覆写 end_of_skin_animation 做"travel 在途
+## 吞信标"守卫（上游 3.x 遗产，作者自注来历不明）。4.7.1 探针实测：状态离开后
+## 旧动画时钟冻结，假想中的"在途误发/重发"不存在；六次合法发射全部发生在
+## travel_path 清空之后——守卫零触发面，且保留反而有吞真信标的负风险。
+## 基类 QuiverCharacterSkin.end_of_skin_animation 直接接管。案卷见
+## docs/PLUGIN_ARCHITECTURE.md 皮肤章与根 PLUGIN_CHANGES.md。
 
 ### -----------------------------------------------------------------------------------------------
 
