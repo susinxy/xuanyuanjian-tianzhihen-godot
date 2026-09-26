@@ -29,7 +29,7 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ## B4.5-T2：A7 读档入口腿 +9（128→137；A4 改判不增不减）。
 ## B4.5-T4：A7d 合取强化（+0，弹窗相"账未清"文案兑现为判据）+A7j/k 空场景
 ## 旗滞留支 +2（137→139；传渡旗消费/滞留合同标题端，壳端=spell 套 P6）。
-const EXPECTED_ASSERTS := 139
+const EXPECTED_ASSERTS := 141
 
 var _fails := 0
 var _finished := false
@@ -241,6 +241,16 @@ func _a7_load_game() -> void:
 		# （_start_game 弹窗前插 begin_new_profile → 本腿响亮红，/tmp/opencode/b45_t4/）
 		_check(dlg.visible and GameSave.has_flag(&"a7_probe") and SaveSystem.has_save(),
 				"A7d 有档点开始=只到弹窗步（弹窗显+账未清+盘未删三合取，转场另相）")
+		# F5 缺陷回归锁（2026-09-26 用户实机眼：框钉左上角）：直显（set_visible）
+		# 不走弹出管线=pos(0,0)+非模态。headless 的 display server 是 mock，
+		# 屏心像素算不准（实测 popup_centered 落位与可见_rect 语义脱钩）——
+		# 机器判据退到忠实代理"离开左上角原点"（直显形制恒 (0,0) 必红），
+		# 真居中/真模态观感归 F5 眼（本锁与 A7d'' 合围缺陷本体）。
+		await get_tree().process_frame   # 弹窗布局一拍
+		_check(dlg.position != Vector2i.ZERO,
+				"A7d' 弹窗离开左上角原点（pos=%s；直显=set_visible 恒 (0,0) 必红，屏心观感归 F5）" % dlg.position)
+		_check(dlg.exclusive,
+				"A7d'' 弹窗模态抓取（exclusive=true——弹出管线才给，直显不给）")
 		_check(get_tree().current_scene == scene_before,
 				"A7e 弹窗相不触发真转场（套根场景原样，拆套防线）")
 	else:

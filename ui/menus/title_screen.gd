@@ -53,7 +53,9 @@ func _start_game() -> void:
 	# 分相形制（B4.5-T2，契约可测性的来源）：有档=只拉弹窗即返——转场是
 	# confirmed 之后的另一相，套件模拟点击永远停在弹窗步，不拆套（A7d/e 腿）。
 	if SaveSystem.has_save():
-		_confirm_dialog.set_visible(true)
+		# 2026-09-26 F5 缺陷锁（A7d' 腿）：set_visible 直显=左上角+无模态抓取，
+		# 必须走 popup 管线（居中+exclusive 焦点捕获+OS 级弹窗语义）
+		_confirm_dialog.popup_centered()
 		return
 	# 无档直进：begin_new_profile 的 delete_save 幂等静默，与旧"new_profile+清传渡"
 	# 外等价=B4 行为零变（清账唯一口收口收编）。
