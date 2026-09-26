@@ -427,7 +427,10 @@ class HitLaneLimits:
 横攻以双方 `ground_level` 比"排"（`CombatSystem.is_in_same_lane_as()`），纵攻换轴以双方
 碰撞盒 `global_position.x` 比"列"（`is_in_same_column_as()`，2026-09-19 车道换轴批）。
 换轴判据 = `QuiverAttributes.skin_direction` 出手镜像（皮肤同名字段的快照，
-`QuiverActionAttack.enter` 主轴塌缩后写入、`exit` 清零；空攻/法术/抓取恒零向量=旧 Y 语义）。
+`QuiverActionAttack.enter` 方向解析分流后写入、`exit` 清零；空攻/法术/抓取恒零向量=旧 Y 语义）。
+**攻击朝向模式联动（S2-B4.6）**：角色 `attack_axis_mode` 为横模（全局默认）时快照恒
+`(±1, 0)` ⇒ 车道选轴**自动比排**，纵向"比列"分支对该角色招式永不触发——车道层零特判，
+联动全由快照通道免费获得（模式机制本体见 §5.8）。
 `get_hit_lane_limits(p_center = INF)` 默认以 ground_level 为中心，传 x 即得列窗口。
 **受击朝向语义（2026-09-20 决策定档）**：纵向攻击命中**不改写**防守方面向——hurt/击飞
 动画的 left/right 选择沿用防守方上一次水平 `facing_x`（与上下跳跃动画同源机制；全项目
@@ -840,6 +843,33 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 - `attack_input_frames_finished` — 连击输入窗口关闭
 - `attack_movement_started` / `ended` — 冲刺开始/结束
 - `skin_animation_finished` — 攻击动画完成 → 转到 idle
+
+**攻击朝向模式（S2-B4.6，2026-09-26）**：角色级两档**地面**攻击定向。
+
+- **数据面**：`QuiverAttributes.AttackAxisMode {FOUR_DIRECTION=0, HORIZONTAL_ONLY=1}`
+  （`quiver_attributes.gd:40` 枚举 + `:126` 导出，代码默认=横模）。档案配置非运行时
+  状态：`reset()` 不清、不进修饰域，写点=创建面板合成器/Inspector 手改；治理法定性
+  =合法行为路由旗（注例见根 AGENTS 数值治理法段）。
+- **enter 单点分流**（`quiver_action_attack.gd:89-101`）：横模分支 `:90-95` 出手向恒
+  `skin_direction = (facing_x, 0)`；四向分支 `:96-101` 原两分支主轴塌缩逐字保留
+  （斜向裁决+纵向档）。空中攻击/法术施放不吃本旗（现状即恒横吃 facing_x/独立四向
+  解析，同构零扰动）。
+- **facing_x 跳跃同源链**（横模不新增方向裁决，裁决③）：行走时输入水平分量=0
+  **绝不改写**记忆（`action_states/ground_actions/move_actions/quiver_action_locomotion.gd:88-90`），
+  空中仅水平速度≠0 才覆写（`action_states/air_actions/jump_actions/quiver_action_mid_air.gd:130-137`
+  `_handle_facing_direction`；同名 knockout 档另有其人，路径须带 `jump_actions/` 前缀
+  免歧义）。故"面朝正上/正下出手"=最近一次左右朝向，与"面朝正上起跳播同向跳姿"
+  同一数据源同一规则。
+- **快照/exit 生命周期两模式共用零特判**：分流结果照旧写 `attributes.skin_direction`
+  快照（`:105`）、`exit` 清零（`:129-131`）；连锁=横模快照恒横 → 防守方车道自动比排
+  （§4 HitLaneLimits）→ 皮肤攻击动画混合恒落左/右档。
+- **契约形制**（`tools/attack_lane_contract`，42 断言）：纵向机制腿（B 组比列家族、
+  B9 受击不改 facing_x 等）活在四向行为上，经 `_use_4dir`/`_restore_axis` 成对括弧
+  就地覆写自洁、腿尾还原自证（`:127-139`，防覆写泄漏串腿）；横模语义由 H 腿组
+  （H0 产线出生自证/H1 快照=(-1,0)/H2 正上行走不改记忆+纵向上行后出手=同向横拳
+  （快照 x==facing_x 直证，跳跃同源性经"mid_air 同吃 facing_x"传递等值而非字面
+  起跳对照断言）/H3 同排可中+邻列免疫双互斥/H4 切换无残影对称/H5 静止出手不退化）
+  直证。机制覆盖与角色配置解耦：契约绝不改 test_actor 落盘 tres 来"修"。
 
 ### 5.9 Hurt 状态 (`quiver_action_hurt.gd`)
 

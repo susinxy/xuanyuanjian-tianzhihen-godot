@@ -330,6 +330,33 @@
     **F5 关账（2026-09-26）**：五眼全清——拾书/继续钮/读档落位满状态/覆盖确认/
     盘上实档；实机眼揪出确认框 set_visible 直显缺陷（左上角+无模态），当日修
     popup_centered+A7d 三判据（f1ad553）。眼⑤删盘子项挂账不阻断（机器面双腿在锁）。
+  - **S2-B4.6 攻击朝向模式批 ✅ 已交付·F5 待验（2026-09-26，SDD T0-T1 全过审查门；
+    F5 三眼单见 `docs/superpowers/plans/2026-09-26-s2-b46-attack-axis-mode-f5.md`，
+    tag `s2-b46-done`）**：范围=**角色级两档地面攻击定向**——`QuiverAttributes.AttackAxisMode`
+    枚举+导出（代码默认 `HORIZONTAL_ONLY`：凡 tres 无该行者加载即横，零迁移；
+    档案配置非运行时状态——reset 不清、不进修饰域、无受管写口）+
+    `QuiverActionAttack.enter` 单点分流（横模出手向恒 `(facing_x, 0)`=跳跃同款
+    facing_x 记忆，四向档主轴塌缩逐字保留；快照/exit 两模式共用零特判）+
+    创建器三件套（面板下拉默认"只有左右"、DEFAULT_STATS 键、枚举 int 直写合成行）+
+    wp2 逐行核对。**五裁决**（2026-09-26 用户签字，全录 spec §7）：面板级配置+
+    Inspector 可改/全局默认翻横含既有/跳跃 facing_x 同源/都尉零预判（B5 装配期
+    普通参数）/独立成批先行。**知情行为变更（裁决②明示接受）**：所有既有人形
+    角色攻击自此恒横拳（回收通道=Inspector 逐档改回）；上下攻击动画闲置=美术零
+    损失。**契约收编（机制/配置解耦）**：attack_lane_contract **19→42 断言**——
+    H 腿组（H0 产线出生自证/H1-H5 横模语义直证）入册 + B1..B4 纵向机制腿
+    （含比列家族；先红腿 B1/B2/B7/B8+巧合绿腿一并括弧）走 `_use_4dir`/
+    `_restore_axis` 成对括弧就地覆写自洁、腿尾还原自证；block_parry(84)/
+    knockout(42)/spell_save(206) 分层复跑零收编零扩腿（D 项复核=真同形非运气）。
+    **R8 红档**（/tmp 易失）：`/tmp/opencode/b46_t0/red_h.log`（H 腿组对旧代码
+    先红）/ `red_b_group.log`（收编对象现形）；**批末全矩阵 24 套=25 跑 RED=0**
+    （终核快照 `/tmp/opencode/b46_matrix/`）。**措辞纪律（评审 INFO#2）**：
+    H2 跳跃同源按实现实况入档——快照 x==facing_x 直证 + "mid_air 同吃 facing_x"
+    传递等值，非 spec §4 字面"对照起跳同值断言"（字面级跳/拳对照归 F5 眼①人眼）。
+    文档四件收口：PLUGIN_ARCHITECTURE（§4 车道联动+§5.8 模式段）/根
+    PLUGIN_CHANGES 案卷/根 AGENTS 数值治理法"合法行为路由旗 vs guard_mode
+    违例分界"注例/本行。**待 F5 三眼**：眼①默认横模手感+正北起跳朝向对照；
+    眼②Inspector 改档四向纵拳复活并回档；眼③创建面板真实点选+临时角色清场
+    （报头含全局横拳知情声明）。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
