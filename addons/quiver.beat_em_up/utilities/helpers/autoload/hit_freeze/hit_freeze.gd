@@ -15,8 +15,9 @@ extends Node
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 ## 全局定格帧数（R1 裁决 2026-09-26）：3→0 退役——普通/格挡伤害流从此
-## 不停世界（start() 对 0 天然安全）；弹反支的显式 start(6) 不受本值影响
-## （其定格帧数 T2 升格为防守方数值域 parry_stun_frames）。
+## 不停世界（start() 对 0 天然安全）；弹反支旧显式 start(6) 已于 T2 改道
+## 单角色定格（apply_character_slow + 防守方数值域 parry_stun_frames），
+## 本 autoload 现无任何全局定格的在途调用方。
 @export_range(0, 60, 1, "or_greater" ) var freeze_frames := 0
 
 #--- private variables - order: export > normal var > onready -------------------------------------

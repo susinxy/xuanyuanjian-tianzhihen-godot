@@ -1039,7 +1039,7 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 1. `apply_damage_value`（或经 `apply_damage` 薄委托）→ 扣血 → `HitFreeze.start()`
    （全局定格位——B4.7 归零后恒 no-op，世界不停；近战命中者自慢放走常规支尾钩
    → `apply_character_slow`，见 §17；免伤路不经过 apply_damage_value——弹反支
-   必须自发拍定格，见 §7.3 判定缝）
+   必须自发拍定格（B4.7 R2 起拍型=单角色定格，非全局暂停），见 §7.3 判定缝）
 2. `apply_knockback` → 转交 `QuiverAttributes.apply_knock`（**唯一判定点**），按裁决分发：
    `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默（含霸体
    与空中零击打值）；否则 `hurt_requested`——分发器为纯三向开关，无战斗政策
@@ -1115,16 +1115,22 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 2. 防守方 `defender_attrs.is_blocking`？（成对旗读值，`delta =
    Engine.get_physics_frames() − block_started_frame`，窗读**受管字段**
    `parry_window_frames` 当前合成值——重算回写使判定代码零感知修饰存在）
-   - **弹反支**（`delta < 窗`，严格 `<`：按下帧 delta=0 起算共窗帧数，
-     delta==窗 归格挡）：**免伤免退**——零伤害、防守方池一分不扣、不进受击态；
-     `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` **自发拍**（免伤路不经
-     apply_damage_value，遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+
-     攻击弱档；形制=运行时混白 shader 换挂皮肤精灵 `material` 摘回原底材——
-     LDR-2D 下 modulate>1 被钳制不可见，2026-09-24 修订，见 spec §2.4 注记）；
-     `apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
-     池——统一模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，
-     P9 实证；霸体鼠洞知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌
-     弹反空转，B5 都尉若发护甲须正式裁决，届时改规则不改这里）。
+    - **弹反支**（`delta < 窗`，严格 `<`：按下帧 delta=0 起算共窗帧数，
+      delta==窗 归格挡）：**免伤免退**——零伤害、防守方池一分不扣、不进受击态；
+      **自发拍（B4.7 R2 改道"敌罚站我自由"）**：
+      `HitFreeze.apply_character_slow(hit_box.attacker, 0.0, 防守方
+      .parry_stun_frames 折算毫秒)`——**只冻被弹反的攻击者**（rate=0=定格，
+      帧数=防守方数值域，非魔数；弹体 attacker 恒 null → 跳定格仅保留其余
+      反馈，防御性兜底），防守玩家全程可动=奖励窗口；**改判史**：B3 当时
+      实现为 `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` 定格全世界（含守方），
+      用户 2026-09-26 澄清原意=单角色，常量随改道删除（免伤路"必须自发拍"
+      的警条不变——遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+
+      攻击弱档；形制=运行时混白 shader 换挂皮肤精灵 `material` 摘回原底材——
+      LDR-2D 下 modulate>1 被钳制不可见，2026-09-24 修订，见 spec §2.4 注记）；
+      `apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
+      池——统一模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，
+      P9 实证；霸体鼠洞知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌
+      弹反空转，B5 都尉若发护甲须正式裁决，届时改规则不改这里）。
    - **格挡支**（超窗按住）：`apply_damage_value(原伤害 × out_mult ×
      block_damage_ratio)`；**该击击退值整颗作废**（不回池、不派发、不换算——
      "重击变轻拳、飞天变站桩"的全部真相，P10 活体）；防守方弱白闪。
@@ -1136,13 +1142,17 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
    `call(self)`（见 7.2 注入契约；旧 owner 反射已废除）——弹体靠它回执离场，
    任何分支绕过=穿体飞到超时判例同族（回归锁 P6c/P8e：命中帧起 ≤15 帧离场护栏，
    堵 max_lifetime=300f 与采样窗同缘的假绿边角）。
-4. 规则常量单一出处（数值治理法第 2 档）：`_PARRY_STUN_KNOCK/_PARRY_FREEZE_FRAMES/
-   _FLASH_*` 全部定义在 quiver_hurt_box.gd 常量区，禁散落魔数。
+4. 规则常量单一出处（数值治理法第 2 档）：`_PARRY_STUN_KNOCK/_FLASH_*` 全部定义在
+   quiver_hurt_box.gd 常量区，禁散落魔数；弹反定格帧数不在此列——B4.7 R2 起它是
+   **防守方数值域** `parry_stun_frames`（数值治理法第 1 档归位，旧
+   `_PARRY_FREEZE_FRAMES` 常量已删）。
 
 **时基判例（Step0 探针 2026-09-23 实锤）**：定格期间 physics_frame 信号照响、
 全局物理帧号照走 ⇒ 在途 HitFreeze 真会蚕食弹反窗帧——Block.enter 写
 `block_started_frame`=按下瞬间读数，蚕食属规则本意（spec §10 帧计数定案），
-手感疑案先疑此勿疑缝。
+手感疑案先疑此勿疑缝。**B4.7 R2 后注**：弹反已改单角色定格、普攻/格挡流全局
+定格自 R1 归零，当前生产链**无任何在途 tree.paused 窗口**，本判例降为历史防线
+（若 freeze_frames 复活，蚕食语义原样成立）。
 
 **阵营过滤机制**（`area2d:` group；2026-09-17 单一存放点体系）:
 - **数据只存角色根节点**（`groups=["area2d:<标签>", …]`，创建表单写入）；
@@ -2269,11 +2279,31 @@ QuiverCharacterSkinAnimTree（树驱动路）
 ### 17.6 数值域三字段（`QuiverAttributes`，spec §2.3"用到才包"）
 
 `@export_group("Hit Feedback")` 内：`hit_slow_factor=0.2`、`hit_slow_anim_pct=0.15`、
-`parry_stun_frames=6`（后者 T2 弹反改道才消费，T1 仅落字段）。皆**档案配置非运行时态**
+`parry_stun_frames=6`（后者 B4.7 T2 弹反改道消费：只冻攻击者的定格帧数，绝对帧语义
+正确——吃招侧硬停奖励不跟百分比；见 §17.8）。皆**档案配置非运行时态**
 → `reset()` 不清（B4.6 `attack_axis_mode` 同族注例）；既有角色 tres 无此键→零迁移吃代码
 默认。
 
-### 17.7 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流）
+### 17.7 弹反消费：判定缝弹反支（B4.7 R2，"敌罚站我自由"）
+
+弹反支的自发拍 = `HitFreeze.apply_character_slow(hit_box.attacker, 0.0,
+defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
+
+- **目标**是 `hit_box.attacker`（近战收集链回指攻击者本体，见 17.5），**不是**
+  `atk_attrs.character_node`——弹体 attacker 恒 null 即"弹体被弹反无罚站"的结构
+  表达，跳定格、其余反馈（白闪/反顶/回执）照常，无兜底崩溃路径；
+- **rate=0.0**：复用 §17.4 原语，0 即定格（慢放的连续刻度退化到端点，无第二
+  机制）；恢复计时表照旧挂 HitFreeze 协程（physics_frame 数帧），与守方动画
+  无关；
+- **帧数读防守方数值域** `parry_stun_frames`（数值治理法第 1 档：用到才包、
+  每角色可配）——hit_feedback_contract P5 腿锁"改 12 帧必须跟长"，杀魔数复发；
+- **冻结只冻动画时钟**（本期无位移通道，§17.1 定档）：被冻攻击者的物理照走、
+  状态机照走（反顶 → Ground/Hurt 落态不受冻），冻毕受击动画从停格处续播、
+  信标链不死（spec §5 风险 2 的锁=P4 腿）；
+- 世界 `tree.paused` 全程恒 false——防守玩家可移动/可出手=奖励窗口成立
+  （P1/P3 腿；block_parry P3e/P3e2/P3e3 同步改判，旧"全局 6 帧"判据废止）。
+
+### 17.8 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流 + P 流）
 
 - S 流（静态）：freeze_frames 双零（tscn 生效值 + 脚本裸默认）、三字段默认到位、
   reset() 不清命中反馈档。
@@ -2282,6 +2312,14 @@ QuiverCharacterSkinAnimTree（树驱动路）
   H4 弹体结构排除（attacker 恒 null + 绑施法者旧判例锚定）→ H5 双向性（敌人命中玩家
   →敌人自慢、玩家满速）→ H6 连段不破（慢放中三连段完整衔接、逐拳咬合 55 伤）。
   S1 全程无 `tree.paused`（R1 归零行为锁）。
+- P 流（场景，T2 弹反改道）：P0 弹反成立（免伤/反顶削池——缝语义原样）→
+  P1 全程世界零暂停 → P2a 攻击者 ≤2 拍冻到 0 → P2b 观测鲜活（弹前皮肤签名
+  推进）+ P2b' 罚站实证（冻窗内 (animation@frame) 尾 3 拍恒等；**动画位置通道
+  判例**：本构建 AnimationTree 无 Mixer/SMPlayback 位置 getter、节点参数盲猜
+  全 null，T2 探针三问齐——正解=皮肤 AnimatedSprite2D 签名）→ P2c 守方倍速
+  不降 → P2d 窗口毕恢复（时长=守方 parry_stun_frames）→ P3 冻窗内守方 raw D
+  移动生效（奖励窗行为锁）→ P4 冻毕受击动画完整收口（信标链不死）→
+  P5 定格帧数读守方数值域（6→12 窗跟长，杀魔数）。
 - 已知观察（非生产缺陷）：极端测试档 `pct=1.0` 把窗口放大到整个攻击动画，攻击盒在
   受击者身上多拖数帧可致同拳**二段进窗**（block_parry"首血降锁缝帧"同族纪律：伤害锁
   首发、窗口从末次命中起算）。生产默认 `pct=0.15` 窗口≈1 帧，无此放大。

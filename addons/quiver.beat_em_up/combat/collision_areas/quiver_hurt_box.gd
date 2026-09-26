@@ -17,14 +17,13 @@ const FACTION_PREFIX = "area2d:"
 ## ── 判定缝规则常量（S2-B3 spec §4 第 2 档：单一出处，禁散落魔数）────────────
 ## 弹反顶硬击打值 K：打进攻击者自己的抗击打池，走统一弹退模型（无新机制）。
 const _PARRY_STUN_KNOCK := 60.0
-## 弹反加强定格帧数。**必须自发拍**：免伤路不经 apply_damage_value，现行唯一
-## 生产定格调用发生在扣血处——遗忘本拍=静默无反馈假绿族（spec §10 警条）。
-## 时基实锤（2026-09-23 Step0 探针，tools/tmp_b3probe 已毁尸，逐字记录见
-## task-4-report）：定格期间 Engine.get_physics_frames() **照走**（定格 12 帧
-## → 帧号 +12）、physics_frame 信号照响，Area 回调被暂停门扣到恢复帧才发。
-## ⇒ 弹反窗按全局物理帧计，在途定格会蚕食窗口——Block 态 enter 写
-## block_started_frame（按下瞬间读数），蚕食属规则本意（spec §10 帧计数定案）。
-const _PARRY_FREEZE_FRAMES := 6
+## （B4.7 R2 勘误史）旧 _PARRY_FREEZE_FRAMES=6 全局定格常量已删除：
+## 免伤路"必须自发拍"的警条依然成立（B3 spec §10），但拍型从"定格全世界"
+## 改道为"只冻被弹反的攻击者"（用户澄清原意，2026-09-26）——帧数升格为
+## 防守方数值域 parry_stun_frames，通道 HitFreeze.apply_character_slow
+## （协程+代数令牌，判例链见 PLUGIN_ARCHITECTURE §17）。时基判例（Step0
+## 探针：定格/慢放期间物理帧号照走、physics_frame 照响）继续有效，且
+## 单角色定格**不再暂停世界**，弹反窗蚕食问题随全局暂停的退役而消解。
 ## 白闪双档峰值（混白 amount 瞬顶峰值→持帧→缓落；弹反=防守强档+攻击同拍弱档，
 ## 格挡=防守弱档。spec §2.4 时长/色单一出处；2026-09-24 LDR 修订：
 ## 旧 over-bright modulate 峰值色被钳制不可见，改合成器混白量）
@@ -33,7 +32,8 @@ const _FLASH_PEAK_WEAK := 0.55
 ## 白闪时序=瞬白峰形制（命中帧直顶峰值→HOLD 持帧"咬"住→SINE/EASE_OUT 缓落；
 ## 2026-09-24 F5 手感版：旧 0.12/0.07 线性升降被用户判"短且生硬"；同日三调
 ## "再长一点"）：弹反 hold≈4.8 帧+落 0.30s，格挡 hold≈2.4 帧+落 0.18s。
-## 时长单一出处；上限受契约"≤30 帧摘净"哨兵约束（弹反≈23 帧+定格冻存余量）。
+## 时长单一出处；上限受契约"≤30/≤40 帧摘净"哨兵约束（弹反≈23 帧；B4.7 R2
+## 起弹反不再冻结世界，白闪 tween 全程照跑，"定格冻存余量"一栏随全局暂停退役）。
 const _FLASH_STRONG_HOLD := 0.08
 const _FLASH_STRONG_FADE := 0.30
 const _FLASH_WEAK_HOLD := 0.04
@@ -214,10 +214,20 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		var delta := Engine.get_physics_frames() - defender_attrs.block_started_frame
 		if delta < defender_attrs.parry_window_frames:
 			# —— 弹反支：免伤免退，防守方池一分不扣、不进受击态 ——
-			# 定格自发（见 _PARRY_FREEZE_FRAMES 警条注释）；双方白闪同拍
-			# （防守强档+攻击弱档=spec §2.4 三件套之视觉两件，第三件=攻击者
-			# 自己的受击动画，由下面的反顶派发）。伤害与击退派发均不发生。
-			HitFreeze.start(_PARRY_FREEZE_FRAMES)
+			# 定格自发拍（免伤路不经 apply_damage_value，B3 spec §10 警条）；
+			# 双方白闪同拍（防守强档+攻击弱档=spec §2.4 三件套之视觉两件，
+			# 第三件=攻击者自己的受击动画，由下面的反顶派发）。伤害与击退
+			# 派发均不发生。
+			# —— 弹反支改道（B4.7 R2"敌罚站我自由"）：定格只罚被弹反的
+			# 攻击者（防守方数值域 parry_stun_frames 折算毫秒，rate=0 即定格），
+			# 玩家全程可动=奖励窗口成立；白闪双档与顶退派发照旧。
+			# attacker 恒 null 的弹体形制跳定格、仅保留其余反馈（防御性兜底：
+			# 弹体被弹反=无罚站，近战收集链见 QuiverHitBox.attacker 注释）。
+			if hit_box.attacker != null:
+				HitFreeze.apply_character_slow(
+						hit_box.attacker, 0.0,
+						defender_attrs.parry_stun_frames * 1000.0
+						/ Engine.get_physics_ticks_per_second())
 			_flash(defender_attrs, true)
 			_flash(atk_attrs, false)
 			if atk_attrs != null:

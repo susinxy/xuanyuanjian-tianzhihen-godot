@@ -16,11 +16,23 @@ extends Node
 ## 敌人命中玩家→敌人被慢、玩家全程满速（H5）；连段不破——首拳触发慢放
 ## 后三连段仍完整衔接（H6，raw J 走 OS 链×输入窗，spec §2.3 行为锁）。
 ##
-## 观测通道判例（T0/T1 探针实锤，4.7.1，§17.1）：AnimTree 驱动下
+## P 流·弹反改道（T2 R2"敌罚站我自由"）：弹反成立缝帧起——攻击者动画倍速
+## ≤2 拍内掉 0（P2a）、其皮肤帧号在冻结窗内逐拍恒等且弹前推进=观测鲜活
+## （P2b，位置通道判例见下）、防守方全程满速（P2c）、窗口（=防守方
+## parry_stun_frames 折算，读守方数值域非魔数=P5 腿）毕恢复 1.0（P2d）、
+## 冻结窗内守方移动输入生效（P3，raw D 注入 OS 链）、冻毕受击动画完整收口
+## （P4，信标链不死=spec §5 风险 2 的锁）、全程世界零暂停（P1）。
+##
+## 观测通道判例（T0/T1/T2 探针实锤，4.7.1，§17.1）：AnimTree 驱动下
 ## player.get_current_animation()/position 族恒空/报错，动画长度经
 ## playback 当前状态→states/<名>/node→blend_point_N 就近点→"库/名"全名
 ## 查库；倍速观测=QuiverCharacter.anim_time_scale() 门面→皮肤路由
-## （树驱动读 AnimationNodeTimeScale 参数、直驱读 player.speed_scale）。
+## （树驱动读 AnimationNodeTimeScale 参数、直驱读 player.speed_scale）；
+## **动画位置**本构建无 Mixer/SMPlayback getter（T2 探针1/2：
+## get_current_animation_position / get_current_playback_position /
+## get_parameter_list 全不存在，节点参数盲猜族全 null），正解=皮肤
+## AnimatedSprite2D 的 (animation, frame) 签名（T2 探针3：冻结恒等/推进
+## 可见，两拍采样的判别力由弹前推进腿现场自证）。
 ##
 ## 测试主权法（B2.5）：只读消费 test_actor（peek() 三态守卫，缺席打处方红
 ## 绝不代 runner 创建）。落盘卫生（B4.5）：_ready 首行重定向套内 scratch，
@@ -28,6 +40,13 @@ extends Node
 ## **且必须先于入树**（本套 H5 零命中悬案病根：入树后换账=动作状态缓存原
 ## tres、受击盒拿 dup，ground_level 记账分家致车道中心漂移）。
 ## 时序断言全部从"测试内实测动画长×档案 pct"折算，不硬编码 ms。
+##
+## 裸舞台沉降判例（T2 探针 d/e 实锤，P 流装配纪律）：角色在空 Node2D 舞台
+## 入场后**不会停在摆放位**——先悬停数拍再以 ~400px/拍初速下落、匀减速
+## ~10px/拍²，历 ~45 拍才钉死在 y≈8174 的隐形地板，且**各角色起落相位随机**
+## （26 拍时对位可差 2000px ⇒ 中途出拳必挥空）。H 流幸存纯侥幸：双方同拍
+## 入场的平行下落保住相对偏移+每发 `_place` 重锚。P 流显式补防：同拍摆位 →
+## `_settle()` 逐拍位移稳定判据等沉降毕 → 每发出拳前 `_place` 重锚。
 ##
 ## 已知观察（极端测试档的副产物，非生产缺陷）：TEST_PCT=1.0 把慢放窗口放大
 ## 到整个攻击动画，攻击盒在受击者身上多拖数帧，受击晃动可致同一拳二段进窗
@@ -54,7 +73,15 @@ const TEST_FACTOR_STRETCH := 0.05
 var _fails := 0
 var _finished_s := false
 var _finished_h := false
+var _finished_p := false
 var _paused_seen := false
+## P 流专属世界暂停见证（与 H 流 S1 分旗——S1 在 P 流之前已结算）
+var _paused_seen_p := false
+
+## 双方抗击池上限（test_actor 数值域显式 600，block_parry POOL0 同源）：
+## P 流"弹反成立缝"以攻击方反顶削池（600→540）为判据——该信号与时间机制
+## 正交，R8 破坏腿（摘定格）下依然可测=探测位不与被测面同沉
+const POOL0 := 600.0
 
 
 func _ready() -> void:
@@ -64,6 +91,8 @@ func _ready() -> void:
 	_check(_finished_s, "S 流全序列执行完成（协程静默中断防线）")
 	await _flow_melee()
 	_check(_finished_h, "H 流全序列执行完成（协程静默中断防线）")
+	await _flow_parry()
+	_check(_finished_p, "P 流全序列执行完成（协程静默中断防线）")
 	get_node_or_null(^"/root/SaveSystem").delete_save()   # 套尾删净 scratch 不过夜
 	print("════════ hit-feedback-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -514,4 +543,215 @@ func _clean() -> void:
 	await _wait_state(_vendor, "Ground/Move/Idle", 900)
 	_vendor.attributes.reset()
 	_actor.attributes.refill_resistance()
+	await _frames(2)
+
+
+# ═══════════════ P 流：弹反改道"敌罚站我自由"（T2 R2，B4.7） ═══════════════
+# D=防守方（test_actor 玩家档，行为开，全程可动）；P=提线攻击方
+# （H5 同款手术：行为总开关关 + 战斗盒摘 player 换挂 hfp_puppet，居西面东）。
+# 弹反走判定缝内部捷径（直写 is_blocking/block_started_frame + hold 重写
+# delta≡1，block_parry j=0 约定）——姿态旗的生产写方归 block_parry Q 流，
+# 本流命题=定格拍改道后的时间面三件套（攻击者冻、防守方活、世界不暂停）。
+
+var _stage_p: Node2D
+var _def: QuiverCharacter
+var _atk2: QuiverCharacter
+
+
+## 皮肤精灵解析（位置观测，block_parry 同款：角色子树第一个 AnimatedSprite2D）
+func _skin_sprite(ch: QuiverCharacter) -> AnimatedSprite2D:
+	var sprites := ch.find_children("*", "AnimatedSprite2D", true, false)
+	return sprites[0] if not sprites.is_empty() else null
+
+
+func _flow_parry() -> void:
+	if not _guard_actor():
+		_finished_p = true
+		return
+	_stage_p = Node2D.new()
+	add_child(_stage_p)
+	_def = (load(ACTOR_SCENE) as PackedScene).instantiate()
+	_atk2 = (load(ACTOR_SCENE) as PackedScene).instantiate()
+	# dup 先于入树（H 流病根判例）
+	_own_attrs(_def)
+	_own_attrs(_atk2)
+	_stage_p.add_child(_def)
+	_stage_p.add_child(_atk2)
+	# ⚠ 裸舞台沉降判例（T2 探针 d/e 实锤）：角色入场后并不停在摆放位——
+	# 空舞台上有一段数十拍的高初速异步"落位"（各角色起落相位不一，26 拍时
+	# 对位可差 2000px ⇒ 拳在中途挥空）。装配纪律=**同拍摆位 + 逐拍位移
+	# 稳定判据等沉降毕 + 每发出拳前 _place 重锚**。
+	_def.global_position = Vector2(500, 400)
+	_atk2.global_position = Vector2(420, 370)
+	var settled := await _settle(240)
+	(_atk2.behavior as QuiverBehavior).active = false
+	for node in _atk2.find_children("*", "Area2D", true, false):
+		var box = node
+		if box is QuiverHitBox:
+			box.remove_from_group(&"area2d:player")
+			box.add_faction_group(&"area2d:hfp_puppet")
+		elif box is QuiverHurtBox:
+			box.add_faction_group(&"area2d:hfp_puppet")
+	await _frames(6)
+	var ok0: bool = await _wait_state(_def, "Ground/Move/Idle", 120)
+	_check(ok0 and settled,
+			"P0a 防守/提线双入场就绪且落位沉降毕（沉降超时=对位漂移，全套时序作废）")
+	await _leg_parry_freeze()
+	await _leg_parry_stun_config()
+	await _p_clean()
+	_stage_p.queue_free()
+	_finished_p = true
+
+
+## 等两名角色逐拍位移归稳（|Δ|<0.05 连续两拍）；超时返回 false
+func _settle(cap: int) -> bool:
+	var pa := Vector2(INF, INF)
+	var pb := Vector2(INF, INF)
+	for _i in cap:
+		await get_tree().physics_frame
+		var na: Vector2 = _def.global_position
+		var nb: Vector2 = _atk2.global_position
+		if (na - pa).length() < 0.05 and (nb - pb).length() < 0.05:
+			return true
+		pa = na
+		pb = nb
+	return false
+
+
+## 主腿：弹反成立→攻击者 ≤2 拍冻、冻窗内皮肤签名恒等（罚站实证）、防守方
+## 满速可动（raw D 走 OS 链位移生效）、世界零暂停、窗口毕恢复、冻毕受击
+## 动画完整收口（信标链不死，spec §5 风险 2 的锁）。
+func _leg_parry_freeze() -> void:
+	var sp := _skin_sprite(_atk2)
+	if sp == null:
+		_check(false, "P0b 攻击方皮肤精灵可得（位置观测前置，缺席则本腿无证人）")
+		return
+	_def.attributes.is_blocking = true
+	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	var d_hp0: float = _def.attributes.health_current
+	var a_hp0: float = _atk2.attributes.health_current
+	# 出拳前重锚（沉降纪律的 H 流 _place 同款）：双方已落位，6 拍让新对位入物理快照
+	await _place(_atk2, _def, Vector2(-80, -30))
+	_attack(_atk2, Vector2.RIGHT)
+	var f_seam := -1
+	var f_scale0 := -1
+	var f_restore := -1
+	var alive_pre := 0
+	var last_sig := ""
+	var frozen_sigs: Array = []
+	var d_pos0 := Vector2.ZERO
+	var dx_max := 0.0
+	var a_scale_min := 1.0
+	var d_scale_min := 1.0
+	var a_pool_min := POOL0
+	for _i in 120:
+		await get_tree().physics_frame
+		_watch_pause()
+		if get_tree().paused:
+			_paused_seen_p = true
+		var s_atk := _atk2.anim_time_scale()
+		a_scale_min = minf(a_scale_min, s_atk)
+		d_scale_min = minf(d_scale_min, _def.anim_time_scale())
+		a_pool_min = minf(a_pool_min, _atk2.attributes.resistance_current)
+		var sig := "%s@%d" % [sp.animation, sp.frame]
+		if f_seam < 0:
+			# hold 重写（block_parry j=0 约定）：命中落哪帧都 delta≡1
+			_def.attributes.block_started_frame = Engine.get_physics_frames()
+			if last_sig != "" and sig != last_sig:
+				alive_pre += 1
+			if _atk2.attributes.resistance_current < POOL0 - 0.5:
+				f_seam = Engine.get_physics_frames()
+				d_pos0 = _def.global_position
+				_press_key(KEY_D, true)  # P3：弹反成立即放防守方走路
+		elif s_atk <= 0.001 and str(_atk2.state_machine.state_name).contains("Hurt"):
+			# 冻窗采样（Hurt 落态后的签名，flip 至多污染头部一两拍，
+			# 判据取尾部连续=两拍采样冻结）
+			frozen_sigs.append(sig)
+		if f_seam >= 0 and f_scale0 < 0 and s_atk <= 0.001:
+			f_scale0 = Engine.get_physics_frames()
+		if f_seam >= 0 and f_restore < 0 and is_equal_approx(s_atk, 1.0):
+			f_restore = Engine.get_physics_frames()
+			_press_key(KEY_D, false)
+		if f_seam >= 0:
+			dx_max = maxf(dx_max, _def.global_position.x - d_pos0.x)
+		last_sig = sig
+		if f_seam >= 0 and f_restore >= 0 and Engine.get_physics_frames() - f_restore >= 3:
+			break
+	_press_key(KEY_D, false)  # 无条件净键（红世界 f_restore 可能永缺，防 D 漏键串腿）
+	var stun := _def.attributes.parry_stun_frames
+	_check(_def.attributes.health_current == d_hp0 and a_pool_min <= POOL0 - 59.0
+			and _atk2.attributes.health_current == a_hp0,
+			"P0 弹反成立（D 免伤、P 反顶削池最低 %.0f、P 血不动——缝语义原样）" % a_pool_min)
+	_check(not _paused_seen_p,
+			"P1 弹反成功起全程世界零暂停（tree.paused 恒 false，敌罚站我自由）")
+	_check(f_seam >= 0 and f_scale0 >= 0 and f_scale0 - f_seam <= 2,
+			"P2a 攻击者动画倍速 ≤2 拍内掉到 0（缝=%s 冻见=%s，最低读 %.2f）"
+			% [f_seam, f_scale0, a_scale_min])
+	_check(alive_pre >= 1,
+			"P2b 观测鲜活：弹前（缝之前）攻击者皮肤签名推进 %d 次（通道非死读数）" % alive_pre)
+	_check(frozen_sigs.size() >= 3 and _tail_equal(frozen_sigs, 3),
+			"P2b' 罚站实证：冻窗内攻击者 (动画@帧) 采样 %d 拍且尾 3 拍恒等（%s）"
+			% [frozen_sigs.size(), frozen_sigs[2] if frozen_sigs.size() >= 3 else "<采样不足>"])
+	_check(d_scale_min >= 0.999,
+			"P2c 防守方动画倍速全程不降（最低 %.2f，罚站不罚守）" % d_scale_min)
+	_check(f_restore > 0 and f_restore - f_seam >= stun - 2 and f_restore - f_seam <= stun + 6,
+			"P2d 窗口毕攻击者恢复 1.0（守方数值域 %d 帧，实测 %d 帧，缝=%s 恢=%s）"
+			% [stun, (f_restore - f_seam) if f_restore > 0 else -1, f_seam, f_restore])
+	_check(dx_max >= 8.0,
+			"P3 冻窗内防守方移动输入生效（raw D 走 OS 链，窗前位移 %.0fpx——全局定格世界必钉零）"
+			% dx_max)
+	var ok4: bool = await _wait_state(_atk2, "Ground/Move/Idle", 240)
+	_check(ok4, "P4 信标链不死：冻毕攻击者受击动画完整收口 Hurt→Idle（spec §5 风险 2 锁）")
+
+
+## P5 数值域读取锁：防守方 parry_stun_frames 6→12，冻结窗必须同步变长
+## （魔数 6 残留世界在第 ~6 拍就恢复——本腿抓"没读守方字段"）
+func _leg_parry_stun_config() -> void:
+	_def.attributes.parry_stun_frames = 12
+	_def.attributes.is_blocking = true
+	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	_atk2.attributes.refill_resistance()
+	await _place(_atk2, _def, Vector2(-80, -30))
+	_attack(_atk2, Vector2.RIGHT)
+	var f_seam := -1
+	var f_restore := -1
+	for _i in 160:
+		await get_tree().physics_frame
+		_watch_pause()
+		if get_tree().paused:
+			_paused_seen_p = true
+		var s_atk := _atk2.anim_time_scale()
+		if f_seam < 0:
+			_def.attributes.block_started_frame = Engine.get_physics_frames()
+			if _atk2.attributes.resistance_current < POOL0 - 0.5:
+				f_seam = Engine.get_physics_frames()
+		elif f_restore < 0 and is_equal_approx(s_atk, 1.0):
+			f_restore = Engine.get_physics_frames()
+		if f_seam >= 0 and f_restore >= 0:
+			break
+	var span := (f_restore - f_seam) if (f_seam >= 0 and f_restore >= 0) else -1
+	_check(f_seam >= 0 and span >= 9 and span <= 24,
+			"P5 定格时长读防守方数值域（parry_stun_frames=12 实测冻 %d 拍≥9；魔数 6 世界 ≤8）"
+			% span)
+	_def.attributes.parry_stun_frames = 6
+
+
+## 尾部 k 拍恒等（flip 污染只可能发生在头部，尾部连续=冻结稳定段）
+func _tail_equal(arr: Array, k: int) -> bool:
+	if arr.size() < k:
+		return false
+	var tail = arr[arr.size() - k]
+	for i in range(arr.size() - k, arr.size()):
+		if arr[i] != tail:
+			return false
+	return true
+
+
+## 腿间卫生（P 流自有版）：双方回待机、旗清零、池补满、清账
+func _p_clean() -> void:
+	_def.attributes.is_blocking = false
+	await _wait_state(_atk2, "Ground/Move/Idle", 600)
+	await _wait_state(_def, "Ground/Move/Idle", 600)
+	_atk2.attributes.refill_resistance()
+	_def.attributes.reset()
 	await _frames(2)

@@ -35,6 +35,11 @@ extends Node
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
 ## 照走（定格 12 帧 → 帧号 +12），但 Area 回调被暂停门扣到恢复帧才发；
 ## 无暂停期"观察循环见旗帧 == 回调帧"（j=0）、碰撞窗使能后恰好 +1 帧送达。
+## ⚠ B4.7 R2 勘误（2026-09-26）：弹反定格已从"定格全世界"改道"只冻被弹反
+## 的攻击者"（tree.paused 恒 false，攻击者 anim_time_scale()=0），上述暂停期
+## 判例降为历史（普攻流自 R1 起本就不停世界）；_drain_freeze() 保留=若
+## freeze_frames 复活仍先排空，现行恒秒回。P3e/P3e2 断言已改判单角色形制，
+## 行为级三锁（罚站实证/防守可动/信标链不死）住 hit_feedback_contract P 流。
 ## ⇒ 本流时间约定：①每条时序腿起手先 _drain_freeze()（"定格前起跳"）；
 ## ②校准帧距 w_cal = P1 实测（出手调用帧→命中观察帧），预置
 ##   block_started_frame = 出手帧 + w_cal − 目标delta 使判定缝读到的 delta 精确
@@ -171,6 +176,9 @@ func _reset_target(vendor: QuiverCharacter) -> void:
 
 ## 排空在途命中定格（探针 B1：定格期帧号照走 ⇒ delta 会被蚕食）——
 ## spec"定格前起跳"的落地：每条时序腿的 started 预置与出手必须在无暂停窗口内。
+## B4.7 R2 后弹反/普攻/格挡流均不再停世界（freeze_frames=0 + 单角色定格），
+## 本函数退化为恒秒过的保险丝（保留=若 freeze_frames 复活仍能先排水，
+## 语义不破；删除则未来重开全局定格时须重写，故留）。
 func _drain_freeze() -> void:
 	for _i in 60:
 		if not get_tree().paused:
@@ -203,6 +211,10 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
 		"v_hp0": 0.0, "v_hp_drop": 0.0, "v_pool_min": POOL0, "v_hurt": false,
 		"a_hp0": 0.0, "a_hp_drop": 0.0, "a_pool_min": POOL0, "a_hurt": false,
 		"a_knockout": false, "paused_seen": false,
+		# B4.7 R2 改道采集：弹反定格改判"攻击者被冻"——全程最低动画倍速
+		# （门面 anim_time_scale()，树驱动皮肤=AnimationNodeTimeScale 参数）；
+		# 防守方应全程满速（奖励窗口），世界应零暂停
+		"a_scale_min": 1.0, "v_scale_min": 1.0,
 		# 白闪可见性腿（LDR 判例 2026-09-24）：overlay 挂/摘首末帧 + 弹反缝帧
 		# （攻击方池首降帧——免伤路 V 血不降，f_hit 恒 -1，须另立 seam）
 		"v_ov_first": -1, "v_ov_last": -1,
@@ -222,6 +234,8 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter, hold := false,
 			vendor.attributes.block_started_frame = Engine.get_physics_frames()
 		if get_tree().paused:
 			r.paused_seen = true
+		r.a_scale_min = minf(r.a_scale_min, actor.anim_time_scale())
+		r.v_scale_min = minf(r.v_scale_min, vendor.anim_time_scale())
 		# 首血降即锁缝帧并停止累加：万一攻击动画存在二次 entered（多段盒窗），
 		# 差值只忠实于第一缝——单发单结算才是本契约的命题
 		if r.f_hit < 0 and vendor.attributes.health_current < r.v_hp0:
@@ -326,11 +340,22 @@ func _flow_parry() -> void:
 	_check(r3.v_pool_min >= POOL0, "P3b 弹反 V 池一分不扣（%.0f）" % r3.v_pool_min)
 	_check(r3.a_pool_min == POOL0 - 60.0, "P3c 弹反反顶：A 池 600→540（实际 %.0f）" % r3.a_pool_min)
 	_check(r3.a_hurt, "P3d 弹反反顶：A 被拽进自己的 Ground/Hurt（顶回去=播自己的挨打姿势）")
-	_check(r3.paused_seen, "P3e 弹反支自发加强定格可观测（免伤路不经 apply_damage 的自发拍，探针 B1 佐证）")
+	# B4.7 R2 改道判停（用户裁决"敌罚站我自由"）：旧判据 paused_seen=弹反
+	# 定格全世界（含防守方，奖励不成立）已废止；新判据三件套——攻击者动画
+	# 时钟掉 0（罚站）、防守方满速（奖励窗）、世界零暂停。行为级深锁
+	# （两拍冻结采样/防守可动/信标链不死）住 hit_feedback_contract P 流。
+	_check(r3.a_scale_min <= 0.001,
+			"P3e 弹反拍=只冻攻击者（其动画倍速全程最低 %.2f，B4.7 R2 单角色）"
+			% r3.a_scale_min)
+	_check(r3.v_scale_min >= 0.999,
+			"P3e2 弹反全程防守方满速（最低 %.2f，罚站不罚守方）" % r3.v_scale_min)
+	_check(not r3.paused_seen,
+			"P3e3 弹反全程世界零暂停（tree.paused 恒 false；若有人重开全局定格本腿响红）")
 	# 弹反三件套之视觉两件（spec §2.4 修订形制：闪白 material 挂/摘）；缝帧=攻击方池
 	# 首降帧（免伤路 V 血不降，f_hit 恒 -1）。双方同拍挂 ⇒ 共用 seam。
-	# 摘净窗 ≤30→≤40（同日三调时长后强闪 ≈23 帧+定格冻存余量；本腿语义=残留
-	# 哨兵——若有残留末见帧会冲到 240 窗尾，窗放宽不钝化判据）。
+	# 摘净窗 ≤30→≤40（同日三调时长后强闪 ≈23 帧；旧世界再+全局定格冻存
+	# 余量，B4.7 R2 后定格不再停世界，余量项归零、窗留 40 不收紧——本腿
+	# 语义=残留哨兵，若有残留末见帧会冲到 240 窗尾，窗宽不钝化判据）。
 	_check(r3.a_pool_seam >= 0 and r3.v_ov_first >= 0 and r3.v_ov_first - r3.a_pool_seam <= 2,
 			"P3j 弹反：防守方强白闪 ≤2 帧内挂上（seam=%s 首见=%s）"
 			% [r3.a_pool_seam, r3.v_ov_first])
