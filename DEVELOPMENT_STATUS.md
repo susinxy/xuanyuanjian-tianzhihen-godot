@@ -282,6 +282,50 @@
     （InteractSpellBook._ready 查账有账则连触发件出生帧 queue_free，与 chest 分道），
     契约 G6a 无账在场负对照+G6b 有账退场双锁（124→128，修前红据 g6_red.log），
     spec §4/F5 单同步改判（commit `ed44d15`，用户复验"验证生效了"）。
+  - **S2-B4.5 存档落盘+读档管线+一本账闭环批 ✅ 已交付（2026-09-26，SDD T0-T4 全过审查门；
+    F5 冷启动五眼单见 `docs/superpowers/plans/2026-09-25-s2-b45-save-persistence-f5.md`，
+    tag `s2-b45-done`）**：范围=**SaveSystem 影子落盘**（autoload "账=事实，档=影子"：
+    recorded/checkpoint_recorded/location_visited 泛信号→帧尾合并 tmp→rename 原子写
+    `user://save_auto.json`，写失败 push_error 不断游戏；`slot_path` 注入口=契约测试
+    卫生总闸）+ **双检查点表合并**（回跳表 GameEvents→GameSave.locations 迁账，
+    随 to_dict 入快照随 from_dict 还魂；GameEvents 降纯总线 40→24 行，reset_session
+    收缩只清传渡=回标题≠清档，清账唯一口 new_profile）+ **读档三通道合一**（标题
+    「继续游戏」原位替换占位钮 enabled=has_save、「开始游戏」覆盖确认框
+    （ConfirmationDialog 运行时构建，confirmed=SessionRules.begin_new_profile
+    清账+删档+清传渡三口一收）、壳端 resume 落位（检查点 scene+段+入口，first-wins
+    消费、坏段响亮回退首段；死亡重跑/暂停回跳/读档共用同一 checkpoint 数据）+
+    通关事实入账 chapters_done 系统户 + **learn_spell 基础类立法**（null 拒/同学科
+    去重只认 spell_id 不认引用/槽满静默知情）。**T4 修复波六件全兑（A1-A6）**：
+    ①manual_id 值维修复——GameSave.`value_of` 值读门洞（record 读侧对偶，缺账 null）
+    +《秘籍》record 带值（键=拾得事件、值=教的学科）+补学值优先回落键（chen/模板/
+    经模板产线之 test_actor 三壳；JSON 回环 StringName→String 双形兼收，判例：
+    String(v) 构造器对 bool/Array=运行时炸一律 str()），契约 G8 十腿（分户键走盘
+    补学通+老式无值账兼容面+value_of 两式），T3 移交"分户键补学断线"案偿；
+    ②A7d 三合取（弹窗显+账未清+盘未删——降解形由 sabotage 红据抓获）；③旗滞留腿
+    两面（标题空场景支 A7j/k 入 stage 套、壳端不命中支 P6a/b 入 spell 套=传渡旗
+    消费/滞留合同完整）；④P3b y 容差 64px 常量化=套内 const（生产无数值，跨文件
+    固化伪生产语义不做）；⑤匿名 def 互同学科语义入 learn_spell 契约注（装配纪律
+    definition 必命名）；⑥槽满静默边界入契约注（真违规双警/资源上限静默）。
+    **设计会三裁决**（2026-09-25 spec §8）：R1 影子触发/R2 双表彻底合并/R3 基础类
+    正式立法，承继 B4 七裁决。**契约扩流不增套（矩阵 24 套=25 跑口径不变）**：
+    spell_save_contract=S/M/G/E/R/D/P/X 八流 **204 断言**（终核跑实数）、
+    stage_contract=**139 断言**（128→137→139 两批生长）。五套落盘 scratch 重定向
+    在册（spell/container/block_parry/interact/stage），D9b 单机自证生产槽零污染。
+    **批末全矩阵 24 套=25 跑 RED=0**（commit 见本批两枚，快照
+    `/tmp/opencode/b45_t4/matrix_final.log`）。**R8 类红档路径集**（/tmp 易失，
+    再造法=派单原文六件逐条反向手术）：G8 腿组先红（分户账值面 true 无学科+补学
+    断线两式+value_of 缺 API 崩红）`/tmp/opencode/b45_t4/red_pre.log`（首轮，
+    附赠 P3b 串扰诊断战果：崩流漏壳=双 Chen 互推 x 漂 0.1px，形制改"干净 FAIL
+    判决位在前、缺 API 崩红压轴"）与 `red_pre2.log`（重排腿组三 FAIL+响亮崩）；
+    A2 sabotage 红（_start_game 弹窗前插 begin_new_profile→A7d 独红其余全绿）
+    `/tmp/opencode/b45_t4/a2_sabotage_red.log`；A3/A4/A5/A6=覆盖腿/常量/注释面
+    无先红（申报）。前批红档在案：T0 `/tmp/opencode/b45_t0/`、T1 `b45_t1/`、
+    T2 `b45_t2/`、T3 `b45_t3/`。**登记项清偿**：R-T3b "learn(null) 假报"已偿
+    可销。**遗留移交**：①继续钮 enabled 仅标题 _ready 评估（中途盘态变化不实时
+    刷新）→F5 眼②纪律注已写；②手动槽/存档元数据 UI→发售打磨批；③learn(def)
+    不校验 def 内容合法性=知情窄口（A6 同区注释申报）；④Syncthing 忽略
+    `test_actor*` 规则仍未配实（本批 destroy 被 `.syncthing.*.tmp` 残骸卡一次，
+    清后重建即愈——处方已入根 AGENTS 判例）。
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）

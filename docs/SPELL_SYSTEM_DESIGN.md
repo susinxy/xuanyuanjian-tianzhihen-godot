@@ -382,13 +382,24 @@ func tick(delta: float) -> void:
         if not slot.is_empty():
             slot.tick(delta)
 
-## 学习法术（找空槽位放入）
+## 学习法术（B4.5-T3 立法 + T4 边界补句；现实现见 spells/_base/spell_manager.gd 契约注）
+## 契约：true=新学会并占首个空槽；false=拒收且既有槽一字不动。
+## 拒收两式均 push_warning：①spell_def 为 null（旧实现 null 落空槽假报 true=已补洞）；
+## ②同学科去重——判据只认 definition.spell_id、不认资源引用（防"duplicate 双引用
+## 幻影"家族镜像误伤）。两个未命名（spell_id==&""）定义互为同学科：装配纪律
+## definition 必命名。槽满 false 无警告=知情保留（真违规双警/资源上限静默）。
+## 账本分工两层双保险互不替代：账本（GameSave.spells_known）管"拾得"幂等，
+## 基础类管"占槽"去重；《秘籍》/补学重复投喂由壳端 seen 去噪消化，基础类报警只留真违规。
+## 分户键补学值维（B4.5-T4）：manual_id 分户时账本键=拾得事件（户名）、值=教的
+## 学科（spell_id）——玩家壳 _ready 补学循环经 GameSave.value_of 读门洞
+## **值优先、回落键**（老式 B4 账值=true 无学科信息→键即科目名，兼容零变）。
 func learn_spell(spell_def: SpellDefinition) -> bool:
+    # null 拒学 + 同学科去重（两警）后：
     for i in _slots.size():
         if _slots[i].is_empty():
             _slots[i].definition = spell_def
             return true
-    return false  # 没有空槽位
+    return false  # 没有空槽位（静默，见上契约句）
 
 ## 遗忘法术（清空槽位）
 func forget_spell(index: int) -> void:

@@ -52,6 +52,10 @@ checkpoint 三字段/chapters_done 户/resume 旗）+ 回跳表彻底合并进�
   不入账、不进 to_dict——一次性意图随场景消费即灭（first-wins 判例沿用）。
 - 菜单回跳行为改判：回跳**不清账**（B4"重演不碰账"延续——旧回跳=整章重载=清账
   的遗产语义随本批寿终）。
+- **定档回写（T4，plan Step1；本批实施实况即此条法律）**：locations 与 checkpoint
+  同族入账、入快照（`to_dict`），并随 `from_dict` 还魂（读端缺键给默认=形状扩展
+  向后兼容）；`resume_pending`/`pending_jump_stage` 属**传渡**，永不入账、不进
+  快照、不落盘（first-wins 消费，清传渡的收口=消费命中或 `new_profile`）。
 
 ## 4. 读档管线（三通道合一）
 
@@ -65,6 +69,9 @@ checkpoint 三字段/chapters_done 户/resume 旗）+ 回跳表彻底合并进�
   消费旗 + `enter_segment(checkpoint.segment, checkpoint.entry)`；
   否则原逻辑 `_order[0]`。死亡重跑/暂停回跳=另两条腿，共用同一 checkpoint 数据。
 - 满状态天然成立：读档走全新场景加载，角色出生即满（裁决 B4-R0b 零实现成本）。
+- 实况补记（T4）：标题壳 `_ready` 的 `reset_session()` **只清传渡**（pending_jump_stage）
+  ——回标题≠清档；连带裁决（T2 Concern-1，controller 认账派单错误）：标题端任何
+  "顺手清账/删档"均被否决——回标题即删档=「继续游戏」永死，违 T1"档随档案"宪法。
 
 ## 5. SpellManager 学习契约（§8 裁决 C：基础类正式立法，非"顺手"）
 
