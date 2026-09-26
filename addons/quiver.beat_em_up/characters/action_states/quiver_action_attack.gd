@@ -104,6 +104,13 @@ func enter(msg: = {}) -> void:
 	# 本类（镜像恒零=旧 Y 语义零扰动）。
 	_attributes.skin_direction = _skin.skin_direction
 	
+	# 罚站封形释放（B4.7 T2 扩权判例的配对写点，封形见
+	# quiver_hurt_box._silence_attacker_hitboxes）：弹反把攻击盒
+	# monitorable 关到"下次攻击照常接管"——本行即接管点：新攻击意图=
+	# 合法重开伤害通道（形状 disabled 由各动画值轨自行回写，不在此管）。
+	for hb in _skin.hitboxes:
+		hb.set_deferred("monitorable", true)
+	
 	_skin.transition_to(_skin_state)
 
 

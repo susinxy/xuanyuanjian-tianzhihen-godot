@@ -2302,8 +2302,25 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   信标链不死（spec §5 风险 2 的锁=P4 腿）；
 - 世界 `tree.paused` 全程恒 false——防守玩家可移动/可出手=奖励窗口成立
   （P1/P3 腿；block_parry P3e/P3e2/P3e3 同步改判，旧"全局 6 帧"判据废止）。
+- **已知观察（T2 扩权裁决：罚站封形，2026-09-26 并入）**：改道后攻击者动画
+  冻结⇒攻击盒 enable 轨（皮肤**值轨**驱动 `AttackNShape:disabled`）停在开窗
+  态且无单发去重——普通攻击方吃反顶落 Hurt 后 attack1 节点出活会被 reset 在
+  ~3 拍内自愈关盒（T3 实测判例），**霸体鼠洞（护甲吞反顶 K 不发信号）形制
+  不自愈**＝真暴露面（守方踏出再踏回吃常规支满伤）。处置=弹反支随定格同拍
+  `_silence_attacker_hitboxes(attacker)`：攻击盒 `:disabled` 是 AnimTree 值轨
+  领地，**冻结的活节点每帧回写开窗态**，一次性形状禁用存活 ≤1 拍（T3 绿世界
+  实伤判例）——故封形主刀=Area2D.`monitorable` 置 false（零轨道盯防零层系统
+  写点，受方看不见该盒=无进窗通道；形状 disabled 一并预关=意图非承重）。
+  解封落点=`QuiverActionAttack.enter` 把全盒 monitorable 置回 true——裁决语
+  "下次攻击照常接管"的实现形（零帧数猜测，令牌延长/劫持一律跟随时间面实况；
+  新动画开窗仍由值轨自行回写）。"受击不位移"基线下正常流零误伤面。
+  锁=契约 P6a-c（护甲形制装配，R8 红档 d）。
+- **已知观察（罚站的提前解除是合法语义）**：同角色后到慢放请求按代数令牌
+  （§17.4）改窗——新请求令 ++、旧罚站协程醒来发现令牌不符**静默让位**，
+  恢复笔归新请求；若新请求窗口更短/倍率更高，罚站即被**提前解除**（P6 红档
+  实测副产品：二次进窗的新慢放劫持令牌致解冻拍 14/14，正是本语义的现场）。
 
-### 17.8 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流 + P 流）
+### 17.8 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流 + P 流 + E/K 流）
 
 - S 流（静态）：freeze_frames 双零（tscn 生效值 + 脚本裸默认）、三字段默认到位、
   reset() 不清命中反馈档。
@@ -2323,9 +2340,61 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
 - 已知观察（非生产缺陷）：极端测试档 `pct=1.0` 把窗口放大到整个攻击动画，攻击盒在
   受击者身上多拖数帧可致同拳**二段进窗**（block_parry"首血降锁缝帧"同族纪律：伤害锁
   首发、窗口从末次命中起算）。生产默认 `pct=0.15` 窗口≈1 帧，无此放大。
+- P6 腿（T2 扩权，护甲鼠洞形制）：见 §17.7 罚站封形条——弹反冻窗≤5 拍全
+  disabled（P6a）→守方挪出挪回零二次扣血（P6b）零 hurt 派发且观察段仍罚站
+  （P6c 反自愈假绿见证）。普通攻击方形制下三腿测不出差异（Hurt reset 自愈），
+  装配必须挂 `has_superarmor`。
+- E 流（T3 R4 特效）：E1 命中→特效节点出生且贴 hit_landed 接触点（<40px，
+  构造恒 0——锁"中点数学没写丢"）→E1c default 风格+z=20 夹层→E2 生命周期毕
+  场景根计数归零（one_shot 自毁）→E3 弹体一视同仁出生→E5a/E5b fire 卡路由
+  与参数经节点属性可证→E4 挥空零出生零回执。
+- K 流（T3 R5 开关）：K1 `toggle()` 公开入口翻旗（直改属性等价——headless
+  判例③：动态 InputMap 注册喂不饱轮询，真 F8 端到端归 F5 感官单）→K1b F8
+  预铺形制源码锁（has_action 短路三连不许被重构吞掉）→K2a/K2b 关闭态零特效
+  但慢放照常（视觉/时间双腿独立的行为证明）。
 - 测试装配判例：所有角色实例 `dup` attributes **必须先于入树**（H5 零命中悬案病根——
   入树后换账会让动作状态缓存原 tres、受击盒拿 dup，`ground_level` 记账分家致车道中心
   漂移）；attack(J) 绑定 `device=16`（raw 注入须对齐绑定设备，device=-1 被
   `is_action_pressed` 拒匹配——探针实锤）。
+- T3 探针新判例（4.7.1）：①headless 场景 runner 下 `_process`/Tween/
+  SceneTreeTimer/Timer **全部照常推进**（40 物理拍配 76 idle 拍实测；
+  2026-09-16 "_process 面板从不出活"旧案系另病，勿再引为禁手）；②本构建
+  `CPUParticles2D.color_ramp` **收裸 Gradient**，CurveTexture/GradientTexture1D
+  编译期拒收——色带必须运行时构造；③动态 `InputMap.add_action`+raw 键直投
+  喂不饱 `is_action_just_pressed` 轮询（探针2 实锤 400 拍未命中）。
 
-**改此机制前先跑 `hit_feedback_contract`（尤其 H1b）+ 读 17.1 三判例。**
+**改此机制前先跑 `hit_feedback_contract`（尤其 H1b、P6）+ 读 17.1 三判例。**
+
+### 17.9 接触点特效与 hit_landed（B4.7 R4/R5）
+
+- **信号**：`Events.hit_landed(point, style, strength, dir)`——判定缝**常规
+  结算支**广播（近战+弹体一视同仁：弹体 attacker 恒 null 是时间腿的结构排除，
+  视觉腿不吃该门）；`point`=攻击盒与受击盒位置中点，`strength`=
+  `knock_strength`（消费者可选），`dir`=(受击盒位−攻击盒位) 归一化（零向量
+  发送端兜底 `Vector2.RIGHT`）。免伤路（格挡/弹反）**不发**——它们自有白闪
+  双档反馈件（判定缝公共义务谱系注记：回执 `on_target_hit` 三分支照发，
+  hit_landed 只随"落地结算"走）。
+- **风格路由字段**：`QuiverAttackData.hit_effect_style: StringName =
+  &"default"`——攻击方声明参数卡名，枚举只做查表路由零数值推导（B4.6
+  `attack_axis_mode` 合法路由旗同族注例）；未配置=default 卡兜底，任何命中
+  都有火花。产线：角色创建器 `DEFAULT_ATTACKS` 表 punch3=`heavy` 并随合成行
+  写盘（面板暂不开放该字段，回改走 tres 手改）；fire_ball 内容卡手改
+  `&"fire"`（SpellCreator 重建档不携带风格行的缺口=已知观察，T4 若补并案）。
+- **消费端**（游戏层 `scripts/effects/`，非插件）：
+  - `hit_fx.gd`——autoload 候选（**本批未登记 project.godot**，名字留给口令
+    窗口的 `[autoload]` 门；无 class_name=SaveSystem 同族形制，消费方走
+    preload/dynamic）：`PRESETS` 注册表按风格名路由→实例化 `hit_spark_fx.gd`
+    挂 `current_scene`（z=20 夹层判例：背景 5/Level 15/前景 25）；`enabled`
+    直翻+`toggle()` 公开入口；F8 判定 `InputMap.has_action(&"hit_fx_toggle")`
+    短路预铺（动作缺席零报错零行为，controller 登记 [input] 后自动通电）；
+    `_ready` 向 DebugDock 注册"命中反馈"拉取页（dock 缺席防御跳过，provider
+    随宿主析构自动失效——debug_text_tab `is_valid` 守卫在案）。
+  - `hit_spark_fx.gd`——两层零美术：CPUParticles2D（无贴图方块粒，one_shot+
+    explosiveness=1.0 一喷，`color_ramp` 运行时构造 Gradient 判例见 §17.8）
+    + Polygon2D 16 顶点程序圆闪光（Tween scale/alpha 0.08s）；生命周期=
+    max(lifetime, 闪光) 的 SceneTreeTimer 尾端 queue_free。观测面：`preset`
+    （卡引用）/`particles`/`flash` 公开，E5 风格路由断言由此供证。
+  - `hit_spark_preset.gd` + `presets/spark_{default,heavy,fire}.tres`——参数卡
+    类与三张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）。
+
+**新增攻击风格=加一张卡 + 注册表一行 + 攻击 tres 改 `hit_effect_style`，零代码。**

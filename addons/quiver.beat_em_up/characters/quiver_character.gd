@@ -294,6 +294,12 @@ func anim_time_scale() -> float:
 func attack_anim_length_ms() -> float:
 	return _skin.current_anim_length_ms() if _skin != null else -1.0
 
+
+## 攻击盒集合只读门面（B4.7 T2 扩权：罚站封形的消费入口）：跨类禁裸戳
+## _skin（§17.2 门面纪律同款）；_ready 收集前返回空数组=安全 no-op。
+func hitboxes() -> Array[QuiverHitBox]:
+	return _hitboxes
+
 ### -----------------------------------------------------------------------------------------------
 
 

@@ -228,6 +228,14 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 						hit_box.attacker, 0.0,
 						defender_attrs.parry_stun_frames * 1000.0
 						/ Engine.get_physics_ticks_per_second())
+				# T2 扩权裁决（B4.7 罚站暴露面，2026-09-26 评审实证 + T3 实现
+				# 判例增强）：改道后攻击者动画冻结⇒攻击盒停在开窗态，守方可动，
+				# 踏出再踏回可二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道
+				# 新辟）。处置=随定格同拍封攻击者攻击盒（monitorable 主刀，形状
+				# 预关为辅——活 blend 会回写 disabled，判例见 helper 文档注释）；
+				# 解封落点=QuiverActionAttack.enter（"下次攻击照常接管"的实现形）；
+				# "受击不位移"基线下正常流零误伤面。
+				_silence_attacker_hitboxes(hit_box.attacker)
 			_flash(defender_attrs, true)
 			_flash(atk_attrs, false)
 			if atk_attrs != null:
@@ -276,6 +284,17 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 			HitFreeze.apply_character_slow(
 					hit_box.attacker, atk_attrs.hit_slow_factor,
 					anim_ms * atk_attrs.hit_slow_anim_pct)
+		# —— 接触点特效信号（B4.7 R4）：近战+弹体一视同仁（弹体 attacker 恒
+		# null 但照常广播——视觉腿不吃 attacker 门）；格挡/弹反免伤路不发，
+		# 它们自有白闪反馈件。dir 零向量兜底=两点重合的退化几何。
+		var spark_dir := (global_position - hit_box.global_position).normalized()
+		if spark_dir == Vector2.ZERO:
+			spark_dir = Vector2.RIGHT
+		Events.hit_landed.emit(
+				(hit_box.global_position + global_position) * 0.5,
+				hit_box.attack_data.hit_effect_style,
+				hit_box.attack_data.knock_strength,
+				spark_dir)
 
 	# 命中回执：走攻击盒自带的注入式回调（QuiverHitBox.on_target_hit 注释含
 	# 完整决策史）。旧实现 `hit_box.owner.has_method("on_hit")` 反射已废除：
@@ -284,6 +303,26 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 	# 判定缝公共义务（spec §2.3.4）：三分支一律照常送达——绕过=穿体飞到判例同族。
 	if hit_box.on_target_hit.is_valid():
 		hit_box.on_target_hit.call(self)
+
+
+## 罚站同拍攻击盒封形（B4.7 T2 扩权裁决，T3 实现判例增强）：攻击盒的
+## `:disabled` 由皮肤 AnimTree **值轨 blend 输出**驱动——冻结的 attack 节点
+## 仍"激活且零速"，每帧照常回写开窗态，一次性 set_deferred(形状, disabled)
+## 会被活 blend 淹没、存活 ≤1 拍（P6 绿世界实伤判例，2026-09-27 定罪）。
+## 故封形主刀=Area2D.`monitorable`：零动画轨道盯这扇门、角色层零写点，
+## 受方 monitoring 看不见该盒=无进窗通道；形状 disabled 一并预关（意图保留，
+## 非承重）。解封=QuiverActionAttack.enter（"下次攻击照常接管"的落点，
+## 零帧数猜测，令牌延长/劫持一律跟随时间面实况）。封释两处同文件族互注。
+static func _silence_attacker_hitboxes(attacker: QuiverCharacter) -> void:
+	if attacker == null or not is_instance_valid(attacker):
+		return
+	for hb in attacker.hitboxes():
+		if hb == null or not is_instance_valid(hb):
+			continue
+		hb.set_deferred("monitorable", false)
+		for shape in hb.get_children():
+			if shape is CollisionShape2D:
+				shape.set_deferred("disabled", true)
 
 
 ## 白闪合成器着色器（惰性构建一次全体复用；脚本热重载丢 static 后下次

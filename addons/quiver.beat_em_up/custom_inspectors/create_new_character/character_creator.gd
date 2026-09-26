@@ -51,12 +51,14 @@ const DEFAULT_STATS := {
 }
 
 ## 招式槽表（文件名固定，与皮肤场景 ext_resource 引用对齐；
-## 默认值=旧 chen 快照演示值的等值搬运）。
+## 默认值=旧 chen 快照演示值的等值搬运；hit_effect_style=B4.7 R4 特效风格
+## 路由旗：punch3 重击吃 heavy 卡，缺省=与代码默认同值的 default，新角色
+## 出生即带、与 chen 现状对齐——面板暂不开放该字段，改风格走 tres 手改）。
 const DEFAULT_ATTACKS := [
-	{"file": "punch1", "attack_damage": 10.0, "hurt_type": 1, "knock_strength": 60.0, "launch_angle": 15.0},
-	{"file": "punch2", "attack_damage": 15.0, "hurt_type": 1, "knock_strength": 60.0, "launch_angle": 30.0},
-	{"file": "punch3", "attack_damage": 30.0, "hurt_type": 0, "knock_strength": 1200.0, "launch_angle": 30.0},
-	{"file": "air_kick", "attack_damage": 20.0, "hurt_type": 1, "knock_strength": 1200.0, "launch_angle": 45.0},
+	{"file": "punch1", "attack_damage": 10.0, "hurt_type": 1, "knock_strength": 60.0, "launch_angle": 15.0, "hit_effect_style": "default"},
+	{"file": "punch2", "attack_damage": 15.0, "hurt_type": 1, "knock_strength": 60.0, "launch_angle": 30.0, "hit_effect_style": "default"},
+	{"file": "punch3", "attack_damage": 30.0, "hurt_type": 0, "knock_strength": 1200.0, "launch_angle": 30.0, "hit_effect_style": "heavy"},
+	{"file": "air_kick", "attack_damage": 20.0, "hurt_type": 1, "knock_strength": 1200.0, "launch_angle": 45.0, "hit_effect_style": "default"},
 ]
 
 # 不随模板复制的触发器件
@@ -193,7 +195,8 @@ func _synthesize_attacks(target_dir: String, attacks: Array) -> bool:
 				+ "attack_damage = %s\n" % _num(given.get("attack_damage", base.attack_damage)) \
 				+ "hurt_type = %d\n" % int(given.get("hurt_type", base.hurt_type)) \
 				+ "knock_strength = %s\n" % _num(given.get("knock_strength", base.knock_strength)) \
-				+ "launch_angle = %s\n" % _num(given.get("launch_angle", base.launch_angle))
+				+ "launch_angle = %s\n" % _num(given.get("launch_angle", base.launch_angle)) \
+				+ "hit_effect_style = &\"%s\"\n" % String(given.get("hit_effect_style", base.hit_effect_style))
 		if not _write_text(dir.path_join("%s_attack_data.tres" % base.file), text,
 				"招式 %s 合成" % base.file):
 			return false

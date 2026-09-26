@@ -1,6 +1,6 @@
 extends Node
 
-## S2-B4.7 命中反馈契约（T1 首版：S 流静态 + H 流慢放）。
+## S2-B4.7 命中反馈契约（T1 首版 S/H 流 → T2 并 P 流 → T3 并 E/K 流 + P6 腿）。
 ##
 ## S 流·定格退役（R1）：freeze_frames 双零（tscn 生效值+脚本默认）、三字段
 ## 数值域默认到位且 reset() 不清（档案配置非运行时态）、普通命中全程
@@ -41,12 +41,33 @@ extends Node
 ## tres、受击盒拿 dup，ground_level 记账分家致车道中心漂移）。
 ## 时序断言全部从"测试内实测动画长×档案 pct"折算，不硬编码 ms。
 ##
-## 裸舞台沉降判例（T2 探针 d/e 实锤，P 流装配纪律）：角色在空 Node2D 舞台
-## 入场后**不会停在摆放位**——先悬停数拍再以 ~400px/拍初速下落、匀减速
+## E 流·接触特效（T3 R4）：命中→特效节点出生且贴 hit_landed 回执接触点
+## （E1/E1b）→default 风格+z=20 夹层（E1c）→生命周期毕场景根计数归零
+## （E2 自动清理）→弹体命中同样出生（E3）+fire 卡消费经节点属性可证
+## （E5a/E5b）→挥空零出生零信号（E4）。
+## K 流·运行时开关（T3 R5）：toggle() 公开入口翻旗（K1，直改属性等价）+
+## F8 预铺形制源码锁（K1b：InputMap.has_action 短路三连——hit_fx_toggle
+## 缺席零报错零行为，controller 登记 [input] 后自动通电）+ 关闭态命中
+## 零特效但慢放照常（K2a/K2b，视觉/时间双腿独立锁）。
+## P6 腿·罚站封形（T2 扩权裁决并入）：弹反罚站中守方踏出再踏回攻击盒区
+## →零二次扣血（P6a）零 hurt 派发（P6b）；P6c 见证"再入期间攻击者仍冻"
+## （防窗口自然恢复后的假绿）。红档对照=摘 hurtbox 罚站封形调用。
+##
+## 裸舞台沉降判例（T2 探针 d/e 实锤，P/E/K 流装配纪律）：角色在空 Node2D
+## 舞台入场后**不会停在摆放位**——先悬停数拍再以 ~400px/拍初速下落、匀减速
 ## ~10px/拍²，历 ~45 拍才钉死在 y≈8174 的隐形地板，且**各角色起落相位随机**
 ## （26 拍时对位可差 2000px ⇒ 中途出拳必挥空）。H 流幸存纯侥幸：双方同拍
-## 入场的平行下落保住相对偏移+每发 `_place` 重锚。P 流显式补防：同拍摆位 →
-## `_settle()` 逐拍位移稳定判据等沉降毕 → 每发出拳前 `_place` 重锚。
+## 入场的平行下落保住相对偏移+每发 `_place` 重锚。P/E 流显式补防：同拍摆位 →
+## `_settle` 族逐拍位移稳定判据等沉降毕 → 每发出拳前 `_place` 重锚。
+##
+## T3 探针新判例三条（4.7.1）：①headless 场景 runner 下 `_process`/
+## SceneTreeTimer/Timer/Tween **全部照常推进**（40 物理拍配 76 idle 拍实测；
+## 2026-09-16 "_process 面板从不出活"旧案系另病，特效生命周期可放心走
+## timer/tween 通道）；②本构建 CPUParticles2D.color_ramp **收裸 Gradient**，
+## CurveTexture/GradientTexture1D 赋值编译期拒收——参数卡色带运行时构造；
+## ③动态 InputMap.add_action + raw 键直投**喂不饱** is_action_just_pressed
+## 轮询（400 拍未命中）——K 流因此走 toggle 注入等价+源码形制锁，真 F8
+## 端到端归 F5 感官单。
 ##
 ## 已知观察（极端测试档的副产物，非生产缺陷）：TEST_PCT=1.0 把慢放窗口放大
 ## 到整个攻击动画，攻击盒在受击者身上多拖数帧，受击晃动可致同一拳二段进窗
@@ -62,6 +83,12 @@ const VENDOR := "res://characters/neutrals/street_vendor/street_vendor.tscn"
 const SPELL_SCENE := "res://spells/fire_ball/fire_ball.tscn"
 const SPELL_DEF := "res://spells/fire_ball/resources/fire_ball_definition.tres"
 const HIT_FREEZE_SCRIPT := "res://addons/quiver.beat_em_up/utilities/helpers/autoload/hit_freeze/hit_freeze.gd"
+# ── T3 特效件（宿主脚本按 SaveSystem 判例无 class_name，一律 preload 通道）──
+const HIT_FX := preload("res://scripts/effects/hit_fx.gd")
+const HIT_FX_PATH := "res://scripts/effects/hit_fx.gd"
+const SPARK_FX := preload("res://scripts/effects/hit_spark_fx.gd")
+const CARD_DEFAULT := preload("res://scripts/effects/presets/spark_default.tres")
+const CARD_FIRE := preload("res://scripts/effects/presets/spark_fire.tres")
 
 ## 测试档案装配用的慢放档（非生产默认值！生产默认 0.2/0.15 由 S0 静态腿
 ## 锁住）：pct=1.0 把窗口放大到整个攻击动画，使"生效→恢复"两拍在
@@ -74,6 +101,8 @@ var _fails := 0
 var _finished_s := false
 var _finished_h := false
 var _finished_p := false
+var _finished_e := false
+var _finished_k := false
 var _paused_seen := false
 ## P 流专属世界暂停见证（与 H 流 S1 分旗——S1 在 P 流之前已结算）
 var _paused_seen_p := false
@@ -93,6 +122,9 @@ func _ready() -> void:
 	_check(_finished_h, "H 流全序列执行完成（协程静默中断防线）")
 	await _flow_parry()
 	_check(_finished_p, "P 流全序列执行完成（协程静默中断防线）")
+	await _flow_fx()
+	_check(_finished_e, "E 流全序列执行完成（协程静默中断防线）")
+	_check(_finished_k, "K 流全序列执行完成（协程静默中断防线）")
 	get_node_or_null(^"/root/SaveSystem").delete_save()   # 套尾删净 scratch 不过夜
 	print("════════ hit-feedback-contract: %s ════════" % ("PASS" if _fails == 0 else "FAIL"))
 	get_tree().quit(0 if _fails == 0 else 1)
@@ -598,6 +630,7 @@ func _flow_parry() -> void:
 			"P0a 防守/提线双入场就绪且落位沉降毕（沉降超时=对位漂移，全套时序作废）")
 	await _leg_parry_freeze()
 	await _leg_parry_stun_config()
+	await _leg_parry_seal()
 	await _p_clean()
 	_stage_p.queue_free()
 	_finished_p = true
@@ -754,4 +787,336 @@ func _p_clean() -> void:
 	await _wait_state(_def, "Ground/Move/Idle", 600)
 	_atk2.attributes.refill_resistance()
 	_def.attributes.reset()
+	await _frames(2)
+
+
+# ═══════════ P6 腿：罚站封形（T2 扩权裁决，B4.7 评审实证并入 T3） ═══════════
+# 弹反改道后攻击者动画冻结⇒攻击盒 enable 轨停在开窗态，守方可动——踏出
+# 再踏回即可二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道新辟暴露面；
+# 评审实证无单发去重机制）。处置=罚站同拍把攻击者全部攻击盒形状
+# set_deferred(disabled)，下次攻击动画轨道键照常接管。
+
+## P6 主腿（霸体鼠洞形制，spec §2.3 知情条款的暴露面正面化）：攻击方挂
+## has_superarmor——弹反反顶的 K 被 apply_knock 归零制吞掉**且不发任何信号**
+## ⇒无 hurt 落态，攻击者冻在 attack1 开窗态整窗不脱（T3 实测判例：普通攻击
+## 方反顶→Hurt 落态→attack1 节点出活→enable 值轨 reset 在 ~3 拍内自愈关盒，
+## "二次进窗满伤"在自愈形制下测不出；自愈缺席的护甲档才是裁决钉的暴露面）。
+## 流程：弹反成立（倍速掉 0 且守方血不动）→封形见证（形状全 disabled）→
+## 守方解除格挡挪出再挪回→观察段零二次扣血零 hurt 派发（全程攻击者仍冻）。
+## R8 对照档 d：摘 _silence_attacker_hitboxes 调用→P6a 永不开=红、
+## P6b/P6c 二次进窗满伤=红（两世界差异由护甲档消自愈撑住，腿内自证）。
+func _leg_parry_seal() -> void:
+	await _p_clean()
+	# 加长罚站窗（读同一数值域，P5 已锁）让"封形轮询≤5+挪出 8+挪回 8+观察 14"
+	# 全程落在冻期内并留冗余（防恢复协程与观察环同拍竞速抖动）
+	_def.attributes.parry_stun_frames = 48
+	_atk2.attributes.has_superarmor = true
+	_def.attributes.is_blocking = true
+	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	_atk2.attributes.refill_resistance()
+	await _place(_atk2, _def, Vector2(-80, -30))
+	_attack(_atk2, Vector2.RIGHT)
+	var f_seal := -1
+	var d_hp0: float = _def.attributes.health_current
+	for _i in 60:
+		await get_tree().physics_frame
+		_watch_pause()
+		if get_tree().paused:
+			_paused_seen_p = true
+		# hold 重写（P 流惯例）：命中落哪帧都 delta≡1=弹反支
+		_def.attributes.block_started_frame = Engine.get_physics_frames()
+		if _atk2.anim_time_scale() <= 0.001:
+			f_seal = Engine.get_physics_frames()
+			break
+	if f_seal < 0 or _def.attributes.health_current != d_hp0:
+		_check(false, "P6-0 弹反+护甲冻窗未确立（f=%s 守血 %.1f/%.1f，本腿作废）"
+				% [f_seal, _def.attributes.health_current, d_hp0])
+		_atk2.attributes.has_superarmor = false
+		_def.attributes.parry_stun_frames = 6
+		return
+	# P6a 封形在场证明：攻击者全部攻击盒 ≤5 拍内 monitorable 全关——
+	# **形状 disabled 不作证人**（T3 判例：冻结活 blend 每帧回写开窗态，
+	# 一次性形状禁用存活 ≤1 拍；封形主刀=零轨道盯防的 monitorable 门）
+	var boxes_seen := 0
+	var open_lanes := 0
+	var sealed_f := -1
+	for _i in 5:
+		await get_tree().physics_frame
+		boxes_seen = 0
+		open_lanes = 0
+		for hb in _atk2.hitboxes():
+			boxes_seen += 1
+			if hb.monitorable:
+				open_lanes += 1
+		if boxes_seen > 0 and open_lanes == 0:
+			sealed_f = _i
+			break
+	_check(boxes_seen > 0 and sealed_f >= 0,
+			"P6a 罚站同拍封形：%d 盒在第 %s 拍起 monitorable 全关（活通道 %d）"
+			% [boxes_seen, sealed_f, open_lanes])
+	# 出窗：守方解除格挡（二次接触按常规支结算=满伤，红世界现形）、挪出触达
+	_def.attributes.is_blocking = false
+	var contact := _def.global_position
+	_def.global_position = contact + Vector2(300, 0)
+	await _frames(8)
+	_def.global_position = contact
+	# 挪回后观察段：全程要求攻击者仍冻（窗口未自然关闭的见证）
+	var hp0: float = _def.attributes.health_current
+	var hurt_seen := false
+	var unfrozen := 0
+	for _i in 14:
+		await get_tree().physics_frame
+		_watch_pause()
+		if _atk2.anim_time_scale() > 0.001:
+			unfrozen += 1
+		if str(_def.state_machine.state_name).contains("Hurt"):
+			hurt_seen = true
+	_check(_def.attributes.health_current == hp0,
+			"P6b 踏出再踏回零二次扣血（%.1f→%.1f，未封形世界此处 -10）"
+			% [hp0, _def.attributes.health_current])
+	_check(not hurt_seen and unfrozen == 0,
+			"P6c 观察段零 hurt 派发且攻击者全程仍罚站（解冻拍 %d/14；" % unfrozen \
+			+ "若解冻=封形未生效窗口照走，判据作废）")
+	_atk2.attributes.has_superarmor = false
+	_def.attributes.parry_stun_frames = 6
+	await _p_clean()
+
+
+# ═══════════ E 流：接触点特效（T3 R4） × K 流：运行时开关（T3 R5） ═══════════
+# 宿主接线判决 #1：本批禁碰 project.godot——HitFx 以"手动实例化脚本挂树"
+# 形态消费 Events 信号（与正式 autoload 接线行为零差；F8 端到端归 F5 感官单，
+# 探针2 判例：headless 下动态注册动作喂不饱 is_action_just_pressed 轮询）。
+# 特效节点挂在 get_tree().current_scene（=本契约场景根）——扫描/距离/计数
+# 全部经 world 坐标直读，无相机数学。裸舞台沉降判例同款装配：同拍摆位→
+# _settle_pair 等钉死→每发出拳 _place 重锚。
+
+var _stage_e: Node2D
+var _e_actor: QuiverCharacter
+var _e_vendor: QuiverCharacter
+var _fx  # 无类型=Variant 动态通道（宿主脚本无 class_name 判例，_fx.enabled/toggle 走动态）
+var _landed: Array = []  # 自采 hit_landed 回执（[point, style]），E1/E3/E5 证人
+
+
+func _flow_fx() -> void:
+	if not _guard_actor():
+		_finished_e = true
+		_finished_k = true
+		return
+	Events.hit_landed.connect(_on_landed_capture)
+	_fx = HIT_FX.new()
+	add_child(_fx)
+	_stage_e = Node2D.new()
+	add_child(_stage_e)
+	_e_actor = (load(ACTOR_SCENE) as PackedScene).instantiate()
+	_e_vendor = (load(VENDOR) as PackedScene).instantiate()
+	# dup 先于入树（H 流病根判例，全流通用）
+	_own_attrs(_e_actor)
+	_own_attrs(_e_vendor)
+	_stage_e.add_child(_e_actor)
+	_stage_e.add_child(_e_vendor)
+	_e_actor.global_position = Vector2(500, 400)
+	_e_vendor.global_position = Vector2(580, 430)
+	var settled := await _settle_pair(_e_actor, _e_vendor, 240)
+	var ok0: bool = await _wait_state(_e_actor, "Ground/Move/Idle", 120)
+	_check(ok0 and settled,
+			"E0a 特效舞台装配就绪（沉降毕；超时=漂移，本流时序作废）")
+	_e_actor.attributes.hit_slow_anim_pct = TEST_PCT
+	_e_actor.attributes.hit_slow_factor = TEST_FACTOR
+	await _leg_fx_born()
+	await _leg_fx_spell()
+	await _leg_fx_whiff()
+	await _leg_toggle_form()
+	await _leg_toggle_off()
+	_drain_sparks()
+	_fx.queue_free()
+	await _frames(4)
+	Events.hit_landed.disconnect(_on_landed_capture)
+	_stage_e.queue_free()
+	_finished_e = true
+	_finished_k = true
+
+
+func _on_landed_capture(point: Vector2, style: StringName, _strength: float, _dir: Vector2) -> void:
+	_landed.append([point, style])
+
+
+## 场景根下特效层扫描（契约运行时 current_scene=本场景根；无 class_name 判例
+## →按脚本同一性匹配）
+func _spark_nodes() -> Array:
+	var host: Node = get_tree().current_scene if get_tree().current_scene != null else get_tree().root
+	var out: Array = []
+	for c in host.get_children():
+		if c.get_script() == SPARK_FX:
+			out.append(c)
+	return out
+
+
+## 特效排空（fire 卡 lifetime 0.5s=30 拍 @60Hz + 12 拍裕量）
+func _drain_sparks() -> void:
+	for _i in 45:
+		if _spark_nodes().is_empty():
+			return
+		await get_tree().physics_frame
+
+
+## 同拍摆位沉降判例的通用版（P 流 _settle 只盯 _def/_atk2，本对另建）
+func _settle_pair(a: Node2D, b: Node2D, cap: int) -> bool:
+	var pa := Vector2(INF, INF)
+	var pb := Vector2(INF, INF)
+	for _i in cap:
+		await get_tree().physics_frame
+		var na: Vector2 = a.global_position
+		var nb: Vector2 = b.global_position
+		if (na - pa).length() < 0.05 and (nb - pb).length() < 0.05:
+			return true
+		pa = na
+		pb = nb
+	return false
+
+
+## E1/E1b/E1c + E2：近战命中→特效出生贴接触点、default 风格、z=20 夹层；
+## 生命周期毕自动清理归零（pct=1.0 极端档二段进窗判例：只认首发回执+首生
+## 特效的配对，几何锁 <40px——构造上恒 0，锁的是"没把位置写丢"）
+func _leg_fx_born() -> void:
+	await _e_clean()
+	await _place(_e_vendor, _e_actor, Vector2(80, 30))
+	_landed.clear()
+	_attack(_e_actor, Vector2.RIGHT)
+	var nodes: Array = []
+	for _i in 90:
+		await get_tree().physics_frame
+		nodes = _spark_nodes()
+		if not nodes.is_empty():
+			break
+	var born: bool = not nodes.is_empty() and not _landed.is_empty()
+	_check(born, "E1 近战命中→hit_landed 回执在场且特效节点出生（节点 %d）" % nodes.size())
+	if born:
+		var point: Vector2 = _landed[0][0]
+		var dist: float = (nodes[0] as Node2D).global_position.distance_to(point)
+		_check(dist < 40.0,
+				"E1b 特效贴接触点（回执两盒中点↔节点位 %.1fpx，中点数学未写丢）" % dist)
+		_check(_landed[0][1] == &"default" and (nodes[0] as Node2D).z_index == 20,
+				"E1c 风格 default（punch1 未配置吃代码默认）+ z=20 夹层（%s / %d）"
+				% [_landed[0][1], (nodes[0] as Node2D).z_index])
+	else:
+		_check(false, "E1b 几何锁缺席跳测（E1 未生特效）")
+		_check(false, "E1c 风格/夹层锁缺席跳测（E1 未生特效）")
+	await _drain_sparks()
+	_check(_spark_nodes().is_empty(),
+			"E2 生命周期毕自动清理：场景根特效计数归零（one_shot+尾端 queue_free）")
+	await _e_clean()
+
+
+## E3/E5：真 fire_ball 命中→同样出生（弹体一视同仁）；fire 卡消费经节点
+## 属性可证（preset 同一性 + gravity/amount 搬运直读——参数断言不走字符串）
+func _leg_fx_spell() -> void:
+	await _e_clean()
+	await _place(_e_vendor, _e_actor, Vector2(80, 30))
+	_landed.clear()
+	var spell_scene: PackedScene = load(SPELL_SCENE)
+	var spell_def: SpellDefinition = load(SPELL_DEF)
+	var ball := spell_scene.instantiate() as SpellBase
+	_stage_e.add_child(ball)
+	ball.global_position = Vector2(_e_vendor.global_position.x - 160.0, _e_vendor.global_position.y)
+	ball.cast(_e_actor, spell_def, Vector2.RIGHT)
+	var nodes: Array = []
+	for _i in 300:
+		await get_tree().physics_frame
+		nodes = _spark_nodes()
+		if not nodes.is_empty():
+			break
+	_check(not nodes.is_empty(), "E3 弹体命中同样出生（近战+弹体一视同仁）")
+	if nodes.is_empty():
+		_check(false, "E5a 风格路由缺席跳测（E3 未生特效）")
+		_check(false, "E5b 卡参数缺席跳测（E3 未生特效）")
+	else:
+		var fx = nodes[0]
+		var routed: bool = fx.get("preset") == CARD_FIRE \
+				and not _landed.is_empty() and _landed[_landed.size() - 1][1] == &"fire"
+		_check(routed,
+				"E5a 风格路由：fire_ball 攻击卡 hit_effect_style=fire →吃 fire 卡（回执 %s）"
+				% (_landed[_landed.size() - 1][1] if not _landed.is_empty() else "<无>"))
+		var parts = fx.get("particles")
+		var card_g: Vector2 = CARD_FIRE.gravity
+		var card_amt: int = CARD_FIRE.amount
+		_check(parts != null and parts.gravity == card_g and parts.amount == card_amt,
+				"E5b fire 卡参数经节点属性可证（重力 %s 上浮/粒数 %d 原样搬运）" % [card_g, card_amt])
+	if is_instance_valid(ball):
+		ball.destroy()
+	await _drain_sparks()
+	await _e_clean()
+
+
+## E4：挥空零出生零回执（触发面锁；900px >> 盒宽+车道）
+func _leg_fx_whiff() -> void:
+	_e_vendor.global_position = _e_actor.global_position + Vector2(900, 30)
+	await _frames(6)
+	_landed.clear()
+	_attack(_e_actor, Vector2.RIGHT)
+	var seen := 0
+	var done := false
+	for _i in 300:
+		await get_tree().physics_frame
+		seen = maxi(seen, _spark_nodes().size())
+		if str(_e_actor.state_machine.state_name) == "Ground/Move/Idle":
+			done = true
+			break
+	_check(done and seen == 0 and _landed.is_empty(),
+			"E4 挥空=零特效零回执（收口 %s / 峰值节点 %d / 回执 %d）"
+			% [done, seen, _landed.size()])
+	await _drain_sparks()
+	await _e_clean()
+
+
+## K1/K1b：toggle() 公开入口翻旗（直改属性等价的语义真身，判决 #1）+
+## F8 预铺形制源码锁——"动作缺席零报错零行为、登记后自动通电"三行不许被
+## 重构吞掉（controller 接线只需把 InputMap 判定连到 toggle）
+func _leg_toggle_form() -> void:
+	var before: bool = _fx.enabled
+	_fx.toggle()
+	var mid: bool = _fx.enabled
+	_fx.toggle()
+	_check(before != mid and bool(_fx.enabled) == before,
+			"K1 toggle() 公开入口翻旗（%s→%s→%s，直改属性等价）" % [before, mid, _fx.enabled])
+	var src := FileAccess.get_file_as_string(HIT_FX_PATH)
+	_check(src.contains("InputMap.has_action(&\"hit_fx_toggle\")")
+			and src.contains("Input.is_action_just_pressed(\"hit_fx_toggle\")")
+			and src.contains("toggle()"),
+			"K1b F8 预铺形制源码锁（has_action 短路三连在场；headless 轮询判例→端到端归 F5 单）")
+
+
+## K2：关闭态命中=零特效节点但慢放照常——视觉/时间双腿独立锁（R5 铁律的
+## 结构证明：开关只在 HitFx 回调早退，HurtBox 时间腿根本不知道开关存在）
+func _leg_toggle_off() -> void:
+	await _place(_e_vendor, _e_actor, Vector2(80, 30))
+	_fx.enabled = false
+	_landed.clear()
+	var v_hp0: float = _e_vendor.attributes.health_current
+	_attack(_e_actor, Vector2.RIGHT)
+	var seen_fx := 0
+	var slow_seen := false
+	var hit_seen := false
+	for _i in 240:
+		await get_tree().physics_frame
+		seen_fx = maxi(seen_fx, _spark_nodes().size())
+		if _e_actor.anim_time_scale() < 1.0:
+			slow_seen = true
+		if _e_vendor.attributes.health_current < v_hp0:
+			hit_seen = true
+		if hit_seen and str(_e_actor.state_machine.state_name) == "Ground/Move/Idle":
+			break
+	_fx.enabled = true
+	_check(hit_seen and seen_fx == 0,
+			"K2a 关闭态命中零特效节点（命中 %s / 特效峰值 %d——开关只在视觉腿早退）"
+			% [hit_seen, seen_fx])
+	_check(slow_seen, "K2b 关闭态慢放照常（攻击者倍速掉档可观测——开关不触时间腿）")
+	await _e_clean()
+
+
+## E 流腿间卫生（H 流 _clean 形制）
+func _e_clean() -> void:
+	await _wait_state(_e_actor, "Ground/Move/Idle", 900)
+	await _wait_state(_e_vendor, "Ground/Move/Idle", 900)
+	_e_vendor.attributes.reset()
+	_e_actor.attributes.refill_resistance()
 	await _frames(2)

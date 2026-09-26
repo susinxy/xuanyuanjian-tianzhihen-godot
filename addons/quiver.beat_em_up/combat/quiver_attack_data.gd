@@ -31,6 +31,14 @@ extends Resource
 		knock_strength = value
 		emit_changed()
 
+## 接触点特效风格路由旗（B4.7 R4）：命中时 HitFx 按此名选参数卡；枚举只
+## 路由查表、零数值推导（B4.6 attack_axis_mode 合法路由旗同族注例），
+## 未配置=default 卡兜底——任何攻击命中都有火花。
+@export var hit_effect_style: StringName = &"default":
+	set(value):
+		hit_effect_style = value
+		emit_changed()
+
 @export_range(0, 360, 1) var launch_angle := 0:
 	set(value):
 		launch_angle = value
