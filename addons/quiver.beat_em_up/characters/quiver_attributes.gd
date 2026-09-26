@@ -118,6 +118,21 @@ const LAUNCH_MIN_IMPULSE := 50.0
 ## 护人态等增益以修饰表达而非裸写。受管同上。
 @export var attack_output: float = 1.0
 
+@export_group("Hit Feedback")
+## 命中自慢放倍率（B4.7 攻击者数值域）：近战命中瞬间自己按此倍速慢放；
+## 1.0=自然不慢（零禁用旗）。恢复窗口时长见 hit_slow_anim_pct。
+## 档案配置非运行时态，reset() 不清——B4.6 attack_axis_mode 同族注例。
+@export_range(0.0, 1.0, 0.05) var hit_slow_factor: float = 0.2
+
+## 慢放窗口=本次攻击动画总长×此比例：跨招节奏扰动恒为 pct×(1−factor)，
+## 快拳/重击咬合深度均匀（绝对 ms 制会让快拳扰动 4 倍于重击）。reset() 不清。
+@export_range(0.0, 1.0, 0.01) var hit_slow_anim_pct: float = 0.15
+
+## 弹反定格帧数（防守方数值域，B4.7 自 hurt_box 的 _PARRY_FREEZE_FRAMES
+## 魔数升格；消费点在 T2 弹反改道，T1 仅落字段）。绝对帧语义正确——
+## 吃招侧硬停奖励不跟百分比。reset() 不清。
+@export_range(0, 60, 1) var parry_stun_frames: int = 6
+
 @export_group("Behavior")
 ## 地面攻击朝向模式（行为路由设置，单写者=创建面板/Inspector；只读不进修饰域，
 ## reset() 不清——它是档案配置非运行时状态。合法旗论证见 spec §5）。

@@ -1025,7 +1025,8 @@ func apply_damage(attack: QuiverAttackData, target: QuiverAttributes)
     # 薄委托（2026-09-23 判定缝批）：既有签名逐字保留，转调 apply_damage_value；
     # 弹墙等"整包 attack_data"调用方零感知
 func apply_damage_value(p_damage: float, target: QuiverAttributes)
-    # **数值伤害唯一入口**（spec §6.2）：无敌免疫 → 扣血 → HitFreeze 默认 3 帧。
+    # **数值伤害唯一入口**（spec §6.2）：无敌免疫 → 扣血 → HitFreeze 定格
+    #（B4.7 起 freeze_frames 默认 0=退役 no-op，单角色慢放另立通道，见 §17）。
     # p_damage 是 float 且**本层不取整**（判定缝的输出/格挡乘算全程浮点，
     # health_current 为 int 存储、整值 float 无声吞收——探针 D 实锤）；
     # 攻击数据是共享导出资源严禁 mutate，一切缩放由调用方算好后走本入口
@@ -1035,8 +1036,10 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 ```
 
 **攻击流程**:
-1. `apply_damage_value`（或经 `apply_damage` 薄委托）→ 扣血 → 触发 `HitFreeze`
-   （命中的顿感；免伤路不经过此处——弹反支必须自发拍定格，见 §7.3 判定缝）
+1. `apply_damage_value`（或经 `apply_damage` 薄委托）→ 扣血 → `HitFreeze.start()`
+   （全局定格位——B4.7 归零后恒 no-op，世界不停；近战命中者自慢放走常规支尾钩
+   → `apply_character_slow`，见 §17；免伤路不经过 apply_damage_value——弹反支
+   必须自发拍定格，见 §7.3 判定缝）
 2. `apply_knockback` → 转交 `QuiverAttributes.apply_knock`（**唯一判定点**），按裁决分发：
    `launched` → 写入 `impulse` 后发 `knockout_requested`；`swallow` → 静默（含霸体
    与空中零击打值）；否则 `hurt_requested`——分发器为纯三向开关，无战斗政策
@@ -1256,8 +1259,9 @@ are_factions_equal() 检查：
   ↓
 _handle_hit_box() 判定缝三分支（§7.3；敌未防时走常规支）
   ↓
-常规支：CombatSystem.apply_damage_value() → HP 扣减 → HitFreeze（顿感）
-CombatSystem.apply_knockback() → apply_knock 唯一判定 → hurt_requested 或 knockout_requested
+常规支：CombatSystem.apply_damage_value() → HP 扣减 → HitFreeze.start()（B4.7 起归零 no-op）
+  → CombatSystem.apply_knockback() → apply_knock 唯一判定 → hurt_requested 或 knockout_requested
+  → 支尾命中反馈钩子：attacker 非空（近战）→ HitFreeze.apply_character_slow（§17）
 （格挡支=乘算扣血+击退值整颗作废；弹反支=免伤+反顶攻击者池+自发定格——均无下列派发）
   ↓
 地面状态 QuiverActionGround 收到 signal:
@@ -1497,7 +1501,7 @@ signal player_died              # 玩家死亡
 | `Events` | 全局事件总线 |
 | `BackgroundLoader` | 异步资源/场景加载 |
 | `ScreenTransitions` | 屏幕过渡动画（Shader 遮罩） |
-| `HitFreeze` | 命中暂停效果（提升打击感） |
+| `HitFreeze` | 全局定格（B4.7 起 freeze_frames 默认 0=退役，机制保留）+ **单角色慢放调度器** `apply_character_slow`（协程+代数令牌，通道见 §17） |
 | `QuiverDebugLogger` | 调试日志（可在 project settings 里开关） |
 
 ---
@@ -2159,3 +2163,131 @@ grep -r "uid://abc123xyz" xuanyuan-sword/ --include="*.tscn" --include="*.tres"
 修复后：
 - 移除了 `create_new_ai_state_widget.tscn` 的 UID，Godot 自动生成新 UID
 - 编辑器启动警告消失
+
+---
+
+## 17. B4.7 单角色时间控制（命中反馈原语）
+
+法源：`docs/superpowers/specs/2026-09-26-s2-b47-hit-feedback-design.md`（R1 全局
+定格归零 / R3 近战命中→攻击者自慢放）。本节是"命中瞬间只有攻击者的动画时钟被
+放慢、全世界不停"这一原语的权威实现说明。
+
+### 17.1 通道裁决（三判例链，务必读懂再改）
+
+时间控制的**载体**经历三轮探针才定档，任何"换个 setter 更简单"的直觉都是回炉候选：
+
+1. **`Node.process_custom_speed`——不存在**（T0 探针 P0，4.7.1 get_property_list
+   实锤）。一切 custom_speed 思路作废（AGENTS"引擎 API 零信任"又立一功）。
+2. **`AnimationPlayer.speed_scale`——真皮肤不通电**（T1 探针 4 + 契约 H1b 抓获）。
+   T0 的 P3 合成台架（裸 AnimationPlayer+手工 SM，无 time_scale 节点）确有 2.55×
+   拉长，但**本仓真实皮肤**是 `BlendTree{time_scale 节点←state_machine}` 树驱动，
+   基线出招 8 帧、`player.speed_scale=0.2` 仍是 8 帧（零差）、换 `time_scale` 档
+   13 帧——**属性挂上≠时钟变慢**。教训：合成台架对"树内置节点级"通道是无效证人，
+   通道判决必须在真皮肤上做，且配一条**行为级断言**（H1b：出招全程帧数相对挥空
+   基线拉长），只测属性值（H1/H2 全绿）会漏放这条假通道。
+3. **`AnimationNodeTimeScale` 节点（`parameters/time_scale/scale`）——正解**。上游
+   作者把主状态机包进 BlendTree 正是为了"在 playback 输出外挂时间刻度"（见
+   `quiver_character_skin_anim_tree.gd` `_path_playback` 注释）。本仓 4/4 皮肤树
+   （chen/template/spar/vendor/test_actor）均含该节点，参数名恒 `time_scale`。
+
+**定档**：AnimTree 皮肤走 `time_scale` 节点（`QuiverCharacterSkinAnimTree.
+set_anim_time_scale` 覆写）；基类 `QuiverCharacterSkin` 保留 `player.speed_scale`
+作**非树驱动直连皮肤的备胎路**（标准树缺 time_scale 节点时降级+告警一次）。
+物理位移缩放**本期不做**（近战双方攻击态锁移动+受击不位移设计基线；F5 判"脚滑"
+再回炉）。
+
+### 17.2 观测/控制 API 分层（消费方永远走角色门面）
+
+```
+QuiverCharacter（门面，quiver_character.gd）
+  set_anim_time_scale(rate)   → 转发 _skin
+  anim_time_scale() -> float  → 转发 _skin（无皮肤/播放器=1.0，契约断言通道）
+  attack_anim_length_ms()     → _skin.current_anim_length_ms()（_skin 私有，跨类禁裸戳）
+        ↓
+QuiverCharacterSkin（基类，player 直驱路）
+  set_anim_time_scale / anim_time_scale / current_anim_length_ms
+  _resolve_anim_player()  → find_child("AnimationPlayer") 惰性缓存（被动角色可无）
+  _anim_length_ms(player, 全名) → player.get_animation(全名).length*1000（-1=不可得）
+        ↓覆写
+QuiverCharacterSkinAnimTree（树驱动路）
+  TIME_SCALE_PARAM = "parameters/time_scale/scale"
+  set/anim_time_scale → 读写该节点（缺节点降级 super()+告警一次）
+  current_anim_length_ms → 状态树取当前动画长（见 17.3）
+```
+
+### 17.3 `current_anim_length_ms()` 状态树取长链（本构建动画树 API 漂移三连）
+
+`AnimationPlayer.get_current_animation()` 在 AnimTree 驱动下**恒空**（只认
+`player.play()` 系，T1 探针实锤）——长度必须从状态树反查：
+
+1. `_playback.get_current_node()` → 当前状态名（如 `"attack1"`）。
+2. `_state_machine_node()`：从 `_path_playback`（`"parameters/state_machine/playback"`）
+   **推导**主状态机节点名 → `tree_root.get("nodes/<名>/node")`。**禁硬编码**
+   "StateMachine"——test_actor 实况名是小写 `state_machine`（探针实锤，模板默认
+   大写是雷）。
+3. `sm.get("states/<状态>/node")` → 状态节点。`AnimationNodeAnimation` 直接取
+   `.animation`；`BlendSpace1D/2D` 按 `parameters/<sm>/<状态>/blend_position`
+   就近取点（皮肤契约=方向量化单动画满权重，见 `snap_to_blend_basis`；"就近"只是
+   非满权形制的保守退化）。
+4. 子节点枚举**一律走属性列表法**（`blend_point_N/{node,pos}`；本构建
+   `get_nodes/get_node_names/get_input_count` 族全漂移/具误导性，T0 判例）。
+5. 动画全名**含库前缀**（`"TestActor/attack1_right"`），`get_animation` 只认带
+   前缀全名（裸名返回 null，探针实锤）→ 原样喂入取 `.length`。任一环节不可得 = **-1.0**
+   （调用方兜底）。
+
+### 17.4 调度器：`HitFreeze.apply_character_slow(char, rate, duration_ms)`
+
+协程 + 代数令牌形制（法源 spec §2.2，替代旧"手抄账本"）：
+
+- `rate ≥ 1.0` 或 `duration_ms ≤ 0` → 直接 no-op（1.0=自然不慢的零禁用旗语义在
+  入口天然短路；`rate<0` 保守钳到 0=定格）。目标签名收窄为 `QuiverCharacter`
+  （typed 门面调用，禁裸戳皮肤）。
+- 每次请求 = 一条独立协程 `_run_slow`：设速 → `await get_tree().physics_frame`
+  ×N → 恢复。**数帧的表挂宿主 HitFreeze**（PAUSE_ALWAYS、满速）——绝不挂被慢者
+  自己的表（慢放越慢越出不来的经典大坑）；physics_frame"暂停期照响、帧号照走"
+  是 block_parry Step0 探针实证的本仓既有语义。
+- 同目标重入 = 代数令牌：`_slow_generations[实例id] += 1` 再开窗；旧协程醒来发现
+  令牌不符**静默让位**（绝不抢新协程的恢复笔）。目标中途释放 = `is_instance_valid`
+  守卫弃笔 + 条目协程尾自清。
+- 协程半途静默报错 = 目标永久慢（本仓库协程判例）；防线 = 契约 H 流"命中→生效→
+  恢复"闭环断言（H1 掉档 + H2 恢复 + H1b 行为级三者合围）。
+
+### 17.5 attacker 下发链 + HurtBox 常规支挂点
+
+- `QuiverHitBox.attacker: QuiverCharacter`（运行时下发、非导出，同
+  `character_attributes` 形制）。`QuiverCharacter._ready` 收集 `_skin.hitboxes` 时
+  逐盒 `hb.attacker = self`。
+- **弹体结构性排除**：`SpellSkin` 收集的攻击盒不经过 `QuiverCharacter`，`attacker`
+  恒 null——"弹体命中不得慢放施法者"（R3）由字段结构天然保证，无需运行时旗
+  （弹体的 `character_attributes` 反倒绑施法者，spell_base.gd:74，故绝不能拿它当
+  慢放目标判据；契约 H4a/H4b 双向钉死）。
+- 挂点：`QuiverHurtBox._handle_hit_box` **常规支** `apply_knockback` 之后、命中回执
+  之前——`attacker` 非空才响应，窗口 = `attacker.attack_anim_length_ms() ×
+  attacker 档案 hit_slow_anim_pct`；攻长不可得（-1）兜底 500ms×pct 并 `push_warning`
+  一次（不崩不静默）。逐角色档案值=攻击者自己的 `hit_slow_factor/hit_slow_anim_pct`。
+
+### 17.6 数值域三字段（`QuiverAttributes`，spec §2.3"用到才包"）
+
+`@export_group("Hit Feedback")` 内：`hit_slow_factor=0.2`、`hit_slow_anim_pct=0.15`、
+`parry_stun_frames=6`（后者 T2 弹反改道才消费，T1 仅落字段）。皆**档案配置非运行时态**
+→ `reset()` 不清（B4.6 `attack_axis_mode` 同族注例）；既有角色 tres 无此键→零迁移吃代码
+默认。
+
+### 17.7 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流）
+
+- S 流（静态）：freeze_frames 双零（tscn 生效值 + 脚本裸默认）、三字段默认到位、
+  reset() 不清命中反馈档。
+- H 流（场景）：H1 命中可见帧掉档 → H2 末次命中窗口毕恢复 → H3 挥空不触发 →
+  **H1b 行为级副锁**（出招全程相对挥空基线拉长——专杀 17.1 的"挂上没通电"假通道）→
+  H4 弹体结构排除（attacker 恒 null + 绑施法者旧判例锚定）→ H5 双向性（敌人命中玩家
+  →敌人自慢、玩家满速）→ H6 连段不破（慢放中三连段完整衔接、逐拳咬合 55 伤）。
+  S1 全程无 `tree.paused`（R1 归零行为锁）。
+- 已知观察（非生产缺陷）：极端测试档 `pct=1.0` 把窗口放大到整个攻击动画，攻击盒在
+  受击者身上多拖数帧可致同拳**二段进窗**（block_parry"首血降锁缝帧"同族纪律：伤害锁
+  首发、窗口从末次命中起算）。生产默认 `pct=0.15` 窗口≈1 帧，无此放大。
+- 测试装配判例：所有角色实例 `dup` attributes **必须先于入树**（H5 零命中悬案病根——
+  入树后换账会让动作状态缓存原 tres、受击盒拿 dup，`ground_level` 记账分家致车道中心
+  漂移）；attack(J) 绑定 `device=16`（raw 注入须对齐绑定设备，device=-1 被
+  `is_action_pressed` 拒匹配——探针实锤）。
+
+**改此机制前先跑 `hit_feedback_contract`（尤其 H1b）+ 读 17.1 三判例。**

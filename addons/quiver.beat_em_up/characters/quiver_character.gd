@@ -169,6 +169,11 @@ func _ready() -> void:
 	if _skin:
 		_hurtbox = _skin.hurtbox
 		_hitboxes = _skin.hitboxes
+		# B4.7 attacker 下发：近战命中自慢放的"是谁打的"回指，收集时逐盒
+		# stamp。弹体皮肤的攻击盒不走此路（SpellSkin 收集、宿主非角色），
+		# attacker 恒 null——"弹体命中不慢放施法者"由字段结构天然排除。
+		for hb in _hitboxes:
+			hb.attacker = self
 	
 	# 阴影系统：动态创建 ShadowRenderer
 	_create_shadow_renderer()
@@ -268,6 +273,26 @@ func switch_behavior(mode: BehaviorMode) -> void:
 	if channel != null:
 		channel.reset()
 	_attach_behavior()
+
+
+## 单角色动画时间倍速门面（B4.7）：转发皮肤时间通道（树驱动皮肤=
+## AnimationNodeTimeScale 节点，直驱皮肤=player.speed_scale）；
+## 消费方（HitFreeze.apply_character_slow / 契约）一律走这里，跨类
+## 不得裸戳 _skin（私有导出判例）。无皮肤=静默 no-op。
+func set_anim_time_scale(rate: float) -> void:
+	if _skin != null:
+		_skin.set_anim_time_scale(rate)
+
+
+## 当前动画时间倍速只读观测（契约断言通道）：无皮肤/无播放器=1.0。
+func anim_time_scale() -> float:
+	return _skin.anim_time_scale() if _skin != null else 1.0
+
+
+## 本次攻击动画总长（毫秒，B4.7 慢放窗口分母）：攻击态命中收口处取；
+## 不可得=-1.0（调用方兜底 500ms 并告警，不崩不静默）。
+func attack_anim_length_ms() -> float:
+	return _skin.current_anim_length_ms() if _skin != null else -1.0
 
 ### -----------------------------------------------------------------------------------------------
 

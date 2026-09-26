@@ -246,6 +246,18 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 				_get_treated_launch_vector(hit_box)
 		)
 		CombatSystem.apply_knockback(knockback, character_attributes)
+		# —— B4.7 命中时间反馈：近战命中者（攻击方）自慢放（弹体 attacker=null
+		# 结构性排除，绝不慢施法者）；窗口=本次攻击动画长×档案 pct，取不到
+		# 动画长兜底 500ms×pct 并告警。逐角色值读攻击方自己的数值域
+		# （hit_slow_factor / hit_slow_anim_pct，B4.7 spec §2.3）。
+		if hit_box.attacker != null:
+			var anim_ms := hit_box.attacker.attack_anim_length_ms()
+			if anim_ms < 0.0:
+				push_warning("B4.7: 攻击动画长度不可得，慢放窗口走兜底 500ms")
+				anim_ms = 500.0
+			HitFreeze.apply_character_slow(
+					hit_box.attacker, atk_attrs.hit_slow_factor,
+					anim_ms * atk_attrs.hit_slow_anim_pct)
 
 	# 命中回执：走攻击盒自带的注入式回调（QuiverHitBox.on_target_hit 注释含
 	# 完整决策史）。旧实现 `hit_box.owner.has_method("on_hit")` 反射已废除：

@@ -5,3 +5,4 @@
 [node name="HitFreeze" type="Node"]
 process_mode = 3
 script = ExtResource("1_swv6u")
+freeze_frames = 0

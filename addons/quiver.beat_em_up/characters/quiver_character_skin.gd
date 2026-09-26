@@ -116,6 +116,13 @@ var hitboxes: Array[QuiverHitBox] = []
 
 var _animation_list: Array[StringName] = []
 
+## B4.7 时间控制通道载体：本皮肤树里的 AnimationPlayer（惰性 find_child
+## 缓存，T0 探针实锤本构建无 process_custom_speed，通道=speed_scale 单点）。
+var _anim_player: AnimationPlayer = null
+
+## "无播放器"告警只发一次（被动角色无播放器是合法形态，不许刷屏）。
+var _no_player_warned := false
+
 @onready var _grab_pivot := get_node(_path_grab_pivot) as Marker2D if _has_grab else null
 @onready var _grabbed_pivot := get_node(_path_grabbed_pivot) as Marker2D if _has_grabbed else null
 
@@ -197,10 +204,67 @@ func start_attack_movement(p_direction: Vector2, p_speed: float) -> void:
 func stop_attack_movement() -> void:
 	attack_movement_ended.emit()
 
+
+## 单角色动画时间倍速（B4.7 命中反馈）：0=定格、~0.2=慢放、1=自然。
+## 消费方一律走 QuiverCharacter 门面，不裸戳皮肤。基类走 AnimationPlayer
+## 直驱路（player.speed_scale）；AnimTree 驱动皮肤覆写此法走树内
+## AnimationNodeTimeScale 节点（真皮肤判例：树驱动下 player.speed_scale
+## 不驱动播放时钟——见 QuiverCharacterSkinAnimTree.set_anim_time_scale）。
+func set_anim_time_scale(rate: float) -> void:
+	var player := _resolve_anim_player()
+	if player == null:
+		if not _no_player_warned:
+			_no_player_warned = true
+			push_warning(
+					"B4.7: 皮肤 %s 找不到 AnimationPlayer，动画时间倍速请求被忽略"
+					% [name])
+		return
+	player.speed_scale = rate
+
+
+## 动画时间倍速只读观测（契约断言通道）：无播放器=1.0（从未被慢放）。
+## AnimTree 子类覆写为读树刻度节点。
+func anim_time_scale() -> float:
+	var player := _resolve_anim_player()
+	return player.speed_scale if player != null else 1.0
+
+
+## 当前动画总长（毫秒）——B4.7 命中慢放窗口的分母。基类只走 AnimationPlayer
+## 直驱路；本仓皮肤多为 AnimTree 驱动，该路在 4.7.1 探针实锤下恒空
+## （get_current_animation 只认 player.play() 系），由子类
+## QuiverCharacterSkinAnimTree 覆写走状态树路。不可得=-1.0（调用方兜底）。
+func current_anim_length_ms() -> float:
+	var player := _resolve_anim_player()
+	if player == null:
+		return -1.0
+	var anim_name: StringName = player.get_current_animation()
+	if anim_name == &"":
+		return -1.0
+	return _anim_length_ms(player, anim_name)
+
+
 ### -----------------------------------------------------------------------------------------------
 
 
 ### Private Methods -------------------------------------------------------------------------------
+
+## 惰性解析皮肤子树里的 AnimationPlayer（T0 探针：player.find_child 路可得；
+## 每皮肤至粗查一次，失效率低——场景资产结构契约"皮肤含 AnimationPlayer"）。
+func _resolve_anim_player() -> AnimationPlayer:
+	if _anim_player == null or not is_instance_valid(_anim_player):
+		_anim_player = find_child("AnimationPlayer", true, false) as AnimationPlayer
+	return _anim_player
+
+
+## 按全名查动画长度（毫秒）。探针实锤（4.7.1）：AnimationNodeAnimation.
+## animation 值含"库/"前缀（如 "TestActor/attack1_right"），且
+## player.get_animation() **只认带前缀全名**（裸名返回 null）——原样喂入。
+## 取不到=-1.0。
+static func _anim_length_ms(player: AnimationPlayer, anim_name: StringName) -> float:
+	var anim: Animation = player.get_animation(anim_name)
+	if anim == null:
+		return -1.0
+	return anim.length * 1000.0
 
 ## Virtual function to be overriden. Here you should populate the list of animations or 
 ## "skin states" that you have. This should not be used directly, as it does nothing by default.

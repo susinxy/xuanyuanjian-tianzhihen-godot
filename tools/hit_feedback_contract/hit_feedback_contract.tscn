@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://s2b47hfc000001"]
+
+[ext_resource type="Script" path="res://tools/hit_feedback_contract/hit_feedback_contract.gd" id="1_hfc"]
+
+[node name="HitFeedbackContract" type="Node"]
+script = ExtResource("1_hfc")

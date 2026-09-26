@@ -14,6 +14,13 @@ extends Area2D
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 var character_attributes: QuiverAttributes = null
+
+## 攻击者回指（B4.7 命中自慢放的下发链）：近战=QuiverCharacter._ready 收集
+## 攻击盒时逐盒 stamp=self；弹体皮肤的攻击盒不走该路，恒 null——"弹体命中
+## 不慢放施法者"由字段结构天然排除（非运行时旗）。运行时下发非导出，
+## 与 character_attributes 同款形制。
+var attacker: QuiverCharacter = null
+
 @export var attack_data: QuiverAttackData = null:
 	set(value):
 		if value == null:
