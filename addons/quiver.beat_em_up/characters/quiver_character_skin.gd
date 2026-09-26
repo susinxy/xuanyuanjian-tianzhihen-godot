@@ -116,8 +116,10 @@ var hitboxes: Array[QuiverHitBox] = []
 
 var _animation_list: Array[StringName] = []
 
-## B4.7 时间控制通道载体：本皮肤树里的 AnimationPlayer（惰性 find_child
-## 缓存，T0 探针实锤本构建无 process_custom_speed，通道=speed_scale 单点）。
+## B4.7 时间控制/动画长度取数用的 AnimationPlayer（惰性 find_child 缓存）。
+## 本构建无 process_custom_speed（T0 探针 P0）；倍速通道经皮肤门面路由：
+## 树驱动皮肤=树内 AnimationNodeTimeScale 参数（覆写），直驱皮肤=player.
+## speed_scale 备胎；判例链见 PLUGIN_ARCHITECTURE §17.1。
 var _anim_player: AnimationPlayer = null
 
 ## "无播放器"告警只发一次（被动角色无播放器是合法形态，不许刷屏）。

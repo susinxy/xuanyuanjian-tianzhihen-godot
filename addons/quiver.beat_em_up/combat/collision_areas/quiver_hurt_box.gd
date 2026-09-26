@@ -45,6 +45,10 @@ var character_attributes: QuiverAttributes = null
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
+## B4.7 兜底告警去重旗（类级 static：攻长不可得每次命中都会走兜底，
+## 无旗=逐命中刷屏；评审 I-1。热重载丢 static 后最多再响一次，无害）
+static var _hit_slow_fallback_warned := false
+
 ## 阵营 group 缓存（Dictionary 格式，key 为 faction name，value 为 true）
 ## 使用 Dictionary 实现 O(1) 查找，比 Array 遍历更快
 var _faction_dict: Dictionary = {}
@@ -248,12 +252,16 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		CombatSystem.apply_knockback(knockback, character_attributes)
 		# —— B4.7 命中时间反馈：近战命中者（攻击方）自慢放（弹体 attacker=null
 		# 结构性排除，绝不慢施法者）；窗口=本次攻击动画长×档案 pct，取不到
-		# 动画长兜底 500ms×pct 并告警。逐角色值读攻击方自己的数值域
-		# （hit_slow_factor / hit_slow_anim_pct，B4.7 spec §2.3）。
+		# 动画长兜底 500ms×pct 并告警（类级 static 去重旗=只响一次，评审 I-1；
+		# 形制同 _flash_shader 判例：脚本热重载丢 static 后下次再响可接受）。
+		# 逐角色值读攻击方自己的数值域（hit_slow_factor / hit_slow_anim_pct，
+		# B4.7 spec §2.3）。
 		if hit_box.attacker != null:
 			var anim_ms := hit_box.attacker.attack_anim_length_ms()
 			if anim_ms < 0.0:
-				push_warning("B4.7: 攻击动画长度不可得，慢放窗口走兜底 500ms")
+				if not _hit_slow_fallback_warned:
+					_hit_slow_fallback_warned = true
+					push_warning("B4.7: 攻击动画长度不可得，慢放窗口走兜底 500ms（本告警每进程一次）")
 				anim_ms = 500.0
 			HitFreeze.apply_character_slow(
 					hit_box.attacker, atk_attrs.hit_slow_factor,

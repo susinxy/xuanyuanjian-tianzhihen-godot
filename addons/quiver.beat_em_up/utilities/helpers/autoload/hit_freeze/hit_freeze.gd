@@ -58,9 +58,11 @@ func start(custom_wait := INF) -> void:
 
 
 ## 单角色动画慢放/定格（B4.7 R2/R3 共用原语；rate=0 即定格，~0.2 即慢放）：
-## · 通道=角色皮肤 AnimationPlayer.speed_scale 单点（T0 探针实锤：本构建
-##   无 process_custom_speed；物理位移通道本期不做——近战双方攻击态锁移动
-##   +受击不位移设计基线，若 F5 判"脚滑"再回炉加位移通道）；
+## · 通道经皮肤门面路由（本构建无 process_custom_speed，T0 探针 P0）：
+##   树驱动皮肤=树内 AnimationNodeTimeScale 参数（正解，T1 probe4 真皮肤实锤
+##   player.speed_scale 档不通电），直驱皮肤=player.speed_scale 备胎；
+##   判例链见 PLUGIN_ARCHITECTURE §17.1。物理位移通道本期不做——近战双方
+##   攻击态锁移动+受击不位移设计基线，若 F5 判"脚滑"再回炉加位移通道；
 ## · 每次请求=一条独立协程（宿主=本 autoload，PAUSE_ALWAYS、满速）——
 ##   恢复计时表绝不挂被慢者自己的表（慢放越慢越出不来的经典大坑）；
 ##   physics_frame"暂停期照响、帧号照走"是 block_parry/Step0 探针实证判例；

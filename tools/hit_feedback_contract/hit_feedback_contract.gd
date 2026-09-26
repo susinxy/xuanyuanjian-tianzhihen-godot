@@ -5,8 +5,10 @@ extends Node
 ## S 流·定格退役（R1）：freeze_frames 双零（tscn 生效值+脚本默认）、三字段
 ## 数值域默认到位且 reset() 不清（档案配置非运行时态）、普通命中全程
 ## `not tree.paused` 行为锁。
-## H 流·近战自慢放（R3）：命中→攻击者 AnimationPlayer.speed_scale 生效
-## （H1，通道=T0 探针裁决，本构建无 process_custom_speed）→窗口
+## H 流·近战自慢放（R3）：命中→攻击者时间倍速掉档生效
+## （H1，通道经皮肤门面路由：树驱动皮肤=树内 AnimationNodeTimeScale 参数、
+## 直驱皮肤=player.speed_scale 备胎，本构建无 process_custom_speed；判例链
+## 见 PLUGIN_ARCHITECTURE §17.1）→窗口
 ## （=实测攻击动画长×pct，禁硬编码 ms 判例）毕恢复 1.0（H2）；挥空全程
 ## 不触发（H3）；行为级副锁——命中慢放的出招全程相对挥空基线拉长
 ## （H1b，动画信标随慢放等比延迟=主通道属性断言之外的现象级见证）；
@@ -14,11 +16,11 @@ extends Node
 ## 敌人命中玩家→敌人被慢、玩家全程满速（H5）；连段不破——首拳触发慢放
 ## 后三连段仍完整衔接（H6，raw J 走 OS 链×输入窗，spec §2.3 行为锁）。
 ##
-## 观测通道判例（T0/T1 双探针实锤，4.7.1）：AnimTree 驱动下
+## 观测通道判例（T0/T1 探针实锤，4.7.1，§17.1）：AnimTree 驱动下
 ## player.get_current_animation()/position 族恒空/报错，动画长度经
 ## playback 当前状态→states/<名>/node→blend_point_N 就近点→"库/名"全名
-## 查库；倍速观测=QuiverCharacter.anim_time_scale() 门面（皮肤转发
-## player.speed_scale）。
+## 查库；倍速观测=QuiverCharacter.anim_time_scale() 门面→皮肤路由
+## （树驱动读 AnimationNodeTimeScale 参数、直驱读 player.speed_scale）。
 ##
 ## 测试主权法（B2.5）：只读消费 test_actor（peek() 三态守卫，缺席打处方红
 ## 绝不代 runner 创建）。落盘卫生（B4.5）：_ready 首行重定向套内 scratch，
