@@ -90,7 +90,7 @@ func enter(msg: = {}) -> void:
 	if _attributes.attack_axis_mode == QuiverAttributes.AttackAxisMode.HORIZONTAL_ONLY:
 		# 横向模式（S2-B4.6 全局默认）：出手向=跳跃同源——吃 facing_x 持久记忆。
 		# 记忆由 locomotion（输入水平分量=0 绝不改写，quiver_action_locomotion.gd:88-90）
-		# 与 mid_air（空中水平速度≠0 才覆写，quiver_action_mid_air.gd:130-138）维护，
+		# 与 mid_air（空中水平速度≠0 才覆写，quiver_action_mid_air.gd:130-137）维护，
 		# 故"面朝正上/正下出手"=最近一次左右朝向，与面朝正上起跳播同向跳姿同一数据源。
 		_skin.skin_direction = Vector2(_skin.facing_x, 0)
 	else:
