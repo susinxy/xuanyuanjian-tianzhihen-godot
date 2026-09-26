@@ -1291,6 +1291,13 @@ func flow_disk() -> void:
 	_save.record(NS_D, &"d8_one")
 	_save.record(NS_D, &"d8_one", false)   # 同键重记（值不覆盖也不重发）
 	_check(int(cnt8["rec"]) == 1, "D8b 重记零发（首记才发，实际=%d）" % int(cnt8["rec"]))
+	# T4 评审 F1 补腿：重记不改值直断——首记钉死值后，覆写尝试必须整单拒（早退路径的值面）
+	_check(_save.record(NS_D, &"d8_dup", &"first_value") == true
+			and _save.value_of(NS_D, &"d8_dup") == &"first_value",
+			"D8b' 三参首记值随键生（value_of 读回 first_value）")
+	_check(_save.record(NS_D, &"d8_dup", &"second_try") == false
+			and _save.value_of(NS_D, &"d8_dup") == &"first_value",
+			"D8b'' 重记拒且值未被覆写（值只随首记生）")
 	_save.record_checkpoint(&"d8_seg", &"d8_entry")
 	_check(int(cnt8["cp"]) == 1 and int(cnt8["bad"]) == 0,
 			"D8c checkpoint_recorded 恰一发且三键齐（scene/segment/entry）")
