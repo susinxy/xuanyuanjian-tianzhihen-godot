@@ -3,7 +3,8 @@ extends InteractReaction
 
 ## 《秘籍》反应件（S2-B4，spec §4；家族第四型，chest 同门形制）：挂
 ## InteractTrigger 子节点、_ready 订阅 interacted。E 触发→对 GameSave 的
-## spells_known 户记账（manual_id 空则回落 spell_id 作账本键）→**首开**即时
+## spells_known 户记账（manual_id 空则回落 spell_id 作账本键；账值=spell_id，
+## 键=拾得事件、值=教什么——B4.5-T4 值维立法）→**首开**即时
 ## 把 registry 解析出的定义教给 shell.playable（def 缺件=push_error 不炸链，
 ## 账已记=道具确被拾取，降级不吞事件）→无论首开与否 consume()+0.4s 缩小消失。
 ## **外观判重**（用户 F5 裁决 2026-09-25，_ready 腿）：账本有账=学会过，本件
@@ -58,7 +59,11 @@ func _on_interacted() -> void:
 	# 本件对自己的户再报一次所有权——claim 幂等，重复开户静默通过不换手
 	shell.session.claim_namespace(_GameSaveScript.NS_SPELLS, &"InteractSpellBook")
 	var key: StringName = manual_id if manual_id != &"" else spell_id
-	var first: bool = shell.session.record(_GameSaveScript.NS_SPELLS, key)
+	# 值维立法（B4.5-T4 修复波 A1）：键=拾得事件（manual_id 分户时是户名），
+	# 值=教什么（spell_id）——分户件的科目信息随账走，重建节点补学经
+	# GameSave.value_of 读回（record 幂等：值只在首记写入，重记不改）。
+	# manual_id 空的常规装配下值==键，语义零漂移。
+	var first: bool = shell.session.record(_GameSaveScript.NS_SPELLS, key, spell_id)
 	if first:
 		var def := SpellRegistry.definition_for(spell_id)
 		if def == null:

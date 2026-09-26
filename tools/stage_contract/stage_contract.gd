@@ -27,7 +27,9 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
 ## 断言按新契约改写，故较旧版恰 +1）
 ## B4.5-T2：A7 读档入口腿 +9（128→137；A4 改判不增不减）。
-const EXPECTED_ASSERTS := 137
+## B4.5-T4：A7d 合取强化（+0，弹窗相"账未清"文案兑现为判据）+A7j/k 空场景
+## 旗滞留支 +2（137→139；传渡旗消费/滞留合同标题端，壳端=spell 套 P6）。
+const EXPECTED_ASSERTS := 139
 
 var _fails := 0
 var _finished := false
@@ -233,7 +235,12 @@ func _a7_load_game() -> void:
 	var scene_before := get_tree().current_scene
 	_title.call(&"_start_game")   # 模拟点击入口函数（typed Control 禁直调脚本方法判例）
 	if dlg != null:
-		_check(dlg.visible, "A7d 有档点开始=只到弹窗步（弹窗显+账未清，转场另相）")
+		# A7d 合取强化（B4.5-T4 修复波第二件，T2 移交硬批①）：弹窗判据原只证
+		# "弹窗显"，文案声称的"账未清"无腿——弹窗相若被降解形（先清账再弹窗）
+		# 则现判据假绿；补"账未清（旗在）+盘未删"两合取，红据=sabotage 档
+		# （_start_game 弹窗前插 begin_new_profile → 本腿响亮红，/tmp/opencode/b45_t4/）
+		_check(dlg.visible and GameSave.has_flag(&"a7_probe") and SaveSystem.has_save(),
+				"A7d 有档点开始=只到弹窗步（弹窗显+账未清+盘未删三合取，转场另相）")
 		_check(get_tree().current_scene == scene_before,
 				"A7e 弹窗相不触发真转场（套根场景原样，拆套防线）")
 	else:
@@ -258,6 +265,21 @@ func _a7_load_game() -> void:
 	_check(SaveSystem.has_save() == false, "A7h begin_new_profile 盘删（scratch 随档清）")
 	_check(GameEvents.pending_jump_stage == "" and GameSave.resume_pending == false,
 			"A7i begin_new_profile 传渡清（pending_jump_stage+resume_pending 双易失旗）")
+	# ── A7j/A7k 检查点空场景支（B4.5-T4 修复波第三件，T2 移交硬批②标题端）：
+	# _continue_game=先置旗后查场景，scene 空串（T0 前旧档/未落段档形态）→
+	# push_error 响亮不转。此刻旗已 true 而永无壳命中（空串不匹配任何场景）
+	# =旗滞留惰性面——真实世界收口=begin_new_profile（A7i 已钉）或玩家改选
+	# 有段档；本对腿钉"不转+不拆套+旗响亮滞留"（壳端未命中滞留半面由 spell
+	# 套 P6 钉，两面合璧=传渡旗的完整消费/滞留合同）──
+	GameSave.new_profile()          # 空检查点（scene="" 即"未记账"旧档面相）
+	SaveSystem.save_now()           # 空场景档落 scratch（继续钮数据源）
+	var scene_before_j := get_tree().current_scene
+	_title.call(&"_continue_game")  # 模拟点击继续钮（A7d 同款 call 直入，套零真转场）
+	_check(get_tree().current_scene == scene_before_j,
+			"A7j 空场景档=不转场（push_error 响亮=被试行为，套根场景原样）")
+	_check(GameSave.resume_pending == true,
+			"A7k 空场景支旗滞留（置旗先于场景查询；无壳可命中=惰性留，收口归 begin）")
+	GameSave.resume_pending = false  # 清滞留旗（不外溢后续腿/他套；真实收口口=A7i 已钉）
 	GameSave.new_profile()
 	await _frames(2)   # 排干在途影子冲刷再删（"删完又复活=残骸过夜"判例，D 尾同款）
 	SaveSystem.delete_save()   # 尾净（起手清场判据对下轮恒成立）

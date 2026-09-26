@@ -127,6 +127,17 @@ func ids(ns: StringName) -> Array:
 	return out
 
 
+## 值读门洞（B4.5-T4 立法，A1 修复波；record 的读侧对偶）：读回"ns/id"的账目
+## 值——值是记账存在性之外的事实载荷（如分户秘籍记的所教学科 spell_id；record
+## 幂等语义下值只在**首记**写入，重记不改值，此门洞读到的即首记快照）。
+## 无此账目/无此户=返 null（静默幂等，本门不存货、回落策由调用方自定）。
+## 账本读侧只经 has_record/ids/本门三洞，禁止直戳 _ledges（门三静态扫描执法沿用）。
+## 判例注：值经落盘 JSON 回环后 StringName→String（from_dict 不猜测还原类型），
+## 消费方双形兼收（str() 归一读法，勿用 String(v) 构造器——bool/Array 参数=运行时炸）。
+func value_of(ns: StringName, id: StringName) -> Variant:
+	return _ledges.get(ns, {}).get(id, null)
+
+
 ## 全账清空（含 checkpoint 三件套+地点访问表）——账本唯一重置口（新开局/回环中转）。
 ## 设计决定：清账目不清开户登记（_claims 属代码级注册，非玩家档案数据）；
 ## B4.5 起 locations 同族入账——表随档案：清账=清表（spec §3 回跳改判前提）。

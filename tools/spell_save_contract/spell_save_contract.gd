@@ -25,6 +25,8 @@ extends Node
 ## 键权现状钉腿（AI/被动档 channel 空转无劫持，spec §4"仅验证不新建机制"）、
 ## G7 learn_spell 契约三式（B4.5-T3 立法腿，spec §5：null 拒学/正常占槽/同学科
 ## 去重——裸 SpellManager 形制，与 G3/G4 账本预记腿零互作）；
+## G8 分户键值维补学通（B4.5-T4 修复波：manual_id≠spell_id 装配→record 带值→
+## value_of 读门洞→补学值优先回落键；走盘 JSON 回环 String 支+B4 老式账兼容面）；
 ## E 流（T3，本批在册）=正式壳 fixture 生产链施法 E2E：加载章壳夹具
 ## （playable_override=test_actor，替身缺席=NOTICE 大声跳腿）→ 驱动替身入秘籍触发区
 ## → trig.interacted.emit() 经 InteractSpellBook 生产链学会 → raw 数字键1（原始按键
@@ -48,7 +50,8 @@ extends Node
 ## 直建壳=「继续钮后半场」的拆段等价（落位检查点段+入口位、旗 first-wins 消费、
 ## 坏段（不在 _order）push_error 响亮回退首段且照样消费；通关入账：resume 落终点段
 ## →判清→终点墙同步链（container H6 判例）→chapter_finished 恰一次+chapters_done
-## 首记入账+影子带盘（scratch 文件含该户键）。全部壳腿吃 chapter_fix 夹具（test_actor
+## 首记入账+影子带盘（scratch 文件含该户键）；P6 旗滞留惰性面（B4.5-T4：场景不
+## 命中→旗原样留，消费判据的未命中半面钉死）。全部壳腿吃 chapter_fix 夹具（test_actor
 ## 主权，kit 缺席=NOTICE 大声跳腿，M1 形制）。
 ## X 流（T3，本批在册，压轴）=静态清点：①账本私有域绕门裸写全仓扫描
 ## （game_save.gd 之外命中=0，被禁 token 运行期拼接不自伤）+ 旧公共字典形态=0；
@@ -67,6 +70,10 @@ const NS_TEST := &"b4_contract_probe"
 const SCRATCH_D := "user://b45_d_stream.json"
 ## D 流探针户（plan Task0 Step2 钉名）
 const NS_D := &"b45_probe"
+## P3b 落位 y 容差（B4.5-T4 A4 裁定：常量化于套内、非生产常量——生产无此数值，
+## 跨文件固化会伪造"生产语义"；64.0=物理沉降窗实校准：出生 (500,600)→20 物理帧
+## 稳定后 ≈579.93，地板/高度层吸附所致，x 恒精确；改判历史=T2 首跑绿期校准注）
+const RESUME_LAND_TOL := 64.0
 
 ## M 流章壳腿依赖：container 夹具（playable_override=test_actor）+ 主权 kit
 ## （preload 路径引用=全局类缓存判例同款；缺席=NOTICE 大声跳腿）
@@ -502,6 +509,83 @@ func flow_spells() -> void:
 		shell6.free()
 		await _m_frames(4)
 		GameSave.new_profile()
+
+		# ── G8 分户键值维补学通（B4.5-T4 修复波第一件，T3 移交"manual_id 分户
+		# 键补学断线"案偿）：装配现场=manual_id≠spell_id 的秘籍——键=拾得事件
+		# 户名、值=教什么学科（spell_id）。旧断线两式：①秘籍 record 不带值
+		# （值=true 无学科信息）；②补学循环把账本键当科目名 definition_for
+		# （户名必 null→静默不学）。修法：record 带值+GameSave.value_of 读门洞
+		# +补学值优先回落键。腿组形制（红档可读性优先——判决位一律 str()/短路
+		# and 干净 FAIL 不崩流，value_of 缺 API 崩红压轴，红期前序腿信息不淹；
+		# String(v) 构造器对 bool/Array 是运行时炸而非转换，判例=首轮红档实锤，
+		# 一律用 str()）：
+		var shell8 := await _m_make_shell()
+		var trig8: InteractTrigger = (load(TRIG_SCENE) as PackedScene).instantiate()
+		var book8 = bs6.new()
+		book8.spell_id = &"fire_ball"
+		book8.manual_id = &"ch0_x_manual"   # 分户装配：户名≠科目名（G1d 判例=definition_for(户名) 必 null）
+		trig8.add_child(book8)
+		shell8.add_child(trig8)
+		await _m_frames(2)
+		trig8.interacted.emit()
+		_check(_save.ids(_save.NS_SPELLS).size() == 1
+				and _save.ids(_save.NS_SPELLS)[0] == &"ch0_x_manual",
+				"G8a 分户秘籍拾取：账本键=户名非科目名（键面既有判据口径不变，D/G 旧腿零破坏）")
+		# 值面判据经 to_dict 公共快照读（红期不借 value_of——此腿旧码干净 FAIL：
+		# 值=true 无学科信息=断线一实证；绿期翻绿=record 带值立法生效）
+		var led8: Dictionary = _save.to_dict().get("ledges", {}).get(str(_save.NS_SPELLS), {})
+		_check(str(led8.get("ch0_x_manual", "")) == "fire_ball",
+				"G8b 秘籍记账带值维：快照值=spell_id 非 true（实际=%s；断线一修复锁）"
+				% str(led8.get("ch0_x_manual", null)))
+		# 补学通（内存面）：户名账在位→替身出生值优先解析科目→双断
+		var actor8: QuiverCharacter = load(Kit.ACTOR_SCENE).instantiate()
+		get_tree().root.add_child.call_deferred(actor8)
+		await _m_frames(6)
+		var sm8: SpellManager = actor8.get_spell_manager()
+		_check(sm8 != null and not sm8.get_spell_slot(0).is_empty()
+				and sm8.get_spell_slot(0).definition.spell_id == &"fire_ball",
+				"G8c 分户键补学通（值优先：slot0 在位且科目=fire_ball 双断；旧码把户名当科目=null 静默不学=断线二红）")
+		actor8.free()
+		# new_profile 模拟重建（走盘：影子落盘→清内存→load_game 还原——值经 JSON
+		# 回环 StringName→String（探针 P3），补学读侧须双形兼收）
+		shell8.queue_free()
+		await _m_frames(6)
+		_check(_sys != null and _sys.save_now() == true, "G8d 前置：分户账落 scratch 盘")
+		GameSave.new_profile()
+		_check(_sys.load_game() == true, "G8d' load_game true（重建起点）")
+		var actor8b: QuiverCharacter = load(Kit.ACTOR_SCENE).instantiate()
+		get_tree().root.add_child.call_deferred(actor8b)
+		await _m_frames(6)
+		var sm8b: SpellManager = actor8b.get_spell_manager()
+		_check(sm8b != null and not sm8b.get_spell_slot(0).is_empty()
+				and sm8b.get_spell_slot(0).definition.spell_id == &"fire_ball",
+				"G8e 走盘重建后分户补学通（值维跨 JSON 回环 String 支，读档面实链；旧码同红=断线二走盘形态）")
+		actor8b.free()
+		# B4 兼容面：老式无值账（value=true）回落键不炸——直造旧形（此腿旧码亦绿）
+		GameSave.new_profile()
+		_check(_save.record(_save.NS_SPELLS, &"fire_ball", true) == true,
+				"G8f 前置：老式账直造（键=科目名+值=true，B4 时代形态）")
+		var actor8c: QuiverCharacter = load(Kit.ACTOR_SCENE).instantiate()
+		get_tree().root.add_child.call_deferred(actor8c)
+		await _m_frames(6)
+		var sm8c: SpellManager = actor8c.get_spell_manager()
+		_check(sm8c != null and not sm8c.get_spell_slot(0).is_empty()
+				and sm8c.get_spell_slot(0).definition.spell_id == &"fire_ball",
+				"G8f' 老式无值账回落键补学（值非科目信息→键即科目名；本腿旧码亦绿=B4 行为零变兼容锁）")
+		actor8c.free()
+		# 值读门洞本体（压轴=旧码缺 value_of 函数：响亮崩红=立法主体红据，
+		# D 流"SaveSystem 不存在"红形制先例；绿期两式=有账读值+无账读 null）
+		GameSave.new_profile()
+		_save.claim_namespace(_save.NS_SPELLS, &"spell_save_contract")
+		_save.record(_save.NS_SPELLS, &"ch0_y_manual", &"fire_ball")
+		var val8: Variant = _save.value_of(_save.NS_SPELLS, &"ch0_y_manual")
+		_check(val8 != null and str(val8) == "fire_ball",
+				"G8g value_of 有账读值（StringName 支；缺 API 时本行崩=红据）")
+		_check(_save.value_of(_save.NS_SPELLS, &"no_such_manual_key") == null,
+				"G8g' value_of 无账读 null（静默幂等，调用方自备回落策）")
+		GameSave.new_profile()
+		await _d_frames(2)   # 排干在途帧尾落盘再删（"删完又复活=残骸过夜"判例）
+		_sys.delete_save()
 
 	# ── G5 键权现状钉腿（spec §4"仅加验证腿钉住现状，不新建机制"）──
 	# 现状实读：模板壳法术键只经私有输入通道 channel.just_pressed 读取（无
@@ -1296,7 +1380,7 @@ func flow_resume() -> void:
 	_check(seg_inst != null and seg_inst.segment_id == &"seg_b"
 			and shell_b.playable != null
 			and is_equal_approx(shell_b.playable.global_position.x, tgt.x)
-			and absf(shell_b.playable.global_position.y - tgt.y) <= 64.0,
+			and absf(shell_b.playable.global_position.y - tgt.y) <= RESUME_LAND_TOL,
 			"P3b 落位=段 b 入口位（entry 通道随段走，y 容差=物理沉降窗，实际=%s 目标=%s）"
 			% [str(shell_b.playable.global_position if shell_b.playable else Vector2.INF),
 				str(tgt)])
@@ -1336,9 +1420,29 @@ func flow_resume() -> void:
 	var cd5: Dictionary = led5.get(String(_save.NS_CHAPTERS_DONE), {})
 	_check(cd5.has("fix"), "P5d 入账即影子带盘（scratch 文件含 chapters_done 户键）")
 
-	# ── 流尾自洁：壳灭、账清、旗落、盘净（不外溢 X 流/他套）──
+	# ── P6 旗滞留惰性面（B4.5-T4 修复波第三件，T2 移交②"场景不命中旗滞留腿"）：
+	# 壳 _ready 消费条件是"旗起 且 检查点场景==本文件"的合取——本壳不命中转场目标
+	# 时旗原样留给真正要落的场景（B4 pending_jump 传渡 first-wins 判例的未命中半面，
+	# T2 立法行为本腿钉死覆盖；行为既有=覆盖腿无先红，报告申报）。注意壳出生
+	# enter_segment 会把自己的场景反写进检查点（P1b 生产行），故判据必须在
+	# _m_make_shell 返回后即读旗——此刻反写已发生但消费判定早已完成（不命中=没碰旗）。
 	shell_d.queue_free()
 	await _m_frames(6)
+	_save.record_checkpoint(&"seg_b", &"e", "res://p6_foreign_scene_not_here.tscn")
+	GameSave.resume_pending = true
+	var shell_e := await _m_make_shell()
+	_check(shell_e.current_segment_id() == &"seg_a",
+			"P6a 他场景旗不落本壳（不命中=自然落 _order[0]，无假落位）")
+	_check(_save.resume_pending == true,
+			"P6b 场景不命中→旗原样滞留（未消费=留给转场目标壳，first-wins 仅命中时清）")
+	# 清场：滞留旗不外溢流尾自洁/他套（真实游戏中该旗终被目标壳或 begin_new_profile 收掉）
+	GameSave.resume_pending = false
+	shell_e.queue_free()
+	await _m_frames(6)
+
+	# ── 流尾自洁：账清、旗落、盘净（不外溢 X 流/他套；壳已各腿收讫——
+	#    shell_d 于 P6 起头清、shell_e 于 P6 尾清，旧"尾杀 shell_d"位前移，
+	#    此处再 queue_free 已释放实例=3684 判例，勿回潮）──
 	GameSave.new_profile()
 	GameSave.resume_pending = false
 	await _d_frames(2)

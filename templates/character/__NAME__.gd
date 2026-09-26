@@ -38,9 +38,17 @@ func _ready() -> void:
 	if ledger != null:
 		# 补学去噪（B4.5-T3）：账本可能多键同学科（manual_id 分户形制——
 		# 键是户名不是科目名），良性重提在补学侧用 seen 消化，
-		# 基础类 learn_spell 的报警只留真违规（spec §5 双层分工）
+		# 基础类 learn_spell 的报警只留真违规（spec §5 双层分工）。
+		# 值优先回落键（B4.5-T4 修复波 A1）：分户账值=所教学科 spell_id（经
+		# GameSave.value_of 门洞读，禁直戳账本内部）；老式 B4 账值=true 无
+		# 学科信息→回落键即科目名。落盘 JSON 回环 StringName→String（判例），
+		# 故 String/StringName 双形兼收、str() 归一（String(v) 构造器对
+		# bool/Array 是运行时炸，勿用）。
 		var seen: Array[StringName] = []
-		for sid in ledger.ids(ledger.NS_SPELLS):
+		for key in ledger.ids(ledger.NS_SPELLS):
+			var raw: Variant = ledger.value_of(ledger.NS_SPELLS, key)
+			var sid: StringName = StringName(str(raw)) \
+				if (raw is StringName or raw is String) and str(raw) != "" else key
 			var def := SpellRegistry.definition_for(sid)
 			if def == null:
 				continue

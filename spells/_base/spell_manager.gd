@@ -39,7 +39,12 @@ func tick(delta: float) -> void:
 ## 判学科只按 spell_id、不按资源同引用——同一 tres 的两个 duplicate 副本
 ## 也视为同学科（"共享 attributes 幻影"家族判例的镜像防误伤：若按引用判，
 ## 产线上 duplicate/load 双引用会让去重静默失灵，叠槽幻影卷土重来）。
-## 槽位全满（四科占毕再来新科）：静默 false（现状保留，知情窄口见 T4 批报告）。
+## 匿名定义语义（B4.5-T4 A5 入契约）：两个未命名（spell_id==&""）的定义
+## 互为同学科——去重只认 spell_id，空科对空科=首占者得、后来者拒；
+## 装配纪律：definition 必命名（SpellCreator 产件与 validator R12 户名查重在案）。
+## 槽位全满（四科占毕再来新科）：返回 false 无警告=知情保留（B4.5-T4 A6 定档：
+## 真违规双警/资源上限静默——报警预算只留给违规不留给容量；扩容或存档 UI
+## 批再议此窄口）。
 func learn_spell(spell_def: SpellDefinition) -> bool:
     if spell_def == null:
         push_warning("SpellManager: learn_spell 收到 null 定义，拒收（契约：仅非空 SpellDefinition 可占槽）")
