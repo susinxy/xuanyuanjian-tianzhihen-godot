@@ -133,6 +133,10 @@ func _use_4dir(actor: QuiverCharacter) -> int:
 ## 纵向机制腿组尾：还原覆写前原值（括弧收口，防覆写泄漏串腿）
 func _restore_axis(actor: QuiverCharacter, prev: int) -> void:
 	actor.attributes.attack_axis_mode = prev
+	# 评审 LOW#1 补强（非新缺陷、绿即过）：括弧收口必含"还原到位"自证——
+	# 未来字段改名/写点漂移会让上面的还原行静默失联，此处响亮拦截
+	_check(actor.attributes.attack_axis_mode == prev,
+			"axis 括弧收口：还原后=%d（实得 %d）" % [prev, actor.attributes.attack_axis_mode])
 
 
 func _place(vendor: QuiverCharacter, actor: QuiverCharacter, offset: Vector2) -> void:
@@ -181,6 +185,17 @@ func _flow() -> void:
 	_check(ok0 and str(vendor.state_machine.state_name) != "", "B0 替身/小贩入场就绪")
 	_check(actor.attributes.skin_direction == Vector2.ZERO,
 			"B0b 待机镜像=零向量（非出手态旧语义护城河）")
+
+	# ════ H0 产线出生档自证（S2-B4.6 T1 移交补强）════
+	# test_actor 每轮经矩阵 destroy 先行 → CharacterCreator 真产线重建：运行值=
+	# 横模 且 tres 合成行在场，两点合读证明档位来自"面板合成器落盘"而非
+	# "字段缺席代码兜底"（单查运行值两种来源皆 1=假绿通道）。旧 tres 缺行会红，
+	# 处方=bash tools/matrix_runner/run_matrix.sh --ensure-only 重建后再跑
+	var actor_attrs_text := FileAccess.get_file_as_string(
+			Kit.ACTOR_DIR + "/resources/test_actor_attributes.tres")
+	_check(actor.attributes.attack_axis_mode == QuiverAttributes.AttackAxisMode.HORIZONTAL_ONLY
+			and actor_attrs_text.contains("\nattack_axis_mode = 1\n"),
+			"H0 替身出生=横模且 tres 有合成行（产线通道自证）")
 
 	# ════ H 腿组（S2-B4.6）：横模语义 + 跳跃同源直证（默认档，先红后绿）════
 	# H1 横模+面向正上：skin_direction=UP 出手，快照恰 (-1,0)=facing_x 记忆

@@ -17,7 +17,9 @@ const TMP_CHARS := [
 		"move_speed": 501.0, "walk_speed": 201.0, "air_control": 0.42,
 		"jump_force": -1500.0, "knockback_weight": 2.5, "hit_lane_offset": 7.0,
 		"can_be_grabbed": true, "is_invulnerable": false, "has_superarmor": false,
-		"parry_window_frames": 5.0, "block_damage_ratio": 0.25, "attack_output": 0.66},
+		"parry_window_frames": 5.0, "block_damage_ratio": 0.25, "attack_output": 0.66,
+		# 显式选四向档（枚举 FOUR_DIRECTION=0）：验面板下拉第二项→tres 落盘通道
+		"attack_axis_mode": 0},
 	"attacks": [
 		{"attack_damage": 7.0, "hurt_type": 0, "knock_strength": 300.0, "launch_angle": 60.0},
 		{"attack_damage": 8.0, "hurt_type": 1, "knock_strength": 100.0, "launch_angle": 20.0},
@@ -27,7 +29,8 @@ const TMP_CHARS := [
 		"move_speed = 501", "walk_speed = 201", "air_control = 0.42",
 		"jump_force = -1500", "knockback_weight = 2.5", "hit_lane_offset = 7",
 		"can_be_grabbed = true", "is_invulnerable = false", "has_superarmor = false",
-		"parry_window_frames = 5", "block_damage_ratio = 0.25", "attack_output = 0.66"],
+		"parry_window_frames = 5", "block_damage_ratio = 0.25", "attack_output = 0.66",
+		"attack_axis_mode = 0"],
 	"expect_punch1": ["attack_damage = 7", "hurt_type = 0", "knock_strength = 300", "launch_angle = 60"]},
 	{"name": "tmp_wp_enemy", "pkg": "enemies", "mode": 1, "tags": "enemy",
 	"pascal": "TmpWpEnemy", "display": "临时敌人"},
@@ -120,7 +123,10 @@ func _create_phase() -> void:
 				"jump_force = -1200", "knockback_weight = 1", "hit_lane_offset = 0",
 				"can_be_grabbed = false",
 				"parry_window_frames = 6", "block_damage_ratio = 0.4",
-				"attack_output = 1"])
+				"attack_output = 1",
+				# S2-B4.6 裁决①：全局默认=只有左右（HORIZONTAL_ONLY=1），
+				# 未显式配置的角色出生即落此行
+				"attack_axis_mode = 1"])
 		for line in expect_attrs:
 			_check(syn_attrs.contains("\n" + line + "\n"),
 					"%s attributes 行: %s" % [spec.name, line])

@@ -42,6 +42,9 @@ var _knockback_weight_spin: SpinBox
 var _grab_check: CheckBox
 var _invuln_check: CheckBox
 var _superarmor_check: CheckBox
+# 攻击朝向模式下拉（S2-B4.6）：取值经 get_item_id，item 序与枚举值故意相反
+# （item0="只有左右"→id=1、item1="上下左右"→id=0），防按索引直取踩反转坑
+var _axis_mode_option: OptionButton
 # 四招出生值控件（槽序与 CharacterCreator.DEFAULT_ATTACKS 对齐）
 var _atk_damage: Array[SpinBox] = []
 var _atk_hurt: Array[OptionButton] = []
@@ -300,6 +303,22 @@ func _build_ui() -> void:
 	_grab_check = _make_check_row("可被抓取:", "出生 can_be_grabbed（默认关=不可被抓；抓取靶子如木桩/杂兵按需勾选）", CharacterCreator.DEFAULT_STATS.can_be_grabbed)
 	_invuln_check = _make_check_row("天生无敌:", "警告：勾选=全程免伤免击退，正常由动画轨道控制", false)
 	_superarmor_check = _make_check_row("天生霸体:", "警告：勾选=受击不打断且击打值无效，同上", false)
+	# 攻击朝向模式（S2-B4.6 裁决①：全局默认=只有左右）。item 携带的 id 即枚举值
+	# （AttackAxisMode：FOUR_DIRECTION=0 / HORIZONTAL_ONLY=1），故 item0→id 1、
+	# item1→id 0 与显示序相反——收集处只认 get_item_id，不认 selected 索引。
+	var hbox_axis := HBoxContainer.new()
+	var label_axis := Label.new()
+	label_axis.text = "攻击朝向模式:"
+	label_axis.custom_minimum_size.x = 120
+	hbox_axis.add_child(label_axis)
+	_axis_mode_option = OptionButton.new()
+	_axis_mode_option.add_item("只有左右", int(QuiverAttributes.AttackAxisMode.HORIZONTAL_ONLY))
+	_axis_mode_option.add_item("上下左右", int(QuiverAttributes.AttackAxisMode.FOUR_DIRECTION))
+	_axis_mode_option.selected = _axis_mode_option.get_item_index(int(CharacterCreator.DEFAULT_STATS.attack_axis_mode))
+	_axis_mode_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox_axis.add_child(_axis_mode_option)
+	add_child(hbox_axis)
+	_add_hint("地面攻击定向：只有左右=出手向恒取左右朝向记忆（与跳跃同源）；上下左右=旧四向主轴塌缩")
 	var atk_header := Label.new()
 	atk_header.text = "招式出生值（刺拳1 / 刺拳2 / 刺拳3 / 空中踢）"
 	atk_header.add_theme_font_size_override("font_size", 14)
@@ -701,6 +720,8 @@ func _on_create_pressed() -> void:
 		"can_be_grabbed": _grab_check.button_pressed,
 		"is_invulnerable": _invuln_check.button_pressed,
 		"has_superarmor": _superarmor_check.button_pressed,
+		# 枚举值只认 item id（显示序与枚举值相反，见 _build_ui 防反转注）
+		"attack_axis_mode": _axis_mode_option.get_item_id(_axis_mode_option.selected),
 	}
 	var attacks: Array = []
 	for i in _atk_damage.size():
@@ -940,6 +961,8 @@ func _reset_birth_stats() -> void:
 	_grab_check.button_pressed = d.can_be_grabbed
 	_invuln_check.button_pressed = d.is_invulnerable
 	_superarmor_check.button_pressed = d.has_superarmor
+	# 复位同样走 id→index 换算（DEFAULT_STATS 存枚举 int，不写死索引）
+	_axis_mode_option.selected = _axis_mode_option.get_item_index(int(d.attack_axis_mode))
 	for i in CharacterCreator.DEFAULT_ATTACKS.size():
 		var base: Dictionary = CharacterCreator.DEFAULT_ATTACKS[i]
 		_atk_damage[i].value = base.attack_damage

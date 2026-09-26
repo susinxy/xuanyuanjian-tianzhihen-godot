@@ -45,6 +45,9 @@ const DEFAULT_STATS := {
 	"parry_window_frames": 6.0,
 	"block_damage_ratio": 0.4,
 	"attack_output": 1.0,
+	# 攻击朝向模式（S2-B4.6 裁决①）：1=HORIZONTAL_ONLY 全局默认"只有左右"；
+	# 0=FOUR_DIRECTION。枚举档位按 int 存放（与 QuiverAttributes.AttackAxisMode 同值）
+	"attack_axis_mode": 1,
 }
 
 ## 招式槽表（文件名固定，与皮肤场景 ext_resource 引用对齐；
@@ -171,7 +174,8 @@ func _synthesize_attributes(
 			+ "has_superarmor = %s\n" % ("true" if s.has_superarmor else "false") \
 			+ "parry_window_frames = %s\n" % _num(s.parry_window_frames) \
 			+ "block_damage_ratio = %s\n" % _num(s.block_damage_ratio) \
-			+ "attack_output = %s\n" % _num(s.attack_output)
+			+ "attack_output = %s\n" % _num(s.attack_output) \
+			+ "attack_axis_mode = %d\n" % int(s.attack_axis_mode)  # 枚举非数值域：int 直写，不走 _num 浮点通道
 	return _write_text(res.path_join(char_name + "_attributes.tres"), text, "attributes 合成")
 
 
