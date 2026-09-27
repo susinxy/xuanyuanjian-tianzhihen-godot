@@ -30,7 +30,8 @@ Inspector 面板：打开 `character_template.tscn` → 填英文名/类名/显�
 
 ## 创建后的三步工作流
 
-1. **换图 = 同名覆盖**。目录结构即 chen 规范：
+1. **换图 = 同名覆盖**。目录结构即 chen 规范
+   （**block 系 left 目录两张图动手前先读 `docs/GUIDE_格挡.md` §2.3 双面陷阱**）：
    - `resources/sprites/<attackN|idle|walk|run|hurt|jump|knock_out|air_attack|block_out|block>/<方向>/<动画名>_<槽号两位>.png`
    - 新角色画好的图用**相同文件名**盖掉占位图即可，所有引用零改动
    - `__NAME___profile.png` 是头像（被 attributes 引用），同样同名覆盖
@@ -42,7 +43,7 @@ Inspector 面板：打开 `character_template.tscn` → 填英文名/类名/显�
 2. **跑两类轮廓转换**（Body + Attack，Inspector 高度层面板）：
    轮廓/身高/攻击窗口/时间轴全部按新图重算——占位图带来的 chen 数据会被自动冲掉
 3. **体检归零**（面板"attack 结构体检"无告警）
-4. 出生数值（属性 13 项 + 四招伤害/击退/部位/角度）全部在**创建面板**设定并直接合成落盘，
+4. 出生数值（属性 12 项 + 四招伤害/击退/部位/角度）全部在**创建面板**设定并直接合成落盘，
    默认值即原 chen 演示值；创建后要改，去编辑器开 `resources/` 下对应 tres 微调即可
 
 可选：若走"大图画、缩着进游戏"的缩放管线，创建后自行建 `resources/sprites_master/`
