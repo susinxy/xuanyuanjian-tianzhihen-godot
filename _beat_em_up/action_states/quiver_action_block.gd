@@ -3,7 +3,9 @@ class_name QuiverActionBlock
 extends QuiverCharacterAction
 
 ## 地面格挡序列态（S2-B4.8 点按制）：按下 block 起序列
-## block_out（弹反窗，相位=OUT）→ block（持盾窗，相位=GUARD）→ 自动回 Idle。
+## block_out（弹反窗，相位=OUT）→〔未弹反〕block（持盾窗，GUARD）→ 回 Idle；
+## 〔R12 弹反直返〕OUT 全程弹反成功 → block_out 余程放完（R8 不中断不裸奔）
+## → OUT 信标到点**跳过 GUARD 直回 Idle**（弹成即自由=主动权奖励）。
 ## 不支持长按（评审 F3/裁决 D：起按边沿锁——序列收口后仍持键不起二段，
 ## 必须松开重按）、序列中再按无效（Block 不在白名单）。
 ## 转移图（spec §2.2）：Idle/Walk/Run/地面三连段 →（点按 K）→ 本态 →（信标/
@@ -12,6 +14,8 @@ extends QuiverCharacterAction
 ## 单写者宪章续命：`is_blocking`/`block_phase`/`block_facing` 三件套唯一生产
 ## 写方=本态 enter（同帧起笔，R4 宪章）/信标推进/exit 保证式清闸——
 ## hurt/knockout/grab 任何打断走同一出口（Ground 挂线继承，判定缝只读）。
+## R12 案卷式扩展：`parried_this_sequence` 旗唯一置位方=HurtBox 弹反支，
+## 唯一清除方=本态 enter/exit 括弧（与 reset()）——本态读旗于 OUT 推进口分叉。
 ##
 ## 兜底（缺动画槽的过渡期皮肤，spec §2.3）：OUT=12 拍/GUARD=30 拍自计数；
 ## 真动画到货以信标为准（占位资产帧长按同数制作——"动画即规则"的平滑桥）。
@@ -96,6 +100,8 @@ func enter(msg: = {}) -> void:
 	# 三件套唯一生产写入点：与姿态起势同帧（R4 宪章续命，判定缝成对读取）；
 	# 盾面朝向取 facing_x 快照，x 平局归右（R6），序列期钉死不重定向
 	_attributes.is_blocking = true
+	# R12：开括弧清"已弹反"旗——上一序列弹没弹过不得泄漏到本序列
+	_attributes.parried_this_sequence = false
 	_attributes.block_phase = QuiverAttributes.BlockPhase.OUT
 	var fx := 1.0 if _skin.facing_x >= 0.0 else -1.0
 	_attributes.block_facing = Vector2(fx, 0.0)
@@ -108,6 +114,8 @@ func exit() -> void:
 	_attributes.is_blocking = false
 	_attributes.block_phase = QuiverAttributes.BlockPhase.NONE
 	_attributes.block_facing = Vector2.ZERO
+	# R12：闭括弧清旗（正常收口与 hurt/knockout 异面穿盾打断同口）
+	_attributes.parried_this_sequence = false
 	_state_machine.input_window_open = true
 
 	super()
@@ -159,8 +167,14 @@ func _on_skin_animation_finished() -> void:
 	if _beats_left > 0:
 		return
 	if _attributes.block_phase == QuiverAttributes.BlockPhase.OUT:
-		_attributes.block_phase = QuiverAttributes.BlockPhase.GUARD
-		_play_slot(_skin_state_hold, _BLOCK_HOLD_FALLBACK_BEATS)
+		# R12 弹反直返分叉（真槽信标与兜底自调共享本口）：本序列弹反成功
+		# → 跳过 GUARD 段直回 Idle（block_out 已放完=R8 不裸奔语义保留）；
+		# GUARD 段自此只属于"弹空者的保险"（未弹反才持盾）。
+		if _attributes.parried_this_sequence:
+			_state_machine.transition_to(_path_idle_state)
+		else:
+			_attributes.block_phase = QuiverAttributes.BlockPhase.GUARD
+			_play_slot(_skin_state_hold, _BLOCK_HOLD_FALLBACK_BEATS)
 	elif _attributes.block_phase == QuiverAttributes.BlockPhase.GUARD:
 		_state_machine.transition_to(_path_idle_state)
 

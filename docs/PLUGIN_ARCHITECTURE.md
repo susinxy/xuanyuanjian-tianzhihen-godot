@@ -424,6 +424,7 @@ func modifier_snapshot() -> Array[Dictionary]  # 展示用深拷贝快照（dock
 | `is_blocking` | 运行时总闸（bool） | false | **非修饰域**；唯一生产写方 `QuiverActionBlock.enter/exit`（点按序列全程 true），判定缝只读，`reset()` 兜底清零 |
 | `block_phase` | 运行时相位（enum BlockPhase） | NONE | **非修饰域非数值**（路由表达合法旗）；唯一生产写方=Block 序列态（enter 起笔 OUT/信标·兜底推进 GUARD/exit 归 NONE），判定缝只读，`reset()` 清零 |
 | `block_facing` | 运行时快照（Vector2 ±1,0） | 零向量 | 同上（enter 同帧取 signf(facing_x)，序列期钉死；x 平局归右），判定缝只读，`reset()` 清零 |
+| `parried_this_sequence` | 运行时旗（bool，R12 弹反直返） | false | **宪章案卷式扩展**：唯一置位方=HurtBox 弹反支（近战/弹体统一），唯一清除方=Block 态 enter/exit 括弧+`reset()`；Block OUT 推进口读旗分叉（弹成跳 GUARD 直回 Idle） |
 | ~~`parry_window_frames`~~ | **S2-B4.8 退役** | —（原受管导出 6） | 帧窗制出局；旧"每角色窗配置走修饰路"锁（旧 P4/P5）随字段消亡，清账面由 M6 相位锁接替 |
 | ~~`block_started_frame`~~ | **S2-B4.8 退役** | —（原成对旗 0） | 同上；"弹反窗=按下后 N 帧"命题整体消亡（弹反窗=block_out 动画长/兜底 12 拍） |
 
@@ -917,8 +918,12 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 ### 5.11 格挡序列态（Block，游戏层 `_beat_em_up/action_states/quiver_action_block.gd`；2026-09-23 S2-B3 立姿态，2026-09-27 S2-B4.8 改点按序列制）
 
 **点按序列制（R1）**：按下 block 起一段不可长按的序列——`block_out`（弹反窗，
-相位=OUT）→ `block`（持盾窗，相位=GUARD）→ 自动回 Idle。转移图：
-`Idle/Walk/Run/Combo1-3 →（点按 K）→ Block →（信标/兜底推进两段）→ Idle`。
+相位=OUT）→〔未弹反〕`block`（持盾窗，相位=GUARD）→ 自动回 Idle；
+**〔R12 弹反直返，2026-09-27 终审后用户裁决〕** OUT 全程弹反成功 →
+block_out 余程放完（R8 不中断不裸奔保留）→ OUT 信标到点**跳过 GUARD 直回
+Idle**——弹反奖励从"安全+慢反击"改"主动权"（业界对齐：弹成即自由），
+GUARD 段升格为"弹空者的保险"。转移图：
+`Idle/Walk/Run/Combo1-3 →（点按 K）→ Block →（信标/兜底推进；弹成分支直返）→ Idle`。
 不支持长按（评审 F3/裁决 D：进场持**起按边沿锁**，序列收口后仍持键不起二段、
 必须松开重按）、序列中再按无效（Block 不在白名单）。**恒左右方向**（R5）：
 `block_facing` 于 enter 取 facing_x 侧向单位量快照（**≥0 取 +1，x 平局归右**，
@@ -950,7 +955,9 @@ func _physics_process(_delta):
 
 - **相位推进 = 单口双驱**：`_on_skin_animation_finished`（信标无参——序列每相位
   只播一段动画，相位自身即消歧器，判例 quiver_character_skin.gd:21）里 OUT→
-  GUARD→Idle 逐级；缺槽皮肤走 `_beats_left` 兜底自计数（OUT=12/GUARD=30 拍）。
+  GUARD→Idle 逐级，**OUT 出口带 R12 分叉**（`parried_this_sequence` 在场=
+  跳 GUARD 直回 Idle；真槽信标与兜底自调共享同一分叉口）；缺槽皮肤走
+  `_beats_left` 兜底自计数（OUT=12/GUARD=30 拍）。
   **现行路径已是信标驱动**（B4.8 T1 接线批）：模板/chen/test_actor 皮肤已带
   `block_out`/`block` 真槽（占位帧长 0.2s/0.5s=兜底常数 12/30 拍同数零漂移
   ——"动画即规则"平滑桥落成），兜底自计数退居缺槽降级路径与保险丝；
@@ -974,7 +981,10 @@ func _physics_process(_delta):
 - **单写者宪章**：`is_blocking`/`block_phase`/`block_facing` 三件套唯一生产写方=
   本状态 enter（同帧起笔，R4 宪章续命）/信标·兜底推进 GUARD/exit **保证式**归
   NONE；判定缝只读；hurt/knockout/grab 任何打断走 Ground 挂线同一 exit 清闸=闭环
-  （P16 活体：键仍按住时白名单拒回流、三件套注销）。
+  （P16 活体：键仍按住时白名单拒回流、三件套注销）。R12 扩第四件
+  `parried_this_sequence`：**置位方唯一=判定缝弹反支**（本态外），清除方=
+  本态 enter/exit 括弧+`reset()`——弹反后同面续拳幂等重入弹反结算，
+  异面穿盾走既有打断同口清旗。
 - **序列期间**：输入窗关闭（`input_window_open=false`，Space 跳跃不劫持，Cast
   同款）；`velocity` 逐帧钉死=站桩；伤害结算**不在本状态**——全在 QuiverHurtBox
   判定缝读三件套（§7.3），本状态零数值。

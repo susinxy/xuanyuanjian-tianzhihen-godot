@@ -226,6 +226,11 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 			def_dir = Vector2.RIGHT
 		if defender_attrs.block_phase == QuiverAttributes.BlockPhase.OUT:
 			# —— 弹反支：免伤免退，防守方池一分不扣、不进受击态 ——
+			# R12 弹反直返（2026-09-27 用户裁决）：本序列置"已弹反"旗——Block 态
+			# OUT 段信标到点见旗则跳 GUARD 直回 Idle（弹成即夺回主动权）。
+			# 置于支首=近战/弹体两形制统一生效（罚站封形只属近战，flag 不分）；
+			# 唯一清除方=Block 态 enter/exit 括弧与 reset()（宪章案卷式扩展）。
+			defender_attrs.parried_this_sequence = true
 			# 定格自发拍（免伤路不经 apply_damage_value，B3 spec §10 警条）；
 			# 双方白闪同拍（防守强档+攻击弱档=spec §2.4 三件套之视觉两件，
 			# 第三件=攻击者自己的受击动画，由下面的反顶派发）。伤害与击退

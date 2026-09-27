@@ -179,6 +179,15 @@ var block_phase: BlockPhase = BlockPhase.NONE
 ## （R6 x 一票制，纵深威胁按 x 划侧=已知语义）。
 var block_facing: Vector2 = Vector2.ZERO
 
+## 本序列已弹反旗（S2-B4.8 R12 弹反直返波，运行时态不进 tres）：弹反成功置位
+## → Block 态 OUT 段信标到点后**跳过 GUARD 直回 Idle**（弹反奖励=主动权，
+## 魂系/街霸III/只狼对齐；R8 不推翻——block_out 余程照放完）。
+## 单写者宪章案卷式扩展：**唯一置位方**=QuiverHurtBox 弹反支（近战/弹体两形制
+## 统一置位）；**唯一清除方**=Block 序列态 enter/exit 括弧与 reset()；判定缝
+## 其余读取处只读。弹反后同面续拳仍走弹反结算（flag 幂等，读侧零分支）；
+## 异面穿盾进 Hurt 由既有打断 exit 清旗。
+var parried_this_sequence: bool = false
+
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
 
@@ -287,6 +296,7 @@ func reset() -> void:
 	is_blocking = false
 	block_phase = BlockPhase.NONE
 	block_facing = Vector2.ZERO
+	parried_this_sequence = false
 	# 清账判据（2026-09-23 B′ 手术）：护人/locomotion 等修饰不跨死亡——
 	# reset 一律作废全部记录并还原 base，防止上一命的增益/减速尸体泄漏到下世。
 	_clear_all_modifiers()

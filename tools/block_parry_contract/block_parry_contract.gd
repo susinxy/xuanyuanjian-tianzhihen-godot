@@ -50,6 +50,13 @@ extends Node
 ##     松手重按对照腿=二段起架成立）——P23a1 兼 R10 行为面二次见证。
 ##   跳号申报（终审波）：P22 **无族系有意留白**——P23/P24 编号系评审修复波与
 ##   接线批实勘取号，T0 五新族止于 P21，P22 空号系撞号方案的让位痕迹非悬案。
+##   P25 R12 弹反直返族（终审后追加逻辑波 2026-09-27，身份见证=日志 B48-R12
+##     行）：新A=弹反成功后 GUARD 全程不出现（改判入 P18b5，_shot 新增
+##     v_guard_seen/v_none_after 全程采样）；新B=P25a-d 反击行为锁（弹成→
+##     直返 Idle→≤24 拍可达窗口内立刻出拳，命中落在敌罚站/受击期=伤害落账
+##     +命中拍敌态证人）；对照腿=弹空仍进 GUARD 走满（P7b/P18a/P24b 续锁
+##     不另立）。flag 宪章：置位方唯一=HurtBox 弹反支，清除方=Block 态
+##     enter/exit 括弧+reset()。
 ##   P24 真槽族（B4.8 T1 动画接线批，身份见证=日志 B48-T1 行）：a R10 取消
 ##     行为判别（P 流长攻命中锚定，堵 Important-2"测不到取消本身"缺口）/
 ##     b 真槽信标驱动正面见证（脑目的地+travel 落位+_beats_left==0）/
@@ -66,6 +73,9 @@ extends Node
 ##   序列族响红（Minor-4"方法轨=生命线"案卷红线；不写代码看门狗）；
 ##   h P24a 判别力自证=攻击态 exit 即关白名单反证不另做（Block 到来本身在
 ##   边沿锁下已排除"收口后合法补架"混入，见 P24a 头注三证）。
+##   R12 波追加（/tmp/opencode/b48_t7/red_h.log）：h2 摘 R12 分叉（推进口
+##   条件短路为恒进 GUARD）→新A(P18b5)/新B(P25b-d 直返超时系)响红、对照族
+##   （P7b/P18a/P21/P23/P24）全绿——分叉在场性+奖励可达性双证。
 ##
 ## 【测试特权豁免申报】（hit_feedback T4 同款制度）：P 流直写
 ## is_blocking/block_phase/block_facing（判定缝捷径，生产义务归 Q 流）、Q 流
@@ -281,6 +291,7 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
 		"a_ov_first": -1, "a_ov_last": -1, "a_pool_seam": -1,
 		"v_state_at_hit": "", "v_phase_at_hit": -1, "v_style_at_hit": &"",
 		"v_alive_after": 0, "v_guard_after": false,
+		"v_guard_seen": false, "v_none_after": false,  # R12 直返全程采样对
 	}
 	r.v_hp0 = vendor.attributes.health_current
 	r.a_hp0 = actor.attributes.health_current
@@ -314,6 +325,13 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
 		var seam: int = r.f_hit if r.f_hit >= 0 else r.a_pool_seam
 		if seam >= 0:
 			var d := Engine.get_physics_frames() - seam
+			# R12 直返全程证词：命中拍之后 GUARD 是否出场过 / 相位是否归 NONE
+			# （收口见证）——弹反支改判腿的采样源，非弹反腿闲置无害。
+			if d >= 1:
+				if vendor.attributes.block_phase == QuiverAttributes.BlockPhase.GUARD:
+					r.v_guard_seen = true
+				elif vendor.attributes.block_phase == QuiverAttributes.BlockPhase.NONE:
+					r.v_none_after = true
 			if d >= 1 and d <= 8 and vendor.attributes.is_blocking:
 				r.v_alive_after += 1
 			# GUARD 是否命中后 8 拍内到场（P18b5 证人——F3 边沿锁下收口后不可复采）
@@ -951,14 +969,22 @@ func _flow_stance() -> void:
 			"P18b1 点按即挨拳=OUT 弹反成（A 免伤 B 池 540，实际掉 %.1f）" % rb.v_hp_drop)
 	_check(int(rb.v_phase_at_hit) == QuiverAttributes.BlockPhase.OUT,
 			"P18b2 命中拍相位=OUT（弹反窗=相位即窗口，实得 %s）" % rb.v_phase_at_hit)
-	_check(rb.v_alive_after >= 7,
-			"P18b3 R8 弹反后序列不中断：命中后 8 拍 is_blocking 存活 %d/8（不跳相续播）"
-			% rb.v_alive_after)
+	# R12 采样点适配（申报）：旧判据"命中后 8 拍存活>=7"默认弹反后仍续 GUARD
+	# 长窗；直返制下 is_blocking 存活=block_out 余程（命中多在序中后段，余程
+	# 天然 <8）——改判为"余程>=3 拍"；不裸奔防线：NONE 只能经推进口到来由
+	# P18b5 直返腿+P24b 信标在场共证，格挡路 8 拍满窗语义由 P7b 逐字保。
+	_check(rb.v_alive_after >= 3,
+			"P18b3 R8+R12 弹反后不裸奔：命中后 block_out 余程 is_blocking 存活 "
+			+ "%d/8（>=3=余程下限证人；8 拍满窗移至格挡支 P7b）" % rb.v_alive_after)
 	_check(not rb.v_hurt and rb.v_pool_min >= POOL0 and rb.v_scale_min >= 0.999,
 			"P18b4 弹反拍 A 不入 Hurt 不扣池不罚站（免伤路守方活体面）")
-	_check(rb.v_guard_after,
-			"P18b5 R8 续播见证：弹反拍后 8 拍内 GUARD 相位照常到来（F3 边沿锁下"
-			+ "收口即不回采，改命中窗内直读）")
+	# R12 改判（新A，2026-09-27 用户裁决"弹反成功跳 GUARD 直回 Idle"）：
+	# 旧判据"弹反拍后 8 拍内 GUARD 照常到来"整体作废——现判=命中拍后全程
+	# 相位采样 GUARD **一次都不出场**、且最终归 NONE（block_out 余程放完=
+	# R8 不裸奔由 b3 存活腿续锁，跳的只是 GUARD 段）。
+	_check(not rb.v_guard_seen and rb.v_none_after,
+			"P18b5 R12 弹反直返：命中拍后全程采样 GUARD 不出现且序列收口归 "
+			+ "NONE（GUARD_seen=%s None_seen=%s）" % [rb.v_guard_seen, rb.v_none_after])
 	await _wait_state(a, "Ground/Move/Idle", 120)
 
 	# ── P18d 序列中再按 K 不重入（Block 不在白名单的活体面）──
@@ -1234,6 +1260,71 @@ func _flow_stance() -> void:
 			% [f11_move >= 0, block11_seen])
 	_press_key(KEY_K, false)
 
-	# ── 收场（评审 I3）：拆除残场，键位已净 ──
+	# ════ P25 R12 弹反直返族（2026-09-27 用户裁决波，身份见证=B48-R12 行）════
+	# 新A（弹反成功后 GUARD 全程不出现）=已改判入 P18b5（同一 _shot 采样源）。
+	# 本段=新B 反击行为锁（R12 奖励本质"弹成即夺回主动权"）：弹反→序列直返
+	# Idle→立刻出拳反击，命中落在敌受击/罚站窗口内（伤害落账+命中拍敌态证人）。
+	# 台架特权申报（本文件头豁免同款）：①防守方反击经 _attack 捷径直入 Combo1
+	# 并手设 skin_direction（raw 键时序不稳，命题=R12 奖励可达性非键链——键链
+	# 归 P7/P19 族既有锁）；②A 战斗盒换挂 q_counter 阵营（否则 a 盒 player 与
+	# b 受击盒 {player,q_puppet} 同标免伤=打不动自己的提线对手；a 自身受击盒
+	# 同加 q_counter 保自伤豁免，判例=红跑"双咬 20"案卷）；root 玩家标签不动。
+	# 对照腿（弹空仍进 GUARD 走满）=既有 P7b（GUARD 段挡拳×0.4）与 P18a/P24b
+	# （点按链采样必过 GUARD）续锁，R12 后语义不变，不另立新腿。
+	await _drain_freeze()
+	await _place(a, b, Vector2(80, 30))
+	await _wait_state(a, "Ground/Move/Idle", 150)
+	for node in a.find_children("*", "Area2D", true, false):
+		var box = node
+		if box is QuiverHitBox:
+			box.remove_from_group(&"area2d:player")
+			box.add_faction_group(&"area2d:q_counter")
+		elif box is QuiverHurtBox:
+			box.add_faction_group(&"area2d:q_counter")
+	_press_key(KEY_K, true)
+	var ok25s: bool = await _wait_state(a, "Ground/Block", 60)
+	var hp_b0 := b.attributes.health_current
+	_attack(b, Vector2.RIGHT)   # 东邻提线拳西咬=西威胁（run1 几何表），同面入 OUT
+	var f25par := -1
+	for _i in 40:
+		await get_tree().physics_frame
+		if b.attributes.resistance_current < POOL0:
+			f25par = Engine.get_physics_frames()   # 弹反拍=攻方池首降（免伤路血不降）
+			break
+	var ok25r := false
+	if f25par >= 0:
+		ok25r = await _wait_state(a, "Ground/Move/Idle", 24)  # 直返窗口（GUARD 在位必超时）
+	_press_key(KEY_K, false)
+	var hit25 := false
+	var bstate25 := ""
+	var f25hit := -1
+	if ok25r:
+		_attack(a, Vector2.RIGHT)   # 反击东向提线（特权①②已申报）
+		for _i in 40:
+			await get_tree().physics_frame
+			if b.attributes.health_current < hp_b0:
+				hit25 = true
+				bstate25 = str(b.state_machine.state_name)
+				f25hit = Engine.get_physics_frames() - f25par
+				break
+	_check(ok25s and f25par >= 0, "P25a 前置：弹反成立（池降拍证，未用血降）")
+	_check(ok25r, "P25b R12 直返可达：弹反拍后 ≤24 拍回 Idle（GUARD 在位=必超时红）")
+	_check(hit25 and f25hit >= 0 and f25hit <= 40,
+			"P25c 反击窗口内命中成立：弹成后 %d 拍掉血（罚站+受击动画期）" % f25hit)
+	_check(hit25 and bstate25.contains("Hurt"),
+			"P25d 命中拍敌仍在受击态（反击打在被控窗口=主动权本质，实得 %s）" % bstate25)
+	# ⚠ 判例（B4.8 R12 波实锤）：本构建 %d 吃 bool 会 push_error 并原样输出
+	# 模板串（不红不崩=见证行假在场），bool 一律 %s。
+	print("B48-R12: 弹反直返族已跑（弹反=%s 直返=%s 反击=+%d 拍敌态=%s）"
+			% [f25par >= 0, ok25r, f25hit, bstate25])
+	# 阵营手术复原（还 a 盒 player，防残场泄漏——收场前的洁癖惯例）
+	for node in a.find_children("*", "Area2D", true, false):
+		var box = node
+		if box is QuiverHitBox:
+			box.add_faction_group(&"area2d:player")
+	_press_key(KEY_J, false)
+	_press_key(KEY_K, false)
+
+	# ── 收场（评审 I3）：拆除残场，键态已净 ──
 	stage.queue_free()
 	_finished_q = true

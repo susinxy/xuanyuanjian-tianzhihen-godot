@@ -119,3 +119,15 @@ if defender_attrs.is_blocking:
 
 - §2.2 伪码「白名单 = {Idle, Walk, Run, Attack}」按本仓状态树实勘修正：地面三连段节点实测名 = **Combo1/2/3**；`Attack` 系空中跳攻节点名（Air/Jump/Attack），按 §5「空中攻击后摇不可架」排除——实施白名单 = {Idle, Walk, Run, Combo1, Combo2, Combo3}（行为锁契约 P19b + 源码锁 P18e2 双面钉死）。
 - 同波落地评审改判两枚：F1 兜底拍信标免疫（`_beats_left>0` 期间信标丢弃，锁 P23a）；F3/裁决 D 起按边沿锁（长按不起二段连架，须松开重按，锁 P23b/P23c）——R1「不支持长按」自此有行为级强制。
+- **R12 弹反直返（2026-09-27 终审 PASS 后用户追加裁决，逻辑波）**：弹反成功后
+  **跳过 GUARD 段直回 Idle**——弹反奖励从"安全+慢反击"改"主动权"（业界对齐：
+  魂系/街霸III/只狼弹成即自由）；GUARD 段升格"弹空者的保险"。R8 不推翻：
+  block_out 余程照放完（不中断不裸奔），跳的只是 OUT 信标后的持盾段。
+  实现=运行时旗 `QuiverAttributes.parried_this_sequence`（唯一置位方=HurtBox
+  弹反支，唯一清除方=Block 态 enter/exit 括弧与 reset()——§2.1 单写者宪章
+  案卷式扩展）+ Block 态 OUT 推进口分叉。§2.2 伪码"block_phase=GUARD 推进"
+  一分支自此带弹成分支；R9/R10/R11 语义零涉。契约：P18b5 改判（GUARD 全程
+  不出现+收口 NONE 采样），P18b3 存活判据适配余程语义（申报），新族 P25a-d
+  反击行为锁（弹成→直返→受击窗口内命中落账）；对照腿=弹空进 GUARD 走满
+  （P7b/P18a/P24b 续锁）。回滚旋钮（若手感过强）：分叉处改回 GUARD 但砍半
+  （hold 兜底改 10 拍）——设计裁决通道，非常数随手改。
