@@ -1497,6 +1497,7 @@ func delimitate_room(..., p_duration) -> Tween:
 signal characters_reseted       # 角色重置（重载场景时）
 signal enemy_defeated           # 敌人被击败
 signal player_died              # 玩家死亡
+signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4，§17.9）
 ```
 
 `Events` 是全局单例，任何脚本都可以 `Events.player_died.connect(my_handler)`，无需节点引用。
@@ -2222,7 +2223,7 @@ QuiverCharacterSkin（基类，player 直驱路）
 QuiverCharacterSkinAnimTree（树驱动路）
   TIME_SCALE_PARAM = "parameters/time_scale/scale"
   set/anim_time_scale → 读写该节点（缺节点降级 super()+告警一次）
-  current_anim_length_ms → 状态树取当前动画长（见 17.3）
+  current_anim_length_ms → 状态树取当前动画长（见 §17.3）
 ```
 
 ### 17.3 `current_anim_length_ms()` 状态树取长链（本构建动画树 API 漂移三连）
@@ -2280,7 +2281,7 @@ QuiverCharacterSkinAnimTree（树驱动路）
 
 `@export_group("Hit Feedback")` 内：`hit_slow_factor=0.2`、`hit_slow_anim_pct=0.15`、
 `parry_stun_frames=6`（后者 B4.7 T2 弹反改道消费：只冻攻击者的定格帧数，绝对帧语义
-正确——吃招侧硬停奖励不跟百分比；见 §17.8）。皆**档案配置非运行时态**
+正确——吃招侧硬停奖励不跟百分比；机制见 §17.7，契约锁 P5 见 §17.8）。皆**档案配置非运行时态**
 → `reset()` 不清（B4.6 `attack_axis_mode` 同族注例）；既有角色 tres 无此键→零迁移吃代码
 默认。
 
@@ -2289,7 +2290,7 @@ QuiverCharacterSkinAnimTree（树驱动路）
 弹反支的自发拍 = `HitFreeze.apply_character_slow(hit_box.attacker, 0.0,
 defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
 
-- **目标**是 `hit_box.attacker`（近战收集链回指攻击者本体，见 17.5），**不是**
+- **目标**是 `hit_box.attacker`（近战收集链回指攻击者本体，见 §17.5），**不是**
   `atk_attrs.character_node`——弹体 attacker 恒 null 即"弹体被弹反无罚站"的结构
   表达，跳定格、其余反馈（白闪/反顶/回执）照常，无兜底崩溃路径；
 - **rate=0.0**：复用 §17.4 原语，0 即定格（慢放的连续刻度退化到端点，无第二
@@ -2323,19 +2324,33 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   （§17.4）改窗——新请求令 ++、旧罚站协程醒来发现令牌不符**静默让位**，
   恢复笔归新请求；若新请求窗口更短/倍率更高，罚站即被**提前解除**（P6 红档
   实测副产品：二次进窗的新慢放劫持令牌致解冻拍 14/14，正是本语义的现场）。
+- **封形管辖边界（T4 统稿入档，评审 M3=未来雷登记、非现产违例）**：
+  `silence/release_hitboxes` 遍历的只是 **QuiverCharacter 收集链近战盒**——弹体盒
+  由 SpellSkin 产出、不经角色链，**法术通道不受封形**；冻结又只冻动画时钟
+  （§17.1 定档），而 Cast 引导段是**状态机+计时器倒计时**（缺 spell_start 槽的
+  降级形制下出手干脆不踩动画信标）——三条叠加=一条潜在绕行路"被冻/被封形者
+  仍可能经法术通道放弹命中"。现网不可达（弹反只发生在近战命中瞬间、攻击者
+  彼时住 Attack 态；默认 6 帧罚站窗也短于任何引导），本批不开刀；**再碰施法链
+  或给兵种排"近战+法术"混战 AI 时**必须回看本条，评估把 Cast 出口纳入封形面。
+  同款边界还有封形自身的**余量方向**：封=弹反拍事件驱动、释=任一攻击入场事件
+  驱动，**不随罚站窗拍数自动脱**——窗毕而未再出手期间盒仍静默（只会少伤不会
+  误伤，方向安全）；提前入场则提前解封（恢复常规战斗而非静默穿人）。
 
 ### 17.8 回归锁 `tools/hit_feedback_contract/`（S 流 + H 流 + P 流 + E/K 流）
 
 - S 流（静态）：freeze_frames 双零（tscn 生效值 + 脚本裸默认）、三字段默认到位、
   reset() 不清命中反馈档。
 - H 流（场景）：H1 命中可见帧掉档 → H2 末次命中窗口毕恢复 → H3 挥空不触发 →
-  **H1b 行为级副锁**（出招全程相对挥空基线拉长——专杀 17.1 的"挂上没通电"假通道）→
+  **H1b 行为级副锁**（出招全程相对挥空基线拉长——专杀 §17.1 的"挂上没通电"假通道）→
   H4 弹体结构排除（attacker 恒 null + 绑施法者旧判例锚定）→ H5 双向性（敌人命中玩家
   →敌人自慢、玩家满速）→ H6 连段不破（慢放中三连段完整衔接、逐拳咬合 55 伤）。
   S1 全程无 `tree.paused`（R1 归零行为锁）。
 - P 流（场景，T2 弹反改道）：P0 弹反成立（免伤/反顶削池——缝语义原样）→
   P1 全程世界零暂停 → P2a 攻击者 ≤2 拍冻到 0 → P2b 观测鲜活（弹前皮肤签名
-  推进）+ P2b' 罚站实证（冻窗内 (animation@frame) 尾 3 拍恒等；**动画位置通道
+  推进）+ P2b' 罚站实证（冻窗内 (animation@frame) 尾 3 拍恒等**且首帧离尾 ≥2 帧**
+  ——边缘锁 T4 加固，防"已到末帧自然收口"冒充冻结；帧数真相=
+  `SpriteFrames.get_frame_count(动画名)`，本构建 AnimatedSprite2D **无
+  frame_end**（T4 探针实锤）；**动画位置通道
   判例**：本构建 AnimationTree 无 Mixer/SMPlayback 位置 getter、节点参数盲猜
   全 null，T2 探针三问齐——正解=皮肤 AnimatedSprite2D 签名）→ P2c 守方倍速
   不降 → P2d 窗口毕恢复（时长=守方 parry_stun_frames）→ P3 冻窗内守方 raw D
@@ -2358,10 +2373,19 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   判例③：动态 InputMap 注册喂不饱轮询，真 F8 端到端归 F5 感官单）→K1b F8
   预铺形制源码锁（has_action 短路三连不许被重构吞掉）→K2a/K2b 关闭态零特效
   但慢放照常（视觉/时间双腿独立的行为证明）。
+- R8 红档账本（六档 a–f：破坏被测对象证响亮红再复原，证据
+  `/tmp/opencode/b47_t3/`，e/f 档在 `b47_t4/`）：a=摘慢放钩子、b=摘
+  hit_landed 广播、c=freeze_frames 回 3、d=摘封形调用、e=摘空中释放
+  （P6d 独红）、f=摘 F8 判定短路（K1b 独红）。T4 加固波另证边缘锁判红：
+  把首帧判据反置→**仅 P2b' 独红**其余全绿、复原回绿
+  （`/tmp/opencode/b47_t4/r8_g_edge_red.log`，/tmp 易失）。
 - 测试装配判例：所有角色实例 `dup` attributes **必须先于入树**（H5 零命中悬案病根——
   入树后换账会让动作状态缓存原 tres、受击盒拿 dup，`ground_level` 记账分家致车道中心
   漂移）；attack(J) 绑定 `device=16`（raw 注入须对齐绑定设备，device=-1 被
-  `is_action_pressed` 拒匹配——探针实锤）。
+  `is_action_pressed` 拒匹配——探针实锤）；**裸舞台沉降判例（T2 探针 d/e）**——角色
+  入场不停在摆放位，先悬停数拍再以 ~400px/拍初速下落、历约 45 拍钉死隐形地板且
+  各角色相位随机（26 拍时对位可差 2000px⇒中途出拳必挥空）；装配纪律=同拍摆位 +
+  `_settle` 逐拍位移稳定判据 + 每发出拳前 `_place` 重锚（已升格根 AGENTS 判例）。
 - T3 探针新判例（4.7.1）：①headless 场景 runner 下 `_process`/Tween/
   SceneTreeTimer/Timer **全部照常推进**（40 物理拍配 76 idle 拍实测；
   2026-09-16 "_process 面板从不出活"旧案系另病，勿再引为禁手）；②本构建
@@ -2369,7 +2393,7 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   编译期拒收——色带必须运行时构造；③动态 `InputMap.add_action`+raw 键直投
   喂不饱 `is_action_just_pressed` 轮询（探针2 实锤 400 拍未命中）。
 
-**改此机制前先跑 `hit_feedback_contract`（尤其 H1b、P6）+ 读 17.1 三判例。**
+**改此机制前先跑 `hit_feedback_contract`（尤其 H1b、P6）+ 读 §17.1 三判例。**
 
 ### 17.9 接触点特效与 hit_landed（B4.7 R4/R5）
 
@@ -2384,8 +2408,9 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   &"default"`——攻击方声明参数卡名，枚举只做查表路由零数值推导（B4.6
   `attack_axis_mode` 合法路由旗同族注例）；未配置=default 卡兜底，任何命中
   都有火花。产线：角色创建器 `DEFAULT_ATTACKS` 表 punch3=`heavy` 并随合成行
-  写盘（面板暂不开放该字段，回改走 tres 手改）；fire_ball 内容卡手改
-  `&"fire"`（SpellCreator 重建档不携带风格行的缺口=已知观察，T4 若补并案）。
+   写盘（面板暂不开放该字段，回改走 tres 手改）；fire_ball 内容卡手改
+   `&"fire"`（SpellCreator 重建档不携带风格行的缺口=已知观察，**T4 收口裁决
+   本批不补**——补并=SpellCreator 合成域回炉，归内容管线批，此行为雷标）。
 - **消费端**（游戏层 `scripts/effects/`，非插件）：
   - `hit_fx.gd`——**已注册为 autoload**（登记适配波：`[autoload] HitFx` +
     `[input] hit_fx_toggle`=F8，controller 办理；无 class_name=SaveSystem

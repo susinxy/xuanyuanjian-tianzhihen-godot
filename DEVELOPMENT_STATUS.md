@@ -360,6 +360,40 @@
   - **同夜价值复审**：临时示范场地 stage_c 退役删除（R8 另一腿系 ref_b 既有覆盖、
     "食谱自证"于建造时消费完毕）；光照/区域实配迁入 ref_b 成"A 负 B 正"法定对偶
     （ref_b 挂 60 秒活循环 day_cycle_demo+全战区区域框，LC8/LC9 锁，126→128）
+  - **S2-B4.7 命中反馈批 ✅ 已交付·F5 待验（2026-09-27，SDD T0-T4 全过审查门；
+    F5 合并感官单见 `docs/superpowers/plans/2026-09-26-s2-b47-hit-feedback-f5.md`
+    ——**并窗 B4.6 三眼欠账一次会话跑完**，tag `s2-b47-done`）**：范围=**单角色
+    时间控制与接触反馈原语**——**R1 全局定格归零**（freeze_frames 双零 tscn+
+    脚本默认，机制保留）+ **R3 近战命中→攻击者自慢放**（通道三轮裁决：
+    process_custom_speed 本构建不存在→player.speed_scale 真皮肤不通电→**树内
+    AnimationNodeTimeScale 参数主道**+直驱皮肤备胎，观测门面
+    `QuiverCharacter.anim_time_scale()`，H1b 行为级锁专杀假通道）+ 数值域三字段
+    （`hit_slow_factor=0.2`/`hit_slow_anim_pct=0.15` 窗口=动画长×pct/
+    `parry_stun_frames=6`，档案配置 reset() 不清）+ **R2 弹反改道"敌罚站我
+    自由"**（全局 6 帧定格废止→攻击者 anim 罚站+**封形**：全盒 monitorable=
+    主刀、形状 disabled 被冻结活值轨回写淹没不作证人——P6b 实伤红档定罪；
+    封/释上收角色门面 silence/release_hitboxes，地面+空中 attack.enter 双路
+    同调，C1 空袭静默穿人洞堵死、P6d 先红后绿）+ **R4 接触点程序特效**
+    （Events.hit_landed 全判定广播含弹体；`hit_effect_style` 风格路由旗
+    default/heavy/fire——punch3 产线=heavy、fire_ball=fire；HitFx 双层零美术
+    CPUParticles2D+Polygon2D 闪光）+ **R5 F8 开关预铺**（hit_fx_toggle，
+    InputMap.has_action 短路零行为+调试坞"命中反馈"页；特效挂 current_scene
+    z=20）。**契约**：新建 `tools/hit_feedback_contract`（**矩阵 24 套=25 跑
+    →25 套=26 跑**；S7/H24/P12/E11/K8 族 62 断言，实数以套件输出为准），
+    block_parry **84→86**（P3e 一腿换三腿），spell_save **206 不变**。**R8
+    六档红据**（a 摘慢放钩/b 摘 hit_landed/c freeze 回 3/d 摘封形/e 摘空中
+    释放〔P6d 独红〕/f 摘 F8 判定〔K1b 独红〕；证据 `/tmp/opencode/b47_t3/`
+    与 `b47_t4/`，易失）；**批末全矩阵 25 套=26 跑 RED=0**（终核快照
+    `/tmp/opencode/b47_t4/matrix_final.log`）。project.godot 两线登记
+    （[autoload]HitFx+[input]hit_fx_toggle=F8）随 `4198225` 入账；登记适配波
+    抓获双消费者假红（K2a）→契约装配单点优先复用 `/root/HitFx`。测试装配
+    新判例入根 AGENTS：**裸舞台异步沉降≈40 拍高初速落位期（相位随机），
+    出手/位移腿必先 `_settle` 再 `_place`**。**待 F5 八眼**（合并单）：
+    ①B4.6 三眼并录；②咬合感；③特效+F8 往返；④弹反新形制三连；⑤定格归零
+    得失记档；⑥火球 fire 卡+施法者不慢；⑦调试坞页；⑧关特效不关时间。
+    **下一批=B5 兵种批**，前置三件：用户 F5（本单+B4.6 并窗一次跑完）、
+    都尉 AI 档隔离设计会裁决（B3 移交①）、短动画×定格死格**已随 T2 弹反腿
+    顺带复验在案**（B3 移交②销账）。
   - **S2-M1-B1 容器批（2026-09-22）**：ChapterShell/StageContent/ChapterSession/
     SessionRules + validator 双轨（R1 两形态/R2 条件化/R5 白名单双形/R8 壳豁免）+
     契约 container_contract（矩阵 23→24）
