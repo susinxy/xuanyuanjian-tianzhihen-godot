@@ -2370,13 +2370,13 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   场景根计数归零（one_shot 自毁）→E3 弹体一视同仁出生→E5a/E5b fire 卡路由
   与参数经节点属性可证→E4 挥空零出生零回执。
 - K 流（T3 R5 开关）：K1 `toggle()` 公开入口翻旗（直改属性等价——headless
-  判例③：动态 InputMap 注册喂不饱轮询，真 F8 端到端归 F5 感官单）→K1b F8
+  判例③：动态 InputMap 注册喂不饱轮询，真开关键端到端归 F5 感官单）→K1b 开键
   预铺形制源码锁（has_action 短路三连不许被重构吞掉）→K2a/K2b 关闭态零特效
   但慢放照常（视觉/时间双腿独立的行为证明）。
 - R8 红档账本（六档 a–f：破坏被测对象证响亮红再复原，证据
   `/tmp/opencode/b47_t3/`，e/f 档在 `b47_t4/`）：a=摘慢放钩子、b=摘
   hit_landed 广播、c=freeze_frames 回 3、d=摘封形调用、e=摘空中释放
-  （P6d 独红）、f=摘 F8 判定短路（K1b 独红）。T4 加固波另证边缘锁判红：
+  （P6d 独红）、f=摘开关键判定短路（K1b 独红）。T4 加固波另证边缘锁判红：
   把首帧判据反置→**仅 P2b' 独红**其余全绿、复原回绿
   （`/tmp/opencode/b47_t4/r8_g_edge_red.log`，/tmp 易失）。
 - 测试装配判例：所有角色实例 `dup` attributes **必须先于入树**（H5 零命中悬案病根——
@@ -2413,11 +2413,12 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
    本批不补**——补并=SpellCreator 合成域回炉，归内容管线批，此行为雷标）。
 - **消费端**（游戏层 `scripts/effects/`，非插件）：
   - `hit_fx.gd`——**已注册为 autoload**（登记适配波：`[autoload] HitFx` +
-    `[input] hit_fx_toggle`=F8，controller 办理；无 class_name=SaveSystem
+    `[input] hit_fx_toggle`=**V**（原 F8 撞编辑器 Debug>停止项目 默认键，F5 实测
+    被杀进程，2026-09-27 改绑；动作名不变），controller 办理；无 class_name=SaveSystem
     同族形制，测试消费方走 preload/dynamic，契约 E/K 流单点装配优先复用
     `/root/HitFx` 单例、缺席回退手建保旧世界兼容——双消费者=K2a 假红判例）：`PRESETS` 注册表按风格名路由→实例化 `hit_spark_fx.gd`
     挂 `current_scene`（z=20 夹层判例：背景 5/Level 15/前景 25）；`enabled`
-    直翻+`toggle()` 公开入口；F8 判定 `InputMap.has_action(&"hit_fx_toggle")`
+    直翻+`toggle()` 公开入口；开键判定 `InputMap.has_action(&"hit_fx_toggle")`
     短路预铺（动作缺席零报错零行为，controller 登记 [input] 后自动通电）；
     `_ready` 向 DebugDock 注册"命中反馈"拉取页（dock 缺席防御跳过，provider
     随宿主析构自动失效——debug_text_tab `is_valid` 守卫在案）。

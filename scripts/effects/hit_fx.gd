@@ -2,10 +2,12 @@ extends Node
 
 ## 接触点特效调度（B4.7 R4/R5）：Events.hit_landed → 按风格路由参数卡 →
 ## 实例化 HitSparkFx 两层挂 current_scene。宿主形态：autoload（登记适配波
-## 已入账：controller 完成 [autoload] HitFx + [input] hit_fx_toggle=F8；
+## 已入账：controller 完成 [autoload] HitFx + [input] hit_fx_toggle；键位沿革：
+## 原绑 F8 撞 Godot 编辑器 Debug>停止项目 默认快捷键（F5 实测被杀进程，
+## 2026-09-27 改绑 V=86，动作名不变）；
 ## 契约 E/K 流单点装配优先复用本单例，缺席回退手建保旧世界兼容——双消费者
 ## 形态=K2a 假红判例，见契约 FX-GATE）。
-## R5 运行时开关：`enabled` 直翻 + `toggle()` 公开入口；F8 判定按
+## R5 运行时开关：`enabled` 直翻 + `toggle()` 公开入口；开关键判定按
 ## "动作登记后自动通电"预铺（hit_fx_toggle 缺席时 InputMap.has_action 短路，
 ## 零报错零行为；controller 登记 [input] 后本 _process 立刻开始接单）。
 ## headless 判例（T3 探针2）：动态 InputMap 注册 + raw 直投喂不饱
@@ -38,7 +40,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	# F8 预铺（R5 判例形制，shadow_region.gd:43 同款"动作→翻旗"）：
+	# 开关键预铺（R5 判例形制，shadow_region.gd:43 同款"动作→翻旗"）：
 	# 动作缺席时 has_action 短路，零报错零行为；登记即自动通电。
 	# K 流另有源码锁腿盯本三行形制（探针2 判例：headless 喂不饱轮询，
 	# 端到端腿归 F5 感官单）。
@@ -46,7 +48,7 @@ func _process(_delta: float) -> void:
 		toggle()
 
 
-## R5 公开翻转入口（F8 接线时 controller 只需把 InputMap 判定连到这里；
+## R5 公开翻转入口（开关键接线走 InputMap 判定连到这里；
 ## 契约 K 流经此注入=toggle 语义真身）。
 func toggle() -> void:
 	enabled = not enabled
@@ -69,4 +71,4 @@ func _on_hit_landed(point: Vector2, style: StringName, _strength: float, dir: Ve
 
 ## 调试坞状态行（开关状态不许失踪，spec §3.5）
 func _provide_hit_fx_lines() -> Array[String]:
-	return ["命中特效：%s（F8 切换）" % ("开" if enabled else "关")]
+	return ["命中特效：%s（V 切换）" % ("开" if enabled else "关")]

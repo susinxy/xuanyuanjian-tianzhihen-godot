@@ -52,7 +52,7 @@ extends Node
 ## （E2 自动清理）→弹体命中同样出生（E3）+fire 卡消费经节点属性可证
 ## （E5a/E5b）→挥空零出生零信号（E4）。
 ## K 流·运行时开关（T3 R5）：toggle() 公开入口翻旗（K1，直改属性等价）+
-## F8 预铺形制源码锁（K1b：InputMap.has_action 短路三连——hit_fx_toggle
+## 开键预铺形制源码锁（K1b：InputMap.has_action 短路三连——hit_fx_toggle
 ## 缺席零报错零行为，controller 登记 [input] 后自动通电）+ 关闭态命中
 ## 零特效但慢放照常（K2a/K2b，视觉/时间双腿独立锁）。
 ## P6 腿·罚站封形（T2 扩权裁决并入）：弹反罚站中封形在场证明=全盒
@@ -75,7 +75,7 @@ extends Node
 ## timer/tween 通道）；②本构建 CPUParticles2D.color_ramp **收裸 Gradient**，
 ## CurveTexture/GradientTexture1D 赋值编译期拒收——参数卡色带运行时构造；
 ## ③动态 InputMap.add_action + raw 键直投**喂不饱** is_action_just_pressed
-## 轮询（400 拍未命中）——K 流因此走 toggle 注入等价+源码形制锁，真 F8
+## 轮询（400 拍未命中）——K 流因此走 toggle 注入等价+源码形制锁，真开关键
 ## 端到端归 F5 感官单。
 ##
 ## 已知观察（极端测试档的副产物，非生产缺陷）：TEST_PCT=1.0 把慢放窗口放大
@@ -930,9 +930,9 @@ func _leg_parry_seal() -> void:
 
 # ═══════════ E 流：接触点特效（T3 R4） × K 流：运行时开关（T3 R5） ═══════════
 # 宿主接线（判决 #1 之后追加登记适配波）：controller 已把 HitFx 注册为
-# autoload（/root/HitFx）+ hit_fx_toggle=F8——E/K 流**单点装配优先复用
+# autoload（/root/HitFx）+ hit_fx_toggle（V 键）——E/K 流**单点装配优先复用
 # 单例**（双消费者=K2a 假红判例：手建+单例各喷一份且翻旗翻不到生产身），
-# 缺席回退手建保旧世界兼容；腿尾开关还原原值。F8 端到端归 F5 感官单
+# 缺席回退手建保旧世界兼容；腿尾开关还原原值。开键端到端归 F5 感官单
 # （探针2 判例：headless 动态注册动作喂不饱 is_action_just_pressed 轮询）。
 # 特效节点挂在 get_tree().current_scene（=本契约场景根）——扫描/距离/计数
 # 全部经 world 坐标直读，无相机数学。裸舞台沉降判例同款装配：同拍摆位→
@@ -1135,7 +1135,7 @@ func _leg_fx_whiff() -> void:
 
 
 ## K1/K1b：toggle() 公开入口翻旗（直改属性等价的语义真身，判决 #1）+
-## F8 预铺形制源码锁——"动作缺席零报错零行为、登记后自动通电"三行不许被
+## 开键预铺形制源码锁——"动作缺席零报错零行为、登记后自动通电"三行不许被
 ## 重构吞掉（controller 接线只需把 InputMap 判定连到 toggle）
 func _leg_toggle_form() -> void:
 	var before: bool = _fx.enabled
@@ -1150,7 +1150,7 @@ func _leg_toggle_form() -> void:
 	_check(src.contains("InputMap.has_action(&\"hit_fx_toggle\")")
 			and src.contains("Input.is_action_just_pressed(\"hit_fx_toggle\")")
 			and src.contains("\n\t\ttoggle()"),
-			"K1b F8 预铺形制源码锁（has_action 短路+动作判定+_process 内 toggle() 调用现场；" \
+			"K1b 开键预铺形制源码锁（has_action 短路+动作判定+_process 内 toggle() 调用现场；" \
 			+ "headless 轮询判例→端到端归 F5 单）")
 
 

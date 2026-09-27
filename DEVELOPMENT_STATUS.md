@@ -376,13 +376,13 @@
     同调，C1 空袭静默穿人洞堵死、P6d 先红后绿）+ **R4 接触点程序特效**
     （Events.hit_landed 全判定广播含弹体；`hit_effect_style` 风格路由旗
     default/heavy/fire——punch3 产线=heavy、fire_ball=fire；HitFx 双层零美术
-    CPUParticles2D+Polygon2D 闪光）+ **R5 F8 开关预铺**（hit_fx_toggle，
+    CPUParticles2D+Polygon2D 闪光）+ **R5 开关预铺**（hit_fx_toggle=V，
     InputMap.has_action 短路零行为+调试坞"命中反馈"页；特效挂 current_scene
     z=20）。**契约**：新建 `tools/hit_feedback_contract`（**矩阵 24 套=25 跑
     →25 套=26 跑**；S7/H24/P12/E11/K8 族 62 断言，实数以套件输出为准），
     block_parry **84→86**（P3e 一腿换三腿），spell_save **206 不变**。**R8
     六档红据**（a 摘慢放钩/b 摘 hit_landed/c freeze 回 3/d 摘封形/e 摘空中
-    释放〔P6d 独红〕/f 摘 F8 判定〔K1b 独红〕；证据 `/tmp/opencode/b47_t3/`
+    释放〔P6d 独红〕/f 摘开键判定〔K1b 独红〕；证据 `/tmp/opencode/b47_t3/`
     与 `b47_t4/`，易失）；**批末全矩阵 25 套=26 跑 RED=0**（终核快照
     `/tmp/opencode/b47_t4/matrix_final.log`）。project.godot 两线登记
     （[autoload]HitFx+[input]hit_fx_toggle=F8）随 `4198225` 入账；登记适配波
