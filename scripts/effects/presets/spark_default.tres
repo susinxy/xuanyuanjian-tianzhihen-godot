@@ -6,11 +6,11 @@
 script = ExtResource("1_preset")
 spread_deg = 34.0
 amount = 10
-color_hot = Color(1, 1, 1, 1)
-color_cool = Color(1, 0.87, 0.55, 0)
+color_hot = Color(1, 0.93, 0.62, 1)
+color_cool = Color(1, 0.5, 0.08, 0)
 speed_min = 110.0
 speed_max = 240.0
 gravity = Vector2(0, 300)
 lifetime = 0.18
 flash_scale = 1.0
-flash_color = Color(1, 1, 1, 1)
+flash_color = Color(1, 0.8, 0.3, 1)
