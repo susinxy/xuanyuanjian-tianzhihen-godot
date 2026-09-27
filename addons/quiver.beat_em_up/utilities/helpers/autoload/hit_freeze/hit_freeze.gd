@@ -36,7 +36,6 @@ var _slow_generations: Dictionary = {}
 
 func _ready() -> void:
 	set_physics_process(false)
-	pass
 
 
 func _physics_process(_delta: float) -> void:
