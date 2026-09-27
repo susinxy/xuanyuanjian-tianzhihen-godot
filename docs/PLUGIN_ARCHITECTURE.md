@@ -2423,8 +2423,8 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
     `_ready` 向 DebugDock 注册"命中反馈"拉取页（dock 缺席防御跳过，provider
     随宿主析构自动失效——debug_text_tab `is_valid` 守卫在案）。
   - `hit_spark_fx.gd`——两层零美术（**T5 观感升级波 2026-09-27**，对症用户
-    F5"方块粒简陋"）：CPUParticles2D 用**运行时程序化拖尾贴图**（3×14 纵向
-    纺锤光针，Image 手画零文件）+ `particle_flag_align_y` 针尖沿速转向
+    F5"方块粒简陋"）：CPUParticles2D 用**运行时程序化拖尾贴图**3×6 短桩
+    光针（T5b 收短：14 行长针被用户读作"碎屑飞天"），Image 手画零文件）+ `particle_flag_align_y` 针尖沿速转向
     （本构建实名如此，探针实锤；`texture_align`/`velocity_min` 系幻影名）+
     **加色混合 canvas_item shader**（LDR 判例族正统通道：2D 发光走合成器，
     混白 shader 惰性 static 先例同款）+ 散布角/尺寸随机/damping 收速；

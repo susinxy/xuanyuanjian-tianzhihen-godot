@@ -1,13 +1,14 @@
 extends Node2D
 
 ## 接触点特效两层本体（B4.7 R4/R5，零美术；T5 观感升级波）：
-## · 火花层 CPUParticles2D——**运行时程序化拖尾贴图**（3×14 纵向白色光针，
+## · 火花层 CPUParticles2D——**运行时程序化拖尾贴图**（3×6 短桩光针，
 ##   Image 手画零文件）+ `particle_flag_align_y` 使针尖沿速度方向（本构建
 ##   该特性实名 particle_flag_align_y，探针实锤——texture_align 系幻影名），
 ##   加色混合 canvas_item shader（LDR 判例族：乘法调制只暗不亮，发光走合成器
-##   通道，混白 shader 先例同款惰性 static 构建）；喷散布角由参数卡供。
-## · 闪光层 Line2D 空心圆环（T5 改判：实心程序圆"贴片感"重，空心环扩张
-##   消散更接近击火花语言），scale 0.35→~1.9 + alpha 1→0 短促"啪"。
+##   通道，混白 shader 先例同款惰性 static 构建）；喷散布角由参数卡供；
+##   T5b 调档：阻尼 300-420 速生速灭（长命+低阻尼=碎屑飘感元凶）。
+## · 闪光层 Line2D **毛刺空心环**（T5b：逐顶点半径抖动+随机自转，规整圆
+##   读作 UI），scale 0.35→~1.9 + alpha 1→0 短促"啪"。
 ## 生命周期：闪 0.08s → 等 (lifetime−0.08) → queue_free；timer 挂树，
 ## 节点 free 时引擎自动回收，无泄漏。
 ## 观测通道（契约 E 流）：`preset` 卡引用 + `particles` 属性搬运卡参
@@ -20,9 +21,10 @@ const FLASH_SCALE_TO := 1.9
 const RING_RADIUS := 7.0
 const RING_SEGMENTS := 24
 const RING_WIDTH := 2.5
-## 拖尾针贴图尺寸（宽×高，纵向=对齐方向）
+## 拖尾针贴图尺寸（宽×高，纵向=对齐方向；T5b 收短：14 行长针在
+## 用户 F5 读作"被打碎的物体飞散"，6 行短桩读作"火星迸溅"）
 const STREAK_W := 3
-const STREAK_H := 14
+const STREAK_H := 6
 
 ## 加色混合透射 shader（惰性构建一次全体复用；热重载丢 static 自动重建，
 ## 混白闪件同款主帧单线程判例）
@@ -63,8 +65,8 @@ func _build_particles() -> void:
 	particles.initial_velocity_min = preset.speed_min
 	particles.initial_velocity_max = preset.speed_max
 	# 本构建无持续速度通道（探针实锤 velocity_min 系幻影名），收速手感全走 damping
-	particles.damping_min = 180.0
-	particles.damping_max = 260.0
+	particles.damping_min = 300.0
+	particles.damping_max = 420.0
 	particles.gravity = preset.gravity
 	# direction 已是本节点局部 +x（configure 旋转了本体），粒子沿局部右向喷出
 	particles.direction = Vector2.RIGHT
@@ -80,20 +82,24 @@ func _build_particles() -> void:
 	grad.offsets = PackedFloat32Array([0.0, 1.0])
 	particles.color_ramp = grad
 	# 尺寸随机小针（拖尾感靠贴图形状，不靠放大）
-	particles.scale_amount_min = 0.55
-	particles.scale_amount_max = 1.0
+	particles.scale_amount_min = 0.4
+	particles.scale_amount_max = 0.8
 	add_child(particles)
 
 
 func _build_flash() -> void:
 	flash = Line2D.new()
+	# T5b 毛刺环（用户 F5：规规矩矩的圆环太"UI"）——逐顶点半径
+	# ±28% 抖动成不规则刺圈，整体随机自转，宽度浮动；每次出生都不同形
 	var pts := PackedVector2Array()
 	for i in RING_SEGMENTS:
 		var ang := TAU * float(i) / float(RING_SEGMENTS)
-		pts.append(Vector2.from_angle(ang) * RING_RADIUS)
+		pts.append(Vector2.from_angle(ang)
+				* RING_RADIUS * randf_range(0.72, 1.28))
 	flash.points = pts
 	flash.closed = true
-	flash.width = RING_WIDTH
+	flash.width = randf_range(RING_WIDTH * 0.8, RING_WIDTH * 1.3)
+	flash.rotation = randf_range(0.0, TAU)
 	flash.default_color = preset.flash_color
 	flash.material = _ring_mat()
 	flash.scale = Vector2.ONE * FLASH_SCALE_FROM
