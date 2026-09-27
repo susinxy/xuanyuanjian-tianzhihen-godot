@@ -214,7 +214,9 @@ static func _get_add_shader() -> Shader:
 		_add_shader = Shader.new()
 		_add_shader.code = "\n".join([
 			"shader_type canvas_item;",
-			"blend_mode add;",
+			# 本构建画布项混合指令正字法=render_mode blend_add（4.7.1 F5 实锤：
+			# 3.x 旧式指令系编译失败静默失效，加色发光长期未生效）
+			"render_mode blend_add;",
 			"",
 			"void fragment() {",
 			"\tCOLOR = COLOR * texture(TEXTURE, UV);",

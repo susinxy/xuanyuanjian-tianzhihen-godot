@@ -107,6 +107,7 @@ func enter(msg: = {}) -> void:
 	_attributes.block_facing = Vector2(fx, 0.0)
 
 	_play_slot(_skin_state_out, _BLOCK_OUT_FALLBACK_BEATS)
+	print("[HITFEEL] 格挡序列起 盾面=%s" % ("右" if _attributes.block_facing.x > 0.0 else "左"))
 
 
 func exit() -> void:
@@ -171,8 +172,10 @@ func _on_skin_animation_finished() -> void:
 		# → 跳过 GUARD 段直回 Idle（block_out 已放完=R8 不裸奔语义保留）；
 		# GUARD 段自此只属于"弹空者的保险"（未弹反才持盾）。
 		if _attributes.parried_this_sequence:
+			print("[HITFEEL] 弹反成功→直返 Idle（跳 GUARD，R12）")
 			_state_machine.transition_to(_path_idle_state)
 		else:
+			print("[HITFEEL] 未弹反→进 GUARD 持盾段")
 			_attributes.block_phase = QuiverAttributes.BlockPhase.GUARD
 			_play_slot(_skin_state_hold, _BLOCK_HOLD_FALLBACK_BEATS)
 	elif _attributes.block_phase == QuiverAttributes.BlockPhase.GUARD:

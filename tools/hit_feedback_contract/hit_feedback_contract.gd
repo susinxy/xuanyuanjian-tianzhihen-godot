@@ -236,6 +236,13 @@ func _flow_static() -> void:
 	a.hit_slow_factor = 0.6
 	a.reset()
 	_check(is_equal_approx(a.hit_slow_factor, 0.6), "S0f reset() 不清命中反馈档（本腿唯一写 0.6 存活）")
+	# S0g 着色器混合指令正字法源码锁（4.7.1 F5 日志事故：3.x 旧式指令编译失败
+	# 静默降级=加色发光长期未生效不报红）——混合必须走 render_mode blend_add
+	var fx_src := FileAccess.get_file_as_string("res://scripts/effects/hit_spark_fx.gd")
+	_check(fx_src.contains("render_mode blend_add;"),
+			"S0g 加色发光 render_mode blend_add; 在位")
+	_check(not fx_src.contains("blend_mode "),
+			"S0g 旧式混合指令零残留（防 3.x 遗风回潮静默失效）")
 	# RefCounted 手动释放通道在本构建不存在（delete 无、free 拒——block_parry
 	# M 流判例：裸 new 的 attributes 放任随引用消亡自灭，Events 连接随尸解体）
 	_finished_s = true
