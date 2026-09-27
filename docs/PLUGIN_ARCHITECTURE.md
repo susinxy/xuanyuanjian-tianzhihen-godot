@@ -2433,6 +2433,12 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
     生命周期=max(lifetime, 闪光) SceneTreeTimer 尾端 queue_free。观测面：
     `preset`（卡引用）/`particles`/`flash` 公开，E5 风格路由断言由此供证
     （E 流只锁 gravity/amount 经属性搬运，flash 节点类型不锁——换形安全）。
+    **T6 实感波**（2026-09-27 用户"更有实感"）扩为四层：烫芯（Polygon2D
+    实心白核加色 0.06s 炸散=命中锚点，白芯彩尾的芯位）、毛刺环双层
+    （暗底衬+亮环共享抖动点列，高对比治"UI 感"）、细火星层、碎块层
+    （第二条 CPUParticles2D：chunk_amount 大颗、半速、重力×2.2、弱阻尼
+    ="砸出去"的质量感；0=该卡免层）。卡新增 core_color/ring_dark/
+    chunk_amount/chunk_scale_mult（单一出处仍在卡）。
   - `hit_spark_preset.gd` + `presets/spark_{default,heavy,fire}.tres`——参数卡
     类与三张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）；T5 卡扩容
     `spread_deg`（default 34/heavy 46/fire 60 度）。

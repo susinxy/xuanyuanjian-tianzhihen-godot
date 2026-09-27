@@ -28,3 +28,13 @@ extends Resource
 @export var flash_scale: float = 1.0
 ## 闪光色（alpha 由消费方跑 1→0 衰减）
 @export var flash_color: Color = Color(1, 1, 1, 1)
+## —— T6 实感升级（2026-09-27 用户"更有实感"对症，三手法皆零美术）——
+## 烫芯色：命中一瞬的高亮小圆核（白只许活在芯上，0.06s 炸散——业界
+## "白芯彩尾"配色的芯位）
+@export var core_color: Color = Color(1, 1, 0.92, 1)
+## 环底衬色：亮环下面垫一圈更宽更暗的轮廓（高对比=质量感；纯亮环读作 UI）
+@export var ring_dark: Color = Color(0.72, 0.28, 0.04, 1)
+## 碎块层粒数：少量大颗粒慢速高重力弧线（"迸出有质量的东西"；0=无碎块层）
+@export var chunk_amount: int = 3
+## 碎块相对细火星的尺寸倍率
+@export_range(1.0, 4.0, 0.1) var chunk_scale_mult: float = 1.7

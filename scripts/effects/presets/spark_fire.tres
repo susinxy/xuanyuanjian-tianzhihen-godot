@@ -14,3 +14,7 @@ gravity = Vector2(0, -220)
 lifetime = 0.32
 flash_scale = 1.2
 flash_color = Color(1, 0.55, 0.12, 1)
+core_color = Color(1, 0.95, 0.75, 1)
+ring_dark = Color(0.5, 0.12, 0.02, 1)
+chunk_amount = 4
+chunk_scale_mult = 1.9

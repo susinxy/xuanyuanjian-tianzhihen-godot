@@ -7,8 +7,11 @@ extends Node2D
 ##   加色混合 canvas_item shader（LDR 判例族：乘法调制只暗不亮，发光走合成器
 ##   通道，混白 shader 先例同款惰性 static 构建）；喷散布角由参数卡供；
 ##   T5b 调档：阻尼 300-420 速生速灭（长命+低阻尼=碎屑飘感元凶）。
-## · 闪光层 Line2D **毛刺空心环**（T5b：逐顶点半径抖动+随机自转，规整圆
-##   读作 UI），scale 0.35→~1.9 + alpha 1→0 短促"啪"。
+## · 闪光层 Line2D **毛刺空心环双层**（T6：暗底衬+亮环共享抖动点列，高
+##   对比=质量感），scale 0.35→~1.9 + alpha 1→0 短促"啪"。
+## · 烫芯层 Polygon2D 实心圆加色压顶 0.06s 炸散（白芯彩尾的芯位）。
+## · 碎块层第二条 CPUParticles2D：少颗大、半速、倍重力、弱阻尼——
+##   细火星"擦过"、碎块"砸出去"，双层分布=实感（chunk_amount=0 卡免）。
 ## 生命周期：闪 0.08s → 等 (lifetime−0.08) → queue_free；timer 挂树，
 ## 节点 free 时引擎自动回收，无泄漏。
 ## 观测通道（契约 E 流）：`preset` 卡引用 + `particles` 属性搬运卡参
@@ -32,9 +35,18 @@ static var _add_shader: Shader
 ## 程序化拖尾贴图（惰性构建一次全体复用）
 static var _streak_tex: ImageTexture
 
+## 烫芯参数（白芯彩尾的"芯"位：0.06s 高亮小核炸散）
+const CORE_DURATION := 0.06
+const CORE_RADIUS := 3.5
+const CORE_SCALE_FROM := 0.4
+const CORE_SCALE_TO := 1.5
+
 var preset: HitSparkPreset = null
 var particles: CPUParticles2D = null
+var chunks: CPUParticles2D = null
+var core: Polygon2D = null
 var flash: Line2D = null
+var flash_shadow: Line2D = null
 
 
 ## 装配入口：add_child 前调（configure→入树，_ready 用已到位的参数建形）。
@@ -50,7 +62,9 @@ func _ready() -> void:
 		queue_free()
 		return
 	_build_particles()
+	_build_chunks()
 	_build_flash()
+	_build_core()
 	_schedule_death()
 
 
@@ -87,19 +101,62 @@ func _build_particles() -> void:
 	add_child(particles)
 
 
+## 碎块层：少量大颗粒、半速出膛、倍重下坠、弱阻尼——细火星是"擦过"，
+## 碎块是"砸出去"，双层速度/寿命分布=质量感（chunk_amount=0 的卡无此层）
+func _build_chunks() -> void:
+	if preset.chunk_amount <= 0:
+		return
+	chunks = CPUParticles2D.new()
+	chunks.one_shot = true
+	chunks.explosiveness = 1.0
+	chunks.emitting = true
+	chunks.amount = preset.chunk_amount
+	chunks.lifetime = preset.lifetime + 0.08
+	chunks.initial_velocity_min = preset.speed_min * 0.5
+	chunks.initial_velocity_max = preset.speed_max * 0.55
+	chunks.damping_min = 60.0
+	chunks.damping_max = 110.0
+	chunks.gravity = preset.gravity * 2.2
+	chunks.direction = Vector2.RIGHT
+	chunks.spread = minf(preset.spread_deg * 1.25, 180.0)
+	chunks.particle_flag_align_y = true
+	chunks.texture = _get_streak_tex()
+	var mat := ShaderMaterial.new()
+	mat.shader = _get_add_shader()
+	chunks.material = mat
+	var grad := Gradient.new()
+	grad.colors = PackedColorArray([preset.color_hot, preset.color_cool])
+	grad.offsets = PackedFloat32Array([0.0, 1.0])
+	chunks.color_ramp = grad
+	chunks.scale_amount_min = 0.5 * preset.chunk_scale_mult
+	chunks.scale_amount_max = 0.8 * preset.chunk_scale_mult
+	add_child(chunks)
+
+
+## 毛刺环双层（T6）：暗底衬先加（更宽）、亮环后加（压上）——共享同一
+## 抖动点列保证轮廓咬合；两层同 tween 保持形状同步
 func _build_flash() -> void:
-	flash = Line2D.new()
-	# T5b 毛刺环（用户 F5：规规矩矩的圆环太"UI"）——逐顶点半径
-	# ±28% 抖动成不规则刺圈，整体随机自转，宽度浮动；每次出生都不同形
 	var pts := PackedVector2Array()
 	for i in RING_SEGMENTS:
 		var ang := TAU * float(i) / float(RING_SEGMENTS)
 		pts.append(Vector2.from_angle(ang)
 				* RING_RADIUS * randf_range(0.72, 1.28))
+	var jit_rot := randf_range(0.0, TAU)
+	var jit_w := randf_range(RING_WIDTH * 0.8, RING_WIDTH * 1.3)
+	flash_shadow = Line2D.new()
+	flash_shadow.points = pts
+	flash_shadow.closed = true
+	flash_shadow.width = jit_w + 2.4
+	flash_shadow.rotation = jit_rot
+	flash_shadow.default_color = preset.ring_dark
+	flash_shadow.material = _ring_mat()
+	flash_shadow.scale = Vector2.ONE * FLASH_SCALE_FROM
+	add_child(flash_shadow)
+	flash = Line2D.new()
 	flash.points = pts
 	flash.closed = true
-	flash.width = randf_range(RING_WIDTH * 0.8, RING_WIDTH * 1.3)
-	flash.rotation = randf_range(0.0, TAU)
+	flash.width = jit_w
+	flash.rotation = jit_rot
 	flash.default_color = preset.flash_color
 	flash.material = _ring_mat()
 	flash.scale = Vector2.ONE * FLASH_SCALE_FROM
@@ -109,10 +166,33 @@ func _build_flash() -> void:
 	tw.tween_property(flash, "scale",
 			Vector2.ONE * FLASH_SCALE_TO * preset.flash_scale, FLASH_DURATION)
 	tw.tween_property(flash, "modulate:a", 0.0, FLASH_DURATION * 1.4)
+	tw.tween_property(flash_shadow, "scale",
+			Vector2.ONE * FLASH_SCALE_TO * preset.flash_scale * 1.06, FLASH_DURATION)
+	tw.tween_property(flash_shadow, "modulate:a", 0.0, FLASH_DURATION * 1.4)
+
+
+## 烫芯：实心小圆（非环）加色压顶，0.06s 内从 0.4 放大到 1.5 并炸散——
+## 命中"那一下"的锚点，环与火星都是它的余波
+func _build_core() -> void:
+	core = Polygon2D.new()
+	var pts := PackedVector2Array()
+	for i in 12:
+		var ang := TAU * float(i) / 12.0
+		pts.append(Vector2.from_angle(ang) * CORE_RADIUS)
+	core.polygon = pts
+	core.color = preset.core_color
+	core.material = _ring_mat()
+	core.scale = Vector2.ONE * CORE_SCALE_FROM
+	add_child(core)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(core, "scale", Vector2.ONE * CORE_SCALE_TO, CORE_DURATION)
+	tw.tween_property(core, "modulate:a", 0.0, CORE_DURATION * 1.3)
 
 
 func _schedule_death() -> void:
-	var wait := maxf(preset.lifetime, FLASH_DURATION)
+	var wait := maxf(preset.lifetime + (0.08 if preset.chunk_amount > 0 else 0.0),
+			FLASH_DURATION)
 	var timer := get_tree().create_timer(wait)
 	timer.timeout.connect(_on_lifetime_over)
 
