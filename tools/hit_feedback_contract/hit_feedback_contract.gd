@@ -41,6 +41,12 @@ extends Node
 ## tres、受击盒拿 dup，ground_level 记账分家致车道中心漂移）。
 ## 时序断言全部从"测试内实测动画长×档案 pct"折算，不硬编码 ms。
 ##
+## 直戳私有=测试特权豁免申报（T1 评审 M-4，T4 补声明）：套内多处绕过生产
+## 写方直改内部字段/状态——P 流直写 `is_blocking/block_started_frame`（弹反
+## 缝捷径，生产义务归 block_parry Q 流）、`state_machine.transition_to`
+## 强制入场（P6d 跳攻腿）、提线盒摘挂阵营标签、行为总开关反拨等。这些是
+## 台架特权**不是生产写方形制范例**，勿以本套为抄写模板。
+##
 ## E 流·接触特效（T3 R4）：命中→特效节点出生且贴 hit_landed 回执接触点
 ## （E1/E1b）→default 风格+z=20 夹层（E1c）→生命周期毕场景根计数归零
 ## （E2 自动清理）→弹体命中同样出生（E3）+fire 卡消费经节点属性可证
@@ -675,6 +681,9 @@ func _leg_parry_freeze() -> void:
 	var alive_pre := 0
 	var last_sig := ""
 	var frozen_sigs: Array = []
+	## 边缘锁（T2 评审 M1，T4 补）：冻样首帧须离动画尾 ≥2 帧——"恒等"才是
+	## 冻结实证而非"已到末帧自然收口"冒充
+	var frozen_edge_ok := false
 	var d_pos0 := Vector2.ZERO
 	var dx_max := 0.0
 	var a_scale_min := 1.0
@@ -702,6 +711,12 @@ func _leg_parry_freeze() -> void:
 		elif s_atk <= 0.001 and str(_atk2.state_machine.state_name).contains("Hurt"):
 			# 冻窗采样（Hurt 落态后的签名，flip 至多污染头部一两拍，
 			# 判据取尾部连续=两拍采样冻结）
+			if frozen_sigs.is_empty():
+				# 本构建 AnimatedSprite2D **无 frame_end**（T4 探针实锤）——
+				# 帧数真相在 SpriteFrames.get_frame_count("动画名")
+				var cnt := sp.sprite_frames.get_frame_count(sp.animation) \
+					if sp.sprite_frames != null else 0
+				frozen_edge_ok = sp.frame < cnt - 2
 			frozen_sigs.append(sig)
 		if f_seam >= 0 and f_scale0 < 0 and s_atk <= 0.001:
 			f_scale0 = Engine.get_physics_frames()
@@ -725,9 +740,11 @@ func _leg_parry_freeze() -> void:
 			% [f_seam, f_scale0, a_scale_min])
 	_check(alive_pre >= 1,
 			"P2b 观测鲜活：弹前（缝之前）攻击者皮肤签名推进 %d 次（通道非死读数）" % alive_pre)
-	_check(frozen_sigs.size() >= 3 and _tail_equal(frozen_sigs, 3),
-			"P2b' 罚站实证：冻窗内攻击者 (动画@帧) 采样 %d 拍且尾 3 拍恒等（%s）"
-			% [frozen_sigs.size(), frozen_sigs[2] if frozen_sigs.size() >= 3 else "<采样不足>"])
+	_check(frozen_sigs.size() >= 3 and _tail_equal(frozen_sigs, 3) and frozen_edge_ok,
+			"P2b' 罚站实证：冻窗内攻击者 (动画@帧) 采样 %d 拍且尾 3 拍恒等，"
+			% frozen_sigs.size()
+			+ "首帧离尾 ≥2 帧（边缘锁防末帧自然收口冒充冻结；%s）"
+			% [frozen_sigs[2] if frozen_sigs.size() >= 3 else "<采样不足>"])
 	_check(d_scale_min >= 0.999,
 			"P2c 防守方动画倍速全程不降（最低 %.2f，罚站不罚守）" % d_scale_min)
 	_check(f_restore > 0 and f_restore - f_seam >= stun - 2 and f_restore - f_seam <= stun + 6,
@@ -798,7 +815,7 @@ func _p_clean() -> void:
 # 二次进窗吃常规支满伤（旧全局暂停门天然免疫，改道新辟暴露面；评审实证
 # 无单发去重机制）。处置=罚站同拍把攻击者全部攻击盒 monitorable 关死
 # （主刀；形状 disabled 预关仅意图——活 blend 每帧回写，不作证人），
-# 解封=角色门面 release_hit_silence()，地面 attack.enter 与空中
+# 解封=角色门面 release_hitboxes()，地面 attack.enter 与空中
 # jump-attack.enter 双路同调（C1 判例：单路独占=空袭盒恒静默穿人）。
 
 ## P6 主腿（霸体鼠洞形制，spec §2.3 知情条款的暴露面正面化）：攻击方挂
