@@ -29,7 +29,7 @@ extends Node
 ## 皮肤精灵 material（本构建无 material_overlay，探针实锤）。新 5 腿 P2g/P2h
 ## （格挡弱闪挂/摘）+ P3j/P3k/P3l（弹反双闪挂/挂/摘），逐物理帧采样
 ## sprite.material 非空首末帧，对旧 modulate 形制恒红（red_run2 档：五腿
-## 首见=-1），断言总数 79→84。
+## 首见=-1），断言总数 79→84（B4.7 T2 84→86：P3e 一腿换三腿）。
 ##
 ## Step0 探针实锤（2026-09-23，tools/tmp_b3probe 一次性台已毁尸，逐字记录见
 ## task-4-report）：定格期间 physics_frame 信号照响、Engine.get_physics_frames()
@@ -38,7 +38,7 @@ extends Node
 ## ⚠ B4.7 R2 勘误（2026-09-26）：弹反定格已从"定格全世界"改道"只冻被弹反
 ## 的攻击者"（tree.paused 恒 false，攻击者 anim_time_scale()=0），上述暂停期
 ## 判例降为历史（普攻流自 R1 起本就不停世界）；_drain_freeze() 保留=若
-## freeze_frames 复活仍先排空，现行恒秒回。P3e/P3e2 断言已改判单角色形制，
+## freeze_frames 复活仍先排空，现行恒秒回。P3e/P3e2/P3e3 断言已改判单角色形制，
 ## 行为级三锁（罚站实证/防守可动/信标链不死）住 hit_feedback_contract P 流。
 ## ⇒ 本流时间约定：①每条时序腿起手先 _drain_freeze()（"定格前起跳"）；
 ## ②校准帧距 w_cal = P1 实测（出手调用帧→命中观察帧），预置
