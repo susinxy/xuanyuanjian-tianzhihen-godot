@@ -81,6 +81,10 @@ func apply_character_slow(char: QuiverCharacter, rate: float, duration_ms: float
 	char.set_anim_time_scale(effective_rate)
 	var id := char.get_instance_id()
 	_slow_generations[id] = int(_slow_generations.get(id, 0)) + 1
+	# F5 诊断打印（2026-09-27 用户裁：肉眼不可辨的时间通道用日志兜底验证）
+	print("[HITFEEL] 时间控制开始 %s：目标=%s rate=%.2f 窗口=%d拍 (%.0fms)" % [
+		"定格" if effective_rate <= 0.0 else "慢放",
+		char.name, effective_rate, frames, duration_ms])
 	_run_slow(char, id, _slow_generations[id], frames)
 
 
@@ -96,9 +100,11 @@ func _run_slow(char: QuiverCharacter, id: int, gen: int, frames: int) -> void:
 	for _i in frames:
 		await get_tree().physics_frame
 	if int(_slow_generations.get(id, -1)) != gen:
+		print("[HITFEEL] 时间控制让位 id=%d gen=%d（更新请求已接管恢复笔）" % [id, gen])
 		return
 	_slow_generations.erase(id)
 	if is_instance_valid(char):
 		char.set_anim_time_scale(1.0)
+		print("[HITFEEL] 时间控制恢复 %s（窗口 %d 拍跑毕）" % [char.name, frames])
 
 ### -----------------------------------------------------------------------------------------------

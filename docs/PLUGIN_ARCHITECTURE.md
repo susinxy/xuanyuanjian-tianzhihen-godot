@@ -2422,12 +2422,24 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
     短路预铺（动作缺席零报错零行为，controller 登记 [input] 后自动通电）；
     `_ready` 向 DebugDock 注册"命中反馈"拉取页（dock 缺席防御跳过，provider
     随宿主析构自动失效——debug_text_tab `is_valid` 守卫在案）。
-  - `hit_spark_fx.gd`——两层零美术：CPUParticles2D（无贴图方块粒，one_shot+
-    explosiveness=1.0 一喷，`color_ramp` 运行时构造 Gradient 判例见 §17.8）
-    + Polygon2D 16 顶点程序圆闪光（Tween scale/alpha 0.08s）；生命周期=
-    max(lifetime, 闪光) 的 SceneTreeTimer 尾端 queue_free。观测面：`preset`
-    （卡引用）/`particles`/`flash` 公开，E5 风格路由断言由此供证。
+  - `hit_spark_fx.gd`——两层零美术（**T5 观感升级波 2026-09-27**，对症用户
+    F5"方块粒简陋"）：CPUParticles2D 用**运行时程序化拖尾贴图**（3×14 纵向
+    纺锤光针，Image 手画零文件）+ `particle_flag_align_y` 针尖沿速转向
+    （本构建实名如此，探针实锤；`texture_align`/`velocity_min` 系幻影名）+
+    **加色混合 canvas_item shader**（LDR 判例族正统通道：2D 发光走合成器，
+    混白 shader 惰性 static 先例同款）+ 散布角/尺寸随机/damping 收速；
+    闪光层 Polygon2D 实心圆改判 **Line2D 空心扩张圆环**（贴片感对症）。
+    one_shot+explosiveness=1.0 一喷、`color_ramp` 裸 Gradient 判例不变；
+    生命周期=max(lifetime, 闪光) SceneTreeTimer 尾端 queue_free。观测面：
+    `preset`（卡引用）/`particles`/`flash` 公开，E5 风格路由断言由此供证
+    （E 流只锁 gravity/amount 经属性搬运，flash 节点类型不锁——换形安全）。
   - `hit_spark_preset.gd` + `presets/spark_{default,heavy,fire}.tres`——参数卡
-    类与三张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）。
+    类与三张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）；T5 卡扩容
+    `spread_deg`（default 34/heavy 46/fire 60 度）。
+- **诊断打印（2026-09-27 用户裁）**：肉眼不可辨的时间通道以 `[HITFEEL]`
+  print 兜底验证——`HitFreeze.apply_character_slow/_run_slow`（开始/恢复/
+  让位三拍）、HurtBox 近战命中与弹反成立两支（attacker/档值/罚站帧数）、
+  `HitFx.toggle/_on_hit_landed`（开关翻转/出生/拦截）。F5 流程=用户复制
+  输出面板 `[HITFEEL]` 行回传，机器面 controller 判卷，主观面用户口述。
 
 **新增攻击风格=加一张卡 + 注册表一行 + 攻击 tres 改 `hit_effect_style`，零代码。**

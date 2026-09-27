@@ -11,6 +11,8 @@ extends Resource
 #--- public variables - order: export > normal var > onready --------------------------------------
 
 @export var amount: int = 10
+## 喷散布角（度，锥半角；T5 观感升级新增——针形拖尾沿击向散开的扇形宽度）
+@export_range(1.0, 180.0, 1.0) var spread_deg: float = 34.0
 ## 粒子出生色（热）
 @export var color_hot: Color = Color(1, 1, 1, 1)
 ## 粒子死亡色（冷，alpha 通常归 0 完成淡出）
