@@ -46,13 +46,13 @@ extends Node
 ##     OUT≈12 拍实测域/窗内挡击=弹反（出手提前量走 w_cal 校准基）/
 ##     全程 12+30 拍量级/GUARD 毕自动回 Idle 且松键不回流。
 ##   P23 评审修复族（追加波）：F1 兜底拍信标免疫（出招取消起架测 OUT 窗宽
-##     ∈[8,16]，腐蚀即穿帮）/F3 起按边沿锁（持键全程+归位 30 拍零再现 OUT；
+##     ∈[8,18]，腐蚀即穿帮）/F3 起按边沿锁（持键全程+归位 30 拍零再现 OUT；
 ##     松手重按对照腿=二段起架成立）——P23a1 兼 R10 行为面二次见证。
 ##   P24 真槽族（B4.8 T1 动画接线批，身份见证=日志 B48-T1 行）：a R10 取消
 ##     行为判别（P 流长攻命中锚定，堵 Important-2"测不到取消本身"缺口）/
 ##     b 真槽信标驱动正面见证（脑目的地+travel 落位+_beats_left==0）/
 ##     c 删槽构造腿（兜底族命题保留，二选一裁决=构造）/d 帧长=兜底常数源锁；
-##     P23a 双腿化（真槽/缺槽两形态窗宽同域 [8,16]）。
+##     P23a 双腿化（真槽/缺槽两形态窗宽同域 [8,18]（M2 余量备案））。
 ## ⑤ R8 体检红据（/tmp/opencode/b48_t0/red_*.log）：a 摘方向门恒真→P17 红；
 ##   b 摘相位推进（信标首行 return）→P18/P21 红；c 白名单删地面攻击→P18e2
 ##   源码红（初版行为腿被 Idle 兜底转进救活=Important-2 缺口；F3 边沿锁落地后
@@ -713,7 +713,7 @@ func _flow_parry() -> void:
 # ——三件套全由 QuiverActionBlock enter/信标推进/exit 落笔（单写者活体=OS 链×
 # 缝整合命题）。B4.8 T1 形态改判申报：真动画槽（block_out/block）自本批起随
 # 模板产线**长在 test_actor 身上**——P18/P21/P23 时序族自此跑在"信标驱动"
-# 现行路径上（占位帧长=兜底常数同数 12/30 拍，窗宽判据域 [8,16]/总量 [34,52]
+# 现行路径上（占位帧长=兜底常数同数 12/30 拍，窗宽判据域 [8,18]/总量 [34,52]
 # 两形态共用零漂移）；"缺槽兜底"形态改由 P24c **删槽构造腿**运行时摘槽见证
 # （二选一裁决=构造腿，P21 兜底族命题未死）。真槽驱动正面见证=P24b
 # （脑目的地 block_out/block + _beats_left==0），断链案卷=R8 red_g 档
@@ -874,12 +874,12 @@ func _flow_stance() -> void:
 			"P7a'' block_facing=恒左右单位快照（R5，实得 %s）" % a.attributes.block_facing)
 
 	# ── P21a 兜底 OUT 窗长≈12 拍（信标缺席自计数；杀"相位推进摘除"红档 b：
-	#    那会永不到 GUARD）。自 OUT 观测点到 GUARD 出现 ∈[8,16]：enter→观测
+	#    那会永不到 GUARD）。自 OUT 观测点到 GUARD 出现 ∈[8,18]：enter→观测
 	#    存在 ±3 拍漂移，宽域仍具判别力 ──
 	var f_out0 := Engine.get_physics_frames()
 	var okG := await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60)
 	var out_span := Engine.get_physics_frames() - f_out0
-	_check(okG and out_span >= 8 and out_span <= 16,
+	_check(okG and out_span >= 8 and out_span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
 			"P21a 兜底 OUT 窗≈12 拍（自 OUT 观测至 GUARD 实测 %d 拍）" % out_span)
 
 	# ── P7b GUARD 段挨拳=格挡待遇（OS 链×缝整合）+ R9 命中拍序列在场 ──
@@ -1046,8 +1046,8 @@ func _flow_stance() -> void:
 			"P24b1 真槽驱动：脑目的地=block_out 且 _beats_left=0（实得 %s/%d）"
 			% [p24b.brain_out, p24b.beats_in])
 	_check(p24b.node_seen, "P24b2 AnimTree travel 落位 block_out（现行皮肤节点亲见）")
-	_check(p24b.ok_guard and p24b.span >= 8 and p24b.span <= 16,
-			"P24b3 真槽 OUT 窗实测 %d 拍∈[8,16]（0.2s 占位长=兜底 12 拍同数零漂移）"
+	_check(p24b.ok_guard and p24b.span >= 8 and p24b.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
+			"P24b3 真槽 OUT 窗实测 %d 拍∈[8,18]（0.2s 占位长=兜底 12 拍同数零漂移）"
 			% p24b.span)
 	_check(p24b.brain_guard == &"block", "P24b4 GUARD 拍脑目的地=block（持盾槽信标同构）")
 	_check(p24b.ok_idle, "P24b5 真槽全程序列自动收口回 Idle")
@@ -1056,14 +1056,14 @@ func _flow_stance() -> void:
 
 	# ── P24c 删槽构造腿（P21 兜底族命题保留腿，二选一裁决=构造）：运行时摘
 	#    两槽复现过渡期"缺槽皮肤"→ 兜底自计数必须苏醒（_beats_left>0）且
-	#    OUT 窗宽与真槽同数 ∈[8,16]——两形态共用域=接线零漂移的另一面。──
+	#    OUT 窗宽与真槽同数 ∈[8,18]——两形态共用域=接线零漂移的另一面。──
 	var strip1 := _strip_block_slots(a._skin, true)
 	_check(strip1 == 2, "P24c0 删槽构造生效（摘 %d 槽，应 2）" % strip1)
 	var p24c := await _stance_probe(a, b, false)
 	_check(p24c.ok_in and p24c.beats_in > 0,
 			"P24c1 缺槽形态兜底自计数苏醒（_beats_left=%d>0，信标缺席）" % p24c.beats_in)
-	_check(p24c.ok_guard and p24c.span >= 8 and p24c.span <= 16,
-			"P24c2 缺槽兜底 OUT 窗仍≈12 拍实测 %d∈[8,16]" % p24c.span)
+	_check(p24c.ok_guard and p24c.span >= 8 and p24c.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
+			"P24c2 缺槽兜底 OUT 窗仍≈12 拍实测 %d∈[8,18]" % p24c.span)
 	var rest1 := _strip_block_slots(a._skin, false)
 	_check(rest1 == 2 and a._skin.has_anim_state(&"block_out")
 			and a._skin.has_anim_state(&"block"),
@@ -1074,19 +1074,19 @@ func _flow_stance() -> void:
 	# ── P23a（F1+Important-2，B4.8 T1 双腿化）：出招取消进 Block 起架，
 	#    OUT 窗宽在真槽（信标驱动：在途攻击时钟随 travel 冻结，无晚响信标
 	#    ——2026-09-26 探针案卷）与缺槽（F1 守卫 _beats_left>0 信标免疫，
-	#    无守卫=red_e 档攻击残拍切短窗）两形态下都必须 ∈[8,16]。
+	#    无守卫=red_e 档攻击残拍切短窗）两形态下都必须 ∈[8,18]。
 	#    取消行为判别本体见 P 流 P24a（长攻命中锚定腿）。──
 	var p23r := await _stance_probe(a, b, true)
 	_check(p23r.ok_in, "P23a1 R10 出招取消起架（真槽形态；F3 后白名单缺 Combo 必红）")
-	_check(p23r.ok_guard and p23r.span >= 8 and p23r.span <= 16,
-			"P23a2 真槽取消起架 OUT 窗实测 %d 拍∈[8,16]（信标驱动零漂移）" % p23r.span)
+	_check(p23r.ok_guard and p23r.span >= 8 and p23r.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
+			"P23a2 真槽取消起架 OUT 窗实测 %d 拍∈[8,18]（信标驱动零漂移）" % p23r.span)
 	var strip2 := _strip_block_slots(a._skin, true)
 	var p23n := await _stance_probe(a, b, true)
 	_check(strip2 == 2 and p23n.ok_in and p23n.beats_in > 0,
 			"P23a3 缺槽取消起架且兜底拍在场（摘=%d beats=%d；F1 守卫红档=red_e）"
 			% [strip2, p23n.beats_in])
-	_check(p23n.ok_guard and p23n.span >= 8 and p23n.span <= 16,
-			"P23a4 缺槽取消起架 OUT 窗 %d 拍∈[8,16]（无守卫=攻击末帧信标切短窗）"
+	_check(p23n.ok_guard and p23n.span >= 8 and p23n.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
+			"P23a4 缺槽取消起架 OUT 窗 %d 拍∈[8,18]（无守卫=攻击末帧信标切短窗）"
 			% p23n.span)
 	_check(_strip_block_slots(a._skin, false) == 2, "P23a5 缺槽取消形双腿后恢复槽位")
 
