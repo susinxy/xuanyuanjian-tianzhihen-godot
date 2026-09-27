@@ -2387,9 +2387,10 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
   写盘（面板暂不开放该字段，回改走 tres 手改）；fire_ball 内容卡手改
   `&"fire"`（SpellCreator 重建档不携带风格行的缺口=已知观察，T4 若补并案）。
 - **消费端**（游戏层 `scripts/effects/`，非插件）：
-  - `hit_fx.gd`——autoload 候选（**本批未登记 project.godot**，名字留给口令
-    窗口的 `[autoload]` 门；无 class_name=SaveSystem 同族形制，消费方走
-    preload/dynamic）：`PRESETS` 注册表按风格名路由→实例化 `hit_spark_fx.gd`
+  - `hit_fx.gd`——**已注册为 autoload**（登记适配波：`[autoload] HitFx` +
+    `[input] hit_fx_toggle`=F8，controller 办理；无 class_name=SaveSystem
+    同族形制，测试消费方走 preload/dynamic，契约 E/K 流单点装配优先复用
+    `/root/HitFx` 单例、缺席回退手建保旧世界兼容——双消费者=K2a 假红判例）：`PRESETS` 注册表按风格名路由→实例化 `hit_spark_fx.gd`
     挂 `current_scene`（z=20 夹层判例：背景 5/Level 15/前景 25）；`enabled`
     直翻+`toggle()` 公开入口；F8 判定 `InputMap.has_action(&"hit_fx_toggle")`
     短路预铺（动作缺席零报错零行为，controller 登记 [input] 后自动通电）；

@@ -907,9 +907,11 @@ func _leg_parry_seal() -> void:
 
 
 # ═══════════ E 流：接触点特效（T3 R4） × K 流：运行时开关（T3 R5） ═══════════
-# 宿主接线判决 #1：本批禁碰 project.godot——HitFx 以"手动实例化脚本挂树"
-# 形态消费 Events 信号（与正式 autoload 接线行为零差；F8 端到端归 F5 感官单，
-# 探针2 判例：headless 下动态注册动作喂不饱 is_action_just_pressed 轮询）。
+# 宿主接线（判决 #1 之后追加登记适配波）：controller 已把 HitFx 注册为
+# autoload（/root/HitFx）+ hit_fx_toggle=F8——E/K 流**单点装配优先复用
+# 单例**（双消费者=K2a 假红判例：手建+单例各喷一份且翻旗翻不到生产身），
+# 缺席回退手建保旧世界兼容；腿尾开关还原原值。F8 端到端归 F5 感官单
+# （探针2 判例：headless 动态注册动作喂不饱 is_action_just_pressed 轮询）。
 # 特效节点挂在 get_tree().current_scene（=本契约场景根）——扫描/距离/计数
 # 全部经 world 坐标直读，无相机数学。裸舞台沉降判例同款装配：同拍摆位→
 # _settle_pair 等钉死→每发出拳 _place 重锚。
@@ -918,6 +920,8 @@ var _stage_e: Node2D
 var _e_actor: QuiverCharacter
 var _e_vendor: QuiverCharacter
 var _fx  # 无类型=Variant 动态通道（宿主脚本无 class_name 判例，_fx.enabled/toggle 走动态）
+var _fx_owned := true         # 登记适配波：true=手建实例（本套自生自灭），false=复用 autoload 单例
+var _fx_orig_enabled := true  # 复用单例时的开关原值（腿尾必还原，K 流翻过要回原）
 var _landed: Array = []  # 自采 hit_landed 回执（[point, style]），E1/E3/E5 证人
 
 
@@ -927,8 +931,20 @@ func _flow_fx() -> void:
 		_finished_k = true
 		return
 	Events.hit_landed.connect(_on_landed_capture)
-	_fx = HIT_FX.new()
-	add_child(_fx)
+	# 登记适配波（controller 已注册 [autoload] HitFx）：**单点装配**——
+	# autoload 在场即复用单例，再手建=双消费者各喷一份特效且 K 流翻旗只
+	# 翻手建实例（生产单例不受影响，K2a 假红根因，登记后实测一红）；
+	# 缺席则回退手建挂树（登记前旧世界兼容，本套零改动）。E 流计数目标
+	# 是"场景根下特效节点数"，单消费者形态下两世界同一语义天然正确。
+	_fx = get_tree().root.get_node_or_null(^"HitFx")
+	_fx_owned = _fx == null
+	if _fx_owned:
+		_fx = HIT_FX.new()
+		add_child(_fx)
+	_fx_orig_enabled = bool(_fx.enabled)
+	print("FX-GATE: 特效宿主=%s（enabled 原值 %s）"
+			% ["复用 /root/HitFx 单例" if not _fx_owned else "手建实例（autoload 缺席）",
+			_fx_orig_enabled])
 	_stage_e = Node2D.new()
 	add_child(_stage_e)
 	_e_actor = (load(ACTOR_SCENE) as PackedScene).instantiate()
@@ -952,7 +968,11 @@ func _flow_fx() -> void:
 	await _leg_toggle_form()
 	await _leg_toggle_off()
 	_drain_sparks()
-	_fx.queue_free()
+	# 开关还原原值（复用单例的义务——K 流翻过旗必须回给生产世界）；
+	# 手建实例同样还原后自灭，两世界收口一致。
+	_fx.enabled = _fx_orig_enabled
+	if _fx_owned:
+		_fx.queue_free()
 	await _frames(4)
 	Events.hit_landed.disconnect(_on_landed_capture)
 	_stage_e.queue_free()
@@ -1132,7 +1152,7 @@ func _leg_toggle_off() -> void:
 			hit_seen = true
 		if hit_seen and str(_e_actor.state_machine.state_name) == "Ground/Move/Idle":
 			break
-	_fx.enabled = true
+	_fx.enabled = _fx_orig_enabled  # 还原原值而非硬置 true（复用单例纪律）
 	_check(hit_seen and seen_fx == 0,
 			"K2a 关闭态命中零特效节点（命中 %s / 特效峰值 %d——开关只在视觉腿早退）"
 			% [hit_seen, seen_fx])

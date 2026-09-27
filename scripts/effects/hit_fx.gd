@@ -1,9 +1,10 @@
 extends Node
 
 ## 接触点特效调度（B4.7 R4/R5）：Events.hit_landed → 按风格路由参数卡 →
-## 实例化 HitSparkFx 两层挂 current_scene。宿主形态：正式接线为 autoload
-## （口令窗口由 controller 登记 [autoload]；本批禁碰 project.godot——契约与
-## 开发自测手动实例化本脚本挂 root 消费同一信号，行为零差）。
+## 实例化 HitSparkFx 两层挂 current_scene。宿主形态：autoload（登记适配波
+## 已入账：controller 完成 [autoload] HitFx + [input] hit_fx_toggle=F8；
+## 契约 E/K 流单点装配优先复用本单例，缺席回退手建保旧世界兼容——双消费者
+## 形态=K2a 假红判例，见契约 FX-GATE）。
 ## R5 运行时开关：`enabled` 直翻 + `toggle()` 公开入口；F8 判定按
 ## "动作登记后自动通电"预铺（hit_fx_toggle 缺席时 InputMap.has_action 短路，
 ## 零报错零行为；controller 登记 [input] 后本 _process 立刻开始接单）。
