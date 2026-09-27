@@ -310,9 +310,11 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 			HitFreeze.apply_character_slow(
 					hit_box.attacker, atk_attrs.hit_slow_factor,
 					anim_ms * atk_attrs.hit_slow_anim_pct)
-		# —— 接触点特效信号（B4.7 R4）：近战+弹体一视同仁（弹体 attacker 恒
-		# null 但照常广播——视觉腿不吃 attacker 门）；格挡/弹反免伤路不发，
-		# 它们自有白闪反馈件。dir 零向量兜底=两点重合的退化几何。
+		# —— 接触点特效信号（B4.7 R4 / B4.8 R11 改判）：近战+弹体一视同仁
+		# （弹体 attacker 恒 null 是时间腿结构排除，视觉腿不吃该门）；常规支
+		# 发 attack_data 风格卡，防路两支各发专属卡（&"block"/&"parry"，见同函数
+		# 防路段）——旧"格挡/弹反免伤路不发"口径作废（§17.9 勘误）。dir 零向量
+		# 兜底=两点重合的退化几何。
 		var spark_dir := (global_position - hit_box.global_position).normalized()
 		if spark_dir == Vector2.ZERO:
 			spark_dir = Vector2.RIGHT

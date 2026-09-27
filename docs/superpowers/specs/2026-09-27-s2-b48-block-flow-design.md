@@ -114,3 +114,8 @@ if defender_attrs.is_blocking:
 - T2 动画资产接线：模板 AnimTree/spriteframes/占位图+chen 同名+test_actor 产线+sync 工具守卫扩容；
 - T3 block_parry 全手术+hit_feedback E 族+R8 红档+wp2/面板退役；
 - T4 文档收口：§17 格挡节+`GUIDE_格挡.md`（含"动画时长=平衡"排产纪律）+状态单+F5 感官单（点按手感/方向可读性/两新卡观感/弹反后续播观感）。
+
+## 7. 实施勘误（评审后补记，历史正文不改）
+
+- §2.2 伪码「白名单 = {Idle, Walk, Run, Attack}」按本仓状态树实勘修正：地面三连段节点实测名 = **Combo1/2/3**；`Attack` 系空中跳攻节点名（Air/Jump/Attack），按 §5「空中攻击后摇不可架」排除——实施白名单 = {Idle, Walk, Run, Combo1, Combo2, Combo3}（行为锁契约 P19b + 源码锁 P18e2 双面钉死）。
+- 同波落地评审改判两枚：F1 兜底拍信标免疫（`_beats_left>0` 期间信标丢弃，锁 P23a）；F3/裁决 D 起按边沿锁（长按不起二段连架，须松开重按，锁 P23b/P23c）——R1「不支持长按」自此有行为级强制。

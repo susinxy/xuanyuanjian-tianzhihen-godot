@@ -4,7 +4,8 @@ extends QuiverCharacterAction
 
 ## 地面格挡序列态（S2-B4.8 点按制）：按下 block 起序列
 ## block_out（弹反窗，相位=OUT）→ block（持盾窗，相位=GUARD）→ 自动回 Idle。
-## 不支持长按、序列中再按无效（Block 不在白名单）。
+## 不支持长按（评审 F3/裁决 D：起按边沿锁——序列收口后仍持键不起二段，
+## 必须松开重按）、序列中再按无效（Block 不在白名单）。
 ## 转移图（spec §2.2）：Idle/Walk/Run/地面三连段 →（点按 K）→ 本态 →（信标/
 ## 兜底推进两段）→ Idle；序列全程不重定向（按下瞬间钉死盾面朝向）。
 ##
@@ -16,6 +17,10 @@ extends QuiverCharacterAction
 ## 真动画到货以信标为准（占位资产帧长按同数制作——"动画即规则"的平滑桥）。
 ## 信标无参（skin_animation_finished 不带名，判例 quiver_character_skin.gd:21）：
 ## 序列每相位只播一段动画，相位自身即消歧器。
+## ⚠ 兜底拍信标免疫（评审 F1）：进 Block 前在途攻击的末帧信标晚响会打中
+## 本态推进器——`_beats_left>0` 即自计数专用拍，信标一律丢弃（真动画拍
+## _beats_left 恒 0 照常受信标驱动；兜底时钟到点自调推进口时已清零，不误伤）。
+## 回归锁=契约 P23a（出招取消起架后实测 OUT 窗宽 ∈[8,16]，腐蚀即穿帮）。
 ##
 ## 引擎虚拟 _physics_process 自选进出（B3 判例续，PLUGIN_ARCHITECTURE §5.11）：
 ## 白名单含地面攻击态（R10 后摇可架）。⚠ 白名单以**节点名**比较（B3 形制），
@@ -62,6 +67,11 @@ const _BLOCK_HOLD_FALLBACK_BEATS := 30
 
 var _beats_left := 0            # >0=兜底倒计时在用；0=信标驱动
 var _warned_missing: bool = false
+# 起按边沿锁（评审 F3/裁决 D，R1"不支持长按"）：进场只认"松→按"新边沿，
+# 序列收口后仍持键不起二段（_armed=裁决 D 预留闸位，现恒真，语义由边沿判
+# 承担；enter 不动 _armed——归一复位在松键拍）。
+var _armed := true
+var _was_held := false
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -140,6 +150,13 @@ func _disconnect_signals() -> void:
 func _on_skin_animation_finished() -> void:
 	if _attributes == null or not _attributes.is_blocking:
 		return
+	# F1（评审 Important-1）：兜底拍信标免疫——`_beats_left>0`=本相位走自计数
+	# 时钟（缺槽过渡期），此时任何信标（含进 Block 前在途攻击的末帧晚响）
+	# 一律丢弃，不得打中本态推进器腐蚀窗宽；兜底时钟到点自调本口时
+	# _beats_left 已归零不误伤；真动画拍 _play_slot 成功 transition 恒置 0，
+	# 照常受信标驱动（回归锁=契约 P23a）。
+	if _beats_left > 0:
+		return
 	if _attributes.block_phase == QuiverAttributes.BlockPhase.OUT:
 		_attributes.block_phase = QuiverAttributes.BlockPhase.GUARD
 		_play_slot(_skin_state_hold, _BLOCK_HOLD_FALLBACK_BEATS)
@@ -160,7 +177,9 @@ func _play_slot(slot: StringName, fallback_beats: int) -> void:
 
 
 ## 引擎虚拟：在场管兜底时钟（§5.11 判例续——本方法无论激活与否每物理拍跑），
-## 不在场管进（点按接触沿 + 白名单，白名单外禁入）。
+## 不在场管进（**起按新边沿** + 白名单，白名单外禁入）。
+## F3（评审裁决 D，R1"不支持长按"）：进场只认"松→按"边沿——序列收口后仍
+## 持键不起二段，必须松开重按（旧 is_held 电平制=长按自动连架违语义，废止）。
 ## StringName 显式转换：sm.state.name 转回 StringName 再入白名单比较，
 ## 类型不匹配的裸 in 恒假（类型陷阱）。
 func _physics_process(_delta: float) -> void:
@@ -177,8 +196,12 @@ func _physics_process(_delta: float) -> void:
 				# 兜底时钟到点：手动走与信标同一推进口
 				_on_skin_animation_finished()
 		return
-	if _character.channel.is_held(&"block") \
+	var held := _character.channel.is_held(&"block")
+	if not held:
+		_armed = true
+	if held and held != _was_held and _armed \
 			and StringName(str(sm.state.name)) in _entry_whitelist:
 		sm.transition_to(sm.get_path_to(self))
+	_was_held = held
 
 ### -----------------------------------------------------------------------------------------------

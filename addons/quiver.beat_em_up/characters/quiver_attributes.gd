@@ -174,8 +174,9 @@ var is_blocking: bool = false
 enum BlockPhase { NONE, OUT, GUARD }
 var block_phase: BlockPhase = BlockPhase.NONE
 
-## 盾面朝向快照（运行时态）：enter 时取 (signf(facing_x), 0)，序列期钉死；
-## 判定缝按接触点 x 符号比对这个"值"（R6 x 一票制，纵深威胁按 x 划侧=已知语义）。
+## 盾面朝向快照（运行时态）：enter 时取 facing_x 侧向单位量——**≥0 取 +1
+## （x 平局归右）**、<0 取 -1，序列期钉死；判定缝按接触点 x 符号比对这个"值"
+## （R6 x 一票制，纵深威胁按 x 划侧=已知语义）。
 var block_facing: Vector2 = Vector2.ZERO
 
 ## This character's current y value that represents their current ground level.

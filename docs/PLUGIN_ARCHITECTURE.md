@@ -345,7 +345,8 @@ var is_blocking: bool = false           # 格挡总闸（S2-B4.8 点按序列制
                                         # enter/exit，判定缝只读）
 enum BlockPhase { NONE, OUT, GUARD }    # 格挡相位（运行时态不进 tres）：唯一写方
 var block_phase: BlockPhase = BlockPhase.NONE  # =Block 序列态，判定缝只读分流弹反/格挡
-var block_facing: Vector2 = Vector2.ZERO # 盾面朝向快照（enter 取 (signf(facing_x),0)，
+var block_facing: Vector2 = Vector2.ZERO # 盾面朝向快照（enter 取 facing_x 侧向
+                                        # 单位量：≥0 取 +1（x 平局归右）否则 -1，
                                         # 恒左右；判定缝按接触点 x 符号比对，R6 x 一票制）
 var _modifier_records: Array[Dictionary]  # 活跃的属性修改器记录
 var _modifier_bases := {}               # 方式 B′ 账本：attribute → {value, is_int}
@@ -918,8 +919,10 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 **点按序列制（R1）**：按下 block 起一段不可长按的序列——`block_out`（弹反窗，
 相位=OUT）→ `block`（持盾窗，相位=GUARD）→ 自动回 Idle。转移图：
 `Idle/Walk/Run/Combo1-3 →（点按 K）→ Block →（信标/兜底推进两段）→ Idle`。
-不支持长按、序列中再按无效（Block 不在白名单）。**恒左右方向**（R5）：
-`block_facing` 于 enter 取 `(signf(facing_x),0)` 快照，序列期钉死不重定向。
+不支持长按（评审 F3/裁决 D：进场持**起按边沿锁**，序列收口后仍持键不起二段、
+必须松开重按）、序列中再按无效（Block 不在白名单）。**恒左右方向**（R5）：
+`block_facing` 于 enter 取 facing_x 侧向单位量快照（**≥0 取 +1，x 平局归右**，
+否则 -1），序列期钉死不重定向。
 
 **引擎判例续命（§5.11 原立）**：状态"不在场"也能自选进场——引擎虚
 `_physics_process` 无论在场/不在场每帧都跑（`quiver_state` 仅编辑器 hint 下关
@@ -927,15 +930,23 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 
 ```gdscript
 func _physics_process(_delta):
-	# 在场管兜底时钟（缺槽皮肤的过渡期时序）；不在场管进（点按 + 白名单）
+	# 在场管兜底时钟（缺槽皮肤的过渡期时序）；不在场管进（起按边沿 + 白名单）
 	if sm.state == self:
 		if _beats_left > 0 and --_beats_left == 0 and _attributes.is_blocking:
 			_on_skin_animation_finished()   # 兜底到点=与信标同一推进口
 		return
-	if _character.channel.is_held(&"block") \
+	var held := _character.channel.is_held(&"block")
+	if not held:
+		_armed = true
+	if held and held != _was_held and _armed \
 			and StringName(str(sm.state.name)) in _entry_whitelist:
 		sm.transition_to(sm.get_path_to(self))
+	_was_held = held
 ```
+
+`_on_skin_animation_finished` 首部另有 F1 守卫 `if _beats_left > 0: return`——
+兜底拍信标免疫（在途攻击末帧信标晚响不得腐蚀本态窗宽），真动画拍
+`_beats_left` 恒 0 照常受信标驱动，兜底自调推进口时已归零不误伤。
 
 - **相位推进 = 单口双驱**：`_on_skin_animation_finished`（信标无参——序列每相位
   只播一段动画，相位自身即消歧器，判例 quiver_character_skin.gd:21）里 OUT→
@@ -944,11 +955,18 @@ func _physics_process(_delta):
 - **输入只认私有通道**（`channel.is_held`，§5.0）——OS 链端到端由
   block_parry_contract Q 流（raw 键直投）锁死；`StringName` 显式转换是类型陷阱
   防线（`sm.state.name` 转回 StringName 再入白名单比较，裸 `in` 恒假）。
+- **起按边沿锁（评审 F3/裁决 D，R1"不支持长按"落地）**：进场只认"松→按"
+  新边沿（`held != _was_held and _armed`）——序列自动收口回 Idle 后仍持键
+  **不起二段**（旧 is_held 电平制=长按自动连架违 R1 语义，废止），必须松开
+  重按；`_armed` 为裁决 D 预留闸位（松键拍复位 true，现语义由边沿判承担）。
+  回归锁=契约 P23b（持键全程采样零再现 OUT）/P23c（松手重按对照起架成立）。
 - **进入白名单（R10）**：默认 `Idle/Walk/Run/Combo1/Combo2/Combo3`——地面三连段
   在场即"攻击中/后摇可按 K 取消进格挡"。**绝不写空中 `Attack`**（那是
   Air/Jump/Attack 跳攻节点名，纳入即违反 spec §5"空中后摇不可架"，源码锁 P18e2
-  盯此）。白名单外（受击/击飞/抓取子树）持键也不得自入（P16c 全录像锁：击飞→
-  恢复途中逐帧零 Block，落地回 Move 后 is_held 回流起架属设计语义=长按=自动连架）。
+  盯此；地面实测名=Combo1/2/3 系对本仓状态树实勘，spec §2.2 原"含地面 Attack"
+  措辞的**实施勘误**见文末）。白名单外（受击/击飞/抓取子树）持键也不得自入
+  （P16c 全录像锁：击飞→恢复途中逐帧零 Block；配 F3 边沿锁，恢复毕持键亦不
+  回流——起架只在新一次点按）。
 - **单写者宪章**：`is_blocking`/`block_phase`/`block_facing` 三件套唯一生产写方=
   本状态 enter（同帧起笔，R4 宪章续命）/信标·兜底推进 GUARD/exit **保证式**归
   NONE；判定缝只读；hurt/knockout/grab 任何打断走 Ground 挂线同一 exit 清闸=闭环

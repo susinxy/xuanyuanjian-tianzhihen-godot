@@ -45,9 +45,15 @@ extends Node
 ##   P21 兜底时序族（spec §2.3）：test_actor 无 block 槽=过渡期实况——
 ##     OUT≈12 拍实测域/窗内挡击=弹反（出手提前量走 w_cal 校准基）/
 ##     全程 12+30 拍量级/GUARD 毕自动回 Idle 且松键不回流。
-## ⑤ R8 体检四档红据（/tmp/opencode/b48_t0/red_*.log）：a 摘方向门恒真→P17
-##   红；b 摘相位推进（信标首行 return）→P18/P21 红；c 白名单删地面攻击→
-##   P19/P18e2 红；d 防路 emit 注释→P20 红。
+##   P23 评审修复族（追加波）：F1 兜底拍信标免疫（出招取消起架测 OUT 窗宽
+##     ∈[8,16]，腐蚀即穿帮）/F3 起按边沿锁（持键全程+归位 30 拍零再现 OUT；
+##     松手重按对照腿=二段起架成立）——P23a1 兼 R10 行为面二次见证。
+## ⑤ R8 体检红据（/tmp/opencode/b48_t0/red_*.log）：a 摘方向门恒真→P17 红；
+##   b 摘相位推进（信标首行 return）→P18/P21 红；c 白名单删地面攻击→P18e2
+##   源码红（初版行为腿被 Idle 兜底转进救活=Important-2 缺口；F3 边沿锁落地后
+##   复跑 red_c2 补 P19b/P23a1 行为红）；d 防路 emit 注释→P20 红；
+##   e 摘 F1 守卫（`_beats_left>0 return` 行删除）→P23a2 腐蚀红；
+##   f 摘 F3 边沿锁（电平制复原）→P23b 复发起架红。
 ##
 ## 【测试特权豁免申报】（hit_feedback T4 同款制度）：P 流直写
 ## is_blocking/block_phase/block_facing（判定缝捷径，生产义务归 Q 流）、Q 流
@@ -262,7 +268,7 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
 		"v_ov_first": -1, "v_ov_last": -1,
 		"a_ov_first": -1, "a_ov_last": -1, "a_pool_seam": -1,
 		"v_state_at_hit": "", "v_phase_at_hit": -1, "v_style_at_hit": &"",
-		"v_alive_after": 0,
+		"v_alive_after": 0, "v_guard_after": false,
 	}
 	r.v_hp0 = vendor.attributes.health_current
 	r.a_hp0 = actor.attributes.health_current
@@ -298,6 +304,10 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
 			var d := Engine.get_physics_frames() - seam
 			if d >= 1 and d <= 8 and vendor.attributes.is_blocking:
 				r.v_alive_after += 1
+			# GUARD 是否命中后 8 拍内到场（P18b5 证人——F3 边沿锁下收口后不可复采）
+			if d >= 1 and d <= 8 \
+					and vendor.attributes.block_phase == QuiverAttributes.BlockPhase.GUARD:
+				r.v_guard_after = true
 		if v_ov != null and v_ov.material != null:
 			if r.v_ov_first < 0:
 				r.v_ov_first = Engine.get_physics_frames()
@@ -823,8 +833,9 @@ func _flow_stance() -> void:
 			% rb.v_alive_after)
 	_check(not rb.v_hurt and rb.v_pool_min >= POOL0 and rb.v_scale_min >= 0.999,
 			"P18b4 弹反拍 A 不入 Hurt 不扣池不罚站（免伤路守方活体面）")
-	_check(await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60),
-			"P18b5 R8 续播见证：弹反拍后 GUARD 相位照常到来")
+	_check(rb.v_guard_after,
+			"P18b5 R8 续播见证：弹反拍后 8 拍内 GUARD 相位照常到来（F3 边沿锁下"
+			+ "收口即不回采，改命中窗内直读）")
 	await _wait_state(a, "Ground/Move/Idle", 120)
 
 	# ── P18d 序列中再按 K 不重入（Block 不在白名单的活体面）──
@@ -904,6 +915,64 @@ func _flow_stance() -> void:
 			% [rb21.v_phase_at_hit, rb21.v_hp_drop])
 	await _wait_state(a, "Ground/Move/Idle", 120)
 
+	# ════ P23 评审修复族（F1 兜底拍信标免疫 / F3 起按边沿锁）════
+	# ── P23a（F1+Important-2）：出招取消进 Block，在途攻击末帧信标晚响不得
+	#    腐蚀兜底 OUT 窗——无守卫时 attack1 残拍（≈4）即进 GUARD，窗宽穿帮；
+	#    同时以"取消起架"行为面二次见证 R10（F3 边沿锁封堵 c 档判别力缺口）──
+	await _drain_freeze()
+	await _place(a, b, Vector2(80, 30))
+	await _wait_state(a, "Ground/Move/Idle", 120)
+	_press_key(KEY_J, true, J_DEV)
+	var ok23j: bool = await _wait_state_contains(a, "Combo", 30)
+	_press_key(KEY_J, false, J_DEV)
+	_press_key(KEY_K, true)
+	var ok23a1: bool = await _wait_state(a, "Ground/Block", 30)
+	var f23_out := Engine.get_physics_frames()
+	var ok23G := await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60)
+	var span23 := Engine.get_physics_frames() - f23_out
+	_press_key(KEY_K, false)
+	_check(ok23j and ok23a1,
+			"P23a1 R10 出招取消起架（行为面二次见证；F3 后白名单缺 Combo 必红）")
+	_check(ok23G and span23 >= 8 and span23 <= 16,
+			"P23a2 F1 兜底拍信标免疫：取消起架后 OUT 窗实测 %d 拍∈[8,16]" % span23
+			+ "（无守卫=攻击末帧信标切短窗）")
+	await _wait_state(a, "Ground/Move/Idle", 120)
+
+	# ── P23b（F3/R1）：起按后持键不松——序列全程+归位后 30 拍零再现 OUT ──
+	_press_key(KEY_K, true)
+	var ok23b0: bool = await _wait_state(a, "Ground/Block", 30)
+	var guard23 := false
+	var idle23 := false
+	var out_again := false
+	for _i in 80:
+		await get_tree().physics_frame
+		var ph23: int = a.attributes.block_phase
+		if ph23 == QuiverAttributes.BlockPhase.OUT:
+			if guard23:
+				out_again = true
+				break
+		elif ph23 == QuiverAttributes.BlockPhase.GUARD:
+			guard23 = true
+		elif ph23 == QuiverAttributes.BlockPhase.NONE:
+			if guard23 and str(a.state_machine.state_name) == "Ground/Move/Idle":
+				idle23 = true
+				break
+	for _i in 30:
+		await get_tree().physics_frame
+		if a.attributes.block_phase == QuiverAttributes.BlockPhase.OUT:
+			out_again = true
+	_check(ok23b0 and guard23 and idle23 and not out_again,
+			"P23b F3/R1 长按不起二段：收口后持键 30 拍零再现 OUT"
+			+ "（入=%s GUARD=%s 收口=%s 复发=%s）" % [ok23b0, guard23, idle23, out_again])
+	# ── P23c（F3 对照）：松手重按（新边沿）→ 二段起架成立，不误伤点按 ──
+	_press_key(KEY_K, false)
+	await _frames(3)
+	_press_key(KEY_K, true)
+	var ok23c: bool = await _wait_state(a, "Ground/Block", 30)
+	_check(ok23c, "P23c F3 对照腿：松开重按 → 二段起架成立（边沿非闸门误伤）")
+	_press_key(KEY_K, false)
+	await _wait_state(a, "Ground/Move/Idle", 120)
+
 	# ── P7d 新序列中输入窗关闭期间注入 Space 不劫持 ──
 	_press_key(KEY_K, true)
 	var ok7d0: bool = await _wait_state(a, "Ground/Block", 60)
@@ -956,7 +1025,13 @@ func _flow_stance() -> void:
 	#（本契约内部捷径族同款：只借生产信号链 knockout_requested→Ground 挂线→
 	# transition，不绕任何生产判则）→ Block.exit 注销三件套+开窗；键仍按住时
 	# 恢复链途中白名单必须拒回流。
-	await _wait_state(a, "Ground/Block", 60)
+	# F3 边沿锁配套重装填：P15 序列已在 _shot 全程内收口（持键不起二段=现语义），
+	# 本腿命题"打断在途 Block"须松→重按起新序列，Block 在场首拍即轰飞
+	_press_key(KEY_K, false)
+	await _frames(2)
+	_press_key(KEY_K, true)
+	var ok16p: bool = await _wait_state(a, "Ground/Block", 30)
+	_check(ok16p, "P16-0 前置：新序列在途（打断对象确为 Block，边沿锁重装填见证）")
 	CombatSystem.apply_knockback(QuiverKnockbackData.new(
 			1200.0, CombatSystem.HurtTypes.HIGH, Vector2.UP), a.attributes)
 	var ok11a: bool = await _wait_state_contains(a, "Knockout", 60)
@@ -964,8 +1039,8 @@ func _flow_stance() -> void:
 	_check(not a.attributes.is_blocking and a.attributes.block_phase == QuiverAttributes.BlockPhase.NONE,
 			"P16b Block 经父挂线被打断时 exit 照跑、三件套注销（单写者闭环）")
 	# P16c（R13①强化判停逐字保）：击飞→恢复→Move 途中持键零 Block 回流。
-	# 注：相位制下 K 按住收口回 Move 后回流起架=设计语义（长按=自动连架序列），
-	# 本腿只盯"恢复链途中零 Block"，首 Move 帧即收闸松键。
+	# 注：F3 边沿锁后持键永不回流（评审修复波把"长按=自动连架"判为违 R1 废止），
+	# 本腿自此兼见证边沿锁在打断路径上同样有效，首 Move 帧即收闸松键。
 	var f11_move := -1
 	var block11_seen := false
 	for _i in 180:
