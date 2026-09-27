@@ -106,10 +106,9 @@ const LAUNCH_MIN_IMPULSE := 50.0
 
 @export var can_be_grabbed := true
 
-## 弹反窗物理帧数（盾反批 B3）：格挡开局后严格 delta < 本值 的打击判弹反。
-## 受管字段单写者纪律：入册（首个修饰捕获 base）后只准走修饰 API，
-## 裸写=重算锚漂移（执行手段同 _modifier_bases 处注释）。
-@export var parry_window_frames: int = 6
+## S2-B4.8 退役案卷：旧受管导出 `parry_window_frames`（盾反批 B3 帧窗制）已删——
+## 点按序列制下弹反窗=block_out 动画全程（相位即窗口），帧窗字段失去消费者；
+## 存量 tres 中的旧属性行由 Godot 载入时静默忽略，零迁移。
 
 ## 格挡伤害系数（盾反批 B3）：Block 态受击的结算伤害=原伤害×本值。受管同上。
 @export var block_damage_ratio: float = 0.4
@@ -164,14 +163,20 @@ var in_knockout := false
 ## 零向量=当前非已出手态（空攻/法术/抓取/待机恒零，旧 Y 语义零扰动）。
 var skin_direction := Vector2.ZERO
 
-## 格挡状态闸门（盾反批 B3，非数值不进 tres）：Block 姿态状态的 enter/exit
-## 是唯一写入者（与 in_knockout 同款生命周期旗），判定缝据此分流结算。
+## 格挡状态闸门（盾反批 B3，非数值不进 tres）：防路总闸（S2-B4.8 点按序列制
+## 下=序列全程 true），Block 序列态的 enter/exit 是唯一写入者（与 in_knockout
+## 同款生命周期旗），判定缝据此分流结算。
 var is_blocking: bool = false
 
-## 弹反窗时基（盾反批 B3）：进入 Block 当帧的 Engine.get_physics_frames() 读数，
-## 判定缝比较 当前帧 − 本值 < parry_window_frames（严格小于）。
-## 与 is_blocking 成对写入（同 enter/exit 括弧）。
-var block_started_frame: int = 0
+## 格挡相位（S2-B4.8 点按序列制，运行时态不进 tres）：唯一写方=Block 序列态
+## （enter 起笔 OUT、信标/兜底推进 GUARD、exit 保证式归 NONE）；判定缝只读。
+## 路由表达非数值推导（数值治理法合法旗，block_parry 注例同款）。
+enum BlockPhase { NONE, OUT, GUARD }
+var block_phase: BlockPhase = BlockPhase.NONE
+
+## 盾面朝向快照（运行时态）：enter 时取 (signf(facing_x), 0)，序列期钉死；
+## 判定缝按接触点 x 符号比对这个"值"（R6 x 一票制，纵深威胁按 x 划侧=已知语义）。
+var block_facing: Vector2 = Vector2.ZERO
 
 ## This character's current y value that represents their current ground level.
 var ground_level := 0.0
@@ -279,7 +284,8 @@ func reset() -> void:
 	in_knockout = false
 	skin_direction = Vector2.ZERO
 	is_blocking = false
-	block_started_frame = 0
+	block_phase = BlockPhase.NONE
+	block_facing = Vector2.ZERO
 	# 清账判据（2026-09-23 B′ 手术）：护人/locomotion 等修饰不跨死亡——
 	# reset 一律作废全部记录并还原 base，防止上一命的增益/减速尸体泄漏到下世。
 	_clear_all_modifiers()

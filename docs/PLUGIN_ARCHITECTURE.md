@@ -323,12 +323,15 @@ CharacterSkinBase (Node2D, quiver_character_skin_anim_tree.gd)
 @export_group("Modifiers")
 @export var is_invulnerable := false    # 无敌帧（apply_knock/apply_damage 直接免疫）
 @export var has_superarmor := false     # 霸体（统一模型 G2 归零制：击打值完全无效）
-@export var can_be_grabbed := true      # 可被抓取
-@export var parry_window_frames: int = 6    # 弹反窗物理帧数（B3 盾反批；受管字段，
-                                            # 入册后只准走修饰 API，见下受管名单）
-@export var block_damage_ratio: float = 0.4 # 格挡伤害系数（B3；受管同上）
+@export var can_be_grabbed := true       # 可被抓取
+@export var block_damage_ratio: float = 0.4 # 格挡伤害系数（B3；受管字段，入册后
+                                            # 只准修饰 API——见下受管名单）
 @export var attack_output: float = 1.0      # 自身输出全局乘数，护人态等增益以
                                             # 修饰表达而非裸写（B3；受管同上）
+
+## （S2-B4.8 退役案卷：旧受管导出 parry_window_frames——长按制帧窗总开关——随
+## 点按序列制出局，弹反窗改由 block_out 动画长表达；存量角色 tres 中的旧属性
+## 行由 Godot 载入时**静默忽略**（资源脚本无此键=不装载），零迁移零告警。）
 
 var health_current := health_max        # 当前 HP（setter 触发 health_changed 信号）
 var mana_current := mana_max            # 当前法力值（setter 触发 mana_changed 信号）
@@ -337,10 +340,13 @@ var resistance_current := 0.0           # 运行时抗击打余量 R_current（_
 var ground_level := 0.0                 # 当前地面高度（Y 坐标）
 var character_node: QuiverCharacter     # 关联的角色节点
 var grabbed_offset: Marker2D            # 被抓取时的偏移标记
-var is_blocking: bool = false           # 格挡旗标（运行时成对旗之一，B3；唯一生产
-                                        # 写方 QuiverActionBlock enter/exit，判定缝只读）
-var block_started_frame: int = 0        # 起架物理帧号（与 is_blocking 同帧成对写入，
-                                        # 判定缝以此算 delta 对照弹反窗）
+var is_blocking: bool = false           # 格挡总闸（S2-B4.8 点按序列制：序列全程
+                                        # true；唯一生产写方 QuiverActionBlock
+                                        # enter/exit，判定缝只读）
+enum BlockPhase { NONE, OUT, GUARD }    # 格挡相位（运行时态不进 tres）：唯一写方
+var block_phase: BlockPhase = BlockPhase.NONE  # =Block 序列态，判定缝只读分流弹反/格挡
+var block_facing: Vector2 = Vector2.ZERO # 盾面朝向快照（enter 取 (signf(facing_x),0)，
+                                        # 恒左右；判定缝按接触点 x 符号比对，R6 x 一票制）
 var _modifier_records: Array[Dictionary]  # 活跃的属性修改器记录
 var _modifier_bases := {}               # 方式 B′ 账本：attribute → {value, is_int}
                                         # （base 首个修饰时捕获一次，重算永远以此为锚）
@@ -375,7 +381,7 @@ func refill_resistance()    # 回气回满（Move.enter 与落地 _handle_landin
 func is_alive() -> bool
 func get_health_as_percentage() -> float
 func reset() -> void              # 重置所有状态（HP、无敌、霸体、可被抓取、
-                                  # in_knockout/skin_direction/格挡成对旗清零+清修饰账）
+                                  # in_knockout/skin_direction/格挡三件套清零+清修饰账）
 
 # Modifier 系统（用于 Buff/Debuff；方式 B′ 重算回写，见下说明）
 func add_modifier(mod_id: StringName, attribute: StringName, type: String, value: float, source: Node = null)
@@ -397,7 +403,7 @@ func modifier_snapshot() -> Array[Dictionary]  # 展示用深拷贝快照（dock
   锚——"入册即抄走当时的被污染值"的旧踩踏链从此断根。
 - **同 id 再挂=替换**：`add_modifier` 先 `remove_modifier(同 id)` 再入账
   （M3 锁），重复施加是"刷新"不是"叠乘"。
-- **int 类型锁**：int 型受管字段（move_speed/parry_window_frames）回写走
+- **int 类型锁**：int 型受管字段（move_speed 等）回写走
   `roundi`，防重算把 int 导出劣化成 float（P4a 断言 typeof 锁死）。
 - **未知操作型零副作用**：非 `"add"/"multiply"` 告警拒收，不入账不改值（M4a）。
 - **reset 清账**：`reset()` 调 `_clear_all_modifiers()`——全部记录作废、
@@ -412,13 +418,17 @@ func modifier_snapshot() -> Array[Dictionary]  # 展示用深拷贝快照（dock
 | 字段 | 类别 | 出生默认 | 写路径纪律 |
 |---|---|---|---|
 | `move_speed` | 受管导出（int，locomotion 老户） | 600 | 入册后只准修饰路（护人×0.5 等） |
-| `parry_window_frames` | 受管导出（int） | 6 | 只准修饰路（P4/P5 实证：每角色窗配置×加/乘全走修饰） |
 | `block_damage_ratio` | 受管导出（float） | 0.4 | 只准修饰路 |
 | `attack_output` | 受管导出（float） | 1.0 | 只准修饰路（护人态=×0.3 修饰表达，禁模式旗标内藏数值推导） |
-| `is_blocking` | 运行时成对旗（bool） | false | **非修饰域**；唯一生产写方 `QuiverActionBlock.enter/exit` 成对括弧，判定缝只读，`reset()` 兜底清零 |
-| `block_started_frame` | 运行时成对旗（int） | 0 | 同上，与 `is_blocking` **同帧**成对写入（R4 宪章） |
+| `is_blocking` | 运行时总闸（bool） | false | **非修饰域**；唯一生产写方 `QuiverActionBlock.enter/exit`（点按序列全程 true），判定缝只读，`reset()` 兜底清零 |
+| `block_phase` | 运行时相位（enum BlockPhase） | NONE | **非修饰域非数值**（路由表达合法旗）；唯一生产写方=Block 序列态（enter 起笔 OUT/信标·兜底推进 GUARD/exit 归 NONE），判定缝只读，`reset()` 清零 |
+| `block_facing` | 运行时快照（Vector2 ±1,0） | 零向量 | 同上（enter 同帧取 signf(facing_x)，序列期钉死；x 平局归右），判定缝只读，`reset()` 清零 |
+| ~~`parry_window_frames`~~ | **S2-B4.8 退役** | —（原受管导出 6） | 帧窗制出局；旧"每角色窗配置走修饰路"锁（旧 P4/P5）随字段消亡，清账面由 M6 相位锁接替 |
+| ~~`block_started_frame`~~ | **S2-B4.8 退役** | —（原成对旗 0） | 同上；"弹反窗=按下后 N 帧"命题整体消亡（弹反窗=block_out 动画长/兜底 12 拍） |
 
-回归锁：`tools/block_parry_contract/`（M 流修饰核心 + P 流判定缝 + Q 流姿态链）。
+回归锁：`tools/block_parry_contract/`（M 流修饰核心+M6 相位清账 + P 流判定缝
+（含 P17 方向族/P20 防路回执族）+ Q 流序列链（含 P18 序列族/P19 后摇架/P21 兜底
+时序族）；2026-09-27 相位制改判编号平移见该套头注）。
 
 ### 内部类 `HitLaneLimits`
 
@@ -903,45 +913,56 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 - **闸口**（SpellManager 侧）：咏唱中拒绝再起手；空中（Air 子树）拒绝起手；
   `caster_cast_time=0` 或未挂 Cast 节点的角色维持旧瞬发行为（向后兼容）。
 
-### 5.11 姿态状态（Block 格挡，游戏层 `_beat_em_up/action_states/quiver_action_block.gd`；2026-09-23 S2-B3）
+### 5.11 格挡序列态（Block，游戏层 `_beat_em_up/action_states/quiver_action_block.gd`；2026-09-23 S2-B3 立姿态，2026-09-27 S2-B4.8 改点按序列制）
 
-**仓库新判例：状态"不在场"也能自选进场——引擎虚函数自武装**。状态机只把
-`physics_process/unhandled_input` 转发给**当前激活状态**（§5.2），但节点自身的
-**引擎虚 `_physics_process` 无论在场/不在场每帧都跑**（`quiver_state` 仅编辑器
-hint 下关处理；2026-09-23 全仓状态节点零第二覆写者实锤）。姿态类状态
-（格挡/架枪/蓄力一类"条件成立即自动进、条件消失即自动出"的站桩态）据此
-零插件核心手术完成闭环：
+**点按序列制（R1）**：按下 block 起一段不可长按的序列——`block_out`（弹反窗，
+相位=OUT）→ `block`（持盾窗，相位=GUARD）→ 自动回 Idle。转移图：
+`Idle/Walk/Run/Combo1-3 →（点按 K）→ Block →（信标/兜底推进两段）→ Idle`。
+不支持长按、序列中再按无效（Block 不在白名单）。**恒左右方向**（R5）：
+`block_facing` 于 enter 取 `(signf(facing_x),0)` 快照，序列期钉死不重定向。
+
+**引擎判例续命（§5.11 原立）**：状态"不在场"也能自选进场——引擎虚
+`_physics_process` 无论在场/不在场每帧都跑（`quiver_state` 仅编辑器 hint 下关
+处理）。序列态据此零插件核心手术完成进出闭环：
 
 ```gdscript
 func _physics_process(_delta):
-	# 在场管出（松键回 Idle）；不在场管进（按住 + 当前态在白名单）
+	# 在场管兜底时钟（缺槽皮肤的过渡期时序）；不在场管进（点按 + 白名单）
 	if sm.state == self:
-		if not _character.channel.is_held(&"block"):
-			sm.transition_to(_path_idle_state)
-	elif _character.channel.is_held(&"block") \
+		if _beats_left > 0 and --_beats_left == 0 and _attributes.is_blocking:
+			_on_skin_animation_finished()   # 兜底到点=与信标同一推进口
+		return
+	if _character.channel.is_held(&"block") \
 			and StringName(str(sm.state.name)) in _entry_whitelist:
 		sm.transition_to(sm.get_path_to(self))
 ```
 
+- **相位推进 = 单口双驱**：`_on_skin_animation_finished`（信标无参——序列每相位
+  只播一段动画，相位自身即消歧器，判例 quiver_character_skin.gd:21）里 OUT→
+  GUARD→Idle 逐级；缺槽皮肤走 `_beats_left` 兜底自计数（OUT=12/GUARD=30 拍），
+  真动画到货（T1）自动以信标为准（占位帧长按同数制作——"动画即规则"平滑桥）。
 - **输入只认私有通道**（`channel.is_held`，§5.0）——OS 链端到端由
-  block_parry_contract Q 流（raw 键直投）锁死；`StringName` 显式转换是
-  类型陷阱防线（`sm.state.name` 转回 StringName 再入白名单比较，裸 `in` 恒假）。
-- **进入白名单**：转移图=代码约定（AGENTS 状态机章口径），默认
-  `Idle/Walk/Run` 三个 locomotion 节点；白名单外（攻击/受击/击飞子树）
-  持键也不得自入（P11c 全录像锁：击飞→恢复途中逐帧零 Block，落地回
-  Move 后回流起架属设计语义）。
-- **单写者纪律**：格挡成对旗 `is_blocking`/`block_started_frame` 的唯一生产
-  写方=本状态 enter/exit（同帧成对，R4 宪章）；判定缝只读；打断走 Ground
-  挂线（hurt/knockout 信号链在姿态下仍武装）→ exit 照跑注销旗=闭环
-  （P11 活体：键仍按住时白名单拒回流）。
-- **姿态期间**：输入窗关闭（`input_window_open=false`，Space 跳跃不劫持，
-  Cast 同款）；`velocity` 逐帧钉死=站桩；伤害结算**不在本状态**——全在
-  QuiverHurtBox 判定缝读成对旗（§7.3），本状态零数值。
-- **缺槽降级**：`_skin_state` 动画槽缺失=单皮肤告警一次+姿态逻辑照常
-  （Cast 阶梯同款精神；真防御动画到货仅改导出、同名替换纪律）。
+  block_parry_contract Q 流（raw 键直投）锁死；`StringName` 显式转换是类型陷阱
+  防线（`sm.state.name` 转回 StringName 再入白名单比较，裸 `in` 恒假）。
+- **进入白名单（R10）**：默认 `Idle/Walk/Run/Combo1/Combo2/Combo3`——地面三连段
+  在场即"攻击中/后摇可按 K 取消进格挡"。**绝不写空中 `Attack`**（那是
+  Air/Jump/Attack 跳攻节点名，纳入即违反 spec §5"空中后摇不可架"，源码锁 P18e2
+  盯此）。白名单外（受击/击飞/抓取子树）持键也不得自入（P16c 全录像锁：击飞→
+  恢复途中逐帧零 Block，落地回 Move 后 is_held 回流起架属设计语义=长按=自动连架）。
+- **单写者宪章**：`is_blocking`/`block_phase`/`block_facing` 三件套唯一生产写方=
+  本状态 enter（同帧起笔，R4 宪章续命）/信标·兜底推进 GUARD/exit **保证式**归
+  NONE；判定缝只读；hurt/knockout/grab 任何打断走 Ground 挂线同一 exit 清闸=闭环
+  （P16 活体：键仍按住时白名单拒回流、三件套注销）。
+- **序列期间**：输入窗关闭（`input_window_open=false`，Space 跳跃不劫持，Cast
+  同款）；`velocity` 逐帧钉死=站桩；伤害结算**不在本状态**——全在 QuiverHurtBox
+  判定缝读三件套（§7.3），本状态零数值。
+- **缺槽降级**：`_play_slot` 缺 `block_out`/`block` 槽→占位姿势+兜底帧数时序
+  （`_warn_missing` 每实例告警一次，Cast 阶梯同款精神；真防御动画到货仅改两枚
+  导出 `_skin_state_out`/`_skin_state_hold`、同名替换纪律）。
 
-回归锁：`tools/block_parry_contract/` Q 流（P7/P10/P11）；数值委托 API
-（`apply_damage_value`）与其上三分支见 §7.1/§7.3。
+回归锁：`tools/block_parry_contract/` Q 流（P7/P15/P16 姿态链 + P18 序列族/
+P19 后摇架/P21 兜底时序族）；数值委托 API（`apply_damage_value`）与其上三分支
+见 §7.1/§7.3；相位制改判编号平移见该套头注。
 
 ---
 
@@ -1105,54 +1126,65 @@ func apply_knockback(knockback: QuiverKnockbackData, target: QuiverAttributes)
 
 **注意**: 阵营检查 `are_factions_equal()` 在 `_on_area_entered()` 入口处统一执行，同阵营直接 return，不再在各个 `_handle_*()` 方法中单独检查。
 
-**`_handle_hit_box()` 判定缝三分支**（S2-B3 spec §2.3，2026-09-23；唯一插入点
-= `_can_be_attacked_by` 门后，门本体不变：非无敌 + 车道命中，横攻比排/纵攻比列，
-选轴读 `attacker.skin_direction` 出手镜像，见 §4 车道家族）:
+**`_handle_hit_box()` 判定缝三分支（S2-B3 spec §2.3 立架；S2-B4.8 点按序列制
+改判 2026-09-27——成对帧旗 `block_started_frame` + 受管帧窗 `parry_window_frames`
+退役，改为**相位分流**；唯一插入点 = `_can_be_attacked_by` 车道门通过后，
+R7 明令方向门/相位分流绝不前置车道门）**：
 
 1. 读输出乘数 `out_mult = hit_box.character_attributes.attack_output`——弹体的
    `character_attributes` 绑**施法者**属性（spell_base.gd:74 探针实锤）⇒
    输出缩放天然走施法者侧读取；null 仅防御性兜底。
-2. 防守方 `defender_attrs.is_blocking`？（成对旗读值，`delta =
-   Engine.get_physics_frames() − block_started_frame`，窗读**受管字段**
-   `parry_window_frames` 当前合成值——重算回写使判定代码零感知修饰存在）
-    - **弹反支**（`delta < 窗`，严格 `<`：按下帧 delta=0 起算共窗帧数，
-      delta==窗 归格挡）：**免伤免退**——零伤害、防守方池一分不扣、不进受击态；
-      **自发拍（B4.7 R2 改道"敌罚站我自由"）**：
+2. 车道门后统一算一次接触点/来向符号（防路方向门与两支特效共用）：
+   `contact = (hit_box.global_position + global_position) * 0.5`、
+   `threat_sign = 1.0 if contact.x >= global_position.x else -1.0`（R6 x 一票制，
+   **x 平局归右**用 `>=`；纵深威胁按 x 划侧=设计基线 §1 的已知语义，非 bug）。
+3. 防路闸门（三件套全读，任一不满足即滑常规支——D12 二元"视同没架"）：
+   `is_blocking` 且 `block_phase != NONE` 且 `is_equal_approx(threat_sign,
+   block_facing.x)`（盾面朝向是 enter 时钉死的 ±1 快照，比对的是"值"非符号推导）：
+    - **弹反支（`block_phase == OUT`）**——相位即窗口（弹反窗=block_out 动画
+      全程/兜底 12 拍，**不再数帧**）：**免伤免退**——零伤害、防守方池一分不扣、
+      不进受击态；**自发拍（B4.7 R2 改道"敌罚站我自由"）**
       `HitFreeze.apply_character_slow(hit_box.attacker, 0.0, 防守方
       .parry_stun_frames 折算毫秒)`——**只冻被弹反的攻击者**（rate=0=定格，
       帧数=防守方数值域，非魔数；弹体 attacker 恒 null → 跳定格仅保留其余
-      反馈，防御性兜底），防守玩家全程可动=奖励窗口；**改判史**：B3 当时
-      实现为 `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` 定格全世界（含守方），
-      用户 2026-09-26 澄清原意=单角色，常量随改道删除（免伤路"必须自发拍"
-      的警条不变——遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+
-      攻击弱档；形制=运行时混白 shader 换挂皮肤精灵 `material` 摘回原底材——
-      LDR-2D 下 modulate>1 被钳制不可见，2026-09-24 修订，见 spec §2.4 注记）；
-      `apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的
-      池——统一模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，
-      P9 实证；霸体鼠洞知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌
-      弹反空转，B5 都尉若发护甲须正式裁决，届时改规则不改这里）。
-   - **格挡支**（超窗按住）：`apply_damage_value(原伤害 × out_mult ×
-     block_damage_ratio)`；**该击击退值整颗作废**（不回池、不派发、不换算——
-     "重击变轻拳、飞天变站桩"的全部真相，P10 活体）；防守方弱白闪。
-   - **常规支**（未防）：`apply_damage_value(原伤害 × out_mult)`
+      反馈，防御性兜底），防守玩家全程可动=奖励窗口；**改判史**：B3 当时实现为
+      `HitFreeze.start(_PARRY_FREEZE_FRAMES=6)` 定格全世界（含守方），用户
+      2026-09-26 澄清原意=单角色，常量随改道删除（免伤路"必须自发拍"的警条不变
+      ——遗忘本拍=静默无反馈假绿族）；双方白闪同拍（防守强档+攻击弱档；形制=
+      运行时混白 shader 换挂皮肤精灵 `material` 摘回原底材——LDR-2D 下
+      modulate>1 被钳制不可见，2026-09-24 修订，见 spec §2.4 注记）；
+      `apply_knockback(K=_PARRY_STUN_KNOCK=60)` 反顶**攻击者本人**的池——统一
+      模型判则不偏袒攻守（攻击者余池将破则自动升格 knockout，P14 实证；霸体鼠洞
+      知情条款：apply_knock 归零制吞 K 不发信号=对护甲敌弹反空转，B5 都尉若发
+      护甲须正式裁决，届时改规则不改这里）；**R8 不中断我方序列**（本缝零相位
+      写权，block_out 余程续播进 GUARD 再归位——防"弹成功反而裸奔"）。
+   - **格挡支（`block_phase == GUARD`）**——持盾窗（block 动画全程/兜底 30 拍）：
+     `apply_damage_value(原伤害 × out_mult × block_damage_ratio)`；**该击击退值
+     整颗作废**（不回池、不派发、不换算——"重击变轻拳、飞天变站桩"的全部真相，
+     P15 活体）；防守方弱白闪；**R9 序列保持**（挡击不中断不跳相，本缝零相位写权）。
+   - **常规支（未防/错面/相位 NONE）**：`apply_damage_value(原伤害 × out_mult)`
      （out_mult==1.0 时与改造前逐字等价——lane 契约 P1 哨兵锁）；构造
      `QuiverKnockbackData`（treated launch_vector 让角色**始终向后飞**）→
-     `apply_knockback` 照旧。
-3. **公共义务（三分支一律）**：`hit_box.on_target_hit.is_valid()` 时同步
+     `apply_knockback` 照旧；**发** `Events.hit_landed`（B4.7 现形制）。
+4. **防路两支特效回执（R11 改判 2026-09-27）**：弹反支 `hit_landed.emit(contact,
+   &"parry", 0.0, dir)`、格挡支 `hit_landed.emit(contact, &"block", 0.0, dir)`——
+   旧"免伤路不发"口径作废（§17.9 勘误；`strength` 参 0.0=防路无击打值语义；
+   dir 零向量兜底 RIGHT 同常规支）。白闪仍是弹反/格挡固有件，火花卡为新增层。
+5. **公共义务（三分支一律）**：`hit_box.on_target_hit.is_valid()` 时同步
    `call(self)`（见 7.2 注入契约；旧 owner 反射已废除）——弹体靠它回执离场，
-   任何分支绕过=穿体飞到超时判例同族（回归锁 P6c/P8e：命中帧起 ≤15 帧离场护栏，
+   任何分支绕过=穿体飞到超时判例同族（回归锁 P6c/P13e：命中帧起 ≤15 帧离场护栏，
    堵 max_lifetime=300f 与采样窗同缘的假绿边角）。
-4. 规则常量单一出处（数值治理法第 2 档）：`_PARRY_STUN_KNOCK/_FLASH_*` 全部定义在
+6. 规则常量单一出处（数值治理法第 2 档）：`_PARRY_STUN_KNOCK/_FLASH_*` 全部定义在
    quiver_hurt_box.gd 常量区，禁散落魔数；弹反定格帧数不在此列——B4.7 R2 起它是
    **防守方数值域** `parry_stun_frames`（数值治理法第 1 档归位，旧
    `_PARRY_FREEZE_FRAMES` 常量已删）。
 
-**时基判例（Step0 探针 2026-09-23 实锤）**：定格期间 physics_frame 信号照响、
-全局物理帧号照走 ⇒ 在途 HitFreeze 真会蚕食弹反窗帧——Block.enter 写
-`block_started_frame`=按下瞬间读数，蚕食属规则本意（spec §10 帧计数定案），
-手感疑案先疑此勿疑缝。**B4.7 R2 后注**：弹反已改单角色定格、普攻/格挡流全局
-定格自 R1 归零，当前生产链**无任何在途 tree.paused 窗口**，本判例降为历史防线
-（若 freeze_frames 复活，蚕食语义原样成立）。
+**时基判例改判史（Step0 探针 2026-09-23 立 / S2-B4.8 2026-09-27 收口）**：旧
+长按制判例"定格期间全局物理帧号照走 ⇒ 在途 HitFreeze 真会蚕食弹反窗帧——
+Block.enter 写 `block_started_frame`，蚕食属规则本意"随**相位制**整体消亡——
+弹反窗=防守者**动画时钟**（block_out 段长），与攻击侧时间操纵（慢放/罚站）
+**彻底解耦**，再无"帧窗被蚕食"命题。B4.7 R2 起普攻/格挡/弹反流全局零暂停，
+`_drain_freeze()` 退为保险丝（若 freeze_frames 复活仍先排空）。
 
 **阵营过滤机制**（`area2d:` group；2026-09-17 单一存放点体系）:
 - **数据只存角色根节点**（`groups=["area2d:<标签>", …]`，创建表单写入）；
@@ -1272,7 +1304,8 @@ _handle_hit_box() 判定缝三分支（§7.3；敌未防时走常规支）
 常规支：CombatSystem.apply_damage_value() → HP 扣减 → HitFreeze.start()（B4.7 起归零 no-op）
   → CombatSystem.apply_knockback() → apply_knock 唯一判定 → hurt_requested 或 knockout_requested
   → 支尾命中反馈钩子：attacker 非空（近战）→ HitFreeze.apply_character_slow（§17）
-（格挡支=乘算扣血+击退值整颗作废；弹反支=免伤+反顶攻击者池+自发定格——均无下列派发）
+（格挡支=乘算扣血+击退值整颗作废；弹反支=免伤+反顶攻击者池+自发定格——均无下列
+hurt/knockout 派发；两支现各发 &"block"/&"parry" 专属火花回执，B4.8 R11 见 §7.3/§17.9）
   ↓
 地面状态 QuiverActionGround 收到 signal:
   hurt_requested  → transition_to("Ground/Hurt")
@@ -2397,13 +2430,17 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
 
 ### 17.9 接触点特效与 hit_landed（B4.7 R4/R5）
 
-- **信号**：`Events.hit_landed(point, style, strength, dir)`——判定缝**常规
-  结算支**广播（近战+弹体一视同仁：弹体 attacker 恒 null 是时间腿的结构排除，
-  视觉腿不吃该门）；`point`=攻击盒与受击盒位置中点，`strength`=
+- **信号**：`Events.hit_landed(point, style, strength, dir)`——判定缝**三分支一律
+  广播**（近战+弹体一视同仁：弹体 attacker 恒 null 是时间腿的结构排除，视觉腿
+  不吃该门）；`point`=攻击盒与受击盒位置中点，`strength`=
   `knock_strength`（消费者可选），`dir`=(受击盒位−攻击盒位) 归一化（零向量
-  发送端兜底 `Vector2.RIGHT`）。免伤路（格挡/弹反）**不发**——它们自有白闪
-  双档反馈件（判定缝公共义务谱系注记：回执 `on_target_hit` 三分支照发，
-  hit_landed 只随"落地结算"走）。
+  发送端兜底 `Vector2.RIGHT`）。**S2-B4.8 勘误（R11，2026-09-27）**：旧口径
+  "免伤路（格挡/弹反）**不发**、它们自有白闪双档反馈件"作废——白闪仍是弹反/
+  格挡固有件，但防路两支现**各发专属卡回执**：弹反支 `style=&"parry"`、格挡支
+  `style=&"block"`（`strength` 参 0.0=防路无击打值语义；接触点同一公式，x 一票
+  制与其同源）。常规支仍发 `attack_data.hit_effect_style`（default/heavy/fire）。
+  判定缝公共义务谱系注记：回执 `on_target_hit` 三分支照发，hit_landed 现三分支
+  也照发（白闪与火花是叠加反馈层，非互斥）。
 - **风格路由字段**：`QuiverAttackData.hit_effect_style: StringName =
   &"default"`——攻击方声明参数卡名，枚举只做查表路由零数值推导（B4.6
   `attack_axis_mode` 合法路由旗同族注例）；未配置=default 卡兜底，任何命中
@@ -2439,9 +2476,15 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
     （第二条 CPUParticles2D：chunk_amount 大颗、半速、重力×2.2、弱阻尼
     ="砸出去"的质量感；0=该卡免层）。卡新增 core_color/ring_dark/
     chunk_amount/chunk_scale_mult（单一出处仍在卡）。
-  - `hit_spark_preset.gd` + `presets/spark_{default,heavy,fire}.tres`——参数卡
-    类与三张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）；T5 卡扩容
-    `spread_deg`（default 34/heavy 46/fire 60 度）。
+  - `hit_spark_preset.gd` + `presets/spark_{default,heavy,fire,parry,block}.tres`
+    ——参数卡类与五张卡（数值治理法第 2 档单一出处：消费方只搬运不推导）；T5 卡扩容
+    `spread_deg`（default 34/heavy 46/fire 60 度）。**S2-B4.8 新增两防路卡**：
+    `parry`（蓝白金属：hot(0.75,0.87,1) cool(0.25,0.45,0.9) 10 粒 spread26
+    speed140-260 高初速小散布=金铁相击短促，lifetime 0.16）、`block`（暗金闷挡：
+    hot(1,0.82,0.45) cool(0.55,0.28,0.05) 8 粒 spread40 speed50-120 低初速大
+    闪光 flash_scale 1.35 gravity(0,420) lifetime 0.2）；两张均 chunk_amount 0
+    （防路不迸碎块——金属相击/闷挡无碎片语义）。防路两支不经 `attack_data`
+    路由，由 HurtBox 直接以 `&"parry"/&"block"` 为 style 发 emit。
 - **诊断打印（2026-09-27 用户裁）**：肉眼不可辨的时间通道以 `[HITFEEL]`
   print 兜底验证——`HitFreeze.apply_character_slow/_run_slow`（开始/恢复/
   让位三拍）、HurtBox 近战命中与弹反成立两支（attacker/档值/罚站帧数）、

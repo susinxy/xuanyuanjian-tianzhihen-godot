@@ -23,6 +23,11 @@ const PRESETS: Dictionary = {
 	&"default": preload("res://scripts/effects/presets/spark_default.tres"),
 	&"heavy": preload("res://scripts/effects/presets/spark_heavy.tres"),
 	&"fire": preload("res://scripts/effects/presets/spark_fire.tres"),
+	# B4.8 R11：防路两支专属卡（弹反=蓝白金属短促、格挡=暗金闷挡大闪光）——
+	# 发射方在 QuiverHurtBox 判定缝（不走 attack_data.hit_effect_style 路由，
+	# 旧"免伤路不发"口径作废，§17.9 勘误同批）
+	&"parry": preload("res://scripts/effects/presets/spark_parry.tres"),
+	&"block": preload("res://scripts/effects/presets/spark_block.tres"),
 }
 
 const SPARK_SCRIPT := preload("res://scripts/effects/hit_spark_fx.gd")

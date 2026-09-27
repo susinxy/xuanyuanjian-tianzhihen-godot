@@ -42,7 +42,7 @@ const DEFAULT_STATS := {
 	"can_be_grabbed": false,
 	"is_invulnerable": false,
 	"has_superarmor": false,
-	"parry_window_frames": 6.0,
+	# S2-B4.8 退役：parry_window_frames 随帧窗制删除（出生数值域=面板旋钮对账）
 	"block_damage_ratio": 0.4,
 	"attack_output": 1.0,
 	# 攻击朝向模式（S2-B4.6 裁决①）：1=HORIZONTAL_ONLY 全局默认"只有左右"；
@@ -174,7 +174,6 @@ func _synthesize_attributes(
 			+ "can_be_grabbed = %s\n" % ("true" if s.can_be_grabbed else "false") \
 			+ "is_invulnerable = %s\n" % ("true" if s.is_invulnerable else "false") \
 			+ "has_superarmor = %s\n" % ("true" if s.has_superarmor else "false") \
-			+ "parry_window_frames = %s\n" % _num(s.parry_window_frames) \
 			+ "block_damage_ratio = %s\n" % _num(s.block_damage_ratio) \
 			+ "attack_output = %s\n" % _num(s.attack_output) \
 			+ "attack_axis_mode = %d\n" % int(s.attack_axis_mode)  # 枚举非数值域：int 直写，不走 _num 浮点通道

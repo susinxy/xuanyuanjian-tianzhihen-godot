@@ -197,10 +197,14 @@ func _can_be_grabbed_by(grabber: QuiverAttributes) -> bool:
 	return value
 
 
-## 判定缝三分支（S2-B3 spec §2.3，唯一插入点=_can_be_attacked_by 通过后）：
-## delta = 当前物理帧 − block_started_frame；窗=防守方受管字段（重算回写模型
-## 使本代码零感知修饰存在）。弹反严格 `<`（按下帧 delta=0 起算共窗帧数，
-## delta==窗 归格挡）。读到的三个字段皆为当前合成值。
+## 判定缝三分支（S2-B3 spec §2.3 立架，S2-B4.8 点按序列制改判；唯一插入点=
+## _can_be_attacked_by 车道门通过后，R7 明令：方向门/相位分流绝不前置车道门）：
+## 防路总闸=is_blocking，相位读 block_phase（OUT=弹反窗即 block_out 动画全程、
+## GUARD=持盾窗；帧窗制 parry_window_frames/block_started_frame 已退役）；
+## 方向门=R6 x 一票制——接触点（两盒中点）相对自身 x 的符号比对盾面快照
+## block_facing.x（x 平局归右 `>=`，is_equal_approx 比较 ±1；纵深威胁按 x
+## 划侧=设计基线的已知语义）。方向不匹配/相位 NONE 一律滑常规支=满伤全套
+## （D12 二元，视同没架）。读到的字段皆为当前合成值。
 func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 	if not _can_be_attacked_by(hit_box.character_attributes, hit_box):
 		return
@@ -210,9 +214,17 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 	# character_attributes 实测绑施法者属性（spell_base.gd:74，P6 探针实锤），
 	# null 仅防御性兜底——_can_be_attacked_by 已解引用攻击者，走到此处恒非 null。
 	var out_mult := 1.0 if atk_attrs == null else atk_attrs.attack_output
-	if defender_attrs.is_blocking:
-		var delta := Engine.get_physics_frames() - defender_attrs.block_started_frame
-		if delta < defender_attrs.parry_window_frames:
+	# B4.8：接触点/来向符号在车道门后统一算一次（防路方向门与两支特效共用）
+	var contact := (hit_box.global_position + global_position) * 0.5
+	var threat_sign := 1.0 if contact.x >= global_position.x else -1.0
+	if defender_attrs.is_blocking \
+			and defender_attrs.block_phase != QuiverAttributes.BlockPhase.NONE \
+			and is_equal_approx(threat_sign, defender_attrs.block_facing.x):
+		# 防路两支的火花方向：接触点退化（两盒重合）兜底 RIGHT，常规支同款判例
+		var def_dir := (global_position - hit_box.global_position).normalized()
+		if def_dir == Vector2.ZERO:
+			def_dir = Vector2.RIGHT
+		if defender_attrs.block_phase == QuiverAttributes.BlockPhase.OUT:
 			# —— 弹反支：免伤免退，防守方池一分不扣、不进受击态 ——
 			# 定格自发拍（免伤路不经 apply_damage_value，B3 spec §10 警条）；
 			# 双方白闪同拍（防守强档+攻击弱档=spec §2.4 三件套之视觉两件，
@@ -253,14 +265,21 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 				# 霸体鼠洞（spec §2.3 知情条款，勿私斗）：apply_knock 归零制吞 K
 				# 且不发任何信号 ⇒ 对护甲敌人弹反空转。当前内容库零使用者；
 				# B5 都尉若发护甲须正式裁决"弹反与护甲互相无效"，届时改规则不改这里。
+			# R8 知情：弹反成功**不中断我方序列**（block_out 余程续播进 GUARD
+			# 再归位——防"弹成功反而裸奔"），本缝零相位写权。
+			# R11 改判（B4.8）：防路两支改**发**专属火花卡（旧"免伤路不发"口径
+			# 作废，§17.9 勘误同批）；strength 参传 0.0=防路无击打值语义。
+			Events.hit_landed.emit(contact, &"parry", 0.0, def_dir)
 		else:
-			# —— 格挡支：伤害=原伤害×输出乘数×系数；该击击退值**整颗作废**
+			# —— 格挡支（GUARD 相位；R9 序列保持=本缝零相位写权）：
+			# 伤害=原伤害×输出乘数×系数；该击击退值**整颗作废**
 			# （不回池、不派发、不换算）——"重击变轻拳、飞天变站桩"的全部真相。
 			CombatSystem.apply_damage_value(
 					hit_box.attack_data.attack_damage * out_mult * defender_attrs.block_damage_ratio,
 					defender_attrs
 			)
 			_flash(defender_attrs, false)
+			Events.hit_landed.emit(contact, &"block", 0.0, def_dir)
 	else:
 		# —— 常规支：out_mult==1.0 时与改造前逐字等价（lane 契约 P1 哨兵锁）；
 		# 击退构建与派发块保持原样（仅伤害入口换成 apply_damage_value）。

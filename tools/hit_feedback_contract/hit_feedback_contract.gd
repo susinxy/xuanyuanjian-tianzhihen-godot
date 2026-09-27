@@ -42,7 +42,8 @@ extends Node
 ## 时序断言全部从"测试内实测动画长×档案 pct"折算，不硬编码 ms。
 ##
 ## 直戳私有=测试特权豁免申报（T1 评审 M-4，T4 补声明）：套内多处绕过生产
-## 写方直改内部字段/状态——P 流直写 `is_blocking/block_started_frame`（弹反
+## 写方直改内部字段/状态——P 流直写防路三件套 `is_blocking + block_phase +
+## block_facing`（相位制改判 2026-09-27，弹反
 ## 缝捷径，生产义务归 block_parry Q 流）、`state_machine.transition_to`
 ## 强制入场（P6d 跳攻腿）、提线盒摘挂阵营标签、行为总开关反拨等。这些是
 ## 台架特权**不是生产写方形制范例**，勿以本套为抄写模板。
@@ -68,6 +69,14 @@ extends Node
 ## （26 拍时对位可差 2000px ⇒ 中途出拳必挥空）。H 流幸存纯侥幸：双方同拍
 ## 入场的平行下落保住相对偏移+每发 `_place` 重锚。P/E 流显式补防：同拍摆位 →
 ## `_settle` 族逐拍位移稳定判据等沉降毕 → 每发出拳前 `_place` 重锚。
+##
+## S2-B4.8 勘误（2026-09-27 相位制改判，防路两腿转 block_parry 见证）：
+## 旧口径「免伤路（格挡/弹反）不发 hit_landed、自有白闪」作废——防路两支现
+## **发**专属卡回执（style=&"parry"/&"block"，strength 参 0.0），发射断言的
+## 见证职责整体移交 block_parry_contract P20 族；本套 E/K 流判据零改动
+## （它们只钉常规支/fire 卡路由/开关面，与防路发射正交）。P 流弹反腿的
+## 台架捷径从「帧窗直写+hold 重写」平移为「相位直写」（判据零改动）。
+## 法源 specs/2026-09-27-s2-b48-block-flow-design.md；PLUGIN_ARCHITECTURE §17.9。
 ##
 ## T3 探针新判例三条（4.7.1）：①headless 场景 runner 下 `_process`/
 ## SceneTreeTimer/Timer/Tween **全部照常推进**（40 物理拍配 76 idle 拍实测；
@@ -593,8 +602,10 @@ func _clean() -> void:
 # ═══════════════ P 流：弹反改道"敌罚站我自由"（T2 R2，B4.7） ═══════════════
 # D=防守方（test_actor 玩家档，行为开，全程可动）；P=提线攻击方
 # （H5 同款手术：行为总开关关 + 战斗盒摘 player 换挂 hfp_puppet，居西面东）。
-# 弹反走判定缝内部捷径（直写 is_blocking/block_started_frame + hold 重写
-# delta≡1，block_parry j=0 约定）——姿态旗的生产写方归 block_parry Q 流，
+# 弹反走判定缝内部捷径（相位制改判 2026-09-27：直写 is_blocking +
+# block_phase=OUT + block_facing 朝西 -1——atk2 居守方西侧=西威胁；旧
+# block_started_frame+hold 重写 delta≡1 构造随帧窗退役，block_parry 同款）
+# ——姿态旗的生产写方归 block_parry Q 流，
 # 本流命题=定格拍改道后的时间面三件套（攻击者冻、防守方活、世界不暂停）。
 
 var _stage_p: Node2D
@@ -674,7 +685,8 @@ func _leg_parry_freeze() -> void:
 		_check(false, "P0b 攻击方皮肤精灵可得（位置观测前置，缺席则本腿无证人）")
 		return
 	_def.attributes.is_blocking = true
-	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT
+	_def.attributes.block_facing = Vector2(-1, 0)
 	var d_hp0: float = _def.attributes.health_current
 	var a_hp0: float = _atk2.attributes.health_current
 	# 出拳前重锚（沉降纪律的 H 流 _place 同款）：双方已落位，6 拍让新对位入物理快照
@@ -706,7 +718,7 @@ func _leg_parry_freeze() -> void:
 		var sig := "%s@%d" % [sp.animation, sp.frame]
 		if f_seam < 0:
 			# hold 重写（block_parry j=0 约定）：命中落哪帧都 delta≡1
-			_def.attributes.block_started_frame = Engine.get_physics_frames()
+			_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT  # 幂等重写（相位不漂移=保险丝形制）
 			if last_sig != "" and sig != last_sig:
 				alive_pre += 1
 			if _atk2.attributes.resistance_current < POOL0 - 0.5:
@@ -767,7 +779,8 @@ func _leg_parry_freeze() -> void:
 func _leg_parry_stun_config() -> void:
 	_def.attributes.parry_stun_frames = 12
 	_def.attributes.is_blocking = true
-	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT
+	_def.attributes.block_facing = Vector2(-1, 0)
 	_atk2.attributes.refill_resistance()
 	await _place(_atk2, _def, Vector2(-80, -30))
 	_attack(_atk2, Vector2.RIGHT)
@@ -780,7 +793,7 @@ func _leg_parry_stun_config() -> void:
 			_paused_seen_p = true
 		var s_atk := _atk2.anim_time_scale()
 		if f_seam < 0:
-			_def.attributes.block_started_frame = Engine.get_physics_frames()
+			_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT  # 幂等重写（相位不漂移=保险丝形制）
 			if _atk2.attributes.resistance_current < POOL0 - 0.5:
 				f_seam = Engine.get_physics_frames()
 		elif f_restore < 0 and is_equal_approx(s_atk, 1.0):
@@ -808,6 +821,8 @@ func _tail_equal(arr: Array, k: int) -> bool:
 ## 腿间卫生（P 流自有版）：双方回待机、旗清零、池补满、清账
 func _p_clean() -> void:
 	_def.attributes.is_blocking = false
+	_def.attributes.block_phase = QuiverAttributes.BlockPhase.NONE
+	_def.attributes.block_facing = Vector2.ZERO
 	await _wait_state(_atk2, "Ground/Move/Idle", 600)
 	await _wait_state(_def, "Ground/Move/Idle", 600)
 	_atk2.attributes.refill_resistance()
@@ -839,7 +854,8 @@ func _leg_parry_seal() -> void:
 	_def.attributes.parry_stun_frames = 48
 	_atk2.attributes.has_superarmor = true
 	_def.attributes.is_blocking = true
-	_def.attributes.block_started_frame = Engine.get_physics_frames()
+	_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT
+	_def.attributes.block_facing = Vector2(-1, 0)
 	_atk2.attributes.refill_resistance()
 	await _place(_atk2, _def, Vector2(-80, -30))
 	_attack(_atk2, Vector2.RIGHT)
@@ -851,7 +867,7 @@ func _leg_parry_seal() -> void:
 		if get_tree().paused:
 			_paused_seen_p = true
 		# hold 重写（P 流惯例）：命中落哪帧都 delta≡1=弹反支
-		_def.attributes.block_started_frame = Engine.get_physics_frames()
+		_def.attributes.block_phase = QuiverAttributes.BlockPhase.OUT  # 幂等重写（seal 腿环）
 		if _atk2.anim_time_scale() <= 0.001:
 			f_seal = Engine.get_physics_frames()
 			break
@@ -882,7 +898,9 @@ func _leg_parry_seal() -> void:
 			"P6a 罚站同拍封形：%d 盒在第 %s 拍起 monitorable 全关（活通道 %d）"
 			% [boxes_seen, sealed_f, open_lanes])
 	# 出窗：守方解除格挡（二次接触按常规支结算=满伤，红世界现形）、挪出触达
+	#（相位制：总闸+相位同摘，防 P6 观察段半防残影）
 	_def.attributes.is_blocking = false
+	_def.attributes.block_phase = QuiverAttributes.BlockPhase.NONE
 	var contact := _def.global_position
 	_def.global_position = contact + Vector2(300, 0)
 	await _frames(8)

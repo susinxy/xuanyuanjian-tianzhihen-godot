@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HitSparkPreset" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/effects/hit_spark_preset.gd" id="1_preset"]
+
+[resource]
+script = ExtResource("1_preset")
+spread_deg = 40.0
+amount = 8
+color_hot = Color(1, 0.82, 0.45, 1)
+color_cool = Color(0.55, 0.28, 0.05, 0)
+speed_min = 50.0
+speed_max = 120.0
+gravity = Vector2(0, 420)
+lifetime = 0.2
+flash_scale = 1.35
+flash_color = Color(0.95, 0.72, 0.3, 1)
+ring_dark = Color(0.35, 0.2, 0.03, 1)
+chunk_amount = 0

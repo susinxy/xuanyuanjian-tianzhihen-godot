@@ -207,9 +207,10 @@ func _provide_knockout() -> Array[String]:
 		out.append("  无敌=%s 霸体=%s HP %.0f/%.0f 状态=%s" % [
 				str(a.is_invulnerable), str(a.has_superarmor),
 				a.health_current, a.health_max, st])
-		# 盾反批 B3：三受管字段实时值 + 修饰账本一行（快照非第二真相）
-		out.append("  弹反窗 %d帧 格挡系数 %.2f 输出×%.2f" % [
-				a.parry_window_frames, a.block_damage_ratio, a.attack_output])
+		# 盾反批 B3：受管字段实时值 + 修饰账本一行（快照非第二真相）；
+		# S2-B4.8 退役：parry_window_frames 随帧窗制出局（弹反窗=相位，dock 看状态行）
+		out.append("  格挡系数 %.2f 输出×%.2f" % [
+				a.block_damage_ratio, a.attack_output])
 		var parts := PackedStringArray()
 		for r in a.modifier_snapshot():
 			parts.append("%s→%s(%s·%s)" % [r["id"], r["attribute"], r["type"], str(r["value"])])

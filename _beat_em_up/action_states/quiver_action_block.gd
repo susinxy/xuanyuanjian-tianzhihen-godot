@@ -2,19 +2,27 @@
 class_name QuiverActionBlock
 extends QuiverCharacterAction
 
-## 地面格挡姿态（S2-B3 spec §2.2）：按住 block 即架盾站桩，松开回 Idle；
-## 进出全由本状态的引擎 `_physics_process` 虚函数自选——引擎虚处理无论本状态
-## "在场/不在场"都每帧跑（quiver_state 仅在编辑器 hint 下关处理，运行期虚拟
-## 处理独立于 SM 派发，2026-09-23 实锤），零插件核心手术。
+## 地面格挡序列态（S2-B4.8 点按制）：按下 block 起序列
+## block_out（弹反窗，相位=OUT）→ block（持盾窗，相位=GUARD）→ 自动回 Idle。
+## 不支持长按、序列中再按无效（Block 不在白名单）。
+## 转移图（spec §2.2）：Idle/Walk/Run/地面三连段 →（点按 K）→ 本态 →（信标/
+## 兜底推进两段）→ Idle；序列全程不重定向（按下瞬间钉死盾面朝向）。
 ##
-## 单写者纪律：`is_blocking`/`block_started_frame` 成对旗标的**唯一生产写方**
-## 就是本状态的 enter/exit（判定缝只读）；成对写入与姿态起势同帧（R4 宪章）。
-## HitFreeze 期间物理帧号照走 ⇒ 在途定格真会蚕食姿态窗口帧——这是 spec 定档
-## 的既定语义（宪章详见 quiver_hurt_box.gd 常量注释），手感疑案先疑此勿疑缝。
+## 单写者宪章续命：`is_blocking`/`block_phase`/`block_facing` 三件套唯一生产
+## 写方=本态 enter（同帧起笔，R4 宪章）/信标推进/exit 保证式清闸——
+## hurt/knockout/grab 任何打断走同一出口（Ground 挂线继承，判定缝只读）。
 ##
-## 受击/击飞/抓取打断继承 Ground 挂线（hurt_requested 全程武装）；本状态不
-## 处理任何伤害——三分支判定在 QuiverHurtBox 缝（spec §2.3）。
-## 进入白名单=三个 locomotion 状态（转移图=代码约定，AGENTS 状态机章口径）。
+## 兜底（缺动画槽的过渡期皮肤，spec §2.3）：OUT=12 拍/GUARD=30 拍自计数；
+## 真动画到货以信标为准（占位资产帧长按同数制作——"动画即规则"的平滑桥）。
+## 信标无参（skin_animation_finished 不带名，判例 quiver_character_skin.gd:21）：
+## 序列每相位只播一段动画，相位自身即消歧器。
+##
+## 引擎虚拟 _physics_process 自选进出（B3 判例续，PLUGIN_ARCHITECTURE §5.11）：
+## 白名单含地面攻击态（R10 后摇可架）。⚠ 白名单以**节点名**比较（B3 形制），
+## 本仓地面三连段实测名=Combo1/Combo2/Combo3——不能写 "Attack"：那是空中
+## 跳攻节点的名字（Air/Jump/Attack），纳入即违反 spec §5"空中攻击后摇不可架"。
+##
+## 伤害结算不在本状态——方向门+相位三分支在 QuiverHurtBox 判定缝（spec §2.4）。
 
 ### Member Variables and Dependencies -------------------------------------------------------------
 #--- signals --------------------------------------------------------------------------------------
@@ -23,16 +31,27 @@ extends QuiverCharacterAction
 
 #--- constants ------------------------------------------------------------------------------------
 
+## 兜底帧数单一出处（spec §2.3）：无槽皮肤期 OUT 弹反窗 12 拍（≈200ms）、
+## GUARD 持盾窗 30 拍（≈500ms）；真动画到货后由动画长接管（占位资产帧长
+## 按同数制作），本对常量退居保险丝。
+const _BLOCK_OUT_FALLBACK_BEATS := 12
+const _BLOCK_HOLD_FALLBACK_BEATS := 30
+
 #--- public variables - order: export > normal var > onready --------------------------------------
 
-## 皮肤动画槽名（真防御动画到货=仅改此导出，同名替换纪律）
-@export var _skin_state: StringName = &"idle"
+## 弹反段皮肤动画槽名（真资产=仅改此导出，同名替换纪律）
+@export var _skin_state_out: StringName = &"block_out"
 
-## 松键回位路径
+## 持盾段皮肤动画槽名
+@export var _skin_state_hold: StringName = &"block"
+
+## 序列毕回位路径
 @export var _path_idle_state: NodePath = ^"Ground/Move/Idle"
 
-## 进入白名单：仅这些状态（节点名）允许起架
-@export var _entry_whitelist: Array[StringName] = [&"Idle", &"Walk", &"Run"]
+## 进入白名单（R10）：locomotion 三态 + 地面三连段（攻击中/后摇可按 K 取消
+## 进格挡）；节点名比较形制见文件头（空中 Attack/受击/击飞子树恒拒）。
+@export var _entry_whitelist: Array[StringName] = [
+		&"Idle", &"Walk", &"Run", &"Combo1", &"Combo2", &"Combo3"]
 
 ## 父链三开关（Cast 形制同款 tscn 键名与值；本档不引入 custom inspector 机制）
 @export var parent_should_enter := true
@@ -41,7 +60,8 @@ extends QuiverCharacterAction
 
 #--- private variables - order: export > normal var > onready -------------------------------------
 
-static var _warned_missing_anim: Dictionary = {}
+var _beats_left := 0            # >0=兜底倒计时在用；0=信标驱动
+var _warned_missing: bool = false
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -57,23 +77,35 @@ func enter(msg: = {}) -> void:
 	super(msg)
 	if parent_should_enter:
 		get_parent().enter(msg)
-	
+
 	# 姿态期间关闭输入窗口（与施法/攻击 _can_combo=false 同语义）
 	_state_machine.input_window_open = false
 	_character.velocity = Vector2.ZERO
-	
-	# 成对旗标唯一生产写入点：与姿态起势同帧（R4 宪章，判定缝成对读取）
+
+	# 三件套唯一生产写入点：与姿态起势同帧（R4 宪章续命，判定缝成对读取）；
+	# 盾面朝向取 facing_x 快照，x 平局归右（R6），序列期钉死不重定向
 	_attributes.is_blocking = true
-	_attributes.block_started_frame = Engine.get_physics_frames()
-	
-	if _skin.has_anim_state(_skin_state):
-		_skin.transition_to(_skin_state)
-	else:
-		_warn_missing_once()
+	_attributes.block_phase = QuiverAttributes.BlockPhase.OUT
+	var fx := 1.0 if _skin.facing_x >= 0.0 else -1.0
+	_attributes.block_facing = Vector2(fx, 0.0)
+
+	_play_slot(_skin_state_out, _BLOCK_OUT_FALLBACK_BEATS)
+
+
+func exit() -> void:
+	# 保证式清闸：正常收口与 hurt/knockout/grab 打断同口（单写者闭环）
+	_attributes.is_blocking = false
+	_attributes.block_phase = QuiverAttributes.BlockPhase.NONE
+	_attributes.block_facing = Vector2.ZERO
+	_state_machine.input_window_open = true
+
+	super()
+	if parent_should_exit:
+		get_parent().exit()
 
 
 func unhandled_input(_event: InputEvent) -> void:
-	# 姿态不消费任何事件（输入窗口已在 enter 关闭）
+	# 序列不消费任何事件（输入窗口已在 enter 关闭）
 	pass
 
 
@@ -84,20 +116,51 @@ func physics_process(delta: float) -> void:
 	_character.velocity = Vector2.ZERO
 
 
-func exit() -> void:
-	_attributes.is_blocking = false
-	_state_machine.input_window_open = true
-	
-	super()
-	if parent_should_exit:
-		get_parent().exit()
-
 ### -----------------------------------------------------------------------------------------------
 
 
 ### Private Methods -------------------------------------------------------------------------------
 
-## 引擎虚拟：在场管出（松键回 Idle），不在场管进（按住 + 白名单，白名单外禁入）。
+func _connect_signals() -> void:
+	super()
+	if _skin != null:
+		QuiverEditorHelper.connect_between(
+				_skin.skin_animation_finished, _on_skin_animation_finished)
+
+
+func _disconnect_signals() -> void:
+	super()
+	if _skin != null:
+		QuiverEditorHelper.disconnect_between(
+				_skin.skin_animation_finished, _on_skin_animation_finished)
+
+
+## 相位信标：任何一段播完按当前相位推进（信标无参——序列每相位只播一段
+## 动画，相位自身即消歧器）；兜底时钟到点也走本口（两驱动共一推进器）
+func _on_skin_animation_finished() -> void:
+	if _attributes == null or not _attributes.is_blocking:
+		return
+	if _attributes.block_phase == QuiverAttributes.BlockPhase.OUT:
+		_attributes.block_phase = QuiverAttributes.BlockPhase.GUARD
+		_play_slot(_skin_state_hold, _BLOCK_HOLD_FALLBACK_BEATS)
+	elif _attributes.block_phase == QuiverAttributes.BlockPhase.GUARD:
+		_state_machine.transition_to(_path_idle_state)
+
+
+## 皮肤播槽；缺槽→占位姿势+兜底计数（告警每实例一次，Cast 阶梯同款精神）
+func _play_slot(slot: StringName, fallback_beats: int) -> void:
+	_beats_left = 0
+	if _skin.has_anim_state(slot):
+		_skin.transition_to(slot)
+	else:
+		_beats_left = fallback_beats
+		if not _warned_missing:
+			_warned_missing = true
+			push_warning("B4.8: 皮肤 %s 缺格挡动画槽，走兜底帧数时序" % _skin.name)
+
+
+## 引擎虚拟：在场管兜底时钟（§5.11 判例续——本方法无论激活与否每物理拍跑），
+## 不在场管进（点按接触沿 + 白名单，白名单外禁入）。
 ## StringName 显式转换：sm.state.name 转回 StringName 再入白名单比较，
 ## 类型不匹配的裸 in 恒假（类型陷阱）。
 func _physics_process(_delta: float) -> void:
@@ -108,19 +171,14 @@ func _physics_process(_delta: float) -> void:
 	if sm == null or _character == null or _character.channel == null or sm.state == null:
 		return
 	if sm.state == self:
-		if not _character.channel.is_held(&"block"):
-			sm.transition_to(_path_idle_state)
-	elif _character.channel.is_held(&"block") \
+		if _beats_left > 0:
+			_beats_left -= 1
+			if _beats_left == 0 and _attributes != null and _attributes.is_blocking:
+				# 兜底时钟到点：手动走与信标同一推进口
+				_on_skin_animation_finished()
+		return
+	if _character.channel.is_held(&"block") \
 			and StringName(str(sm.state.name)) in _entry_whitelist:
 		sm.transition_to(sm.get_path_to(self))
-
-
-## 缺槽降级（Cast 阶梯同款精神）：只告警一次，姿态逻辑照常可用
-func _warn_missing_once() -> void:
-	var key := str(_skin.name) + ":" + str(_skin_state)
-	if _warned_missing_anim.has(key):
-		return
-	_warned_missing_anim[key] = true
-	push_warning("皮肤 %s 缺少格挡动画槽 %s，姿态保持当前姿势" % [_skin.name, _skin_state])
 
 ### -----------------------------------------------------------------------------------------------
