@@ -528,6 +528,9 @@ func _leg_bidir() -> void:
 			box.remove_from_group(&"area2d:player")
 			box.add_faction_group(&"area2d:hf_puppet")
 		elif box is QuiverHurtBox:
+			# 与 hitbox 对称（T4 终审清欠账：原版只换挂不摘 player=对"玩家打
+			# 木偶"留同阵营豁免面，与本腿注"摘 player 换挂"的申报不符）
+			box.remove_from_group(&"area2d:player")
 			box.add_faction_group(&"area2d:hf_puppet")
 	b.global_position = _actor.global_position - Vector2(80, 30)  # B 居西、默认面朝东
 	await _frames(8)
@@ -632,6 +635,8 @@ func _flow_parry() -> void:
 			box.remove_from_group(&"area2d:player")
 			box.add_faction_group(&"area2d:hfp_puppet")
 		elif box is QuiverHurtBox:
+			# 与 hitbox 对称（T4 终审清欠账，H5 同款勘误）
+			box.remove_from_group(&"area2d:player")
 			box.add_faction_group(&"area2d:hfp_puppet")
 	await _frames(6)
 	var ok0: bool = await _wait_state(_def, "Ground/Move/Idle", 120)
