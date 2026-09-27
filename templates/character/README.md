@@ -31,9 +31,14 @@ Inspector 面板：打开 `character_template.tscn` → 填英文名/类名/显�
 ## 创建后的三步工作流
 
 1. **换图 = 同名覆盖**。目录结构即 chen 规范：
-   - `resources/sprites/<attackN|idle|walk|run|hurt|jump|knock_out|air_attack>/<方向>/<动画名>_<槽号两位>.png`
+   - `resources/sprites/<attackN|idle|walk|run|hurt|jump|knock_out|air_attack|block_out|block>/<方向>/<动画名>_<槽号两位>.png`
    - 新角色画好的图用**相同文件名**盖掉占位图即可，所有引用零改动
    - `__NAME___profile.png` 是头像（被 attributes 引用），同样同名覆盖
+   - **格挡四件（B4.8 T1 起出生即有）**：`block_out/{left,right}/`（弹反段，
+     动画长 0.2s）与 `block/{left,right}/`（持盾段，0.5s）——占位=idle 右向
+     首帧复制+仿 hurt 形制单帧动画（末帧 `end_of_skin_animation` 方法轨=生命线，
+     换真帧改 length 时方法轨 key 时刻必须同步改，block_parry P24d 源锁盯此）；
+     帧长=缺槽兜底常数 12/30 拍同数，改时长=改格挡时序平衡（"动画即规则"）
 2. **跑两类轮廓转换**（Body + Attack，Inspector 高度层面板）：
    轮廓/身高/攻击窗口/时间轴全部按新图重算——占位图带来的 chen 数据会被自动冲掉
 3. **体检归零**（面板"attack 结构体检"无告警）

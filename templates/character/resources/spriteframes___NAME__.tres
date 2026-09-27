@@ -387,6 +387,10 @@
 [ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/attack2/up/attack2_up_07.png" id="cpn33_n2hsl"]
 [ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/attack3/up/attack3_up_07.png" id="cpn34_7d50d"]
 [ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/attack3/up/attack3_up_00.png" id="cpn35_tvyfq"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/block/left/block_left_00.png" id="blk01_l"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/block_out/left/block_out_left_00.png" id="bko01_l"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/block_out/right/block_out_right_00.png" id="bko02_r"]
+[ext_resource type="Texture2D" path="res://characters/__PKG__/__NAME__/resources/sprites/block/right/block_right_00.png" id="blk02_r"]
 
 [resource]
 animations = [{
@@ -922,6 +926,38 @@ animations = [{
 "loop": 0,
 "name": &"attack_3_up",
 "speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("blk01_l")
+}],
+"loop": 1,
+"name": &"block_left",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("bko01_l")
+}],
+"loop": 1,
+"name": &"block_out_left",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("bko02_r")
+}],
+"loop": 1,
+"name": &"block_out_right",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("blk02_r")
+}],
+"loop": 1,
+"name": &"block_right",
+"speed": 5.0
 }, {
 "frames": [{
 "duration": 1.0,

@@ -94,6 +94,9 @@ ATTEST=(
 	"wp3_formal|ACTOR-GATE"
 	"attack_lane_contract|ACTOR-GATE"
 	"block_parry_contract|ACTOR-GATE"
+	# B4.8-T1：真槽信标驱动见证族（P24）身份行——P24b/P24c 各喊一行 B48-T1，
+	# 缺席=该腿被静默跳段（协程静默中断家族）
+	"block_parry_contract|B48-T1"
 	# B4-T3b：spell_save 消费 test_actor（M/G/E 流替身腿），_ready 头部三态守卫
 	# 就绪喊 ACTOR-GATE；缺席态各流 NOTICE 跳腿=标记缺席=本表记红（M4 家族封堵）
 	"spell_save_contract|ACTOR-GATE"

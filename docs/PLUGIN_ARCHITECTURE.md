@@ -950,8 +950,11 @@ func _physics_process(_delta):
 
 - **相位推进 = 单口双驱**：`_on_skin_animation_finished`（信标无参——序列每相位
   只播一段动画，相位自身即消歧器，判例 quiver_character_skin.gd:21）里 OUT→
-  GUARD→Idle 逐级；缺槽皮肤走 `_beats_left` 兜底自计数（OUT=12/GUARD=30 拍），
-  真动画到货（T1）自动以信标为准（占位帧长按同数制作——"动画即规则"平滑桥）。
+  GUARD→Idle 逐级；缺槽皮肤走 `_beats_left` 兜底自计数（OUT=12/GUARD=30 拍）。
+  **现行路径已是信标驱动**（B4.8 T1 接线批）：模板/chen/test_actor 皮肤已带
+  `block_out`/`block` 真槽（占位帧长 0.2s/0.5s=兜底常数 12/30 拍同数零漂移
+  ——"动画即规则"平滑桥落成），兜底自计数退居缺槽降级路径与保险丝；
+  两形态窗宽判据（∈[8,16]/全程 [34,52]）共用，契约双腿化见证（P23a/P24c）。
 - **输入只认私有通道**（`channel.is_held`，§5.0）——OS 链端到端由
   block_parry_contract Q 流（raw 键直投）锁死；`StringName` 显式转换是类型陷阱
   防线（`sm.state.name` 转回 StringName 再入白名单比较，裸 `in` 恒假）。
@@ -977,10 +980,21 @@ func _physics_process(_delta):
 - **缺槽降级**：`_play_slot` 缺 `block_out`/`block` 槽→占位姿势+兜底帧数时序
   （`_warn_missing` 每实例告警一次，Cast 阶梯同款精神；真防御动画到货仅改两枚
   导出 `_skin_state_out`/`_skin_state_hold`、同名替换纪律）。
+- **⚠ 方法轨=生命线（T1 接线批红线）**：凡占用 `block_out`/`block` 槽的动画
+  必须内嵌 hurt 同款**末帧方法轨**（`end_of_skin_animation`，key 时刻=动画
+  length）——有槽而断轨时兜底恒休眠（`_beats_left==0` 信标驱动路独木），信标
+  不到=OUT 永冻、序列永不收口（且不崩、静默挂死，极具迷惑性）。产线现状由
+  模板快照携带四件保证；案卷=R8 red_g 档（摘模板 block_out 方法轨→重建带病
+  皮肤→P24b/P21a/P23a/P7 序列族齐红→还原绿，/tmp/opencode/b48_t1/red_g.log）
+  ——**不写代码看门狗**，以契约见证+本红线为准；美术换真帧只改图与 length
+  时，方法轨 key 时刻必须同步改为新 length（P24d 源锁当场响红旧值）。
 
 回归锁：`tools/block_parry_contract/` Q 流（P7/P15/P16 姿态链 + P18 序列族/
-P19 后摇架/P21 兜底时序族）；数值委托 API（`apply_damage_value`）与其上三分支
-见 §7.1/§7.3；相位制改判编号平移见该套头注。
+P19 后摇架/P21 兜底时序族/P23 评审修复族双腿化 + **P24 真槽族**：a R10 长攻
+命中锚定取消判别、b 真槽信标驱动正面见证（脑目的地+travel 落位+_beats_left
+==0）、c 删槽构造腿（兜底族保留见证）、d 帧长=兜底常数源锁；身份见证=日志
+B48-T1 行已入 run_matrix ATTEST 表）；数值委托 API（`apply_damage_value`）与
+其上三分支见 §7.1/§7.3；相位制改判编号平移见该套头注。
 
 ---
 

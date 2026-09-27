@@ -66,11 +66,19 @@
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/run_down_left.tres" id="85_run85"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/run_down.tres" id="86_run86"]
 [ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/run_down_right.tres" id="87_run87"]
+[ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/block_left.tres" id="blk10_l"]
+[ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/block_out_left.tres" id="bko10_l"]
+[ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/block_out_right.tres" id="bko11_r"]
+[ext_resource type="Animation" path="res://characters/__PKG__/__NAME__/resources/animations/block_right.tres" id="blk11_r"]
 
 [resource]
 _data = {
 &"air_attack_left": ExtResource("29_itwoa"),
 &"air_attack_right": ExtResource("1_jgcla"),
+&"block_left": ExtResource("blk10_l"),
+&"block_out_left": ExtResource("bko10_l"),
+&"block_out_right": ExtResource("bko11_r"),
+&"block_right": ExtResource("blk11_r"),
 &"attack1_down": ExtResource("72_att72"),
 &"attack1_left": ExtResource("30_1ys5c"),
 &"attack1_right": ExtResource("2_qtktm"),

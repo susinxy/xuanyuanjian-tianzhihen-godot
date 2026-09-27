@@ -48,12 +48,22 @@ extends Node
 ##   P23 评审修复族（追加波）：F1 兜底拍信标免疫（出招取消起架测 OUT 窗宽
 ##     ∈[8,16]，腐蚀即穿帮）/F3 起按边沿锁（持键全程+归位 30 拍零再现 OUT；
 ##     松手重按对照腿=二段起架成立）——P23a1 兼 R10 行为面二次见证。
+##   P24 真槽族（B4.8 T1 动画接线批，身份见证=日志 B48-T1 行）：a R10 取消
+##     行为判别（P 流长攻命中锚定，堵 Important-2"测不到取消本身"缺口）/
+##     b 真槽信标驱动正面见证（脑目的地+travel 落位+_beats_left==0）/
+##     c 删槽构造腿（兜底族命题保留，二选一裁决=构造）/d 帧长=兜底常数源锁；
+##     P23a 双腿化（真槽/缺槽两形态窗宽同域 [8,16]）。
 ## ⑤ R8 体检红据（/tmp/opencode/b48_t0/red_*.log）：a 摘方向门恒真→P17 红；
 ##   b 摘相位推进（信标首行 return）→P18/P21 红；c 白名单删地面攻击→P18e2
 ##   源码红（初版行为腿被 Idle 兜底转进救活=Important-2 缺口；F3 边沿锁落地后
 ##   复跑 red_c2 补 P19b/P23a1 行为红）；d 防路 emit 注释→P20 红；
 ##   e 摘 F1 守卫（`_beats_left>0 return` 行删除）→P23a2 腐蚀红；
 ##   f 摘 F3 边沿锁（电平制复原）→P23b 复发起架红。
+##   T1 批追加（/tmp/opencode/b48_t1/red_*.log）：g 摘模板 block_out 末帧
+##   方法轨（产线重建带病皮肤）→真槽信标断链 OUT 永冻→P24b/P21a/P18a/P23a
+##   序列族响红（Minor-4"方法轨=生命线"案卷红线；不写代码看门狗）；
+##   h P24a 判别力自证=攻击态 exit 即关白名单反证不另做（Block 到来本身在
+##   边沿锁下已排除"收口后合法补架"混入，见 P24a 头注三证）。
 ##
 ## 【测试特权豁免申报】（hit_feedback T4 同款制度）：P 流直写
 ## is_blocking/block_phase/block_facing（判定缝捷径，生产义务归 Q 流）、Q 流
@@ -651,6 +661,45 @@ func _flow_parry() -> void:
 	_landed.clear()
 	await _clean(vendor, actor)
 
+	# ── P24a R10 取消行为判别（B4.8 T1 新腿，堵 T0 评审 Important-2）：
+	#    地面攻击第 1 击命中后**立刻**按 K，须在收招硬直窗内起架。旧 P19b
+	#    用 6 拍短攻（attack1=0.1s），按键到达时可能已收口回 Idle=白名单
+	#    合法通道，测不到"取消"本身；本腿台架直取 Combo2 长攻
+	#    （attack2=0.458s=27 拍，命中激活窗 0.125~0.25s=7.5~15 拍），三证：
+	#    ①命中拍攻方 state 仍含 Combo（硬直在场）②Block 到来拍距 Combo 起
+	#    手 < 27 拍（先于攻击末帧信标=被取消非自收口）③起架拍相位=OUT。
+	#    （F3 边沿锁保证"错过取消窗则持键永不复发起架"——本腿 Block 若
+	#    压根不来即响亮红，不存在"稍后合法补架"混入判据的边角。）
+	vendor.attributes.reset()
+	await _place(vendor, actor, Vector2(80, 30))
+	_press_key(KEY_K, false)
+	actor._skin.skin_direction = Vector2.RIGHT
+	var f24_start := Engine.get_physics_frames()
+	actor.state_machine.transition_to("Ground/Combo2")
+	await _frames(2)
+	var hp24 := vendor.attributes.health_current
+	var state24_hit := ""
+	for _i in 60:
+		await get_tree().physics_frame
+		if vendor.attributes.health_current < hp24:
+			state24_hit = str(actor.state_machine.state_name)
+			break
+	_check(state24_hit.contains("Combo"),
+			"P24a1 第 1 击命中且攻方仍在攻击态（命中拍 state=%s）" % state24_hit)
+	_press_key(KEY_K, true)
+	var ok24b: bool = await _wait_state(actor, "Ground/Block", 12)
+	var f24_block := Engine.get_physics_frames() - f24_start
+	var ph24: int = actor.attributes.block_phase
+	_press_key(KEY_K, false)
+	_check(ok24b and f24_block < 27,
+			"P24a2 R10 取消实证：起架于攻击动画寿终（27 拍）前（第 %d 拍，%s）"
+			% [f24_block, "Block" if ok24b else "未起架"])
+	_check(ok24b and ph24 == QuiverAttributes.BlockPhase.OUT,
+			"P24a3 取消起架同帧相位=OUT（实得 %s）" % ph24)
+	_check(await _wait_state(actor, "Ground/Move/Idle", 150),
+			"P24a4 取消起架序列照常自动收口回 Idle")
+	await _clean(vendor, actor)
+
 	# ── 收场（评审 I3）：拆除残场——后流绝不看见前流的幻影键盘/共享原体 ──
 	Events.hit_landed.disconnect(_on_landed_capture)
 	stage.queue_free()
@@ -662,9 +711,13 @@ func _flow_parry() -> void:
 # B=提线木偶攻击方（行为总开关关→K 不会劫持它的 Block；战斗盒阵营手术见下方
 # 注释→能咬 A 且不咬自己）。本流**零写入** is_blocking/block_phase/block_facing
 # ——三件套全由 QuiverActionBlock enter/信标推进/exit 落笔（单写者活体=OS 链×
-# 缝整合命题）。test_actor 无 block_out/block 动画槽=兜底时钟 12/30 拍实况，
-# P18/P21 族据此把"兜底时序"钉成回归锁（T1 真动画到货后本流仍应全绿：推进口
-# 同一，仅时钟源换信标——若换源翻车本流必红，届时按红档再议域宽）。
+# 缝整合命题）。B4.8 T1 形态改判申报：真动画槽（block_out/block）自本批起随
+# 模板产线**长在 test_actor 身上**——P18/P21/P23 时序族自此跑在"信标驱动"
+# 现行路径上（占位帧长=兜底常数同数 12/30 拍，窗宽判据域 [8,16]/总量 [34,52]
+# 两形态共用零漂移）；"缺槽兜底"形态改由 P24c **删槽构造腿**运行时摘槽见证
+# （二选一裁决=构造腿，P21 兜底族命题未死）。真槽驱动正面见证=P24b
+# （脑目的地 block_out/block + _beats_left==0），断链案卷=R8 red_g 档
+# （摘模板末帧方法轨→信标永不到→序列族响红，见文件头⑤续）。
 # raw 键注入按 T2 判例：InputEventKey 逐字段显式构造（pressed 默认 false 陷阱），
 # device=-1 对齐 block/jump 绑定文本，attack(J) device=16（J_DEV 常量，
 # hit_feedback 探针判例），physical 键位走 Input.parse_input_event 全链路。
@@ -696,6 +749,74 @@ func _wait_phase(ch: QuiverCharacter, phase: QuiverAttributes.BlockPhase, cap: i
 			return true
 		await get_tree().physics_frame
 	return ch.attributes.block_phase == phase
+
+
+## B4.8 T1 两形态四腿共用的"起架驱动探针"：进 Block（cancel=true 先 raw J
+## 出招再中途按 K=R10 取消形；false=点按形），起架拍采三 witnesses：
+## 皮肤脑目的地（_brain_destination，enter 同帧由 _play_slot 落笔）、
+## Block 态兜底自计数拍 _beats_left（台架特权只读：0=信标驱动/‪>0=兜底）、
+## AnimTree 现行节点 travel 落位；OUT→GUARD 窗宽同采，GUARD 拍补采 hold 槽
+## 脑目的地。尾法统一松键并等收口回 Idle（键态归零，防漏进下腿）。
+func _stance_probe(a: QuiverCharacter, b: QuiverCharacter, cancel: bool) -> Dictionary:
+	await _drain_freeze()
+	await _place(a, b, Vector2(80, 30))
+	await _wait_state(a, "Ground/Move/Idle", 120)
+	var full := {"ok_in": false, "why": "", "brain_out": &"", "beats_in": -1,
+			"node_seen": false, "ok_guard": false, "span": -1,
+			"brain_guard": &"", "ok_idle": false}
+	if cancel:
+		_press_key(KEY_J, true, J_DEV)
+		var okj: bool = await _wait_state_contains(a, "Combo", 30)
+		_press_key(KEY_J, false, J_DEV)
+		if not okj:
+			full.why = "combo_missing"
+			return full
+	_press_key(KEY_K, true)
+	var ok_in: bool = await _wait_state(a, "Ground/Block", 30)
+	if not ok_in:
+		_press_key(KEY_K, false)
+		full.why = "block_missing"
+		return full
+	var blk_node: Node = a.state_machine.get_node_or_null(^"Ground/Block")
+	var brain_out: StringName = a._skin._brain_destination
+	var beats_in := -1
+	if blk_node != null:
+		beats_in = int(blk_node.get("_beats_left"))
+	# 窗宽计时起点=起架观测拍（⚠ 必须锚在 travel 落位轮询**之前**——轮询最多
+	# 吃 10 拍，锚后=兜底时钟已被偷走 10 拍，缺槽形态窗宽假红 2 拍，T1 首跑
+	# 实锤自纠）；轮询只服务 P24b2 的"现行节点亲见"判据，与窗宽解耦。
+	var f_out := Engine.get_physics_frames()
+	var node_seen := false
+	for _i in 10:
+		if String(a._skin._playback.get_current_node()) == "block_out":
+			node_seen = true
+			break
+		await get_tree().physics_frame
+	var ok_guard := await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60)
+	var span := Engine.get_physics_frames() - f_out
+	var brain_guard: StringName = a._skin._brain_destination
+	_press_key(KEY_K, false)
+	var ok_idle := await _wait_state(a, "Ground/Move/Idle", 150)
+	return {"ok_in": true, "brain_out": brain_out, "beats_in": beats_in,
+			"node_seen": node_seen, "ok_guard": ok_guard, "span": span,
+			"brain_guard": brain_guard, "ok_idle": ok_idle}
+
+
+## 删槽构造（台架特权，B4.8 T1 二选一裁决=构造腿保留兜底族见证）：把
+## block_out/block 从皮肤动画名单运行时摘除=过渡期"缺槽皮肤"形态复现，
+## restore=True 原样补回。返回值=实际摘除枚数（须 2，否则构造本身穿帮）。
+func _strip_block_slots(skin, strip: bool) -> int:
+	var removed := 0
+	for slot in ["block_out", "block"]:
+		var idx: int = skin._animation_list.find(slot)
+		if strip:
+			if idx >= 0:
+				skin._animation_list.remove_at(idx)
+				removed += 1
+		elif idx < 0:
+			skin._animation_list.append(slot)
+			removed += 1
+	return removed
 
 
 func _flow_stance() -> void:
@@ -915,28 +1036,83 @@ func _flow_stance() -> void:
 			% [rb21.v_phase_at_hit, rb21.v_hp_drop])
 	await _wait_state(a, "Ground/Move/Idle", 120)
 
-	# ════ P23 评审修复族（F1 兜底拍信标免疫 / F3 起按边沿锁）════
-	# ── P23a（F1+Important-2）：出招取消进 Block，在途攻击末帧信标晚响不得
-	#    腐蚀兜底 OUT 窗——无守卫时 attack1 残拍（≈4）即进 GUARD，窗宽穿帮；
-	#    同时以"取消起架"行为面二次见证 R10（F3 边沿锁封堵 c 档判别力缺口）──
-	await _drain_freeze()
-	await _place(a, b, Vector2(80, 30))
-	await _wait_state(a, "Ground/Move/Idle", 120)
-	_press_key(KEY_J, true, J_DEV)
-	var ok23j: bool = await _wait_state_contains(a, "Combo", 30)
-	_press_key(KEY_J, false, J_DEV)
-	_press_key(KEY_K, true)
-	var ok23a1: bool = await _wait_state(a, "Ground/Block", 30)
-	var f23_out := Engine.get_physics_frames()
-	var ok23G := await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60)
-	var span23 := Engine.get_physics_frames() - f23_out
-	_press_key(KEY_K, false)
-	_check(ok23j and ok23a1,
-			"P23a1 R10 出招取消起架（行为面二次见证；F3 后白名单缺 Combo 必红）")
-	_check(ok23G and span23 >= 8 and span23 <= 16,
-			"P23a2 F1 兜底拍信标免疫：取消起架后 OUT 窗实测 %d 拍∈[8,16]" % span23
-			+ "（无守卫=攻击末帧信标切短窗）")
-	await _wait_state(a, "Ground/Move/Idle", 120)
+	# ════ P24 真槽族（B4.8 T1 接线批）+ P23 评审修复族双腿化 ════
+	# ── P24b 真槽信标驱动正面见证（点按形）：test_actor 随模板产线自动带
+	#    block_out/block 槽 → 起架必走信标通道：脑目的地=block_out（enter
+	#    同帧落笔）、_beats_left==0（兜底自计数休眠）、travel 落位可见、
+	#    GUARD 拍脑换手=block。方法轨断链→本族必红（R8 red_g 案卷判的）。──
+	var p24b := await _stance_probe(a, b, false)
+	_check(p24b.ok_in and p24b.brain_out == &"block_out" and p24b.beats_in == 0,
+			"P24b1 真槽驱动：脑目的地=block_out 且 _beats_left=0（实得 %s/%d）"
+			% [p24b.brain_out, p24b.beats_in])
+	_check(p24b.node_seen, "P24b2 AnimTree travel 落位 block_out（现行皮肤节点亲见）")
+	_check(p24b.ok_guard and p24b.span >= 8 and p24b.span <= 16,
+			"P24b3 真槽 OUT 窗实测 %d 拍∈[8,16]（0.2s 占位长=兜底 12 拍同数零漂移）"
+			% p24b.span)
+	_check(p24b.brain_guard == &"block", "P24b4 GUARD 拍脑目的地=block（持盾槽信标同构）")
+	_check(p24b.ok_idle, "P24b5 真槽全程序列自动收口回 Idle")
+	print("B48-T1: 真槽信标驱动见证已跑（brain=%s beats=%d span=%d）"
+			% [p24b.brain_out, p24b.beats_in, p24b.span])
+
+	# ── P24c 删槽构造腿（P21 兜底族命题保留腿，二选一裁决=构造）：运行时摘
+	#    两槽复现过渡期"缺槽皮肤"→ 兜底自计数必须苏醒（_beats_left>0）且
+	#    OUT 窗宽与真槽同数 ∈[8,16]——两形态共用域=接线零漂移的另一面。──
+	var strip1 := _strip_block_slots(a._skin, true)
+	_check(strip1 == 2, "P24c0 删槽构造生效（摘 %d 槽，应 2）" % strip1)
+	var p24c := await _stance_probe(a, b, false)
+	_check(p24c.ok_in and p24c.beats_in > 0,
+			"P24c1 缺槽形态兜底自计数苏醒（_beats_left=%d>0，信标缺席）" % p24c.beats_in)
+	_check(p24c.ok_guard and p24c.span >= 8 and p24c.span <= 16,
+			"P24c2 缺槽兜底 OUT 窗仍≈12 拍实测 %d∈[8,16]" % p24c.span)
+	var rest1 := _strip_block_slots(a._skin, false)
+	_check(rest1 == 2 and a._skin.has_anim_state(&"block_out")
+			and a._skin.has_anim_state(&"block"),
+			"P24c3 恢复完备（补回 %d 槽，has_anim_state 双双 true）" % rest1)
+	print("B48-T1: 删槽构造腿已跑（strip=%d beats=%d span=%d）"
+			% [strip1, p24c.beats_in, p24c.span])
+
+	# ── P23a（F1+Important-2，B4.8 T1 双腿化）：出招取消进 Block 起架，
+	#    OUT 窗宽在真槽（信标驱动：在途攻击时钟随 travel 冻结，无晚响信标
+	#    ——2026-09-26 探针案卷）与缺槽（F1 守卫 _beats_left>0 信标免疫，
+	#    无守卫=red_e 档攻击残拍切短窗）两形态下都必须 ∈[8,16]。
+	#    取消行为判别本体见 P 流 P24a（长攻命中锚定腿）。──
+	var p23r := await _stance_probe(a, b, true)
+	_check(p23r.ok_in, "P23a1 R10 出招取消起架（真槽形态；F3 后白名单缺 Combo 必红）")
+	_check(p23r.ok_guard and p23r.span >= 8 and p23r.span <= 16,
+			"P23a2 真槽取消起架 OUT 窗实测 %d 拍∈[8,16]（信标驱动零漂移）" % p23r.span)
+	var strip2 := _strip_block_slots(a._skin, true)
+	var p23n := await _stance_probe(a, b, true)
+	_check(strip2 == 2 and p23n.ok_in and p23n.beats_in > 0,
+			"P23a3 缺槽取消起架且兜底拍在场（摘=%d beats=%d；F1 守卫红档=red_e）"
+			% [strip2, p23n.beats_in])
+	_check(p23n.ok_guard and p23n.span >= 8 and p23n.span <= 16,
+			"P23a4 缺槽取消起架 OUT 窗 %d 拍∈[8,16]（无守卫=攻击末帧信标切短窗）"
+			% p23n.span)
+	_check(_strip_block_slots(a._skin, false) == 2, "P23a5 缺槽取消形双腿后恢复槽位")
+
+	# ── P24d 帧长=兜底常数源锁（美术调 length=调战斗平衡的排产红线， preempt
+	#    静默漂移）：占位动画 tres 的 length×60 物理拍必须等于 Block 态常数对。──
+	var bo_src := FileAccess.get_file_as_string(
+			Kit.ACTOR_DIR + "/resources/animations/block_out_right.tres")
+	var bh_src := FileAccess.get_file_as_string(
+			Kit.ACTOR_DIR + "/resources/animations/block_right.tres")
+	var li_o := bo_src.find("length = ")
+	var li_h := bh_src.find("length = ")
+	var bo_len: float = bo_src.substr(li_o + 9).to_float() if li_o >= 0 else -1.0
+	var bh_len: float = bh_src.substr(li_h + 9).to_float() if li_h >= 0 else -1.0
+	var fb_out := 0
+	var fb_hold := 0
+	for line in blk_src.split("\n"):
+		if line.contains("_BLOCK_OUT_FALLBACK_BEATS :="):
+			fb_out = int(line.get_slice(":=", 1).strip_edges())
+		elif line.contains("_BLOCK_HOLD_FALLBACK_BEATS :="):
+			fb_hold = int(line.get_slice(":=", 1).strip_edges())
+	_check(fb_out == 12 and fb_hold == 30,
+			"P24d1 兜底常数对=12/30（实得 %d/%d）" % [fb_out, fb_hold])
+	_check(bo_len > 0.0 and is_equal_approx(bo_len * 60.0, float(fb_out))
+			and is_equal_approx(bh_len * 60.0, float(fb_hold)),
+			"P24d2 占位帧长同数锁：block_out %.3fs×60=%d / block %.3fs×60=%d"
+			% [bo_len, fb_out, bh_len, fb_hold])
 
 	# ── P23b（F3/R1）：起按后持键不松——序列全程+归位后 30 拍零再现 OUT ──
 	_press_key(KEY_K, true)
