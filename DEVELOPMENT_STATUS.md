@@ -438,7 +438,7 @@
     （初版误按"不要关闭"退役了按键，用户当日纠正：只改默认态，按键留作调试对比）。
     契约锁=stage_contract **LC8**（默认值断言，红据：临时改回 false 即响亮红），
     EXPECTED 141→**142**。
-  - **段施工样板立形（2026-09-828 同日小批，用户提问引出的基建缺口）**：
+  - **段施工样板立形（2026-09-28 同日小批，用户提问引出的基建缺口）**：
     `scenes/chapter/segment_template.tscn`——壳轨 StageContent 满配战斗段法定样板
     （几何三墙配方+房三件套含 spar_enemy 一波+Vis 皮肤；红线清单=根节点
     `_装配须知` metadata 自教学；zoom 系 FightRoom float 导出，与 Camera2D.zoom
