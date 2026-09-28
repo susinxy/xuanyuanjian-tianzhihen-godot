@@ -12,8 +12,10 @@ extends SceneTree
 ##            stage_ok 声明 none 必须全绿）
 ## 规则表（账本裁决绑定版；S2-M1-B1 双轨扩，spec D10）：
 ##   R1 根必须 instance=ExtResource(base_stage.tscn **或** chapter_shell.tscn)；
-##      ③段形态（根 script=stage_content.gd）与④壳模板本体（根 script=
-##      chapter_shell.gd）豁免——两形合法场景的根=脚本本体而非实例（S2-M1-B2 T4）
+##      豁免臂：③段形态（根 script=stage_content.gd）、④壳模板本体（根
+##      script=chapter_shell.gd 且**仅模板自身路径**）；⑤另存分壳（同根脚本
+##      形于别处）=合法根形态但归壳管辖，R2 照查 chapter_id（2026-09-28 收紧，
+##      修"漏填 id 假绿"豁免洞；S2-M1-B2 T4 判例的域限定）
 ##   R2 根节点存在形态主键 = &"..." 非空（S1 终审 M-2：限定根属性块，
 ##      挂在子孙节点上的主键属污染残留，不算满足）四臂分派：
 ##      base 形态查 stage_id；shell 形态查 chapter_id（R2' 并表同码，hint 区分）；
@@ -188,12 +190,17 @@ func _check_file(path: String) -> Array:
 	# 双轨判形（D10）：R1 通过的两形态之一=壳形态；R2/R8 按形分派
 	var is_shell: bool = not root.is_empty() and (root.inst in model.exts) \
 			and model.exts[root.inst] == SHELL_PATH
-	# 判形加臂（S2-M1-B2 T4）：③段形态=根 script stage_content.gd；
-	# ④壳模板本体=根 script chapter_shell.gd（模板自身，根不是任何实例）
+	# 判形加臂（S2-M1-B2 T4；2026-09-28 手册批收紧豁免域）：③段形态=根
+	# script stage_content.gd；④壳模板本体=根 script chapter_shell.gd 且**仅
+	# 模板文件自身路径**（模板恒常无 per-instance 主键，豁免合理）；⑤"场景
+	# 另存为"产出的散布分壳（同根脚本形、别处路径）=归壳形态管辖——
+	# chapter_id 漏填必须被 R2 抓住，否则手册验收对另存形=假绿（豁免洞修复）。
 	var root_script := _script_path_of(root, model) if not root.is_empty() else ""
 	var is_segment := root_script.ends_with("stage_content.gd")
-	var is_template := root_script.ends_with("chapter_shell.gd")
-	_check_r1(model, root, add, is_segment, is_template)
+	var is_template := root_script.ends_with("chapter_shell.gd") and path == SHELL_PATH
+	var is_saveas_shell := root_script.ends_with("chapter_shell.gd") and path != SHELL_PATH
+	is_shell = is_shell or is_saveas_shell
+	_check_r1(model, root, add, is_segment, is_template, is_shell)
 	_check_r2(root, add, is_shell, is_segment, is_template)
 	var rooms := _kind_nodes(model, ROOM_GD)
 	var detectors := _kind_nodes(model, DET_GD)
@@ -267,9 +274,9 @@ func _kind_nodes(model: Dictionary, script_file: String) -> Array:
 
 
 func _check_r1(model: Dictionary, root: Dictionary, add: Callable,
-		is_segment: bool, is_template: bool) -> void:
-	# ③段形态/④壳模板本体的根=脚本本体而非 base/shell 实例，属合法形态，跳过
-	if is_segment or is_template:
+		is_segment: bool, is_template: bool, is_shell: bool) -> void:
+	# ③段形态/④壳模板本体/⑤另存分壳（含于 is_shell）=合法根形态，跳过
+	if is_segment or is_template or is_shell:
 		return
 	if root.is_empty() or not (root.inst in model.exts) \
 			or (model.exts[root.inst] != BASE_PATH
