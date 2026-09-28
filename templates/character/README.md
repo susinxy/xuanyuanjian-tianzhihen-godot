@@ -65,3 +65,8 @@ python3 tools/sync_template_from_chen.py
   真帧要求**左右中性姿势**；到位后替换 spell.tres 引用即可，若将来分方向再逐点改动画名。
 - 动画树接线纪律：任何新动作态只连 idle 两条边（进出各一）；禁止 walk/run→动作 的
   交叉边（travel 经 idle 同帧中转，无观感差异）。tools/tree_connectivity_test 强制。
+
+> **block 族例外（2026-09-28 定档）**：`block_{left,right}` 与 `block_out_{left,right}`
+> 的左向动画**复用右向图 + 动画内 `AnimatedSprite2D:flip_h` 轨**翻转，`block/left`、
+> `block_out/left` 目录不放图——换图只维护 right 两处（帧数变化后按帧轨纪律
+> 同步末键，见 docs/GUIDE_格挡.md §2.5）。

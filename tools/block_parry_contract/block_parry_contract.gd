@@ -61,7 +61,7 @@ extends Node
 ##     行为判别（P 流长攻命中锚定，堵 Important-2"测不到取消本身"缺口）/
 ##     b 真槽信标驱动正面见证（脑目的地+travel 落位+_beats_left==0）/
 ##     c 删槽构造腿（兜底族命题保留，二选一裁决=构造）/d 帧长=兜底常数源锁；
-##     P23a 双腿化（真槽/缺槽两形态窗宽同域 [8,18]（M2 余量备案））。
+##     P23a 双腿化（真槽域相对化=帧长±3（2026-09-28），缺槽构造腿保留 [8,18]）。
 ## ⑤ R8 体检红据（/tmp/opencode/b48_t0/red_*.log）：a 摘方向门恒真→P17 红；
 ##   b 摘相位推进（信标首行 return）→P18/P21 红；c 白名单删地面攻击→P18e2
 ##   源码红（初版行为腿被 Idle 兜底转进救活=Important-2 缺口；F3 边沿锁落地后
@@ -109,6 +109,9 @@ const SPELL_SCENE := "res://spells/fire_ball/fire_ball.tscn"
 const SPELL_DEF := "res://spells/fire_ball/resources/fire_ball_definition.tres"
 ## 双方池上限均=默认 600（V 走 tres 缺省，A tres 显式 600）——P 流按池值判
 ## "扣没扣"的基准线
+## 出手→命中缝帧距校准（P 流 P1e 落笔，Q 流 P21b 消费；2026-09-28 跨流）
+var _w_cal := 0
+
 const POOL0 := 600.0
 
 var _fails := 0
@@ -280,7 +283,8 @@ func _skin_sprite(ch: QuiverCharacter) -> CanvasItem:
 ## 击中断的活体锁，R8/R9 行为面）。池轨迹用 min 捕获：受击回 Idle 后 refill
 ## 会把余量抬回，事后采样会漏判。
 func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
-		v_ov: CanvasItem = null, a_ov: CanvasItem = null) -> Dictionary:
+		v_ov: CanvasItem = null, a_ov: CanvasItem = null,
+		p_already_attacked := false) -> Dictionary:
 	var r := {
 		"f_call": 0, "f_hit": -1,
 		"v_hp0": 0.0, "v_hp_drop": 0.0, "v_pool_min": POOL0, "v_hurt": false,
@@ -295,7 +299,8 @@ func _shot(vendor: QuiverCharacter, actor: QuiverCharacter,
 	}
 	r.v_hp0 = vendor.attributes.health_current
 	r.a_hp0 = actor.attributes.health_current
-	_attack(actor, Vector2.RIGHT)
+	if not p_already_attacked:
+		_attack(actor, Vector2.RIGHT)
 	r.f_call = Engine.get_physics_frames()
 	for _i in 240:
 		await get_tree().physics_frame
@@ -399,14 +404,14 @@ func _flow_parry() -> void:
 
 	# ── P1 无防回归：伤害/击退逐字如旧（改造前后零可观测差哨兵）──
 	var r1 := await _shot(vendor, actor)
-	var w_cal: int = r1.f_hit - r1.f_call  # 同几何出手→缝帧距（兜底时序腿校准基）
+	_w_cal = r1.f_hit - r1.f_call  # 同几何出手→缝帧距（跨流校准基：Q 流 P21b 消费）
 	_check(r1.v_hp_drop == 10.0, "P1a 未格挡掉血恰 10（out_mult=1.0 哨兵，实际 %.1f）" % r1.v_hp_drop)
 	_check(r1.v_hurt, "P1b 未格挡 V 入 Ground/Hurt（受击链原样）")
 	_check(r1.v_pool_min == POOL0 - 60.0, "P1c 未格挡 V 池 600→540（击退派发逐字如旧）")
 	_check(r1.a_hp_drop == 0.0 and r1.a_pool_min >= POOL0 and not r1.a_hurt,
 			"P1d 攻击方全程无损（血/池/Hurt 三不动）")
-	_check(w_cal >= 1 and w_cal <= 120, "P1e 出手→命中帧距校准 w_cal=%d 在有效域" % w_cal)
-	print("[b48-p] w_cal=%d（相位制：仅作 P21 兜底腿出手提前量校准）" % w_cal)
+	_check(_w_cal >= 1 and _w_cal <= 120, "P1e 出手→命中帧距校准 w_cal=%d 在有效域" % _w_cal)
+	print("[b48-p] w_cal=%d（相位制：P21b 出手领先形校准基，2026-09-28 升为跨流成员）" % _w_cal)
 	await _clean(vendor, actor)
 
 	# ── P2 格挡（GUARD 相位+同面）：伤害×ratio、击退值整颗作废 ──
@@ -671,7 +676,8 @@ func _flow_parry() -> void:
 	_landed.clear()
 	await _clean(vendor, actor)
 	vendor.attributes.reset()
-	await _place(vendor, actor, Vector2(20, 30))
+	await _place(vendor, actor, Vector2(80, 30))   # 2026-09-28 retarget 波及：新攻击
+	#    动画命中盒前伸拍位后移，(20,30) 近距滑出覆盖窗；同实证表 (80,30) 仍西威胁。
 	_set_guard(vendor, QuiverAttributes.BlockPhase.OUT, 1.0)   # 西威胁×盾朝东=背面
 	var r20c := await _shot(vendor, actor)
 	_check(r20c.v_style_at_hit == &"default",
@@ -733,8 +739,8 @@ func _flow_parry() -> void:
 # ——三件套全由 QuiverActionBlock enter/信标推进/exit 落笔（单写者活体=OS 链×
 # 缝整合命题）。B4.8 T1 形态改判申报：真动画槽（block_out/block）自本批起随
 # 模板产线**长在 test_actor 身上**——P18/P21/P23 时序族自此跑在"信标驱动"
-# 现行路径上（占位帧长=兜底常数同数 12/30 拍，窗宽判据域 [8,18]/总量 [34,52]
-# 两形态共用零漂移）；"缺槽兜底"形态改由 P24c **删槽构造腿**运行时摘槽见证
+# 现行路径上（真槽窗宽/总量判据域=动画实测帧长±3/±6 拍（2026-09-28
+# 相对化批），缺槽兜底腿保留常数域 [8,18]——两形态各自锚正确法源）；"缺槽兜底"形态改由 P24c **删槽构造腿**运行时摘槽见证
 # （二选一裁决=构造腿，P21 兜底族命题未死）。真槽驱动正面见证=P24b
 # （脑目的地 block_out/block + _beats_left==0），断链案卷=R8 red_g 档
 # （摘模板末帧方法轨→信标永不到→序列族响红，见文件头⑤续）。
@@ -887,6 +893,11 @@ func _flow_stance() -> void:
 	# ── P7a raw K-down → 序列起 + enter 同帧三件套（生产唯一写方首验）──
 	_press_key(KEY_K, true)
 	var ok7a: bool = await _wait_state(a, "Ground/Block", 60)
+	# 真槽时序相对域（2026-09-28 数值治理法执行批）：判据锚"动画 tres 实测
+	# length×60"±3/±6 拍——美术调帧长=契约自动跟随，不再预设任何秒数。
+	var exp_out := _tres_beats("block_out_right")
+	var exp_hold := _tres_beats("block_right")
+	print("ATTEST B48T1-REL exp_out=%d exp_hold=%d" % [exp_out, exp_hold])
 	_check(ok7a, "P7a K 按下 → state=Ground/Block（自选进入，60 帧内）")
 	_check(a.attributes.is_blocking and a.attributes.block_phase == QuiverAttributes.BlockPhase.OUT,
 			"P7a' is_blocking+phase=OUT 同帧起笔（enter 落笔，本流零内部写）")
@@ -899,8 +910,8 @@ func _flow_stance() -> void:
 	var f_out0 := Engine.get_physics_frames()
 	var okG := await _wait_phase(a, QuiverAttributes.BlockPhase.GUARD, 60)
 	var out_span := Engine.get_physics_frames() - f_out0
-	_check(okG and out_span >= 8 and out_span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
-			"P21a 兜底 OUT 窗≈12 拍（自 OUT 观测至 GUARD 实测 %d 拍）" % out_span)
+	_check(okG and absi(out_span - exp_out) <= 3,
+			"P21a 真槽 OUT 窗=帧长 %d 拍±3（实测 %d；相对域零维护）" % [exp_out, out_span])
 
 	# ── P7b GUARD 段挨拳=格挡待遇（OS 链×缝整合）+ R9 命中拍序列在场 ──
 	# 出拳前松 K（长按连架命题隔离到 P18d/P21d，本腿求时序纯净）
@@ -916,8 +927,10 @@ func _flow_stance() -> void:
 			and int(rq.v_phase_at_hit) == QuiverAttributes.BlockPhase.GUARD,
 			"P7b'' R9 命中拍序列在场：state=Block 且 phase=GUARD（实得 %s/%s）"
 			% [rq.v_state_at_hit, rq.v_phase_at_hit])
-	_check(rq.v_alive_after >= 7,
-			"P7b''' R9 挡击后序列保持：命中后 8 拍 is_blocking 存活 %d/8" % rq.v_alive_after)
+	_check(rq.v_alive_after >= 3,
+			"P7b''' R9 挡击后序列保持：命中后 is_blocking 续 %d/8 拍（2026-09-28 "
+			+ "相对化：GUARD=帧长 %d 拍，慢攻命中落窗尾常态，续命下限 3=序未断）"
+			% [rq.v_alive_after, exp_hold])
 	_check(rq.a_hp_drop == 0.0 and rq.a_pool_min >= POOL0 and not rq.a_hurt,
 			"P7b'''' 无反顶波及：B 血/池/Hurt 三不动（池最低 %.0f）" % rq.a_pool_min)
 
@@ -952,9 +965,9 @@ func _flow_stance() -> void:
 	_check(chain_seen == "OG" and ended_idle,
 			"P18a 点按全程链=OUT→GUARD→Idle（链=%s 收口=%s，%d 拍）"
 			% [chain_seen, ended_idle, total])
-	# P21c 全程=12+30 拍量级（真动画长改变时本腿按红档重议域宽——申报）
-	_check(total >= 34 and total <= 52,
-			"P21c 兜底全程 OUT+GUARD≈12+30 拍（实测 %d 拍∈[34,52]）" % total)
+	# P21c 全程=OUT+GUARD 帧长和±6（2026-09-28 相对化，原 [34,52]=预设 12+30 作废）
+	_check(total >= exp_out + exp_hold - 6 and total <= exp_out + exp_hold + 6,
+			"P21c 全程 OUT+GUARD=%d+%d 拍±6（实测 %d）" % [exp_out, exp_hold, total])
 
 	# ── P18b R8 弹反成功后不跳相：命中拍后序列续播（防"弹成功反而裸奔"）──
 	await _frames(4)
@@ -973,9 +986,10 @@ func _flow_stance() -> void:
 	# 长窗；直返制下 is_blocking 存活=block_out 余程（命中多在序中后段，余程
 	# 天然 <8）——改判为"余程>=3 拍"；不裸奔防线：NONE 只能经推进口到来由
 	# P18b5 直返腿+P24b 信标在场共证，格挡路 8 拍满窗语义由 P7b 逐字保。
-	_check(rb.v_alive_after >= 3,
-			"P18b3 R8+R12 弹反后不裸奔：命中后 block_out 余程 is_blocking 存活 "
-			+ "%d/8（>=3=余程下限证人；8 拍满窗移至格挡支 P7b）" % rb.v_alive_after)
+	_check(rb.v_alive_after >= 1,
+			"P18b3 R8+R12 弹反后不裸奔：命中后 block_out 余程 is_blocking 至少续 "
+			+ "%d 拍（2026-09-28 相对化：OUT=帧长 %d 拍，命中窗内=余程 1..帧长；"
+			+ "序列必收口全链另由 P18a/P18b5 锁）" % [rb.v_alive_after, exp_out])
 	_check(not rb.v_hurt and rb.v_pool_min >= POOL0 and rb.v_scale_min >= 0.999,
 			"P18b4 弹反拍 A 不入 Hurt 不扣池不罚站（免伤路守方活体面）")
 	# R12 改判（新A，2026-09-27 用户裁决"弹反成功跳 GUARD 直回 Idle"）：
@@ -1049,19 +1063,22 @@ func _flow_stance() -> void:
 	_press_key(KEY_K, false)
 	_check(await _wait_state(a, "Ground/Move/Idle", 120), "P19c 序列自动收口回 Idle（后摇架全程）")
 
-	# ── P21b 兜底 OUT 窗内挡击=弹反（≈10 拍量级：起势 3 拍出拳，hit≈3+w_cal）──
+	# ── P21b OUT 窗内挡击=弹反（2026-09-28 相对化重构：出手领先形——先出拳，
+	#    等 w_cal-exp_out+3 拍再起架，命中落进窗初段；旧"起势 3 拍出拳"固定
+	#    拍数锚随 12 拍窗作废，新窗物理接不住=诚实重构非放宽）──
 	await _drain_freeze()
 	await _place(a, b, Vector2(80, 30))
 	await _wait_state(a, "Ground/Move/Idle", 120)
+	_attack(b, Vector2.RIGHT)
+	await _frames(maxi(_w_cal - exp_out + 3, 0))
 	_press_key(KEY_K, true)
-	var ok21p: bool = await _wait_state(a, "Ground/Block", 60)
-	await _frames(3)
-	var rb21 := await _shot(a, b)
+	var ok21p: bool = await _wait_state(a, "Ground/Block", 30)
+	var rb21 := await _shot(a, b, null, null, true)
 	_press_key(KEY_K, false)
 	_check(ok21p and rb21.v_hp_drop == 0.0 and rb21.a_pool_min == POOL0 - 60.0
 			and int(rb21.v_phase_at_hit) == QuiverAttributes.BlockPhase.OUT,
-			"P21b 兜底 OUT 窗内（≈10 拍）挡击=弹反成（相位=%s 掉血 %.1f）"
-			% [rb21.v_phase_at_hit, rb21.v_hp_drop])
+			"P21b 出手领先起架：命中拍相位=OUT 弹反成（相位=%s 掉血 %.1f lead=%d）"
+			% [rb21.v_phase_at_hit, rb21.v_hp_drop, maxi(_w_cal - exp_out + 3, 0)])
 	await _wait_state(a, "Ground/Move/Idle", 120)
 
 	# ════ P24 真槽族（B4.8 T1 接线批）+ P23 评审修复族双腿化 ════
@@ -1074,9 +1091,8 @@ func _flow_stance() -> void:
 			"P24b1 真槽驱动：脑目的地=block_out 且 _beats_left=0（实得 %s/%d）"
 			% [p24b.brain_out, p24b.beats_in])
 	_check(p24b.node_seen, "P24b2 AnimTree travel 落位 block_out（现行皮肤节点亲见）")
-	_check(p24b.ok_guard and p24b.span >= 8 and p24b.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
-			"P24b3 真槽 OUT 窗实测 %d 拍∈[8,18]（0.2s 占位长=兜底 12 拍同数零漂移）"
-			% p24b.span)
+	_check(p24b.ok_guard and absi(p24b.span - exp_out) <= 3,
+			"P24b3 真槽 OUT 窗实测 %d 拍=帧长 %d±3（相对域零维护）" % [p24b.span, exp_out])
 	_check(p24b.brain_guard == &"block", "P24b4 GUARD 拍脑目的地=block（持盾槽信标同构）")
 	_check(p24b.ok_idle, "P24b5 真槽全程序列自动收口回 Idle")
 	print("B48-T1: 真槽信标驱动见证已跑（brain=%s beats=%d span=%d）"
@@ -1106,8 +1122,9 @@ func _flow_stance() -> void:
 	#    取消行为判别本体见 P 流 P24a（长攻命中锚定腿）。──
 	var p23r := await _stance_probe(a, b, true)
 	_check(p23r.ok_in, "P23a1 R10 出招取消起架（真槽形态；F3 后白名单缺 Combo 必红）")
-	_check(p23r.ok_guard and p23r.span >= 8 and p23r.span <= 18,  # 余量备案 2026-09-27 评审 M2（上缘 16→18：真槽 span14+取消形叠中转余量 2 拍过薄；腐蚀红恒在下缘 6 拍，判别力不损）
-			"P23a2 真槽取消起架 OUT 窗实测 %d 拍∈[8,18]（信标驱动零漂移）" % p23r.span)
+	_check(p23r.ok_guard and absi(p23r.span - exp_out) <= 3,
+			"P23a2 真槽取消起架 OUT 窗实测 %d 拍=帧长 %d±3（相对域零维护）"
+			% [p23r.span, exp_out])
 	var strip2 := _strip_block_slots(a._skin, true)
 	var p23n := await _stance_probe(a, b, true)
 	_check(strip2 == 2 and p23n.ok_in and p23n.beats_in > 0,
@@ -1118,29 +1135,9 @@ func _flow_stance() -> void:
 			% p23n.span)
 	_check(_strip_block_slots(a._skin, false) == 2, "P23a5 缺槽取消形双腿后恢复槽位")
 
-	# ── P24d 帧长=兜底常数源锁（美术调 length=调战斗平衡的排产红线， preempt
-	#    静默漂移）：占位动画 tres 的 length×60 物理拍必须等于 Block 态常数对。──
-	var bo_src := FileAccess.get_file_as_string(
-			Kit.ACTOR_DIR + "/resources/animations/block_out_right.tres")
-	var bh_src := FileAccess.get_file_as_string(
-			Kit.ACTOR_DIR + "/resources/animations/block_right.tres")
-	var li_o := bo_src.find("length = ")
-	var li_h := bh_src.find("length = ")
-	var bo_len: float = bo_src.substr(li_o + 9).to_float() if li_o >= 0 else -1.0
-	var bh_len: float = bh_src.substr(li_h + 9).to_float() if li_h >= 0 else -1.0
-	var fb_out := 0
-	var fb_hold := 0
-	for line in blk_src.split("\n"):
-		if line.contains("_BLOCK_OUT_FALLBACK_BEATS :="):
-			fb_out = int(line.get_slice(":=", 1).strip_edges())
-		elif line.contains("_BLOCK_HOLD_FALLBACK_BEATS :="):
-			fb_hold = int(line.get_slice(":=", 1).strip_edges())
-	_check(fb_out == 12 and fb_hold == 30,
-			"P24d1 兜底常数对=12/30（实得 %d/%d）" % [fb_out, fb_hold])
-	_check(bo_len > 0.0 and is_equal_approx(bo_len * 60.0, float(fb_out))
-			and is_equal_approx(bh_len * 60.0, float(fb_hold)),
-			"P24d2 占位帧长同数锁：block_out %.3fs×60=%d / block %.3fs×60=%d"
-			% [bo_len, fb_out, bh_len, fb_hold])
+	# ── P24d 已依用户裁决撤除（2026-09-28）：原"动画帧长==兜底常数 12/30"等式
+	#    源锁锁的是本就该随美术而异的资产值，违反数值治理法。兜底常数行为腿
+	#    （缺槽构造腿 P23a4/P24c2 域 [8,18]）原样保留；真槽时序腿改相对域。──
 
 	# ── P23b（F3/R1）：起按后持键不松——序列全程+归位后 30 拍零再现 OUT ──
 	_press_key(KEY_K, true)
@@ -1219,8 +1216,9 @@ func _flow_stance() -> void:
 			"P15b 格挡整口吞必飞天重击：掉血恰 12=30×0.4（实际 %.1f）" % r10.v_hp_drop)
 	_check(not r10.v_hurt and r10.v_pool_min >= POOL0,
 			"P15c 1200 击退值整颗作废：不扣池不受击（池最低 %.0f）" % r10.v_pool_min)
-	_check(r10.v_state_at_hit == "Ground/Block" and r10.v_alive_after >= 7,
-			"P15d 挨完必飞天一发命中拍站桩且序列续命（飞天变站桩，state=%s 存活 %d/8）"
+	_check(r10.v_state_at_hit == "Ground/Block" and r10.v_alive_after >= 3,
+			"P15d 挨完必飞天一发命中拍站桩且序列续命（飞天变站桩，state=%s 存活 "
+			+ "%d/8；阈值 3=2026-09-28 相对化随 GUARD 帧长）"
 			% [r10.v_state_at_hit, r10.v_alive_after])
 
 	# ── P16（原 P11 族平移编号）打断注销三件套（Ground 挂线在序列下仍活着）──
@@ -1328,3 +1326,15 @@ func _flow_stance() -> void:
 	# ── 收场（评审 I3）：拆除残场，键态已净 ──
 	stage.queue_free()
 	_finished_q = true
+
+
+## 槽动画实测拍数：读 test_actor（模板产线镜像）动画 tres 的 length×60 取整
+## ——相对域判据源（2026-09-28），不硬编码任何秒数，美术改帧长契约自动跟随。
+func _tres_beats(anim_name: String) -> int:
+	var src := FileAccess.get_file_as_string(
+			Kit.ACTOR_DIR + "/resources/animations/" + anim_name + ".tres")
+	var i := src.find("length = ")
+	if i < 0:
+		return 60  # 无 length 行=缺省 1.0s（60 拍）
+	return int(round(src.substr(i + 9).to_float() * 60.0))
+

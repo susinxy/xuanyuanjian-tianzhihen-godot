@@ -112,7 +112,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667, 0.18888889),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [98.0, 102.0, 111.0, 121.0, 117.0, 114.0, 110.0, 66.0, 59.0]
+"values": [92.0, 94.0, 105.0, 115.0, 111.0, 108.0, 104.0, 60.0, 52.0]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -121,10 +121,10 @@ tracks/9/path = NodePath(".:physical_height")
 tracks/9/interp = 0
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.08888889, 0.11666667, 0.1388889),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [189.0, 199.0, 209.0, 213.0]
+"values": [186.0, 185.0, 186.0, 196.0, 206.0, 210.0]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
@@ -148,7 +148,7 @@ tracks/11/keys = {
 "times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667, 0.18888889),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [42.5349, 50.119244, 49.00782, 49.950638, 50.154655, 38.964478, 35.93724, 31.393677, 27.653069]
+"values": [36.41561, 41.588943, 42.107307, 45.288864, 43.225224, 39.318996, 31.520012, 27.935581, 23.584564]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -157,10 +157,10 @@ tracks/12/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:shape:height")
 tracks/12/interp = 0
 tracks/12/loop_wrap = true
 tracks/12/keys = {
-"times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667, 0.18888889),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [123.80984, 116.40442, 126.12741, 130.53256, 100.995056, 134.0776, 138.63745, 138.39264]
+"values": [118.36128, 91.51947, 95.05706, 92.581604, 95.27726, 109.16542, 132.4411, 130.22934, 131.09576]
 }
 tracks/13/type = "value"
 tracks/13/imported = false
@@ -172,7 +172,7 @@ tracks/13/keys = {
 "times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667, 0.18888889),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(3.0786915, 22.577261), Vector2(-6.7832956, 12.615045), Vector2(-8.690934, 13.634456), Vector2(-10.692659, 14.357798), Vector2(6.5420885, 9.314221), Vector2(-11.847648, 0.8605858), Vector2(-13.92262, -0.3785624), Vector2(-9.392896, 0.015052527), Vector2(-5.6567736, 0.19819579)]
+"values": [Vector2(3.5326052, 21.657688), Vector2(8.650051, 7.2183156), Vector2(8.535825, 13.016316), Vector2(7.986561, 8.07659), Vector2(7.409495, 7.5398607), Vector2(3.8744135, 3.8242233), Vector2(-12.9479265, -0.4113091), Vector2(-8.467381, -1.2029992), Vector2(-4.102459, -0.37295082)]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
@@ -181,10 +181,10 @@ tracks/14/path = NodePath("AnimatedSprite2D/HurtBox/HurtShape:rotation")
 tracks/14/interp = 0
 tracks/14/loop_wrap = true
 tracks/14/keys = {
-"times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.016666668, 0.03888889, 0.06666667, 0.08888889, 0.11666667, 0.1388889, 0.16666667, 0.18888889),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0.7762240987993846, 0.02438540880938355, 0.20632389504728368, 0.35204431774087097, -2.2752903910371143, 3.2446742605791767, 3.1905730559726666]
+"values": [0.8152400329739007, -2.385888737307263, -2.1737790951819393, -0.6117269752520094, 0.857438254786871, 0.6016536605277036, 3.1986734361023212, 3.2296000288638274, 3.2322525441632575]
 }
 tracks/15/type = "value"
 tracks/15/imported = false

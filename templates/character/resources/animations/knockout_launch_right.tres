@@ -160,7 +160,7 @@ tracks/12/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [54.0]
+"values": [48.0]
 }
 tracks/13/type = "value"
 tracks/13/imported = false
@@ -172,7 +172,7 @@ tracks/13/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [212.0]
+"values": [209.0]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
@@ -196,7 +196,7 @@ tracks/15/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [26.308144]
+"values": [22.932901]
 }
 tracks/16/type = "value"
 tracks/16/imported = false
@@ -208,7 +208,7 @@ tracks/16/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [135.20622]
+"values": [126.738106]
 }
 tracks/17/type = "value"
 tracks/17/imported = false
@@ -220,7 +220,7 @@ tracks/17/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-0.22712627, 0.5888078)]
+"values": [Vector2(0.72696245, -0.057644427)]
 }
 tracks/18/type = "value"
 tracks/18/imported = false
@@ -232,5 +232,5 @@ tracks/18/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [3.211247229219702]
+"values": [0.10427161606353286]
 }

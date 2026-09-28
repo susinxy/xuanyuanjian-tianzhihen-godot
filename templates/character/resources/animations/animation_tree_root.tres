@@ -92,6 +92,34 @@ blend_point_3/node = SubResource("anim_attack3_down")
 blend_point_3/pos = Vector2(0, 1)
 blend_point_3/name = &"3"
 
+[sub_resource type="AnimationNodeAnimation" id="anim_block_right"]
+animation = &"__CLASS__/block_right"
+
+[sub_resource type="AnimationNodeAnimation" id="anim_block_left"]
+animation = &"__CLASS__/block_left"
+
+[sub_resource type="AnimationNodeBlendSpace1D" id="blend_block"]
+blend_point_0/node = SubResource("anim_block_right")
+blend_point_0/pos = 0.1
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("anim_block_left")
+blend_point_1/pos = -0.1
+blend_point_1/name = &"1"
+
+[sub_resource type="AnimationNodeAnimation" id="anim_block_out_right"]
+animation = &"__CLASS__/block_out_right"
+
+[sub_resource type="AnimationNodeAnimation" id="anim_block_out_left"]
+animation = &"__CLASS__/block_out_left"
+
+[sub_resource type="AnimationNodeBlendSpace1D" id="blend_block_out"]
+blend_point_0/node = SubResource("anim_block_out_right")
+blend_point_0/pos = 0.1
+blend_point_0/name = &"0"
+blend_point_1/node = SubResource("anim_block_out_left")
+blend_point_1/pos = -0.1
+blend_point_1/name = &"1"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_2cuw7"]
 animation = &"__CLASS__/die_right"
 
@@ -563,34 +591,6 @@ blend_point_7/name = &"7"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="Trans_atk2_idle"]
 
-[sub_resource type="AnimationNodeAnimation" id="anim_block_out_right"]
-animation = &"__CLASS__/block_out_right"
-
-[sub_resource type="AnimationNodeAnimation" id="anim_block_out_left"]
-animation = &"__CLASS__/block_out_left"
-
-[sub_resource type="AnimationNodeBlendSpace1D" id="blend_block_out"]
-blend_point_0/node = SubResource("anim_block_out_right")
-blend_point_0/pos = 0.1
-blend_point_0/name = &"0"
-blend_point_1/node = SubResource("anim_block_out_left")
-blend_point_1/pos = -0.1
-blend_point_1/name = &"1"
-
-[sub_resource type="AnimationNodeAnimation" id="anim_block_right"]
-animation = &"__CLASS__/block_right"
-
-[sub_resource type="AnimationNodeAnimation" id="anim_block_left"]
-animation = &"__CLASS__/block_left"
-
-[sub_resource type="AnimationNodeBlendSpace1D" id="blend_block"]
-blend_point_0/node = SubResource("anim_block_right")
-blend_point_0/pos = 0.1
-blend_point_0/name = &"0"
-blend_point_1/node = SubResource("anim_block_left")
-blend_point_1/pos = -0.1
-blend_point_1/name = &"1"
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="trans_idle_block_out"]
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="trans_blockout_block"]
@@ -609,6 +609,10 @@ states/attack2/node = SubResource("blend_attack2")
 states/attack2/position = Vector2(338.23, 471.811)
 states/attack3/node = SubResource("blend_attack3")
 states/attack3/position = Vector2(654.23, 352.811)
+states/block/node = SubResource("blend_block")
+states/block/position = Vector2(286.23, 260)
+states/block_out/node = SubResource("blend_block_out")
+states/block_out/position = Vector2(286.23, 400)
 states/die/node = SubResource("AnimationNodeBlendSpace1D_vwtxw")
 states/die/position = Vector2(735.23, -39.189)
 states/falling/node = SubResource("AnimationNodeBlendSpace1D_0f5u6")
@@ -619,10 +623,6 @@ states/hurt_mid/node = SubResource("AnimationNodeBlendSpace1D_klb4a")
 states/hurt_mid/position = Vector2(-80.77, 291.811)
 states/idle/node = SubResource("blend_idle")
 states/idle/position = Vector2(286.23, 104)
-states/block/node = SubResource("blend_block")
-states/block/position = Vector2(286.23, 260)
-states/block_out/node = SubResource("blend_block_out")
-states/block_out/position = Vector2(286.23, 400)
 states/jump/node = SubResource("AnimationNodeBlendSpace1D_j64u3")
 states/jump/position = Vector2(182.23, -48.189)
 states/knockout_bounce/node = SubResource("AnimationNodeBlendSpace1D_37dkv")
@@ -653,6 +653,7 @@ graph_offset = Vector2(-309.851, -251.19559)
 [sub_resource type="AnimationNodeTimeScale" id="AnimationNodeTimeScale_t24i1"]
 
 [resource]
+graph_offset = Vector2(0, -292)
 nodes/output/position = Vector2(340, 180)
 nodes/state_machine/node = SubResource("AnimationNodeStateMachine_pamj0")
 nodes/state_machine/position = Vector2(-120, 140)

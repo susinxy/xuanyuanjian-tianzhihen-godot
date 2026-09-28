@@ -98,7 +98,7 @@ tracks/7/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [108.0, 109.0, 113.0]
+"values": [101.0, 98.0, 104.0]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
@@ -110,7 +110,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1, 0.175),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [256.0, 225.0, 219.0, 214.0]
+"values": [253.0, 222.0, 216.0, 211.0]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -134,7 +134,7 @@ tracks/10/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1, 0.175),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [41.365097, 47.122726, 47.663635, 47.022606]
+"values": [36.02216, 42.53988, 43.275864, 42.813744]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
@@ -146,7 +146,7 @@ tracks/11/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1, 0.175),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [117.56788, 99.16678, 113.170555, 116.67263]
+"values": [106.408066, 89.94811, 99.31034, 101.68264]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -158,7 +158,7 @@ tracks/12/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1, 0.175),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(4.1841373, -47.752068), Vector2(10.110856, -24.860802), Vector2(7.326968, -22.998524), Vector2(9.499998, -18.000004)]
+"values": [Vector2(6.916378, -47.936275), Vector2(9.644175, -26.683569), Vector2(8.6111765, -26.058262), Vector2(9.403315, -20.662983)]
 }
 tracks/13/type = "value"
 tracks/13/imported = false
@@ -170,7 +170,7 @@ tracks/13/keys = {
 "times": PackedFloat32Array(0, 0.0375, 0.1, 0.175),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [0.7503248350811139, -2.4487131139078637, -0.8161576953008747, -0.7853981633974483]
+"values": [0.7706933571328255, -2.4203266044220295, -0.7610127829993862, -0.7328151283687769]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
