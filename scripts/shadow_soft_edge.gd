@@ -1,8 +1,7 @@
 extends Node
 
-## 共享阴影柔边合成器（方案 A）。**默认开启（2026-09-28 用户定调宪法：游戏运行
-## 后默认开软边，不要关闭）**——运行期不设键盘关闭路径（原 soft_edge_toggle 随手
-## 按出"关"态与宪法冲突，退役；程序性 API set_enabled 保留供调试/契约）。
+## 共享阴影柔边合成器（方案 A）。**默认开启（2026-09-28 用户定调：游戏运行后
+## 柔边默认开）**；`soft_edge_toggle` 键切换保留（调试对比用途，用户明确保留）。
 ## 开启时：各 character_shadow_controller 把投影多边形塞进 shadow_world(独立 World2D)，
 ## 经 subShadow → H 模糊两级离屏，再由一张主世界 Sprite2D(z=composite_z) 的材质做末趟 V 模糊合成回场景，
 ## 从而把"每角色硬边多边形"变成"一帧共享的柔和影层"。缓冲成本≈两趟全屏模糊，与角色数基本无关。
@@ -159,6 +158,9 @@ func _apply_params() -> void:
 		m.set_shader_parameter("radius", radius)
 
 func _process(_delta: float) -> void:
+	if Input.is_action_just_pressed("soft_edge_toggle"):
+		set_enabled(not enabled)
+		print("[ShadowSoftEdge] enabled=", enabled)
 	var vs := get_viewport().get_visible_rect().size
 	_full = Vector2i(int(vs.x), int(vs.y))
 	var cam := get_viewport().get_camera_2d()
