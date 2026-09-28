@@ -1,0 +1,116 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="2_spar"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="3_room"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="4_det"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="5_sp"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="6_sd"]
+
+[sub_resource type="RectangleShape2D" id="Rect_ground"]
+size = Vector2(2100, 200)
+
+[sub_resource type="RectangleShape2D" id="Rect_wall"]
+size = Vector2(40, 2600)
+
+[sub_resource type="Resource" id="SD_w1"]
+script = ExtResource("6_sd")
+enemy_scene = ExtResource("2_spar")
+spawn_mode = 1
+use_spawner_position = true
+
+[sub_resource type="SegmentShape2D" id="Seg_room1"]
+a = Vector2(0, -400)
+b = Vector2(0, 700)
+
+[node name="StageSegment" type="Node2D"]
+script = ExtResource("1_sc")
+metadata/_装配须知 = "本文件=壳轨段施工样板（S2-B4.8 后基建批立形，法源 STAGE_ASSEMBLY 0.2b+0.3）。用法=复制本文件到 scenes/stages/<章包>/ 改名 → ①必改根导出 segment_id（章内唯一）②几何/房/波次按需改③摆进壳的 Segments 下并追加进壳根 segment_scenes。红线：段内禁放任何壳件（玩家/相机/HUD/CanvasModulate）；入口 entry_points.default 必须放第一检测线西侧前场区（脚本默认 (500,600) 即合范本房）；地/墙配方 collision_layer=16760832+mask=0；检测器三掩码配方 layer=0/mask=16760832/monitorable=false；生成器 path_spawn_parent=../../../../Players（段挂壳 Segments 下恒 4 级）；改完必过 tools/stage_validator + headless 冒烟 + F5 三件套。过场/占位段：删三件套留几何+auto_complete=true。"
+
+[node name="GroundBody" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="GroundBody"]
+position = Vector2(950, 700)
+shape = SubResource("Rect_ground")
+
+[node name="WallL" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="WallL"]
+position = Vector2(-80, 500)
+shape = SubResource("Rect_wall")
+
+[node name="WallR" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="WallR"]
+position = Vector2(1980, 500)
+shape = SubResource("Rect_wall")
+
+[node name="Room1" type="ReferenceRect" parent="."]
+offset_left = 380.0
+offset_top = -280.0
+offset_right = 1500.0
+offset_bottom = 1200.0
+script = ExtResource("3_room")
+limit_left = 380
+limit_top = -280
+limit_right = 1500
+limit_bottom = 1200
+zoom = 2.2857144
+after_fight_use_new_room = true
+after_fight_limit_left = 380
+after_fight_limit_top = -280
+after_fight_limit_right = 1900
+after_fight_limit_bottom = 1200
+after_fight_zoom = 1.0
+after_fight_transition_duration = 0.8
+
+[node name="EnemySpawner1" type="Marker2D" parent="Room1"]
+position = Vector2(620, 880)
+script = ExtResource("5_sp")
+path_spawn_parent = NodePath("../../../../Players")
+spawn_waves = [[SubResource("SD_w1")]]
+
+[node name="PlayerDetector" type="Area2D" parent="Room1"]
+position = Vector2(240, 400)
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("4_det")
+path_fight_room = NodePath("..")
+paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
+
+[node name="Shape" type="CollisionShape2D" parent="Room1/PlayerDetector"]
+shape = SubResource("Seg_room1")
+
+[node name="VisFloor" type="Polygon2D" parent="."]
+metadata/vis_skin_note = "视觉皮肤（B2-T3 惯例）：Vis* 全为纯装饰（色块地面/墙柱/触发线带/段名牌），供人眼感知布局，勿挂逻辑，投产可整组删除"
+z_index = -10
+color = Color(0.55, 0.43, 0.25, 1)
+polygon = PackedVector2Array(-100, 600, 2000, 600, 2000, 800, -100, 800)
+
+[node name="VisWallL" type="Polygon2D" parent="."]
+z_index = -10
+color = Color(0.25, 0.22, 0.2, 1)
+polygon = PackedVector2Array(340, -800, 380, -800, 380, 1800, 340, 1800)
+
+[node name="VisWallR" type="Polygon2D" parent="."]
+z_index = -10
+color = Color(0.25, 0.22, 0.2, 1)
+polygon = PackedVector2Array(1900, -800, 1940, -800, 1940, 1800, 1900, 1800)
+
+[node name="VisTriggerLine" type="Polygon2D" parent="."]
+z_index = -5
+color = Color(0.2, 1, 0.35, 0.55)
+polygon = PackedVector2Array(612, -400, 628, -400, 628, 1100, 612, 1100)
+
+[node name="VisSign" type="Label" parent="."]
+position = Vector2(1050, -140)
+scale = Vector2(7, 7)
+text = "SEG TEMPLATE —— 复制我改件，填 segment_id"
+horizontal_alignment = 1

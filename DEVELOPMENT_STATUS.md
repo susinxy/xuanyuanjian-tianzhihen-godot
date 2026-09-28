@@ -438,6 +438,13 @@
     （初版误按"不要关闭"退役了按键，用户当日纠正：只改默认态，按键留作调试对比）。
     契约锁=stage_contract **LC8**（默认值断言，红据：临时改回 false 即响亮红），
     EXPECTED 141→**142**。
+  - **段施工样板立形（2026-09-828 同日小批，用户提问引出的基建缺口）**：
+    `scenes/chapter/segment_template.tscn`——壳轨 StageContent 满配战斗段法定样板
+    （几何三墙配方+房三件套含 spar_enemy 一波+Vis 皮肤；红线清单=根节点
+    `_装配须知` metadata 自教学；zoom 系 FightRoom float 导出，与 Camera2D.zoom
+    同名不同物勿"修"成 Vector2）。法典 0.2b 建文件条加指针；load/instantiate
+    探针 PASS，validator 违例 0。此前段形制只有契约 fixtures 事实先例可抄，
+    现内容侧"复制改件"有了正式起点。
     hit_feedback 62 判据零动零涉复证（R12 波涟漪自查+knockout 同绿）；矩阵
     25 套=26 跑计数不变。**R8 红据七档**：T0 a/b/c/d + 评审波 e/f/c2 +
     T1 **red_g 断链案卷**（摘模板方法轨→OUT 永冻 29 腿级联红→还原绿；

@@ -53,6 +53,9 @@
 **新章节一律 ChapterShell 轨**（多段串场+段级检查点+会话状态包），双轨零互扰。
 
 - **建文件**：新建场景→实例化 `scenes/chapter/chapter_shell.tscn` 为根→另存。
+  **段内容件有法定施工样板**：`scenes/chapter/segment_template.tscn`（2026-09-28
+  基建批；复制→改名→填 `segment_id` 即得"几何+房三件套+Vis 皮肤"满配战斗段，
+  红线清单钉在根节点 `_装配须知` metadata 里；过场段=删三件套+`auto_complete=true`）；
   壳模板自带 Players/Chen+相机+HUD/暂停/终点面板+Ambient——**0.2 第 2/3 件在壳轨
   由模板免费提供**，段内容件里禁再放任何壳件与 CanvasModulate（光照复位责任在壳）；
 - **壳根两导出**：`chapter_id`（StringName 非空，R2 壳形态主键；检查点按它注册）+
