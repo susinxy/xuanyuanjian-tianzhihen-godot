@@ -38,6 +38,3 @@ test_scenes/
 
 # Godot 编辑器原子写残留
 *.tmp
-
-# Syncthing 本机忽略配置（非工程资产）
-.stignore
