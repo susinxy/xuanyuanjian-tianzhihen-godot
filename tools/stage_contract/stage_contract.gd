@@ -29,7 +29,7 @@ const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
 ## B4.5-T2：A7 读档入口腿 +9（128→137；A4 改判不增不减）。
 ## B4.5-T4：A7d 合取强化（+0，弹窗相"账未清"文案兑现为判据）+A7j/k 空场景
 ## 旗滞留支 +2（137→139；传渡旗消费/滞留合同标题端，壳端=spell 套 P6）。
-const EXPECTED_ASSERTS := 141
+const EXPECTED_ASSERTS := 142
 
 var _fails := 0
 var _finished := false
@@ -594,6 +594,8 @@ func _flow_c() -> void:
 	_check(ShadowSoftEdge.derived_z_for(probe) == ShadowSoftEdge.composite_z,
 			"LC6 非 BaseStage 根回退手动态（Run-Test 场景 -1 现状零扰动）")
 	probe.free()
+	_check(ShadowSoftEdge.enabled,
+			"LC8 软边默认开宪法（2026-09-28 用户定调：运行即开，不设关闭路径）")
 	_check(get_tree().get_nodes_in_group(&"shadow_region").is_empty(),
 			"LC7 ref_a 空数据负例零区域（不挂=全屏阴影回退为合法装配态）")
 
