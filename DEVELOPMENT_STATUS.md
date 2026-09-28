@@ -434,10 +434,10 @@
     80；余两腿=P24d 净减。GUIDE §2.4/参数表现值随动，spec 勘误节，README 补
     block 族 flip 例外）；
   - **软边默认开宪法（2026-09-28 用户定调小批）**：`ShadowSoftEdge.enabled` 导出
-    默认 false→**true**（游戏运行即开柔和阴影）；运行期键盘关闭路径退役
-    （`soft_edge_toggle` 按键消费代码删除，与"不要关闭"冲突；action 定义留在
-    project.godot 无害，程序 API `set_enabled` 保留供调试）。契约锁=stage_contract
-    **LC8**（默认值断言，红据：临时改回 false 即响亮红），EXPECTED 141→**142**。
+    默认 false→**true**（游戏运行即开柔和阴影）。`soft_edge_toggle` 键切换**保留**
+    （初版误按"不要关闭"退役了按键，用户当日纠正：只改默认态，按键留作调试对比）。
+    契约锁=stage_contract **LC8**（默认值断言，红据：临时改回 false 即响亮红），
+    EXPECTED 141→**142**。
     hit_feedback 62 判据零动零涉复证（R12 波涟漪自查+knockout 同绿）；矩阵
     25 套=26 跑计数不变。**R8 红据七档**：T0 a/b/c/d + 评审波 e/f/c2 +
     T1 **red_g 断链案卷**（摘模板方法轨→OUT 永冻 29 腿级联红→还原绿；
