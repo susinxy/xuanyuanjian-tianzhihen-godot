@@ -445,11 +445,17 @@
     同名不同物勿"修"成 Vector2）。法典 0.2b 建文件条加指针；load/instantiate
     探针 PASS，validator 违例 0。此前段形制只有契约 fixtures 事实先例可抄，
     现内容侧"复制改件"有了正式起点。
+  - **手册专区立区（2026-09-28 用户裁决"操作指导与案卷分层"）**：新目录
+    `docs/guides/`=直接交给内容贡献者的实操说明书族（GUIDE_<域>.md），首批三件：
+    **GUIDE_关卡搭建**（壳段双轨 step-by-step+任务配方卡+零件库+病表，主交付）、
+    GUIDE_格挡（迁区）、GUIDE_光照（原 LIGHTING_SETUP_GUIDE 迁区改名统一族形）；
+    维护规则入 guides/README（手册只写操作、条款指针回法典防漂移）。活文档互链
+    同批改向（AGENTS 铁律/法典 0.2#6/STATUS 在册/roadmap），历史 PLAN 案卷保留旧名。
     hit_feedback 62 判据零动零涉复证（R12 波涟漪自查+knockout 同绿）；矩阵
     25 套=26 跑计数不变。**R8 红据七档**：T0 a/b/c/d + 评审波 e/f/c2 +
     T1 **red_g 断链案卷**（摘模板方法轨→OUT 永冻 29 腿级联红→还原绿；
     级联红=断链存在性证明非定位地图）。**GUIDE_格挡**
-    （`docs/GUIDE_格挡.md`）=**M3 可生产性铁律首份样板**：动画时长=平衡排产
+    （`docs/guides/GUIDE_格挡.md`）=**M3 可生产性铁律首份样板**：动画时长=平衡排产
     纪律、left 目录双面陷阱、方法轨=生命线、缺槽兜底语义、参数表全唯一出处、
     验收句逐项对账 §5。**批末全矩阵终核 26 跑 RED=0**（快照
     `/tmp/opencode/b48_t2/matrix_final.log`）。**待 F5 六眼**（合并单，

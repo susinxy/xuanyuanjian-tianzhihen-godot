@@ -43,7 +43,7 @@
 6. **【可选】光照两件套**：`Ambient/DayNightController.scene_time_data` 挂时间数据
    （起步件 `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天；
    demo 档 `day_cycle_demo.tres`=60 秒快循环）；性能需要时在地点根摆 `ShadowRegion`
-   框（禁重叠，实配参考=ref_b）——细则见 LIGHTING_SETUP_GUIDE；
+   框（禁重叠，实配参考=ref_b）——细则见 docs/guides/GUIDE_光照.md；
 7. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
    改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
 
