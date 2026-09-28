@@ -47,5 +47,19 @@ func _init() -> void:
 			if not found:
 				print("  FAIL: %s 缺信号 %s" % [p.get_file(), sig])
 				fails += 1
+	# 注册表守卫（2026-09-27 max hub 事故补网）：编辑器长会话回写曾三次吞掉
+	# 外部登记的 [autoload]/[input] 条目（本次连 GameSave/SaveSystem/HitFx 与
+	# hit_fx_toggle 一起被吞，另一台机 F5 直接 "GameSave not declared"）——
+	# Linux 端矩阵看不见 Windows 的 project.godot 吞改，但被吞版本终会同步回来；
+	# 本锁让"注册表完整性"每轮矩阵必检，吞改回流当场响亮红。
+	var proj := FileAccess.get_file_as_string("res://project.godot")
+	for autoload in ["GameEvents", "GameSave", "SaveSystem", "HitFx"]:
+		if not proj.contains('\n%s="' % autoload):
+			print("  FAIL: project.godot [autoload] 缺 %s（疑似编辑器回写吞改，git restore project.godot）" % autoload)
+			fails += 1
+	for action in ["block", "hit_fx_toggle", "shadow_region_toggle"]:
+		if not proj.contains("\n%s={" % action):
+			print("  FAIL: project.godot [input] 缺动作 %s（同上吞改处方）" % action)
+			fails += 1
 	print("════════ editor-scripts: %d 脚本 / %d FAIL ════════" % [TOOL_SCRIPTS.size(), fails])
 	quit(0 if fails == 0 else 1)
