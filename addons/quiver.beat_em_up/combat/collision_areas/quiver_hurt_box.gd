@@ -240,9 +240,6 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 			# 玩家全程可动=奖励窗口成立；白闪双档与顶退派发照旧。
 			# attacker 恒 null 的弹体形制跳定格、仅保留其余反馈（防御性兜底：
 			# 弹体被弹反=无罚站，近战收集链见 QuiverHitBox.attacker 注释）。
-			print("[HITFEEL] 弹反成立 attacker=%s 罚站=%d拍（attacker=null 的弹体形制仅免伤无罚站）"
-					% [hit_box.attacker.name if hit_box.attacker != null else "<弹体>",
-					defender_attrs.parry_stun_frames])
 			if hit_box.attacker != null:
 				HitFreeze.apply_character_slow(
 						hit_box.attacker, 0.0,
@@ -302,9 +299,6 @@ func _handle_hit_box(hit_box: QuiverHitBox) -> void:
 		# 形制同 _flash_shader 判例：脚本热重载丢 static 后下次再响可接受）。
 		# 逐角色值读攻击方自己的数值域（hit_slow_factor / hit_slow_anim_pct，
 		# B4.7 spec §2.3）。
-		print("[HITFEEL] 近战命中 attacker=%s factor=%.2f pct=%.2f"
-				% [hit_box.attacker.name if hit_box.attacker != null else "<弹体>",
-				atk_attrs.hit_slow_factor, atk_attrs.hit_slow_anim_pct])
 		if hit_box.attacker != null:
 			var anim_ms := hit_box.attacker.attack_anim_length_ms()
 			if anim_ms < 0.0:

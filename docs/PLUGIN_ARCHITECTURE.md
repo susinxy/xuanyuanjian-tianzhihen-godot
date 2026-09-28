@@ -2528,8 +2528,9 @@ defender.parry_stun_frames × 1000 / 物理帧率)`（quiver_hurt_box.gd）：
     闪光 flash_scale 1.35 gravity(0,420) lifetime 0.2）；两张均 chunk_amount 0
     （防路不迸碎块——金属相击/闷挡无碎片语义）。防路两支不经 `attack_data`
     路由，由 HurtBox 直接以 `&"parry"/&"block"` 为 style 发 emit。
-- **诊断打印（2026-09-27 用户裁）**：肉眼不可辨的时间通道以 `[HITFEEL]`
-  print 兜底验证——`HitFreeze.apply_character_slow/_run_slow`（开始/恢复/
+- **诊断打印（2026-09-27 用户裁→2026-09-28 验收后退役）**：F5 期时间通道曾以
+  `[HITFEEL]` print 兜底验证，验收关账后高频战斗打印（时间控制/命中/弹反/序列/
+  特效出生与拦截）已全部清除，仅存 V 键开关播报一条（低频调试反馈）——`HitFreeze.apply_character_slow/_run_slow`（开始/恢复/
   让位三拍）、HurtBox 近战命中与弹反成立两支（attacker/档值/罚站帧数）、
   `HitFx.toggle/_on_hit_landed`（开关翻转/出生/拦截）。F5 流程=用户复制
   输出面板 `[HITFEEL]` 行回传，机器面 controller 判卷，主观面用户口述。

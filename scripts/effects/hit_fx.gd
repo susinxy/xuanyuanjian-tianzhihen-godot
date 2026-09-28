@@ -62,7 +62,6 @@ func toggle() -> void:
 
 func _on_hit_landed(point: Vector2, style: StringName, _strength: float, dir: Vector2) -> void:
 	if not enabled:
-		print("[HITFEEL] 特效被开关拦截 style=%s pos=%s" % [style, point])
 		return
 	var preset: HitSparkPreset = PRESETS.get(style, PRESETS[&"default"])
 	var fx := SPARK_SCRIPT.new()  # Variant 动态调用（宿主脚本无 class_name 判例）
@@ -74,7 +73,6 @@ func _on_hit_landed(point: Vector2, style: StringName, _strength: float, dir: Ve
 	if host == null:
 		host = get_tree().root
 	host.add_child(fx)
-	print("[HITFEEL] 特效出生 style=%s pos=%s dir=%s host=%s" % [style, point, dir, host.name])
 
 
 ## 调试坞状态行（开关状态不许失踪，spec §3.5）
