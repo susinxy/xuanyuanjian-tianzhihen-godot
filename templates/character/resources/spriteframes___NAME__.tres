@@ -1826,7 +1826,7 @@ animations = [{
 }],
 "loop": 0,
 "name": &"jump_left",
-"speed": 24.0
+"speed": 60.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -1849,7 +1849,7 @@ animations = [{
 }],
 "loop": 0,
 "name": &"jump_right",
-"speed": 24.0
+"speed": 60.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -1973,7 +1973,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"landing_left",
-"speed": 24.0
+"speed": 45.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -2005,7 +2005,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"landing_right",
-"speed": 24.0
+"speed": 45.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -2435,7 +2435,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"spell_start",
-"speed": 5.0
+"speed": 51.0
 }, {
 "frames": [{
 "duration": 1.0,
