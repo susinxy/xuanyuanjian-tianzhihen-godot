@@ -1,15 +1,24 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3 expect="none"]]
 
 [ext_resource type="Script" path="res://scripts/chapter/chapter_shell.gd" id="1_shell"]
 [ext_resource type="PackedScene" path="res://ui/game_hud.tscn" id="4_hud"]
 [ext_resource type="PackedScene" path="res://ui/menus/pause_menu.tscn" id="5_pause"]
 [ext_resource type="PackedScene" path="res://ui/menus/death_screen.tscn" id="6_death"]
+[ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="9_ovr"]
 
 [node name="ChapterShell" type="Node2D"]
 script = ExtResource("1_shell")
+chapter_id = &"r14_probe"
+playable_override = ExtResource("9_ovr")
 
 [node name="Players" type="Node2D" parent="."]
 metadata/_主角放这里 = "空场地基（5a）：主角三来源之一——把玩家档角色 .tscn 拖进本容器（须带 area2d:player 组），或设壳根 playable_override 槽（推荐正门）。相机由壳自动补挂，无需手摆。"
+
+position = Vector2(500, 600)
+
+limit_top = -280
+limit_right = 2000
+limit_bottom = 1200
 
 [node name="HudLayer" type="CanvasLayer" parent="."]
 layer = 2

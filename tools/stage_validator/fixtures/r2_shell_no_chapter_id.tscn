@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 expect="R2"]
+[gd_scene load_steps=10 format=3 expect="R2"]
 
 [ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
 [ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="2_sc"]
@@ -7,12 +7,14 @@
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="5_det"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="6_sd"]
 [ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="7_enemy"]
+[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="99_plr"]
 
 [sub_resource type="Resource" id="wave0"]
 script = ExtResource("6_sd")
 enemy_scene = ExtResource("7_enemy")
 
 [node name="ShellNoId" instance=ExtResource("1_shell")]
+[node name="Chen" parent="Players" instance=ExtResource("99_plr")]
 
 [node name="SegA" type="Node2D" parent="Segments"]
 script = ExtResource("2_sc")

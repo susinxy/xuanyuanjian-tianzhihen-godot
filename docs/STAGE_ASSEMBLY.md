@@ -59,8 +59,15 @@
   **段内容件有法定施工样板**：`scenes/chapter/segment_template.tscn`（2026-09-28
   基建批；复制→改名→填 `segment_id` 即得"几何+房三件套+Vis 皮肤"满配战斗段，
   红线清单钉在根节点 `_装配须知` metadata 里；过场段=删三件套+`auto_complete=true`）；
-  壳模板自带 Players/Chen+相机+HUD/暂停/终点面板+Ambient——**0.2 第 2/3 件在壳轨
-  由模板免费提供**，段内容件里禁再放任何壳件与 CanvasModulate（光照复位责任在壳）；
+  壳模板自带 HUD/暂停/终点面板+Ambient——**0.2 第 2 件（根导出）由壳轨模板
+  提供**；**5a 壳清空批（2026-09-28）：壳不再内嵌主角与相机**——0.2 第 3 件
+  换为"放主角"（三来源其一）：①壳根 `playable_override` 拖玩家档角色 .tscn
+  （推荐正门，出生即注入 Players 槽）②实例直接摆进 `Players/`（带
+  area2d:player 组）③`playable_path` 显式指路（多角色歧义裁决槽）。
+  空场/歧义=运行时 chapter_error 红+validator R14 静态拦；跟随相机由壳
+  `camera_host_path`（空=跟主角）+自动补挂供给，`set_camera_host()` 可运行时
+  改挂（相机=壳的服务，不专属主角）。段内容件里禁再放任何壳件与
+  CanvasModulate（光照复位责任在壳）；
 - **壳根两导出**：`chapter_id`（StringName 非空，R2 壳形态主键；检查点按它注册）+
   `segment_scenes`（Array[PackedScene]，顺序=推进序，重复 id/坏段运行时报 chapter_error）；
 - **段内容件（StageContent 根，`scripts/chapter/stage_content.gd`）**字段卡：

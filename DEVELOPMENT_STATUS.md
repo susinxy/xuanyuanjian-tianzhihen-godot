@@ -451,6 +451,23 @@
     GUIDE_格挡（迁区）、GUIDE_光照（原 LIGHTING_SETUP_GUIDE 迁区改名统一族形）；
     维护规则入 guides/README（手册只写操作、条款指针回法典防漂移）。活文档互链
     同批改向（AGENTS 铁律/法典 0.2#6/STATUS 在册/roadmap），历史 PLAN 案卷保留旧名。
+  - **5a 壳清空批（2026-09-28 用户积木宪法引出，两批计划的第一个）**：
+    ChapterShell 模板**拆掉内嵌 Chen+相机**——壳=空场地基，主角三来源
+    （playable_override 转正为生产正门/Players 摆实例/playable_path 歧义裁决），
+    空场与歧义=chapter_error 响亮红；**相机升格"壳的服务"**：camera_host_path
+    导出+`set_camera_host()` 运行时改挂+无相机自动补挂（沿用原模板 limits 宽口
+    初值）；session_rules `swap_in_playable` 放宽（old=null 注入形，老手术形
+    向后兼容）；validator **R14** 静态拦"壳无主角申报"（红绿 fixture 双件+
+    旧壳 fixture 四件补来源③，27/27 双模绿）；interact X 流按注入形语义改写
+    （X1 去同名假设、X4 供相机方从模板变壳，E7 断相机防线续立）。
+    **案卷重坑（AGENTS Gotchas 判例入册）**：手改 tscn 删节点只删头行，孤产
+    `position=(500,600)` 静默上挂 Players 容器 → spawn 父变换污染 → 敌出生点
+    1500,1200 → 死亡链静默红，实锤三轮 stash 对照+锚链打印才归案；连带判例：
+    Godot4 `add_child(node,true)` 第二参=force_readable_name 非保全局变换。
+    探针 14 项+369 拍真死链 RESTARTED 绿；全矩阵 26 跑 RED=0。
+    **5b 轨道统一批已立案待开工**（用户已批渐进方案）：base_stage 废弃禁新增，
+    ref A/B 壳形转世+stage_contract 载体迁移+validator base 臂退役+软边壳轨
+    z 规则+法典塌缩单轨。
   - **手册严肃化波（2026-09-28，用户批评"操作指导不是随口描述"引出）**：实证
     发现手册建壳步描述的是**编辑器不存在的操作**（"实例化为根"系工程手写形制）
     且 validator 存在豁免洞——另存形章节整份逃 R2，"漏填 chapter_id 假绿"。

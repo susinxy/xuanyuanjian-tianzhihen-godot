@@ -42,6 +42,9 @@ extends SceneTree
 ##       后代（零宽/缺形=隐身不可交互，法典第十条；经 instance= 引入的触发件
 ##       自带形状在**其本体文件**里，本文件无 script 属性行不误伤）
 ##   R12 章节轨反应件装配防呆（B4 门五，spec §3）：管辖=章节轨三形态
+##   R14 壳形态（实例/另存）主角申报三选一：根 playable_override=ExtResource
+##      行 / 根 playable_path=NodePath 非空 / Players 下有实例节点（5a 壳清空批，
+##      空场=运行时必红，静态先拦；模板本体不在扫描域天然豁免）
 ##       （根实例 chapter_shell / ③段形态 / ④壳模板本体）。InteractChest 的
 ##       chest_id、InteractSpellBook 的 spell_id（manual_id 若设则为账本键、
 ##       空=回落 spell_id，与件内运行时回落一致）必须非空——缺行=吃导出默认
@@ -217,6 +220,10 @@ func _check_file(path: String) -> Array:
 	# R12 管辖=章节轨三形态（壳实例/③段/④壳模板本体）；base 单地点不查（头注）
 	if is_shell or is_segment or is_template:
 		_check_r12(path, text, add, is_shell)
+	# R14 壳主角申报（5a 壳清空批）：仅壳形文件（实例/另存），模板本体不在
+	# scenes/stages 扫描域天然豁免
+	if is_shell:
+		_check_r14(model, root, add)
 	return out
 
 
@@ -258,6 +265,24 @@ func _attr(line: String, key: String) -> String:
 		if m.get_string(1) == key:
 			return m.get_string(2)
 	return ""
+
+
+## R14：壳=空场地基，但成品章节必须有主角来源三选其一——
+## ①根 playable_override=ExtResource(...)；②根 playable_path=NodePath 非空；
+## ③Players 容器下存在场景实例节点（手动摆角色形）。
+## 全无=运行时必 chapter_error（空场红）——静态先拦，报错即教学。
+func _check_r14(model: Dictionary, root: Dictionary, add: Callable) -> void:
+	if str(root.props.get("playable_override", "")).begins_with("ExtResource"):
+		return
+	var pp := str(root.props.get("playable_path", ""))
+	if pp != "" and pp != 'NodePath("")':
+		return
+	for n in model.nodes:
+		if n.get("parent", "") == "Players" and str(n.get("inst", "")) != "":
+			return
+	add.call("R14", "壳无主角申报：把玩家档角色 .tscn 拖进壳根 Inspector 的 " \
+			+ "playable_override 槽（推荐正门），或将角色实例摆进 Players 容器，" \
+			+ "或多角色时设 playable_path 显式指路（运行时三来源解析同序）")
 
 
 func _script_path_of(node: Dictionary, model: Dictionary) -> String:

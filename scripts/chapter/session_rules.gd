@@ -83,6 +83,15 @@ static func swap_in_playable(host: Node, old: QuiverCharacter, override: PackedS
 		if inst != null:
 			inst.free()
 		return null
+	# 5a 注入形（空场壳无旧体）：直接挂进 Players 容器（出生位用场景自身定义，
+	# enter_segment 落位链随后覆盖）；老 fixture 的换人手术形仍走下方原链。
+	if old == null:
+		var players: Node = host.get_node_or_null("Players")
+		if players == null:
+			qc.free()
+			return null
+		players.add_child(qc)
+		return qc
 	var parent := old.get_parent()
 	var idx := old.get_index()
 	var slot := String(old.name)

@@ -588,25 +588,26 @@ func _flow_q5() -> void:
 ## X 组（B2.5/T5 换人接缝身份腿，铁律④登记 ATTEST 标记 SEAM-GATE）：夹具的
 ## playable_override 必须真正把模板内嵌 chen 换成矩阵代管 test_actor。锁的是
 ## "接缝形态"而非替身产品身份（后者归 S 组常驻腿）：
-## · X0/X1 同名原位槽位（Players/Chen）由替身本体占据——换人走"释放内嵌体→
-##   替身顶槽"，playable_path 与一切旧引用路径零断链；
+## · X0/X1 替身落进 Players 容器槽（5a 壳清空批语义：模板不再内嵌主角，
+##   override=注入形——槽名随替身场景本体，"同名继承"命题随内嵌体退役）；
 ## · X2 scene_file_path==替身主场景——**接缝不生效时此腿必红**（内嵌体仍是
 ##   chen.tscn，即 brief 的 TDD 红据形状）；
 ## · X3 替身持 area2d:player（set_playable 身份校验链的通过态见证）；
-## · X4 模板挂载件 LevelCamera 随迁（相机掉件=E7 锁房链事故，容器基线同锁）。
+## · X4 主角在壳出生后即有 LevelCamera（5a 起由壳 _ensure_camera 自动补挂；
+##   相机掉件=E7 锁房链事故，容器基线同锁——供相机的一方从模板变成壳）。
 func _flow_x() -> void:
 	var shell := await _make_shell()
 	var pl := shell.playable
 	_check(pl != null, "X0 换人后 playable 在位")
 	if pl != null:
 		print("SEAM-GATE: playable=%s @%s" % [pl.scene_file_path, pl.get_path()])
-		_check(pl.get_parent() == shell.get_node("Players") and pl.name == "Chen",
-				"X1 替身占原槽（Players/Chen 同名同父，实际=%s）" % pl.get_path())
+		_check(pl.get_parent() == shell.get_node("Players"),
+				"X1 替身落 Players 槽（5a 注入形，实际=%s）" % pl.get_path())
 		_check(pl.scene_file_path == Kit.ACTOR_SCENE,
 				"X2 playable=test_actor（内嵌 chen 已释放，实际=%s）" % pl.scene_file_path)
 		_check(pl.is_in_group("area2d:player"), "X3 替身持 area2d:player 身份组")
 		_check(pl.get_node_or_null("LevelCamera") is QuiverLevelCamera,
-				"X4 LevelCamera 模板挂载件随迁替身")
+				"X4 LevelCamera 由壳补挂在主角名下（E7 断相机防线续立）")
 	await _dismantle(shell)
 	_done["x"] = true
 

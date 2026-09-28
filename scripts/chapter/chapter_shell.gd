@@ -2,7 +2,9 @@ class_name ChapterShell
 extends Node2D
 
 ## 章节壳（S2-M1-B1，spec §3.1）：段生命周期+会话状态+壳件的唯一宿主。
-## 与 BaseStage 双轨（spec D10）：本类只服务章节形态，单地点形态零扰动。
+## **5a 壳清空批（2026-09-28 用户裁决）**：模板不再内嵌主角与相机——壳=搭积木
+## 的空场地基；"玩家"是 area2d:player 关系标签下的可替换角色，三来源申报见
+## playable_path 导出区注释。BaseStage 双轨（spec D10）：本类只服务章节形态。
 
 signal segment_entered(id: StringName)
 signal chapter_error(message: String)
@@ -19,15 +21,28 @@ signal chapter_finished
 ## 本模板文件自身（_scene_path 判别"实例化根被祖先污染"用的锚点，
 ## BaseStage 同款两形态判例）
 const SHELL_SCENE_FILE := "res://scenes/chapter/chapter_shell.tscn"
+## 自动补挂用相机场景（5a：相机是壳的服务，模板不再内嵌实例）
+const LEVEL_CAMERA_SCENE := preload(
+		"res://addons/quiver.beat_em_up/utilities/custom_nodes/level_camera/quiver_level_camera.tscn")
 
 @export var chapter_id: StringName
 @export var segment_scenes: Array[PackedScene] = []
-@export_node_path("QuiverCharacter") var playable_path := NodePath("Players/Chen")
-## 换人接缝（B2.5/T5 测试主权）：非空=在 _ready 一切绑段动作之前，把模板内嵌
-## 主角释放、用本场景替身顶上原槽位（同父/同名/同位，模板挂载件随迁）。
-## **生产场景永不设值**（默认 null=换人腿整体不执行，行为零变化）；唯一合法
-## 消费方=test fixtures 的 .tscn（回归矩阵夹具把 chen 换成 test_actor）。
+## 主角申报三来源（5a 壳清空批，用户裁决：壳=空场积木地基，**不得内嵌任何
+## 必须的角色**；"玩家"是关系不是本体——身份凭证=area2d:player 标签）：
+## ① playable_override（推荐正门：拖玩家档角色 .tscn，出生即放主角）；
+## ② 直接往 Players 容器拖角色实例（带 area2d:player 组即可）；
+## ③ playable_path 显式指路（多角色歧义时的裁决槽）。
+## 解析次序=override 手术先行，随后"显式 path 优先，否则全树扫 player 标签"；
+## 0 候选/多候选无显式=chapter_error 响亮红（空场不许静默，歧义不猜）。
+@export_node_path("QuiverCharacter") var playable_path := NodePath("")
+## 放主角正门（B2.5 起源=测试主权接缝，5a 解封转正）：非空=绑段动作之前把
+## 本场景角色注入 Players 槽位；若场上已有旧主角（老 fixture 形制）则走原
+## 换人手术（同父/同名/同位，相机等挂载件随迁），无旧体=直接注入。
 @export var playable_override: PackedScene = null
+## 相机宿主（用户裁决 2026-09-28：相机不专属主角——它是"壳提供的服务"，
+## 挂载目标可配可运行时改）：空=跟 playable；非空=指哪挂哪（演出段跟 NPC 等）。
+## 换挂公开口=set_camera_host()；宿主下查无相机时壳自动补挂 QuiverLevelCamera。
+@export_node_path("Node2D") var camera_host_path := NodePath("")
 
 ## 账本引用（B4-T1 迁移，spec §6）：ChapterSession 退役，session 指向
 ## /root/GameSave 单例；类型放宽为 Node（GameSave 无 class_name，消费点
@@ -52,7 +67,10 @@ var _suppress_state := {"gen": 0, "orig": {}}   # R12：屏蔽窗代际+检测�
 var _chapter_finished_emitted := false          # chapter_finished 闩锁（恰一次）
 
 
-@onready var playable: QuiverCharacter = get_node_or_null(playable_path)
+## 主角引用（_ready 内 _resolve_playable 落笔；原 @onready 直读 path 的形态
+## 随 5a 三来源制退役）
+var playable: QuiverCharacter = null
+var _camera: Camera2D = null        # 壳持有相机引用（自动补挂或场上既有件认领）
 @onready var _segments_root: Node2D = $Segments
 @onready var _shell_canvas: CanvasModulate = $Ambient/CanvasModulate
 @onready var _end_panel: Control = $HudLayer/StageEndPanel
@@ -92,9 +110,9 @@ func _ready() -> void:
 	if playable_override != null:
 		if not _apply_playable_override():
 			return
-	if playable == null:
-		chapter_error.emit("playable 缺席（playable_path 未指向有效角色）")
+	if not _resolve_playable():
 		return
+	_ensure_camera()
 	for sc in segment_scenes:
 		var inst := _instantiate(sc)
 		if inst == null:
@@ -159,9 +177,8 @@ func _scene_path() -> String:
 ## 成功后走既有 set_playable 收口——area2d:player 身份校验缺组即拒收（拒收时
 ## 替身释放、playable 归 null，与 playable 缺席腿同源形态，绝不扶正断链目标）。
 func _apply_playable_override() -> bool:
-	if playable == null:
-		chapter_error.emit("playable_override 落空：playable_path 未命中内嵌主角")
-		return false
+	# 5a 注入形：场上无旧体（空场壳）时 old=null，swap 直接注入 Players 槽位；
+	# 老 fixture（内嵌主角形）old 命中仍走原换人手术——两条腿同源同校验。
 	var qc := SessionRules.swap_in_playable(self, playable, playable_override)
 	if qc == null:
 		chapter_error.emit("playable_override 根非 QuiverCharacter，换人放弃（旧场景未动）")
@@ -173,6 +190,100 @@ func _apply_playable_override() -> bool:
 		return false
 	set_playable(qc)
 	return playable == qc
+
+
+## 三来源解析主流程（override 手术之后跑）：显式 path 优先（裁决槽），
+## 否则全树扫 area2d:player 候选。0=空场红，≥2 且无显式=歧义红。
+func _resolve_playable() -> bool:
+	if String(playable_path) != "":
+		var qc := get_node_or_null(playable_path) as QuiverCharacter
+		if qc == null or not qc.is_in_group("area2d:player"):
+			chapter_error.emit("playable_path 指向失效（%s）：须为挂树且带 "
+					% playable_path + "area2d:player 组的 QuiverCharacter")
+			return false
+		playable = qc
+		return true
+	var cands: Array = []
+	for g in get_tree().get_nodes_in_group(&"area2d:player"):
+		if (g as Node) != null and is_ancestor_of(g as Node) and g is QuiverCharacter:
+			cands.append(g)
+	if cands.is_empty():
+		chapter_error.emit("空场无主角：拖角色 .tscn 进 playable_override（正门），"
+				+ "或把实例摆进 Players（须带 area2d:player 组）")
+		return false
+	if cands.size() > 1:
+		chapter_error.emit("主角歧义：场上 %d 个 area2d:player 角色，用 playable_path "
+				% cands.size() + "显式指定其一")
+		return false
+	playable = cands[0]
+	return true
+
+
+## 相机条款（"壳的服务"，不属于任何角色本体）：宿主解析=显式
+## camera_host_path 优先，缺省跟 playable；宿主下（或壳内已有）认领既有相机，
+## 全无则自动补挂 QuiverLevelCamera（装配者忘挂相机不再掉链子）。
+func _ensure_camera() -> void:
+	var host := resolve_camera_host()
+	if host == null:
+		chapter_error.emit("相机无处可挂（camera_host_path 与 playable 皆失效）")
+		return
+	_camera = _find_shell_camera()
+	if _camera == null:
+		_camera = LEVEL_CAMERA_SCENE.instantiate()
+		_camera.name = "LevelCamera"
+		# 补挂形沿用原壳模板相机初值（法典 0.2#3"limits 初值给宽"：上下右宽口，
+		# 左右界由 FightRoom 运行时收束——0.2b 单摆零感知语义保持）
+		_camera.limit_top = -280
+		_camera.limit_right = 2000
+		_camera.limit_bottom = 1200
+		host.add_child(_camera)
+	elif _camera.get_parent() != host:
+		_camera.reparent(host, true)
+	if not _camera.is_current():
+		_camera.make_current()
+
+
+func resolve_camera_host() -> Node2D:
+	if String(camera_host_path) != "":
+		return get_node_or_null(camera_host_path) as Node2D
+	return playable
+
+
+## 壳内既有相机认领（先宿主直子，再全树兜底——另存拷贝形/手摆形都认）
+func _find_shell_camera() -> Camera2D:
+	if _camera != null and is_instance_valid(_camera):
+		return _camera
+	for c in get_children():
+		var cam := _descendant_camera(c)
+		if cam != null:
+			return cam
+	return null
+
+
+func _descendant_camera(n: Node) -> Camera2D:
+	if n is Camera2D:
+		return n as Camera2D
+	for c in n.get_children():
+		var r := _descendant_camera(c)
+		if r != null:
+			return r
+	return null
+
+
+## 运行时换挂相机宿主（公开 API；D2 换角批的先行零件）：reparent 锁全局变换
+## +补位 current（判例：摘旧宿主会清空 viewport 当前相机指针=锁房链整断）
+func set_camera_host(next: Node2D) -> void:
+	if next == null:
+		chapter_error.emit("set_camera_host: 目标为空，拒挂")
+		return
+	if _camera == null:
+		_ensure_camera()
+		return
+	camera_host_path = next.get_path() if next.is_inside_tree() else camera_host_path
+	if _camera.get_parent() != next:
+		_camera.reparent(next, true)
+	if not _camera.is_current():
+		_camera.make_current()
 
 
 ## 换角接口位（D11：本切片只留位，换人实现——皮肤/输入通道/相机迁移——留 D2 批）：
