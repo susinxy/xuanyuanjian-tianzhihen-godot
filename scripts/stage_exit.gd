@@ -24,9 +24,14 @@ func _on_body_entered(body: Node) -> void:
 		push_error("StageExit 未配置 next_stage_path: %s" % get_path())
 		return
 	_triggered = true
-	# StageExit 不认"自己属于哪个地点"（可被任何地点实例化）：载荷取当前场景
-	# （BaseStage）的 stage_id 导出；非地点场景（理论不该发生）发空 StringName
+	# StageExit 不认"自己属于哪个壳/章"（可被任何场景摆用）：载荷取当前场景的
+	# chapter_id（壳轨 5b 单轨正形），过渡兼容期回退旧 stage_id（base 形态已随
+	# 5b 下线）；非章节场景发空 StringName
 	var stage: Node = get_tree().current_scene
-	var raw: Variant = stage.get("stage_id") if stage != null else null
+	var raw: Variant = null
+	if stage != null:
+		raw = stage.get("chapter_id")
+		if raw == null:
+			raw = stage.get("stage_id")
 	GameEvents.stage_exited.emit(raw if raw is StringName else &"")
 	ScreenTransitions.transition_to_scene(next_stage_path)

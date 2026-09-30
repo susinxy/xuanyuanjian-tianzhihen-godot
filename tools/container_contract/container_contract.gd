@@ -477,7 +477,7 @@ func _flow_shellkit() -> void:
 	get_tree().root.add_child.call_deferred(shell)
 	await _frames(20)
 	_check(GameEvents.pending_jump_stage == "",
-			"H1 地点回跳由壳 _ready 一次性消费（与 BaseStage 同规则）")
+			"H1 地点回跳由壳 _ready 一次性消费（与原 BaseStage 同规则（5b 已单轨））")
 	# H2 检查点注册：(fix → 外层章节文件)，回跳目标可解析
 	#（B4.5-T1 改判，spec §3 裁决 R2：回跳表迁账 GameSave.locations()）
 	var hit := false

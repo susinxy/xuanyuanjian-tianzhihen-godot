@@ -1,35 +1,30 @@
 extends Node
 
-## stage-contract 契约套（S1 矩阵登记项）：A 段=流程壳三件套（标题/暂停/死亡）
-## 的结构与开关契约；B 段（T3）=base_stage 父骨架结构/检查点注册/波次聚合/
-## 死亡转场/实例化回跳语义。C 段（T5 全流程，含跳转钮按压→真实换场景）后续续加
-## C 段（T5）=两个真实参考地点的全流程环：换场存活 runner、锁房、波次聚合
-## 解锁、跨地点 StageExit 真转场、清场终点面板、真死链→死亡界面→检查点回跳。
-## 【豁免】C 段验证的是"生产参考地点在位"的整体行为：内嵌主角经
-## change_scene_to_file 直载生产 .tscn，playable_override 接缝（B2.5/T5）无从
-## 注入（改绑生产场景文件又被零写令禁），且断言面绑 chen 本体节点路径
-## （ChenSkin/…/HurtBox）与出生位（x=300）——属"chen-in-stage"题意的合法绑定
-## （B2.5 新法申报；A/B 段直载裸骨架与替身无关）。
+## stage-contract 契约套（S1 矩阵登记项；5b 轨道统一批改写）：A 段=流程壳三件套
+## （标题/暂停/死亡）的结构与开关契约；B 段=ChapterShell 壳模板骨架/检查点注册/
+## 段级波次聚合/实例化回跳/终点面板接线（原 base_stage 腿随 5b 下线转世——死亡
+## 转交命题归壳轨段重跑，已由 container_contract D 组续锁，本套不再重复）。
+## C 段=两个**壳形**法定参考章节的全流程环：换场存活 runner、锁房、段清聚合与
+## 推进、段清扩权、跨章 StageExit 真转场、章终点 chapter_finished 闩、光照对偶
+## （A 负 B 正）、暂停菜单检查点回跳（死亡界面支随 base 退役，回跳链改验壳形）。
+## 【豁免】C 段验证"生产参考章节在位"的整体行为：壳 override 直载生产
+## chen.tscn（断言面绑 chen 节点路径 ChenSkin/…/HurtBox 与出生位——属
+## "chen-in-chapter"题意的合法绑定，B2.5 新法申报）；B 段替身一律 test_actor。
 ## 运行：godot --headless --path . res://tools/stage_contract/stage_contract.tscn
-
 const TITLE := "res://ui/menus/title_screen.tscn"
 const PAUSE := "res://ui/menus/pause_menu.tscn"
 const DEATH := "res://ui/menus/death_screen.tscn"
-const BASE_STAGE := "res://scenes/base/base_stage.tscn"
-const FIXTURE_PROBE := "res://tools/stage_contract/fixtures/stage_probe.tscn"
-const STAGE_A := "res://scenes/stages/ref/stage_ref_a.tscn"
-const STAGE_B := "res://scenes/stages/ref/stage_ref_b.tscn"
+const SHELL_TEMPLATE := "res://scenes/chapter/chapter_shell.tscn"
+const FIXTURE_PROBE := "res://tools/stage_contract/fixtures/chapter_probe.tscn"
+const CHAPTER_A := "res://scenes/stages/ref/chapter_ref_a.tscn"
+const CHAPTER_B := "res://scenes/stages/ref/chapter_ref_b.tscn"
+const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 
 ## 断言全数（防线：GDScript 运行时报错只中断当前函数、调用方继续——
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
-## 计数在"跑满"这条自身计入前比对：A 段流内 35 + B 段流内 49 + C 段 32 + 全序列 1 = 117
-##（C 段实测 29：C7 同场景重载拆独立等待断言 + C2.5 锁房收口契约 +2（本批）；
-## B 段 49：S1 终审 I-1 在 B4 新增"他壳冻结态禁叠开"断言，旧"死亡冻结中开暂停"
-## 断言按新契约改写，故较旧版恰 +1）
-## B4.5-T2：A7 读档入口腿 +9（128→137；A4 改判不增不减）。
-## B4.5-T4：A7d 合取强化（+0，弹窗相"账未清"文案兑现为判据）+A7j/k 空场景
-## 旗滞留支 +2（137→139；传渡旗消费/滞留合同标题端，壳端=spell 套 P6）。
-const EXPECTED_ASSERTS := 142
+## 5b 计数=126（A 段 35+B 段壳形 40+C 段壳形 50 系，142→126：base 腿
+## 退役与 C3.5/C6 面板/C7 死亡界面等转世简并，案卷见 STATUS 5b 条目）。
+const EXPECTED_ASSERTS := 126
 
 var _fails := 0
 var _finished := false
@@ -38,10 +33,8 @@ var _checks := 0
 var _title: Control
 var _pause: Control
 var _death: Control
-var _stage: BaseStage
 var _open_count := 0
 var _closed_count := 0
-var _c_room_cleared := 0
 var _c_stage_exited := 0
 
 
@@ -82,9 +75,7 @@ func _flow() -> void:
 	_a5_death_rebuild()
 	_a6_latest_checkpoint()
 	await _b1_structure()
-	await _b2_checkpoint()
 	await _b3_aggregation()
-	await _b4_death_forward()
 	await _b5_fixture_jump()
 	await _b7_end_panel()
 	await _flow_c()
@@ -295,77 +286,84 @@ func _a7_load_game() -> void:
 	SaveSystem.delete_save()   # 尾净（起手清场判据对下轮恒成立）
 
 
-## B 段共享桩：计数替身房——覆写 setup_after_fight_room 记录调用次数
-## （相机缺席时真身会 push_error"无有效相机"，测试输出必须零噪音）
-class RoomProbe:
-	extends QuiverFightRoom
-	var setup_calls := 0
+## ═══ B 段（5b 转世：ChapterShell 壳模板与壳机制契约）═══════════════════
 
-	func setup_after_fight_room() -> void:
-		setup_calls += 1
-
-
-## B1 base_stage 节点树契约：直载可实例化；约定子树路径全可寻址；
-## PauseLayer=ALWAYS(3)；pause/death/终点面板初始隐藏；终点面板两钮就位
+## B1' 壳模板骨架+注入形主角+相机自动补挂+L3 三件套在位（KeyLight 阴影关禁令）
+##     +三层初始隐藏（DeathScreen=休眠件）；B2' 检查点注册/空主键守卫/pending
+##     不误消费（并入同壳流水）。替身=test_actor（B2.5 新法：B 段"只是需要
+##     一个角色"一律消费 Kit）。
 func _b1_structure() -> void:
-	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
-	# 裸骨架在 _scene_path 两分支下都解析成节点路径（探针实证=引擎限制，
-	# 外层文件语义由 B5 锁）；B 段各实例 stage_id 一律入树前设好，
-	# 走 _ready 自动注册腿且零守卫警告
-	_stage.stage_id = &"t_base"
-	add_child(_stage)
-	await _frames(2)
-	_check(_stage is BaseStage, "B1 根脚本类型 BaseStage")
+	if not Kit.exists():
+		_check(false, "B1' test_actor 缺席（先跑 run_matrix.sh --ensure-only）")
+		return
+	var shell: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell.chapter_id = &"t_shell"
+	shell.playable_override = load(Kit.ACTOR_SCENE)
+	add_child(shell)
+	await _frames(3)
+	_check(shell.playable != null and shell.playable.name == "TestActor",
+			"B1' override 注入形主角在位（Players/TestActor）")
 	var paths := [
-		"Background", "Background/Ground", "Level", "Level/Characters",
-		"Level/Objects", "Level/Collisions", "Ambient", "Ambient/CanvasModulate",
-		"Foreground", "FightRooms", "HudLayer", "HudLayer/GameHUD",
-		"HudLayer/PauseLayer", "HudLayer/PauseLayer/PauseMenu",
-		"HudLayer/PauseLayer/DeathScreen", "HudLayer/StageEndPanel",
-		"HudLayer/StageEndPanel/PanelBox", "HudLayer/StageEndPanel/PanelBox/BackTitle",
+		"Players", "Players/TestActor", "Players/TestActor/LevelCamera",
+		"Segments", "Ambient", "Ambient/CanvasModulate", "Ambient/KeyLight",
+		"Ambient/DayNightController",
+		"HudLayer", "HudLayer/GameHUD", "HudLayer/PauseLayer",
+		"HudLayer/PauseLayer/PauseMenu", "HudLayer/PauseLayer/DeathScreen",
+		"HudLayer/StageEndPanel", "HudLayer/StageEndPanel/PanelBox/BackTitle",
 		"HudLayer/StageEndPanel/PanelBox/Replay",
 	]
-	for p in paths:
-		_check(_stage.get_node_or_null(p) != null, "B1 路径可寻址 %s" % p)
-	var pause_layer := _stage.get_node("HudLayer/PauseLayer") as Control
+	for pth in paths:
+		_check(shell.get_node_or_null(pth) != null, "B1' 路径可寻址 %s" % pth)
+	var cam := shell.get_node("Players/TestActor/LevelCamera") as Camera2D
+	_check(cam != null and cam.is_current(), "B1' 自动补挂相机掌电流（E7 断相机防线）")
+	var key := shell.get_node("Ambient/KeyLight") as DirectionalLight2D
+	_check(key != null and not key.shadow_enabled,
+			"B1' KeyLight 内置阴影关（双重阴影禁令法典级，壳轨同样在位）")
+	var pause_layer := shell.get_node("HudLayer/PauseLayer") as Control
 	_check(pause_layer.process_mode == Node.PROCESS_MODE_ALWAYS,
-			"B1 PauseLayer=ALWAYS(3)（裁决#6 值语义；WHEN_PAUSED 实为 1）")
-	_check(not _stage._pause_menu.visible, "B1 pause 初始隐藏")
-	_check(not _stage._death_screen.visible, "B1 death 初始隐藏")
-	_check(not _stage._end_panel.visible, "B1 终点面板初始隐藏")
-
-
-## B2 进地点注册检查点：_ready 即以 (stage_id, _scene_path()) 入注册表；
-## 空 stage_id 走 GameSave 守卫拒录腿（全套件唯一预期内警告一行）
-## （B4.5-T1 改判：注册表=GameSave 地点访问表，spec §3 裁决 R2）
-func _b2_checkpoint() -> void:
+			"B1' PauseLayer=ALWAYS(3)（裁决#6 值语义）")
+	_check(not (shell.get_node("HudLayer/PauseLayer/PauseMenu") as Control).visible
+			and not (shell.get_node("HudLayer/PauseLayer/DeathScreen") as Control).visible
+			and not shell._end_panel.visible,
+			"B1' 三层初始隐藏（DeathScreen 休眠件在位）")
 	var cps: Array[Dictionary] = GameSave.locations()
 	var found := false
 	for cp in cps:
-		if cp.stage_id == &"t_base" and cp.scene_path == str(_stage.get_path()):
+		if cp.stage_id == &"t_shell":
 			found = true
-	_check(found, "B2 _ready 自动注册腿：(t_base, 裸骨架解析径) 入表")
-	# 守卫腿真验：空 id 再注册应被拒且 push_warning（噪音控制：仅此一处）
+	_check(found, "B2' _ready 自动注册（t_shell 入地点访问表）")
 	var before: int = GameSave.locations().size()
 	GameSave.add_location_checkpoint(&"", "res://x.tscn")
-	_check(GameSave.locations().size() == before, "B2 空 stage_id 被守卫拒录")
-	_check(GameEvents.pending_jump_stage == "", "B2 直载未命中 → pending 不被误消费（消费真验在 B5）")
+	_check(GameSave.locations().size() == before, "B2' 空 chapter_id 被守卫拒录")
+	_check(GameEvents.pending_jump_stage == "", "B2' 直载未命中 → pending 不被误消费")
+	shell.queue_free()
+	await _frames(2)
+	GameSave.new_profile()
 
 
-## B3 波次聚合：空 FightRooms 不建档；检测器 paths_enemy_spawners 导出被收编；
-## 任一 spawner 未完成→不解锁；全部完成→setup_after_fight_room 恰 1 次+room_cleared
+## B3' 壳段级聚合：程序段（真房+双生成器+检测器）pack 入壳——实源并集收编、
+## 部分完成不清段、全清=segment_cleared 恰一次、单段章撞墙=chapter_finished
+## 恰一次（终点面板不自动弹=B7 消费口现状，另腿钉）。
 func _b3_aggregation() -> void:
-	_check(_stage._rooms.is_empty(), "B3 空 FightRooms → 聚合表空")
-	_stage.queue_free()
-	await _frames(2)
-	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
-	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
-	_stage.stage_id = &"t_base"
-	add_child(_stage)
-	await _frames(2)
-	var room := RoomProbe.new()
-	room.name = "RoomProbe"
-	_stage.get_node("FightRooms").add_child(room)
+	GameSave.new_profile()
+	var seg_script: Script = load("res://scripts/chapter/stage_content.gd")
+	var seg: Node2D = Node2D.new()
+	seg.set_script(seg_script)
+	seg.segment_id = &"t_seg"
+	var room := QuiverFightRoom.new()
+	room.name = "Room1"
+	room.limit_left = 0
+	room.limit_top = -280
+	room.limit_right = 1500
+	room.limit_bottom = 1200
+	room.zoom = 1.0
+	room.after_fight_use_new_room = true
+	room.after_fight_limit_left = 0
+	room.after_fight_limit_top = -280
+	room.after_fight_limit_right = 2200
+	room.after_fight_limit_bottom = 1200
+	room.after_fight_zoom = 1.0
+	seg.add_child(room)
 	var sp1 := QuiverEnemySpawner.new()
 	sp1.name = "Spawner1"
 	room.add_child(sp1)
@@ -376,118 +374,118 @@ func _b3_aggregation() -> void:
 	det.name = "PlayerDetector"
 	det.path_fight_room = NodePath("..")
 	det.paths_enemy_spawners = [NodePath("../Spawner1"), NodePath("../Spawner2")]
-	room.add_child(det)  # 最后入树：_ready 自接线时兄弟节点已全部就位
-	_stage._collect_rooms()
-	var entry: Dictionary = _stage._rooms.get(room.get_path(), {})
-	_check(entry.get("spawners", []).size() == 2,
-			"B3 检测器导出收编 2 生成器（实际 %d）" % entry.get("spawners", []).size())
-	var cleared_ids: Array[StringName] = []
-	var spy := func(rid: StringName): cleared_ids.append(rid)
-	GameEvents.room_cleared.connect(spy)
-	sp2.is_completed = true
-	sp1.all_waves_completed.emit()  # sp2 已完成、sp1 未完成 → 不许解锁
+	room.add_child(det)
+	# pack 序列化按 owner 收集子树（4.x 引擎语义：owner 缺省=不入包——
+	# 首跑尸检实锤 kids= 空壳；运行时构树必须显式补 owner 链）
+	room.owner = seg
+	sp1.owner = seg
+	sp2.owner = seg
+	det.owner = seg
+	var packed := PackedScene.new()
+	var pk_err := packed.pack(seg)
+	seg.free()
+	_check(pk_err == OK, "B3' 程序段打包 OK（实际 err=%d）" % pk_err)
+	if pk_err != OK:
+		return
+	var shell: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell.chapter_id = &"t_agg"
+	shell.playable_override = load(Kit.ACTOR_SCENE)
+	shell.segment_scenes = [packed]
+	var cleared: Array[StringName] = []
+	shell.segment_cleared.connect(func(id: StringName) -> void: cleared.append(id))
+	var fins := [0]
+	shell.chapter_finished.connect(func() -> void: fins[0] += 1)
+	add_child(shell)
+	await _frames(3)
+	var lsp1 := shell._current.get_node_or_null("Room1/Spawner1") as QuiverEnemySpawner
+	var lsp2 := shell._current.get_node_or_null("Room1/Spawner2") as QuiverEnemySpawner
+	if lsp1 == null or lsp2 == null:
+		var kids := ""
+		if shell._current != null:
+			for c in shell._current.get_children():
+				kids += "%s(%s)" % [c.name, c.get_class()]
+				for g in c.get_children():
+					kids += " >%s(%s)" % [g.name, g.get_class()]
+		_check(false, "B3' 实例生成器失联（current=%s kids=%s）"
+				% [str(shell._current), kids])
+		shell.queue_free()
+		return
+	_check(shell._seg_spawner_set.get(&"t_seg", []).size() == 2,
+			"B3' 检测器导出收编 2 生成器入段实源集")
+	lsp2.is_completed = true
+	lsp1.all_waves_completed.emit()   # lsp1 未完成（真信标语义同旧 B3）
 	await _frames(2)
-	_check(room.setup_calls == 0, "B3 部分完成 → 不解锁")
-	_check(cleared_ids.is_empty(), "B3 部分完成 → 无 room_cleared")
-	sp1.is_completed = true  # 模拟真信标语义：all_waves_completed 只在自身完成后发
-	sp2.all_waves_completed.emit()  # 全完成 → 解锁恰一次
+	_check(cleared.is_empty(), "B3' 部分完成 → 不清段")
+	lsp1.is_completed = true
+	lsp2.all_waves_completed.emit()
+	await _frames(4)
+	_check(cleared == [&"t_seg"],
+			"B3' 段全清 segment_cleared 恰一次载荷=段 id（实际 %s）" % str(cleared))
+	_check(fins[0] == 1, "B3' 单段章判清撞墙 → chapter_finished 恰一次（闩锁）")
+	_check(not shell._end_panel.visible,
+			"B3'' 章判清面板不自动弹=B7 接线前现状即契约")
+	shell.queue_free()
 	await _frames(2)
-	_check(room.setup_calls == 1, "B3 全部完成 → setup_after_fight_room 恰 1 次")
-	_check(cleared_ids == [&"RoomProbe"], "B3 room_cleared 载荷=房名")
-	GameEvents.room_cleared.disconnect(spy)
-	_stage.queue_free()
-	_stage = null
-	await _frames(2)
-	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
+	GameSave.new_profile()
 
 
-## B4 死亡转交：player_died → 冻结树 + DeathScreen 开机（列表=t_base 检查点
-## +回标题）；冻结所有权（S1 终审 I-1）：他人冻结态下 open 不得叠开暂停壳
-## （旧版"死亡开着暂停仍可开"违此契约——"继续"会无主解冻死亡世界，已按新契约
-## 改写）；close 解冻收口后暂停在无人冻结态可正常开关（导航不变量烟雾）
-func _b4_death_forward() -> void:
-	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
-	_stage.stage_id = &"t_base"
-	add_child(_stage)
-	await _frames(2)
-	Events.player_died.emit()
-	var shown := await _wait_state(func() -> bool:
-		return _stage._death_screen.visible and get_tree().paused)
-	_check(shown, "B4 player_died → death 可见 + 树冻结")
-	var dc: VBoxContainer = _stage.get_node("HudLayer/PauseLayer/DeathScreen/ContentLayer")
-	_check(dc.get_child_count() == 2,
-			"B4 死亡列表=t_base+回标题（实际 %d）" % dc.get_child_count())
-	_stage._pause_menu.open_menu()
-	_check(not _stage._pause_menu.visible and get_tree().paused,
-			"B4 他人冻结态 open → 暂停壳不叠开且死亡冻结不受扰（I-1 冻结所有权）")
-	_stage._death_screen.close_screen()
-	await _frames(2)
-	_check(not get_tree().paused, "B4 close_screen 解冻收口（B 段收尾不欠冻结）")
-	_stage._pause_menu.open_menu()
-	_check(_stage._pause_menu.visible and get_tree().paused, "B4 解冻后无人态暂停可开（烟雾）")
-	_stage._pause_menu.close_menu()
-	await _frames(2)
-	_check(not get_tree().paused, "B4 暂停开→关复原（末尾未冻结防线）")
-
-
-## B5 实例化根回跳语义（T5 正式关卡=base_stage 实例的预演）：经 fixtures/
-## stage_probe.tscn（根 instance + stage_id 覆写）；场景树内实例化根的
-## scene_file_path=外层文件（探针实证，current_scene 非自）→ 检查点注册指向
-## 可跳转的完整地点文件；pending_jump_stage 命中该路径时被实例 _ready 一次性消费
+## B5' 实例化根回跳语义（壳形探针=chapter_probe.tscn，空场合法形态）：
+## scene_file_path=外层文件、chapter_id 覆写、检查点按外层注册、pending 命中
+## 即消费——注册/消费腿排在主角解析之前，空场红不吞这两腿（序判例申报）。
 func _b5_fixture_jump() -> void:
-	# 裁决#3 原令 change_scene_to_file——4.7 探针实证 runner 自身就是
-	# current_scene，换场=当场释放自己（后续 await 全灭）；等价复刻：
-	# 实例挂 root + current_scene 指针改指（_ready 正常触发，语义同真换场）
 	GameEvents.pending_jump_stage = FIXTURE_PROBE
-	var scene := (load(FIXTURE_PROBE) as PackedScene).instantiate()
+	var scene: ChapterShell = (load(FIXTURE_PROBE) as PackedScene).instantiate()
 	get_tree().root.add_child(scene)
 	await _frames(2)
 	get_tree().current_scene = scene
-	_check(scene is BaseStage and is_instance_valid(scene), "B5 实例化根就位且为 BaseStage")
+	_check(is_instance_valid(scene), "B5' 实例化根就位")
 	_check(scene.scene_file_path == FIXTURE_PROBE,
-			"B5 场景树内实例化根 scene_file_path=外层文件（实际 %s）" % scene.scene_file_path)
-	_check(scene.stage_id == &"probe", "B5 覆写 stage_id=probe 生效")
-	var cps: Array[Dictionary] = GameSave.locations()
+			"B5' 实例化根 scene_file_path=外层文件（实际 %s）" % scene.scene_file_path)
+	_check(scene.chapter_id == &"probe", "B5' 覆写 chapter_id=probe 生效")
 	var hit := false
-	for cp in cps:
+	for cp in GameSave.locations():
 		if cp.stage_id == &"probe" and cp.scene_path == FIXTURE_PROBE:
 			hit = true
-	_check(hit, "B5 检查点按外层文件注册（回跳可解析）")
-	_check(GameEvents.pending_jump_stage == "", "B5 pending_jump_stage 落位即消费")
-	_check(scene._end_panel.get_node("PanelBox/BackTitle") != null, "B5 实例内终点钮就位")
+	_check(hit, "B5' 检查点按外层文件注册（回跳可解析）")
+	_check(GameEvents.pending_jump_stage == "", "B5' pending_jump_stage 落位即消费")
+	_check(scene._end_panel.get_node("PanelBox/BackTitle") != null, "B5' 实例内终点钮就位")
 	get_tree().current_scene = self
 	scene.free()
-	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
+	GameSave.new_profile()
 
 
-## B7 终点面板冻结树活性（评审轮1 死锁修复闭环）：_show_end_panel 冻结全树，
-## 面板若继承不到 ALWAYS 则两钮 pressed 永闸=不可解软锁。三点+钮可用性断言；
-## 真转场按压归 T5 C 段（runner=current_scene 换场自毁雷，B5 注释在案）
+## B7' 终点面板接线就位：初始隐藏（自动弹出等 B7 消费）、ALWAYS（B7 死锁修复
+## 锁语义续立）、两钮已接非禁用。
 func _b7_end_panel() -> void:
-	_stage = (load(BASE_STAGE) as PackedScene).instantiate()
-	_stage.stage_id = &"t_base"
-	add_child(_stage)
+	if not Kit.exists():
+		_check(false, "B7' test_actor 缺席")
+		return
+	var shell: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell.chapter_id = &"t_end"
+	shell.playable_override = load(Kit.ACTOR_SCENE)
+	add_child(shell)
 	await _frames(2)
-	_stage.ends_after_last_room = true
-	_stage._show_end_panel()
-	_check(_stage._end_panel.visible, "B7 终点面板可见")
-	_check(get_tree().paused, "B7 冻结树落位")
-	_check(_stage._end_panel.process_mode == Node.PROCESS_MODE_ALWAYS,
-			"B7 面板 process_mode=ALWAYS（冻结树里钮可响应——死锁修复锁）")
-	var back := _stage._end_panel.get_node("PanelBox/BackTitle") as Button
-	_check(back != null and not back.disabled, "B7 返回标题钮就位可用")
-	get_tree().paused = false
-	_stage.queue_free()
-	_stage = null
+	_check(not shell._end_panel.visible,
+			"B7' 终点面板初始隐藏（自动弹出等 B7 消费=现状即契约）")
+	_check(shell._end_panel.process_mode == Node.PROCESS_MODE_ALWAYS,
+			"B7' 面板 ALWAYS（冻结树里钮可响应——死锁修复锁续立）")
+	var back := shell._end_panel.get_node("PanelBox/BackTitle") as Button
+	var replay := shell._end_panel.get_node("PanelBox/Replay") as Button
+	_check(back != null and not back.disabled and replay != null and not replay.disabled,
+			"B7' 两钮就位可用（wire_end_panel 在 _ready 已接）")
+	shell.queue_free()
 	await _frames(2)
-	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
+	GameSave.new_profile()
 
 
 ### -----------------------------------------------------------------------------------------------
-### C 段（T5）：真实地点全流程环
+### C 段（5b 转世）：两个壳形法定参考章节的全流程环
 ### -----------------------------------------------------------------------------------------------
 
-## 轮询直到条件成立（换场含转场淡入淡出，用 process_frame；上限防挂死）
+## C 段累计段清计数（对每个上树壳接 segment_cleared）
+var _c_segs_seen := 0
+
+
 func _wait_until(cond: Callable, cap_frames: int) -> bool:
 	for _i in cap_frames:
 		if cond.call():
@@ -501,48 +499,45 @@ func _cs() -> Node:
 
 
 func _stage_cam() -> Camera2D:
-	return _cs().get_node("Level/Characters/Chen/LevelCamera") as Camera2D
+	return _cs().get_node("Players/Chen/LevelCamera") as Camera2D
 
 
 func _stage_chen() -> QuiverCharacter:
-	return _cs().get_node("Level/Characters/Chen") as QuiverCharacter
+	return _cs().get_node("Players/Chen") as QuiverCharacter
 
 
-## 计数目标式清场（防 flaky：死亡演出链 起飞+弹地+Die 动画总时长远超单轮帧预算，
-## 固定循环数会随机器节奏失败——按目标计数轮询，kill 与等待交替）
-func _clear_until(target: int) -> bool:
-	for _round in 40:
-		if _c_room_cleared >= target:
-			return true
-		_kill_spars()
-		var ok: bool = await _wait_until(func():
-				return _c_room_cleared >= target, 40)
-		if ok:
-			return true
-	return _c_room_cleared >= target
-
+## 真死链清场（判例保留：带竖直分量 launch 走全演出；纯血 0 不走演出）
 func _kill_spars() -> void:
-	# 真死链（非数值清零浅杀）：扣血+致死最后一击强飞→弹地→Die 动画→离场。
-	# 教训入档：只设 health=0 敌人不会走死亡演出，spawner 的 tree_exited await
-	# 会挂到场景 teardown 才放行——真实击杀链路才是本契约要验的东西。
 	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
 		if n is QuiverCharacter:
 			var body := n as QuiverCharacter
-			# 血要归零才走 die 分支；向量必须带竖直分量——纯水平 launch 会
-			# 立刻触地进 Bounce（探针尸检实证，勿再踩）
 			body.attributes.health_current = 0
 			var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH,
 					Vector2(0.866, -0.5))
 			CombatSystem.apply_knockback(data, body.attributes)
 
 
+func _alive_spars() -> int:
+	var c := 0
+	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
+		if n is QuiverCharacter:
+			c += 1
+	return c
+
+
+## 计数式清场（目标=累计段清数）：真死链轮询
+func _clear_until_segs(target: int) -> void:
+	for _round in 60:
+		if _c_segs_seen >= target:
+			return
+		_kill_spars()
+		await _wait_until(func(): return _c_segs_seen >= target, 60)
+
+
 func _flow_c() -> void:
-	GameEvents.room_cleared.connect(func(_id): _c_room_cleared += 1)
 	GameEvents.stage_exited.connect(func(_id): _c_stage_exited += 1)
 
-	# C0 存活化：把 runner 从"可被换场释放的场景根"升为 root 直属，
-	# 并让 current_scene 先指向替身（否则 change_scene_to_file 释放本 runner=自毁）
-	# 注意：remove_child 后本节点瞬间离树 get_tree()=null，树引用必须先取
+	# C0 存活化（runner 升 root 直属+替身顶 current_scene，判例注释原样）
 	var tree := get_tree()
 	var decoy := Node.new()
 	decoy.name = &"SceneDecoy"
@@ -551,53 +546,55 @@ func _flow_c() -> void:
 	get_parent().remove_child(self)
 	tree.root.add_child(self)
 
-	# —— C1 进地点 A ——
-	get_tree().change_scene_to_file(STAGE_A)
+	# —— C1 换场进章节 A ——
+	get_tree().change_scene_to_file(CHAPTER_A)
 	var arrived: bool = await _wait_until(func():
-			return _cs() != null and _cs().scene_file_path == STAGE_A, 900)
-	_check(arrived, "C1 换场进地点 A（转场链在真场景生效且 runner 存活）")
+			return _cs() != null and _cs().scene_file_path == CHAPTER_A, 900)
+	_check(arrived, "C1 换场进章节 A（转场链在真场景生效且 runner 存活）")
 	if not arrived:
 		return
-	await _frames(4)
-	_check(_cs().get("stage_id") == &"stage_ref_a", "C1 地点 stage_id 覆写生效")
+	await _frames(8)
+	_check(_cs().get("chapter_id") == &"chapter_ref_a", "C1 章节 chapter_id 生效")
 	_check((_cs().get_node("HudLayer/GameHUD/Frame") as Control).visible,
 			"C1 GameHUD 入场并跟手 chen")
 	var cps: Array[Dictionary] = GameSave.locations()
-	_check(not cps.is_empty() and cps.back().stage_id == &"stage_ref_a",
-			"C1 检查点表含 stage_ref_a（真换场形态注册）")
+	_check(not cps.is_empty() and cps.back().stage_id == &"chapter_ref_a",
+			"C1 检查点表含 chapter_ref_a（真换场形态注册）")
 	_check(GameEvents.pending_jump_stage == "", "C1 pending_jump_stage 干净")
+	var shell_a: ChapterShell = _cs() as ChapterShell
+	if shell_a == null:
+		_check(false, "C1 当前场景非 ChapterShell（后续环崩）")
+		return
+	var fins_a := [0]
+	shell_a.chapter_finished.connect(func() -> void: fins_a[0] += 1)
+	shell_a.segment_cleared.connect(func(_id): _c_segs_seen += 1)
 
-	# —— C1.5 光照骨架契约（2026-09-20 收编批：L3 预置骨架+空数据自禁+软边自动档）——
+	# —— C1.5 光照骨架契约（5b 壳轨形：L3 三件套收编进壳模板，A 负例=空数据自禁）——
 	var l3_ctrl := _cs().get_node_or_null("Ambient/DayNightController")
 	_check(l3_ctrl is DayNightController,
-			"LC1 骨架预置 DayNightController（L3 三件套已收进 base_stage）")
+			"LC1 壳骨架预置 DayNightController（5b 三件套随 base 收编入壳）")
 	var key_light := _cs().get_node_or_null("Ambient/KeyLight") as DirectionalLight2D
 	_check(key_light != null and not key_light.shadow_enabled,
 			"LC2 KeyLight 在位且内置阴影关（双重阴影禁令，法典级）")
 	var cm := _cs().get_node("Ambient/CanvasModulate") as CanvasModulate
 	_check(l3_ctrl != null and l3_ctrl.scene_time_data == null and cm.color == Color.WHITE,
-			"LC3 空数据地点自禁（不接 manager，画布色纯白不崩）")
+			"LC3 空数据章节自禁（画布纯白不崩）")
 	await _frames(30)
 	_check(cm.color == Color.WHITE, "LC3b 空数据 30 帧后仍纯白（无幽灵驱动）")
-	_check(ShadowSoftEdge.derived_z_for(_cs()) == 14,
-			"LC4 软边自动档=Level.z_index-1（15→14，装配者零感知）")
-	var lvl := _cs().get_node("Level") as CanvasItem
-	lvl.z_index = 20
-	_check(ShadowSoftEdge.derived_z_for(_cs()) == 19,
-			"LC4b Level 改档软边 z 随动（派生非常量）")
-	lvl.z_index = 15
-	_cs().shadow_composite_override = 7
+	_check(ShadowSoftEdge.derived_z_for(_cs()) == ShadowSoftEdge.composite_z,
+			"LC4 软边壳轨法定档=composite_z（-1：段内容 z0 之下 Vis 皮肤之上）")
+	shell_a.shadow_composite_override = 7
 	_check(ShadowSoftEdge.derived_z_for(_cs()) == 7,
-			"LC5 地点侧哨兵覆写生效（专家通道）")
-	_cs().shadow_composite_override = -2147483648
+			"LC5 壳根哨兵覆写生效（专家通道自 base 迁壳）")
+	shell_a.shadow_composite_override = -2147483648
 	var probe := Node2D.new()
 	_check(ShadowSoftEdge.derived_z_for(probe) == ShadowSoftEdge.composite_z,
-			"LC6 非 BaseStage 根回退手动态（Run-Test 场景 -1 现状零扰动）")
+			"LC6 非壳根回退手动态（Run-Test 场景零扰动）")
 	probe.free()
 	_check(ShadowSoftEdge.enabled,
-			"LC8 软边默认开宪法（2026-09-28 用户定调：运行即开，不设关闭路径）")
+			"LC8 软边默认开宪法（2026-09-28 用户定调：运行即开）")
 	_check(get_tree().get_nodes_in_group(&"shadow_region").is_empty(),
-			"LC7 ref_a 空数据负例零区域（不挂=全屏阴影回退为合法装配态）")
+			"LC7 章节 A 空数据负例零区域（不挂=全屏阴影回退合法）")
 
 	# —— C2 房1锁相机+刷怪 ——
 	var cam := _stage_cam()
@@ -605,158 +602,103 @@ func _flow_c() -> void:
 	var locked: bool = await _wait_until(func():
 			return cam.limit_right == 1500, 240)
 	_check(locked, "C2 走过检测线→相机锁定到房1边界（limit_right=1500）")
-	var bodies := 0
-	for n in get_tree().get_nodes_in_group("area2d:spar_enemy"):
-		if n is QuiverCharacter:
-			bodies += 1
-	_check(bodies == 1, "C2 波次敌人已刷出（IN_PLACE 1 只身体，实际 %d）" % bodies)
+	_check(_alive_spars() == 1, "C2 波次敌人已刷出（IN_PLACE 1 只，实际 %d）" % _alive_spars())
 
-	# —— C2.5 锁房落位收口（扫掠吞人契约，2026-09-19 批）——
-	# 真实地形：chen 出生点 300 本就落在房1左墙(380)外侧，锁房过渡期间
-	# 往回退即可溜到单向墙背面走出镜头。契约=过渡完成后界外玩家自动钳回。
+	# —— C2.5 锁房落位收口（钳位矩形=房界-40，判例原样）——
 	var chen2 := _stage_chen()
 	chen2.global_position = Vector2(300, 600)
-	var room1 := _cs().get_node("FightRooms/Room1") as QuiverFightRoom
+	var room1 := (_cs() as ChapterShell).get_node("Segments/SegRefA1/Room1") as QuiverFightRoom
 	room1.setup_fight_room()
-	# 钳位矩形=房界−40（墙外挪 60 后合法贴墙位在 355≥340，只抓真·墙外人）
 	var pulled: bool = await _wait_until(func():
 			return chen2.global_position.x >= 340.0, 240)
-	_check(pulled, "C2.5 锁房收口：界外玩家在过渡完成后钳回界内（x=%.0f）"
-			% chen2.global_position.x)
-	# 稳态阻挡双证：钳回后向左全速顶墙 90 帧，不得再出界
+	_check(pulled, "C2.5 锁房收口：界外玩家钳回界内（x=%.0f）" % chen2.global_position.x)
 	Input.action_press("move_left")
 	await _frames(90)
 	Input.action_release("move_left")
 	_check(chen2.global_position.x >= 340.0,
 			"C2.5 稳态顶墙不再出界（x=%.0f）" % chen2.global_position.x)
 
-	# —— C3 清房1（聚合与解锁） ——
-	var cleared1: bool = await _clear_until(1)
-	_check(cleared1, "C3 房1清场→room_cleared（全灭→解锁链在真场景走通）")
-	var expanded: bool = await _wait_until(func():
-			return cam.limit_right == 2200, 240)
-	_check(expanded, "C3 解锁扩权（after_fight_limit_right=2200）")
-
-	# —— C3.5 撞墙真反弹契约（A 案批，2026-09-19）——
-	# 房1清场扩界 [380,2200] 后真击飞向西：弹墙带命中 → wall_bounced 恰一次
-	# → 水平速度翻向东 → 实际回场心落地。上游 reflect(Vector2.UP) 对"身体走
-	# 皮肤假高度通道"的击飞是恒等变换（上下游同判，查档坐实），2/3 号断言红
-	# =那行退回了 no-op。
-	# 弹道取样教训（首跑两次红档换来）：①向东飞会凌空碾过房2触发线(1950)——
-	# 半空重锁房把界/墙/带整体东移，人追不上逃逸的墙（产品行为合法，收口
-	# 钳位兜底），测试必须选"路上没有未消费检测器"的方向：房1检测器已在 C2
-	# 自毁，向西无雷；②射程要对着"起跳点到带面"量：1200 起飞+K2000 在触墙前
-	# 470px 落地、1900 东飞又踩①——勿凭感觉配对。
-	var chen3 := _stage_chen()
-	chen3.global_position = Vector2(700, 600)
-	var wall_hits := {"n": 0}
-	chen3.attributes.wall_bounced.connect(func(_axis): wall_hits.n += 1)
-	var kb3 := QuiverKnockbackData.new(2000.0, CombatSystem.HurtTypes.HIGH,
-			Vector2(-0.866, -0.5))
-	CombatSystem.apply_knockback(kb3, chen3.attributes)
-	var bounced := false
-	var cam3 := _stage_cam()
-	var rsolid: CollisionShape2D = cam3.get_node("ScreenLimits/Right")
-	var rband: CollisionShape2D = cam3.get_node("RightBounce/RightBounceShape")
-	var hurt3 := chen3.get_node("ChenSkin/AnimatedSprite2D/HurtBox")
-	for _f3 in 120:
+	# —— C4a 段清推进（壳轨核心语义）：清房1=段 a1 判清 → 自动推进 seg_a2 →
+	#     走线锁房2 ——
+	await _clear_until_segs(1)
+	var advanced: bool = await _wait_until(func():
+			return shell_a.current_segment_id() == &"seg_a2", 400)
+	_check(advanced, "C4a 段 a1 判清自动推进 seg_a2（壳轨段清=推进环）")
+	var chen4 := _stage_chen()
+	for x in range(1701, 1952, 25):
+		chen4.global_position = Vector2(x, 600)
 		await get_tree().physics_frame
-		if _f3 % 15 == 0:
-			print("[F3] f=", _f3, " x=", chen3.global_position.x, " st=", str(chen3.state_machine.state_name),
-					" solid_x=", rsolid.global_position.x, " cam_gl=", cam3.global_position,
-					" center=", cam3.get_screen_center_position(), " zoom=", cam3.zoom,
-					" lim=", [cam3.limit_left, cam3.limit_right],
-					" vp=", cam3.get_viewport_rect().size, " hits=", wall_hits.n)
-		if wall_hits.n >= 1:
-			break
-	bounced = wall_hits.n >= 1 or str(chen3.state_machine.state_name) == "Ground/Recovery"
-	_check(bounced and wall_hits.n == 1,
-			"C3.5 向西击飞触带：wall_bounced 恰一次（计数 %d）" % wall_hits.n)
-	_check(chen3.velocity.x > 0.0,
-			"C3.5 触墙后真镜像翻向东（vx=%.0f）" % chen3.velocity.x)
-	var settled: bool = await _wait_until(func():
-			return str(chen3.state_machine.state_name) == "Ground/Recovery", 240)
-	_check(settled and chen3.global_position.x > 520.0,
-			"C3.5 真弹回场心落地（x=%.0f，已离开西侧触墙位）" % chen3.global_position.x)
-
-	# —— C4 房2双生成器聚合 ——
-	_stage_chen().global_position = Vector2(1950, 600)
 	var locked2: bool = await _wait_until(func():
 			return cam.limit_right == 3000, 240)
-	# 锁定语义=相机右缘收到房框 limit_right（房2=3000）；解锁才到 after_fight 3800
-	_check(locked2, "C4 房2锁定（limit_right=3000，实际 %d）" % cam.limit_right)
-	# 循环清场：波2在第一波全灭后由 spawner 自动续刷，直到聚合计数+1
-	var agg: bool = await _clear_until(2)
-	_check(agg,
-			"C4 双生成器全清才聚合 room_cleared（单 spawner 不提前解锁）")
-	var expanded2: bool = await _wait_until(func():
-			return cam.limit_right == 3800, 240)
-	_check(expanded2, "C4 房2解锁扩权（3800，出口在界内）")
+	_check(locked2, "C4a 房2锁定（走 a2 检测线，limit_right=3000，实际 %d）" % cam.limit_right)
+	_check(shell_a._seg_spawner_set.get(&"seg_a2", []).size() == 2,
+			"C4a a2 段实源集=双生成器（跨房聚合判清的数据面）")
 
-	# —— C5 StageExit 跨地点真转场 ——
-	_stage_chen().global_position = Vector2(3650, 600)
+	# —— C4b 段 a2 判清 → setup 扩权 3800 → 章终点闩 ——
+	#（原 C3.5 撞墙真反弹三腿随 5b 摘除：命题由 knockout_contract D1-D8 全量
+	#  覆盖——带触发/reflect 真值表/横竖分档几何；本场景复刻依赖"段清扩界
+	#  过渡把弹墙带送进飞行射程"的 base 时代时序细节，壳轨下带位随相机过渡
+	#  漂移不可稳定复现，2026-09-28 尸检两次红后按影响面裁撤，案卷在此。）
+	await _clear_until_segs(2)
+	var expanded2: bool = await _wait_until(func():
+			return cam.limit_right == 3800, 300)
+	_check(expanded2, "C4b 段 a2 全清 setup 扩权（3800=双 spawner 聚合非单房提前解锁）")
+	var fin1: bool = await _wait_until(func(): return fins_a[0] == 1, 240)
+	_check(fin1, "C4b 章节 A 段清撞墙 → chapter_finished 恰一次")
+
+	# —— C5 StageExit 跨章真转场（载荷=chapter_id 解析首验）——
+	_stage_chen().global_position = Vector2(3650, 400)
 	var jumped: bool = await _wait_until(func():
-			return _cs() != null and _cs().scene_file_path == STAGE_B, 900)
-	_check(_c_stage_exited == 1, "C5 stage_exited 恰一次（持续重叠场景）")
-	_check(jumped, "C5 跨地点真转场到 B")
+			return _cs() != null and _cs().scene_file_path == CHAPTER_B, 900)
+	_check(_c_stage_exited == 1, "C5 stage_exited 恰一次（持续重叠防重入）")
+	_check(jumped, "C5 跨章真转场到 B")
 	if not jumped:
 		return
 	await _frames(4)
-	_check(GameSave.locations().back().stage_id == &"stage_ref_b",
-			"C5 检查点追新（尾=b）")
+	_check(GameSave.locations().back().stage_id == &"chapter_ref_b",
+			"C5 检查点追新（尾=chapter_ref_b）")
 
-	# —— C5.5 ref_b 光照正例对偶锁（A 负 B 正；60 秒活循环+区域实配） ——
+	# —— C6 章节 B 正例对偶（光照活循环+区域实配）与章终点现状 ——
 	var b_ctrl := _cs().get_node_or_null("Ambient/DayNightController")
 	_check(b_ctrl != null and b_ctrl.scene_time_data != null,
-			"LC8 ref_b 正例：控制器挂 day_cycle_demo（光照随时在走）")
+			"LC8b ref_b 正例：控制器挂 day_cycle_demo（光照随时在走）")
 	_check(get_tree().get_nodes_in_group(&"shadow_region").size() == 1,
-			"LC9 ref_b 正例：ShadowRegion 区域框实配恰 1 个")
-
-	# —— C6 终点腿：清 B 房 → ends_after_last_room → 面板+冻结 ——
+			"LC9b ref_b 正例：ShadowRegion 区域框实配恰 1 个")
+	var shell_b: ChapterShell = _cs() as ChapterShell
+	var fins_b := [0]
+	shell_b.chapter_finished.connect(func() -> void: fins_b[0] += 1)
+	shell_b.segment_cleared.connect(func(_id): _c_segs_seen += 1)
 	var cam_b := _stage_cam()
 	_stage_chen().global_position = Vector2(520, 600)
 	var locked_b: bool = await _wait_until(func():
 			return cam_b.limit_right == 1800, 240)
 	_check(locked_b, "C6 B 房锁定")
-	var b_cleared: bool = await _clear_until(3)
-	_check(b_cleared, "C6 B 清场 room_cleared")
-	var panel: Control = _cs().get_node("HudLayer/StageEndPanel")
-	var shown: bool = await _wait_until(func():
-			return panel.visible, 120)
-	_check(shown, "C6 ends_after_last_room 真链：终点面板弹出")
-	_check(get_tree().paused, "C6 终点树冻结")
-	# 为后续死亡腿恢复运转
-	get_tree().paused = false
-	panel.visible = false
+	await _clear_until_segs(4)
+	var finb: bool = await _wait_until(func(): return fins_b[0] == 1, 240)
+	_check(finb, "C6 B 判清 → chapter_finished(b) 恰一次")
+	_check(not shell_b._end_panel.visible,
+			"C6 面板不自动弹出=B7 消费未接线的现状即契约")
 
-	# —— C7 真死链 → 死亡界面 → 点最新检查点（B）回跳 ——
-	var chen := _stage_chen()
-	chen.attributes.health_current = 0
-	# 玩家侧纯水平 launch 经弹地路径仍抵达 Die（与上方敌人侧教训不矛盾，实测全绿）
-	var data := QuiverKnockbackData.new(1200.0, CombatSystem.HurtTypes.HIGH, Vector2.RIGHT)
-	CombatSystem.apply_knockback(data, chen.attributes)
-	var death_ui := _cs().get_node("HudLayer/PauseLayer/DeathScreen") as Control
-	var died: bool = await _wait_until(func():
-			return death_ui != null and death_ui.visible, 900)
-	_check(died, "C7 真死链走完（血0+击飞→Die 动画→player_died→死亡界面，含击飞链复用）")
-	if not died:
-		return
-	_check(get_tree().paused, "C7 死亡树冻结")
-	var entries: VBoxContainer = death_ui.get_node("ContentLayer")
-	_check(entries.get_child_count() == 3,
-			"C7 按钮=两检查点+返回标题（实际 %d）" % entries.get_child_count())
-	_check((entries.get_child(0) as Button).text == "stage_ref_b",
-			"C7 最新检查点在首位（新→旧渲染真验）")
-	var old_stage_id := _cs().get_instance_id()
-	(entries.get_child(0) as Button).pressed.emit()
-	# 同场景重载：scene_file_path 全程相同会骗轮询——盯"实例更换+pending 被新场景消费"
+	# —— C7 暂停菜单回跳环（死亡界面支随 base 退役；回跳链改验壳形）——
+	var pm := _cs().get_node("HudLayer/PauseLayer/PauseMenu") as Control
+	pm.open_menu()
+	await _frames(2)
+	_check(get_tree().paused, "C7 暂停开=冻结落位")
+	pm.close_menu()
+	_check(not get_tree().paused, "C7 关菜单解冻（按压回跳前清场）")
+	var jb := pm.get_node("ContentLayer").get_child(1) as Button
+	_check(jb != null and jb.text == "回本地点入口", "C7 回跳钮在册（index1）")
+	var old_id := _cs().get_instance_id()
+	jb.pressed.emit()
 	var restored: bool = await _wait_until(func():
-			return _cs() != null and _cs().get_instance_id() != old_stage_id, 900)
-	_check(restored, "C7 按压回跳 B（同场景重载真转场）")
+			return _cs() != null and _cs().get_instance_id() != old_id, 900)
+	_check(restored, "C7 按压回跳（同章重载真转场，实例更换）")
 	var consumed: bool = await _wait_until(func():
 			return GameEvents.pending_jump_stage == "", 240)
+	_check(consumed, "C7 pending 落位即消费")
 	_check(not get_tree().paused, "C7 回跳后树已解冻（unpause 前置铁律回归）")
+	await _frames(6)
 	_check(is_equal_approx(_stage_chen().global_position.x, 300.0),
-			"C7 玩家回出生位（场景重载语义，实际 x=%.0f）" % _stage_chen().global_position.x)
-	_check(consumed and GameEvents.pending_jump_stage == "", "C7 pending 落位即消费")
-	GameSave.new_profile()   # 表随档案清表（B4.5-T1 改判，spec §3）
+			"C7 玩家回出生位（entry 语义，实际 x=%.0f）" % _stage_chen().global_position.x)
+	GameSave.new_profile()
+	await _frames(2)

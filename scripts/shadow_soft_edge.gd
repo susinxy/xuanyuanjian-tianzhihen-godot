@@ -13,30 +13,27 @@ const SCALES := [0.5, 1.0, 2.0, 4.0, 8.0]
 @export var enabled := true
 @export var radius := 2.0
 @export var scale_idx := 1
-## 全屏合成图的世界 z（**手动态**：仅对非 BaseStage 根的场景生效——Run-Test 场景
-## Background 在 z=-10、角色在 z=0，故 -1 恰好落在中间）。
-## 正式地点（current_scene is BaseStage 根）走自动档：z = Level.z_index - 1
-## （"压背景与裸层装饰之上、所有关卡内容之下"的派生不变式，装配者零感知，
-## 2026-09-20 光照收编定档）；特殊需求在地点根 BaseStage.shadow_composite_override
-## 覆写（见 derived_z_for）。旧注释里"真实背景 z=5"系过时文档值，实测背景为
-## CanvasLayer(-10)，无需魔数。
+## 全屏合成图的世界 z（**壳轨法定档=本值**：ChapterShell 根缺省取此 -1；
+## Run-Test 场景 Background 在 z=-10、角色在 z=0，-1 恰好落在中间；
+## 地点侧覆写走壳根 shadow_composite_override，见 derived_z_for）。
 @export var composite_z := -1
 
-## BaseStage 覆写哨兵（与 base_stage.gd 导出默认值同步，勿改单侧）
+## 壳根覆写哨兵（与 chapter_shell.gd 导出默认值同步，勿改单侧）
 const AUTO_SENTINEL := -2147483648
 
-## 合成层归属单一判定点（公开供契约断言）：
-## ① BaseStage 根且地点设了 shadow_composite_override → 用之；
-## ② BaseStage 根 → Level.z_index - 1（Level 缺失时回退③）；
-## ③ 其余（测试场景/无地点）→ 本节点 composite_z 导出
+## 合成层归属单一判定点（公开供契约断言；5b 单轨版）：
+## ① ChapterShell 根且设了 shadow_composite_override → 用覆写值；
+## ② ChapterShell 根缺省 → composite_z（法定档）；
+## ③ 其余（Run-Test 场景/无地点）→ composite_z 回退
 func derived_z_for(scene: Node) -> int:
-	var stage := scene as BaseStage
-	if stage != null:
-		if stage.shadow_composite_override != AUTO_SENTINEL:
-			return stage.shadow_composite_override
-		var level := stage.get_node_or_null("Level")
-		if level != null:
-			return (level as CanvasItem).z_index - 1
+	# 5b 壳轨法定档（2026-09-28）：ChapterShell 根→覆写哨兵外取覆写值，
+	# 缺省=合成层 z=-1（段内容根 z0 之下、Vis 皮肤 -10/-5 之上——段树天然
+	# 成立，无需派生随动）
+	var shell := scene as ChapterShell
+	if shell != null:
+		if shell.shadow_composite_override != AUTO_SENTINEL:
+			return shell.shadow_composite_override
+		return composite_z
 	return composite_z
 
 var shadow_world: Node2D

@@ -13,7 +13,7 @@ signal room_cleared(room_id: StringName)
 ## 玩家触发地点出口（切场前发；S2 对话/S5 存档挂点）
 signal stage_exited(stage_id: StringName)
 
-## 检查点回跳传渡：死亡/暂停界面置目标场景路径，重载后的地点经 BaseStage 消费一次即清空
+## 检查点回跳传渡：死亡/暂停界面置目标场景路径，重载后的地点经 旧 BaseStage（5b 下线） 消费一次即清空
 var pending_jump_stage: String = ""
 
 

@@ -1,6 +1,5 @@
-[gd_scene load_steps=9 format=3 expect="R1"]
+[gd_scene load_steps=8 format=3 expect="R1"]
 
-[ext_resource type="PackedScene" path="res://scenes/base/base_stage.tscn" id="1_base"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="2_room"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="3_sp"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="4_det"]
@@ -30,7 +29,7 @@ script = ExtResource("2_room")
 
 [node name="Spawner1" type="Marker2D" parent="FightRooms/FightRoom1"]
 script = ExtResource("3_sp")
-path_spawn_parent = NodePath("../../../Level/Characters")
+path_spawn_parent = NodePath("../../../../Players")
 spawn_waves = [[SubResource("wave0")]]
 
 [node name="PlayerDetector" type="Area2D" parent="FightRooms/FightRoom1"]

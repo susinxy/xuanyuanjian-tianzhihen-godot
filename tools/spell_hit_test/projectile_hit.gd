@@ -5,7 +5,7 @@ extends Node
 ##   二、双实例隔离：两发弹体各自的命中/消亡/回执事件必须各归各身；
 ##   三、僵尸回执：死体不得二次宣告。
 ## 【豁免】被测场景=addons 产线 Run-Test 镜像（ensure_spell_run_test 生成，
-## 主角位绑 CHEN_SCENE 硬码=插件红线不许碰，场景根亦非 BaseStage/ChapterShell，
+## 主角位绑 CHEN_SCENE 硬码=插件红线不许碰，场景根亦非 原 BaseStage/ChapterShell，
 ## playable_override 接缝在架构上不及此处）——绑定生产角色属题意
 ## （B2.5 新法申报，与 wp2_creation_test 镜像豁免同判例）。
 ## 教训固化：协程内报错=静默跳段（AGENTS 明文），本 runner 设完成旗汇总前必查；

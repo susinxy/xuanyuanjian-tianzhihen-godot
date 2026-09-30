@@ -1,5 +1,9 @@
 # 关卡装配指南（STAGE_ASSEMBLY）
 
+> **5b 单轨定档（2026-09-28）**：`base_stage` 单地点轨已下线（stage_contract 142→126
+> 转世壳形、validator base 臂退役、法定样板转世 chapter_ref_a/b 壳段四件）。
+> 一切地点=章节壳+段。
+
 > S1 立法的装配法典：**要造新地点 → 直接看第〇章食谱**；第一章八条与第二、三章
 > 是干完活后的审稿清单。**新关卡必过校验器才有 F5 资格**（流程法律）：
 > `godot --headless --path . -s tools/stage_validator/validator.gd`
@@ -11,81 +15,47 @@
 **总原则**：造一个正式地点**零新代码**——若发现"非改代码不可"，说明需求在 S1
 能力面外（如互动触发件），回设计会立项，别在场景里手写胶水。
 
-### 0.1 实例化 base_stage 即免费所得（什么都不用配）
+### 0.1 实例化 chapter_shell 即免费所得（什么都不用配）
 
 | 能力 | 提供者 | 场景侧动作 |
 |---|---|---|
-| 四段式树（Background/Level{Characters,Objects,Collisions}/Foreground/FightRooms/HudLayer+HUD+暂停/死亡壳+通关面板） | `base_stage.tscn` 骨架 | 无 |
-| 检查点自动注册（死亡/暂停菜单可回跳本地点） | `BaseStage._ready → GameEvents.add_checkpoint` | 填 `stage_id` 即生效 |
-| 波次聚合解锁（房内全部生成器 is_completed → 扩权 after_fight + 发 `room_cleared`） | BaseStage 聚合读检测器导出 | 只需填对检测器（0.3） |
-| 死亡→死亡壳、ESC→暂停壳（含冻结态防叠开） | BaseStage 转交 + 壳 ALWAYS 纪律 | 无 |
-| 通关面板（全房清且 `ends_after_last_room=true` → 返回标题/重走一遍） | `BaseStage._show_end_panel` | 填该导出 |
-| 相机边缘全家桶：四面实体墙+四弹墙带（横竖分档）+出生初帧定位+锁房收口钳位+zoom 归一 | `QuiverLevelCamera` + `QuiverFightRoom` | 挂相机+配房 |
+| 壳树（Players/HudLayer{HUD+暂停+死亡休眠件+终点面板}/Ambient{CanvasModulate+KeyLight+Controller}/Segments） | `chapter_shell.tscn` 骨架 | 无 |
+| 主角注入（`playable_override` 正门）+歧义/空场红护栏+`area2d:player` 身份链 | ChapterShell 三来源解析 | 放一个玩家档角色 |
+| 跟随相机自动补挂（`camera_host_path` 可改挂+运行时 `set_camera_host`） | ChapterShell 相机服务 | 无 |
+| 章级+段级检查点、死亡=段重跑、暂停壳回跳、读档落位 | ChapterShell+SessionRules+GameSave | 填 `chapter_id` |
+| 段生命周期（判清自动推进、缓存复用/丢弃重建、chapter_finished 闩） | ChapterShell | 摆段+填 `segment_scenes` |
+| 段内波次聚合解锁（房内 setup 扩权演出保留）+ segment_cleared | ChapterShell 实源并集 | 填对检测器（0.3） |
+| 相机边缘全家桶：四面实体墙+四弹墙带+锁房收口钳位+zoom 归一 | `QuiverLevelCamera` + `QuiverFightRoom` | 挂房 |
 | 高度层碰撞、阵营免伤、击飞/受击全套语义 | `QuiverCharacter` 运行时下发 | 无 |
-| 昼夜三件套预置（CanvasModulate+KeyLight+Controller；**空数据=自禁定格白天**） | `base_stage.tscn` Ambient 子树（2026-09-20 收编） | 可选：挂 SceneTimeData（0.2 第 6 件） |
-| 软边阴影合成层自动落位（z=Level-1 派生，随动） | `ShadowSoftEdge.derived_z_for` | 无（覆写=专家通道） |
-| 调试重载（debug_restart 动作 → reload_prototype） | `BaseStage._unhandled_input` | 无 |
+| 昼夜三件套（空数据=自禁定格白天）+段入场 `lighting_color` 复位 | 壳 Ambient + StageContent | 可选挂 SceneTimeData |
+| 软边阴影合成层（法定档 z=-1，专家覆写走壳根 `shadow_composite_override`） | `ShadowSoftEdge.derived_z_for` | 无 |
+| 调试重载（debug_restart） | `ChapterShell._unhandled_input` | 无 |
 
-### 0.2 每地点亲手做的五件事（+一条合流）
+### 0.2 每章节亲手做的事（5b 单轨装配序）
 
-1. **建文件**：新建场景→实例化 `scenes/base/base_stage.tscn` 为根→另存
-   `scenes/stages/<章节包>/stage_<名>.tscn`（最小体做法=复制 ref_a 删 Room2 与
-   第二生成器、根改 `ends_after_last_room=true`；法定样板 A/B 是"一负一正"光照对偶）；
-2. **根两导出**：`stage_id`（StringName 全局唯一，检查点主键）；
-   `ends_after_last_room`（true=全房清演出通关面板；false=必须摆 StageExit——R8 二选一）；
-3. **生玩家+挂相机**：`Level/Characters` 实例 chen.tscn，其下实例
-   `quiver_level_camera.tscn`（装配一条：相机必须是玩家子节点）；limits 初值给宽
-   （样板只填 top=-280/right/bottom=1200，左右界由 FightRoom 运行时收束）；
-   **出生点放第一房检测线西侧几十 px**（放线东=落地即开战；放界外=首次锁房被收口拉一把，雷区 i）；
-4. **场地几何**：`Level/Collisions` 地面板+左右实体墙 StaticBody（配方照抄样板：
-   `collision_layer=16760832`、`collision_mask=0`，雷区 c）；背景/道具摆 `Objects`/`Background`；
-5. **FightRoom 三件套×N**：字段卡见 0.3（房=ReferenceRect，**子节点坐标相对房左上角**，雷区 a）；
-6. **【可选】光照两件套**：`Ambient/DayNightController.scene_time_data` 挂时间数据
-   （起步件 `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天；
-   demo 档 `day_cycle_demo.tres`=60 秒快循环）；性能需要时在地点根摆 `ShadowRegion`
-   框（禁重叠，实配参考=ref_b）——细则见 docs/guides/GUIDE_光照.md；
-7. **【合流】让地点可被进入**：上关 `StageExit.next_stage_path` 指过来；试跑可临时
-   改 `title_screen.gd` 的 `GAMEPLAY_SCENE` 或在编辑器**用 F6 单跑本场景**——验完还原，不合流不提交。
-
-### 0.2b 容器形态双轨（S2-M1-B1 立形，spec D10：选形先于施工）
-
-**何时用哪轨**：单地点（ref A/B 类，一屏一仗）= **BaseStage 轨**（0.2 五件事不变）；
-**新章节一律 ChapterShell 轨**（多段串场+段级检查点+会话状态包），双轨零互扰。
-
-- **建文件**：壳文件的两种合法出生——工程侧生成"根=壳实例"形制（法定样板形，
-  结构随模板升级），或内容贡献者走编辑器"打开模板→场景另存为"（合法拷贝形，
-  R1 臂⑤承认；**校验器对该形照查 chapter_id**，2026-09-28 收紧豁免洞；代价=
-  模板升级不自动跟随，工程同步）。段（段模板复制改件见下）。
-  **段内容件有法定施工样板**：`scenes/chapter/segment_template.tscn`（2026-09-28
-  基建批；复制→改名→填 `segment_id` 即得"几何+房三件套+Vis 皮肤"满配战斗段，
-  红线清单钉在根节点 `_装配须知` metadata 里；过场段=删三件套+`auto_complete=true`）；
-  壳模板自带 HUD/暂停/终点面板+Ambient——**0.2 第 2 件（根导出）由壳轨模板
-  提供**；**5a 壳清空批（2026-09-28）：壳不再内嵌主角与相机**——0.2 第 3 件
-  换为"放主角"（三来源其一）：①壳根 `playable_override` 拖玩家档角色 .tscn
-  （推荐正门，出生即注入 Players 槽）②实例直接摆进 `Players/`（带
-  area2d:player 组）③`playable_path` 显式指路（多角色歧义裁决槽）。
-  空场/歧义=运行时 chapter_error 红+validator R14 静态拦；跟随相机由壳
-  `camera_host_path`（空=跟主角）+自动补挂供给，`set_camera_host()` 可运行时
-  改挂（相机=壳的服务，不专属主角）。段内容件里禁再放任何壳件与
-  CanvasModulate（光照复位责任在壳）；
-- **壳根两导出**：`chapter_id`（StringName 非空，R2 壳形态主键；检查点按它注册）+
-  `segment_scenes`（Array[PackedScene]，顺序=推进序，重复 id/坏段运行时报 chapter_error）；
-- **段内容件（StageContent 根，`scripts/chapter/stage_content.gd`）**字段卡：
-  - `segment_id`：StringName，章内唯一（重复=扫描期 chapter_error）；
-  - `entry_points`：`{&"default": Vector2, ...}`，`&"default"` 必有且**必须放第一
-    检测线西侧前场区**——入口几何纪律是承重墙（裁决 R13：落位屏蔽 2 帧窗只是
-    串行化保险，既成重叠的根治靠摆位，雷区 i 的容器化）；坐标为**段内局部**；
-  - `lighting_color`：段入场画布色（壳的 CanvasModulate 复位输入；缺省白=中性）；
-  - `auto_complete`：非战斗段（过场/尾声）true=进段即判清推进；
-- **三件套层级与生成器路径**：房（ReferenceRect+room 脚本）**直接挂段根**
-  （`Segments/SegA/Room1` 形态），生成器 `path_spawn_parent =
-  NodePath("../../../../Players")`——段挂壳 Segments 下恒 4 级（R5 白名单第二形）；
-- **推进与终点**：段清自动顺序推进，**无 StageExit 义务**（R8 壳形态豁免）；
-  章节终点=终点段判清+无后继时 `chapter_finished` 信号（消费口=过场衔接批 B7），
-  死亡=段重跑（D4），跨段回跳仍走暂停壳检查点；
-- **条 10/R11 已开账（S2-M1-B2）**：段内互动走通用触发件
-  `scenes/chapter/interact_trigger.tscn`（装配五条+R11 口径见第一章条 10），
-  **仍禁在段里手写交互胶水**。
+1. **建壳**：新建场景→把 `scenes/chapter/chapter_shell.tscn` **实例化进场景树**
+   （实例化子场景即可）后另存 `scenes/stages/<章节包>/chapter_x.tscn`；壳文件
+   两种合法出生=工程侧生成"根=壳实例"同构形 / 编辑器"场景另存为"拷贝形
+   （R1 臂⑤承认，代价=模板升级不自动跟随）；
+2. **壳根导出**：`chapter_id`（StringName 全局唯一，检查点主键——R2 执法）；
+   `playable_override` 放主角（**推荐正门**：拖玩家档角色 .tscn；Players 下
+   摆实例=来源②；多角色用 `playable_path` 裁决③——空场/歧义运行必红+R14 静态拦）；
+   `segment_scenes`=段数组（顺序=推进序）；`camera_host_path` 一般留空；
+3. **建段**：复制 `scenes/chapter/segment_template.tscn` 改件——`segment_id`
+   （章内唯一）；`entry_points.default` **必须放第一检测线西侧前场区**（几何承重墙，
+   雷区 i 的容器化）；房三件套字段卡见 0.3（房直接挂段根，生成器
+   `path_spawn_parent=../../../../Players` 段挂壳 Segments 下恒 4 级）；
+4. **场地几何**：地面/左右实体墙 StaticBody 直挂段根（配方 `collision_layer=
+   16760832`、`mask=0`，雷区 c——R7 全树执法）；背景/道具摆段内（Background
+   CanvasLayer `layer` 必须 <0，R10）；
+5. **光照可选**：壳 `Ambient/DayNightController.scene_time_data`（起步件
+   `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天；
+   demo 档=60 秒快循环）；段根 `lighting_color`=入场画布色；性能需要时段内摆
+   `ShadowRegion` 框（禁重叠，实配=seg_ref_b1）——细则见 docs/guides/GUIDE_光照.md；
+6. **【合流】让章节可被进入**：试跑可临时改 `title_screen.gd` 的
+   `GAMEPLAY_SCENE` 或在编辑器用 F6 单跑壳文件——**段文件不能单独 F6**（段里
+   没有玩家），验完还原，不合流不提交；章与章的串接件=StageExit（摆段内，
+   `next_stage_path` 指向下一章节 .tscn，参考 chapter_ref_a 段尾→chapter_ref_b）。
 
 ### 0.3 FightRoom 三件套字段卡（逐项来源=ref A/B 实测绿）
 
@@ -96,7 +66,7 @@
 - `preview_camera/preview_after_room=true` 仅编辑器预览着色。
 
 **生成器（Marker2D + quiver_enemy_spawner.gd）**
-- `path_spawn_parent = NodePath("../../../Level/Characters")` —— **必改**（上游默认值是错的，R5 红；壳形态段内用 `../../../../Players`，见 0.2b）；
+- `path_spawn_parent = NodePath("../../../../Players")` —— **必改**（上游默认值是错的，R5 白名单唯一形，5b 单轨）；
 - `spawn_waves = [[SD, SD, ...], [SD, ...]]` —— 外层=波序、内层=同波并发；SD 子资源形态照抄样板（`enemy_scene` 指真实存在的敌人 .tscn=R6；`spawn_mode=1`+`use_spawner_position=true`=参考默认，语义要调时查插件 Inspector 面板）；
 - `position` 是**相对房左上角**的落点（雷区 a）。
 
@@ -114,47 +84,53 @@
   重叠处双倍变暗禁止**；`debug_preview` 正式关卡保持 false（零绘制）；
 - Background CanvasLayer 换件时 **layer 必须 <0**（R10+canary，≥0 连角色一起盖掉）。
 
-### 0.4 路线 B——复制改件（日常最快）
+### 0.4 复制改件（日常最快）
 
-复制 `stage_ref_a.tscn`（法定满配：两房串场+出口；最小体按 0.2#1 删减法）→
-换文件名+根名 → **改 `stage_id` 与检查点主键**（撞键=两地点在检查点表合并，回跳错位）→
-改几何/波次/出口 → 校验器。**纪律：复制改件免的是手续、不免审稿——八条+雷区 a-j 仍须逐条过**
-（validator 只保红线，手感与布局它不管）。
+复制 `chapter_ref_a.tscn`+`seg_ref_a1/a2.tscn`（法定满配：两段串场+房×3+出口+
+双敌聚合）→ 换名换 `chapter_id`/`segment_id`（撞键=检查点合并回跳错位）→
+改几何/波次/出口 → 校验器。**纪律：复制免手续不免审稿——装配十一条+雷区仍逐条过**
+（validator 只保红线，手感布局它不管）。
 
 ### 0.5 验收三件套
 
 1. 校验器：默认扫 `scenes/stages/**`，你的地点出现在 `违例 0` 里；
 2. 冒烟：`godot --headless --path . res://scenes/stages/<包>/<你的地点>.tscn` 跑 ~8 秒零 SCRIPT ERROR；
 3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、穿线开战、
-   全清→通关面板、死亡→检查点表含本地点。
-（stage_contract 的 128 断言只绑 ref A/B 两台法定样板（含 A负B正 光照对偶锁 LC 组）；新地点由以上三件套+回归时顺扫的校验器保护。）
+   段全清→自动推进/章终点、死亡→段重跑复位、暂停回跳含本章。
+（stage_contract 的 126 断言只绑 chapter_ref A/B 两台法定壳段样板（含 A负B正 光照
+ 对偶锁 LC 组）；新章节由以上三件套+回归时顺扫的校验器保护。）
 
 ## 一、装配十一条（校验器 R1-R12 的法律来源）
 
-- [ ] **1. 相机挂玩家下**：LevelCamera 实例是玩家角色节点的子节点（插件无目标
-      查找，跟随=父子变换）；limit 初值给宽，由 FightRoom 运行时收束。
+- [ ] **1. 相机=壳的服务（5b 起自动）**：壳解析主角后自动补挂 LevelCamera
+      到其名下并掌电流；`camera_host_path` 可改挂任意节点（演出段跟 NPC），
+      运行时 `set_camera_host()`；limit 初值给宽，由 FightRoom 运行时收束。
+      （单地点旧制"装配者手挂相机"随 base_stage 退役。）
 - [ ] **2. 检测器三导出显式填**：`path_fight_room=NodePath("..")`、
       `paths_enemy_spawners` 列全本房生成器、`is_one_shot=true`；
       身份判定走 `area2d:player` 组（本项目已迁，勿再找 `players` 组）。
-- [ ] **3. 生成器必改 `path_spawn_parent`** 为 R5 白名单双形（白名单即权威，
-      非形一律红）：单地点轨 `../../../Level/Characters`（房挂 FightRooms 下
-      恒 3 级）/ 容器段轨 `../../../../Players`（段挂壳 Segments 下恒 4 级，
-      见 0.2b）——上游默认值 `../../Characters` 在两种标准层级下都是错的。
+- [ ] **3. 生成器必改 `path_spawn_parent`** = R5 白名单唯一形（5b 单轨）
+      `../../../../Players`（段挂壳 Segments 下恒 4 级）——上游默认值
+      `../../Characters` 是错的，base 三级形已退役。
 - [ ] **4. 碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 配
       高度层（全段=16760832，bit15-24），**障碍层 2 允许出现**（校验器 R7
       只执 12 位）；**禁手配旧层 3/4 掩码**（屏限/顶限归相机高度层，由
       LevelCamera 运行时接管，上游旧制勿抄）。
 - [ ] **5. 波次数据形态**：`spawn_waves` 用插件自定义 Inspector 填
       （波=QuiverSpawnData 数组）；敌人场景引用必须盘上存在（校验器 R6）。
-- [ ] **6. 检查点约定**：覆写 BaseStage 导出 `stage_id`，进地点即以
-      (stage_id, scene_path) 自动注册；回跳=重载场景，无多入口标记体系（YAGNI）。
-- [ ] **7. 多生成器聚合读检测器导出**：base_stage 据 `paths_enemy_spawners`
-      聚合，全 `is_completed` 才 `setup_after_fight_room()` + 发 `room_cleared`
-      ——场景连线表达不了"与"逻辑，**禁逐房手写胶水**（上游每房手写的债已升格为机制）。
-- [ ] **8. 推进机制只有两种**：房→房 = after_fight_limit 扩权步行串场（同地点内）；
-      跨地点 = StageExit 触发件（`next_stage_path` 导出）。不设第三种。
-- [ ] **9. 背景负档+光照空禁**：正式地点 Background CanvasLayer `layer` 必须 <0
-      （R10 文本执法 + BaseStage canary 兜"默认 1"缺失案）；昼夜三件套骨架预置，
+- [ ] **6. 检查点约定**：壳根 `chapter_id`+段 `segment_id` 双键，进章/进段即以
+      (chapter_id, scene_path, segment, entry) 自动注册；回跳=重载场景+段级落位，
+      死亡=段重跑（D4），无多入口标记体系（YAGNI）。
+- [ ] **7. 多生成器聚合读检测器导出**：ChapterShell 段接线期据
+      `paths_enemy_spawners` 并集建实源集，全 `is_completed` 才段判清——
+      `setup_after_fight_room()`（房内扩权演出保留）+ `segment_cleared` +
+      自动推进——场景连线表达不了"与"逻辑，**禁逐房手写胶水**。
+      （base 房级 room_cleared 聚合随 5b 退役。）
+- [ ] **8. 推进机制只有三种**：房→房 = after_fight_limit 扩权步行串场（同段内）；
+      段→段 = 段判清自动推进（壳构造）；跨章 = StageExit 触发件
+      （`next_stage_path` 指向另一章节 .tscn，参考 chapter_ref_a 段尾）。不设第四种。
+- [ ] **9. 背景负档+光照空禁**：段内 Background CanvasLayer `layer` 必须 <0
+      （R10 文本执法；BaseStage runtime canary 随 5b 退役）；昼夜三件套壳骨架预置，
       `scene_time_data` 留空=自禁定格白天（装配合法态，非违例）。
 - [ ] **10. 互动触发件走通用件（S2-M1-B2 开账，R11 执法）**：段内 E 键互动一律
       实例化 `scenes/chapter/interact_trigger.tscn`（`InteractTrigger`），**禁手写

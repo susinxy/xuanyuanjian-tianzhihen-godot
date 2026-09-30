@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
+[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" path="res://scenes/stages/ref/seg_ref_b1.tscn" id="3_segb"]
+[ext_resource type="Resource" path="res://resources/lighting/day_cycle_demo.tres" id="4_day"]
+
+[node name="ChapterRefB" instance=ExtResource("1_shell")]
+chapter_id = &"chapter_ref_b"
+segment_scenes = Array[PackedScene]([ExtResource("3_segb")])
+playable_override = ExtResource("2_chen")
+
+[node name="DayNightController" parent="Ambient"]
+scene_time_data = ExtResource("4_day")

@@ -468,6 +468,23 @@
     **5b 轨道统一批已立案待开工**（用户已批渐进方案）：base_stage 废弃禁新增，
     ref A/B 壳形转世+stage_contract 载体迁移+validator base 臂退役+软边壳轨
     z 规则+法典塌缩单轨。
+
+  - **5b 轨道统一批（2026-09-30 收口，用户批准"渐进两批"之第二批）**：
+    **base_stage 单地点轨下线**。①法定样板转世：`scenes/stages/ref/` 换
+    chapter_ref_a/b（壳）+seg_ref_a1/a2/b1（段）四件——A 负 B 正光照对偶、
+    两房间段清推进、StageExit 跨章转场、ShadowRegion 正例全保留；②壳模板收编
+    L3 光照三件套（KeyLight 阴影关禁令+DayNightController 自洽接 manager）；
+    ③软边 z 壳轨法定档定案=composite_z(-1)，`shadow_composite_override` 专家
+    覆写自 base 根迁壳根（derived_z_for 三臂）；④stage_contract 142→**126**
+    壳形转世（B 段 40：骨架树/注入形主角/相机补挂掌电流/段级聚合/探针/终点
+    面板现状锁；C 段 50：全环换壳载具，C3.5 撞墙三腿裁撤——knockout D1-D8
+    全量覆盖，扩界过渡带位时序在壳轨不可稳定复现，案卷注释在位；C6/C7 死亡
+    界面/自动弹面板腿随 base 退役）；⑤validator base 臂退役：R1 单形、R2 双
+    主键、R8 整规废除（章终点=壳构造自带）、R5 白名单唯一形、R7 扩全树
+    StaticBody；fixtures 九件转段形/删两件（r2_no_stage_id/r8_no_exit）；
+    ⑥stage_exit 载荷双形态解析（chapter_id 优先）；⑦法典第〇章塌缩单轨五件
+    装配序+装配条 1/3/6/7/8/9 改写、手册 §六 改下线案卷、AGENTS Stage
+    Structure 重写。**全矩阵 26 跑 RED=0**（20260930_130522）。
   - **手册严肃化波（2026-09-28，用户批评"操作指导不是随口描述"引出）**：实证
     发现手册建壳步描述的是**编辑器不存在的操作**（"实例化为根"系工程手写形制）
     且 validator 存在豁免洞——另存形章节整份逃 R2，"漏填 chapter_id 假绿"。

@@ -1,0 +1,11 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
+[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" path="res://scenes/stages/ref/seg_ref_a1.tscn" id="3_sega"]
+[ext_resource type="PackedScene" path="res://scenes/stages/ref/seg_ref_a2.tscn" id="5_segb"]
+
+[node name="ChapterRefA" instance=ExtResource("1_shell")]
+chapter_id = &"chapter_ref_a"
+segment_scenes = Array[PackedScene]([ExtResource("3_sega"), ExtResource("5_segb")])
+playable_override = ExtResource("2_chen")

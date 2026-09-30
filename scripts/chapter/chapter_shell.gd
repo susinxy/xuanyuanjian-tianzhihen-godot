@@ -43,6 +43,9 @@ const LEVEL_CAMERA_SCENE := preload(
 ## 挂载目标可配可运行时改）：空=跟 playable；非空=指哪挂哪（演出段跟 NPC 等）。
 ## 换挂公开口=set_camera_host()；宿主下查无相机时壳自动补挂 QuiverLevelCamera。
 @export_node_path("Node2D") var camera_host_path := NodePath("")
+## 软边合成层 z 的地点侧覆写（5b 自 BaseStage 迁壳；哨兵值=不覆写走壳轨
+## 法定档 -1，与 ShadowSoftEdge.AUTO_SENTINEL 同步勿改单侧）
+@export var shadow_composite_override: int = -2147483648
 
 ## 账本引用（B4-T1 迁移，spec §6）：ChapterSession 退役，session 指向
 ## /root/GameSave 单例；类型放宽为 Node（GameSave 无 class_name，消费点
@@ -232,7 +235,7 @@ func _ensure_camera() -> void:
 		_camera = LEVEL_CAMERA_SCENE.instantiate()
 		_camera.name = "LevelCamera"
 		# 补挂形沿用原壳模板相机初值（法典 0.2#3"limits 初值给宽"：上下右宽口，
-		# 左右界由 FightRoom 运行时收束——0.2b 单摆零感知语义保持）
+		# 左右界由 FightRoom 运行时收束——0.2 装配序单摆零感知语义保持）
 		_camera.limit_top = -280
 		_camera.limit_right = 2000
 		_camera.limit_bottom = 1200

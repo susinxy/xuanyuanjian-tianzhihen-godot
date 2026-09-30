@@ -11,7 +11,7 @@ extends SceneTree
 ##            `[gd_scene ... expect="R#"]` 声明**恰**触发的规则；
 ##            stage_ok 声明 none 必须全绿）
 ## 规则表（账本裁决绑定版；S2-M1-B1 双轨扩，spec D10）：
-##   R1 根必须 instance=ExtResource(base_stage.tscn **或** chapter_shell.tscn)；
+##   R1 根必须 instance=ExtResource(chapter_shell.tscn)（5b 单轨：base_stage 臂退役）；
 ##      豁免臂：③段形态（根 script=stage_content.gd）、④壳模板本体（根
 ##      script=chapter_shell.gd 且**仅模板自身路径**）；⑤另存分壳（同根脚本
 ##      形于别处）=合法根形态但归壳管辖，R2 照查 chapter_id（2026-09-28 收紧，
@@ -24,16 +24,14 @@ extends SceneTree
 ##   R3 每个 QuiverFightRoom 子树含 ≥1 检测器与 ≥1 生成器
 ##   R4 检测器 path_fight_room 非空 且 paths_enemy_spawners ≥1 条非空路径
 ##   R5 生成器 path_spawn_parent ∈ 两种合法形态（白名单）：base 轨
-##      ../../../Level/Characters（房挂 FightRooms 下恒 3 级）/ shell 轨
+##      （5b 单轨）shell 轨
 ##      ../../../../Players（段挂壳 Segments 下恒 4 级，spec C6）；默认值/缺失红
 ##   R6 生成器 spawn_waves 在位且每个 SubResource 有 enemy_scene=ExtResource
 ##      指向盘上真实存在的 .tscn
 ##   R7 Level/Collisions 下每个 StaticBody2D：collision_layer 必须存在、
 ##      含全部高度层（bit15-24，16760832）且无旧屏限位（值 4=layer3 屏限、
 ##      值 8=layer4 顶限，合计 12）；bit2 障碍位允许出现（不检查）
-##   R8 地点含 StageExit 子树（脚本识别）或 ends_after_last_room = true；
-##      shell 形态天然豁免（章节终点=ChapterShell.chapter_finished 信号构造自带）；
-##      ③段形态与④壳模板本体同豁免（段无 StageExit 义务，章节终点归壳）
+##   （R8 随 base 轨退役（5b）：章终点=段判清+chapter_finished 构造自带）
 ##   R9 同一 spawner 路径被 ≥2 个不同房的检测器引用（跨房重引）= 违例
 ##   （WIP 豁免：目录内放 .wip 空文件=该目录树整体跳过并打 NOTICE）
 ##   R10 背景 CanvasLayer 显式写的 layer 必须 <0（≥0 连角色/阴影合成层整个盖掉；
@@ -61,7 +59,6 @@ extends SceneTree
 ##       零节点 .tscn（垃圾/截断）记 R1 早退，
 ##       不得流进 R2/R11 臂（root={} → .props null 崩）
 
-const BASE_PATH := "res://scenes/base/base_stage.tscn"
 const SHELL_PATH := "res://scenes/chapter/chapter_shell.tscn"
 const STAGES_DIR := "res://scenes/stages"
 const FIXTURES_DIR := "res://tools/stage_validator/fixtures"
@@ -81,7 +78,6 @@ const NS_SPELLS_BUCKET := "spells_known"
 # R5 白名单双形（spec D10/C6）：base 轨房挂 FightRooms 下恒 3 级到根；
 # shell 轨段挂壳 Segments 下、房直接挂段根，恒 4 级到壳根 Players
 const LEGAL_SPAWN_PARENTS := [
-	'NodePath("../../../Level/Characters")',
 	'NodePath("../../../../Players")',
 ]
 
@@ -213,7 +209,7 @@ func _check_file(path: String) -> Array:
 	_check_r5(spawners, add)
 	_check_r6(spawners, model, add)
 	_check_r7(model, add)
-	_check_r8(model, add, is_shell, is_segment, is_template)
+	# R8 随 base 轨退役（5b）：段清推进义务=ChapterShell 构造自带，无静态面
 	_check_r9(rooms, detectors, add)
 	_check_r10(model, add)
 	_check_r11(model, add)
@@ -304,9 +300,8 @@ func _check_r1(model: Dictionary, root: Dictionary, add: Callable,
 	if is_segment or is_template or is_shell:
 		return
 	if root.is_empty() or not (root.inst in model.exts) \
-			or (model.exts[root.inst] != BASE_PATH
-					and model.exts[root.inst] != SHELL_PATH):
-		add.call("R1", "根未实例化 base_stage.tscn")
+			or model.exts[root.inst] != SHELL_PATH:
+		add.call("R1", "根须为 chapter_shell.tscn 实例或合法脚本形态（base_stage 单地点轨已随 5b 下线）")
 
 
 func _check_r2(root: Dictionary, add: Callable, is_shell: bool,
@@ -327,12 +322,8 @@ func _check_r2(root: Dictionary, add: Callable, is_shell: bool,
 		var c: String = root.props.get("chapter_id", "")
 		if c.begins_with('&"') and c.length() > 3:
 			return
-		add.call("R2", "壳形态根缺 chapter_id = &\"...\" 非空行（单地点形态才查 stage_id）")
+		add.call("R2", "壳形态根缺 chapter_id = &\"...\" 非空行")
 		return
-	var v: String = root.props.get("stage_id", "")
-	if v.begins_with('&"') and v.length() > 3:
-		return
-	add.call("R2", "根节点缺 stage_id = &\"...\" 非空行")
 
 
 func _check_r3(rooms: Array, detectors: Array, spawners: Array, add: Callable) -> void:
@@ -386,8 +377,10 @@ func _check_r6(spawners: Array, model: Dictionary, add: Callable) -> void:
 
 
 func _check_r7(model: Dictionary, add: Callable) -> void:
+	# 5b 单轨扩面：原"仅 Level/Collisions/ 前缀"为 base 路径法理，段形场地体
+	# 直挂段根——全树 StaticBody2D 一律查配方（装配文件内无豁免体）
 	for n in model.nodes:
-		if n.type != "StaticBody2D" or not n.full.begins_with("Level/Collisions/"):
+		if n.type != "StaticBody2D":
 			continue
 		if not n.props.has("collision_layer"):
 			add.call("R7", "%s 缺 collision_layer" % n.full)
@@ -396,22 +389,6 @@ func _check_r7(model: Dictionary, add: Callable) -> void:
 		if (layer & HEIGHT_ALL) != HEIGHT_ALL or (layer & OLD_GUARD_BITS) != 0:
 			add.call("R7", "%s collision_layer=%d 未⊇高度层或带旧屏限位" % [n.full, layer])
 
-
-func _check_r8(model: Dictionary, add: Callable, is_shell: bool,
-		is_segment: bool, is_template: bool) -> void:
-	# 壳形态豁免（S2-M1-B1 裁决，最小诚实规则）：章节终点=段判清+无后继时
-	# ChapterShell.chapter_finished 信号构造自带（T5/B7 消费口），既无
-	# StageExit 义务，BaseStage 的 ends_after_last_room 导出也不存在于壳——
-	# 单地点形态维持"二选一"红线不变。③段/④壳模板本体同豁免（S2-M1-B2 T4）：
-	# 段无 StageExit 义务（章节终点归壳），模板本体同理。
-	if is_shell or is_segment or is_template:
-		return
-	if not _kind_nodes(model, EXIT_GD).is_empty():
-		return
-	for n in model.nodes:
-		if n.props.get("ends_after_last_room", "") == "true":
-			return
-	add.call("R8", "无 StageExit 子树且无 ends_after_last_room=true")
 
 
 func _check_r9(rooms: Array, detectors: Array, add: Callable) -> void:

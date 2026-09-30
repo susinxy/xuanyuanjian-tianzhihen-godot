@@ -1,6 +1,6 @@
 [gd_scene load_steps=9 format=3 expect="R6"]
 
-[ext_resource type="PackedScene" path="res://scenes/base/base_stage.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_base"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="2_room"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="3_sp"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="4_det"]
@@ -12,22 +12,24 @@
 script = ExtResource("5_sd")
 enemy_scene = ExtResource("6_enemy")
 
-[node name="StageOk" instance=ExtResource("1_base")]
-stage_id = &"stageok"
+[node name="FixtureSeg" type="Node2D"]
+script = ExtResource("1_base")
+segment_id = &"seg_fx"
 
-[node name="Gate" type="StaticBody2D" parent="Level/Collisions"]
+
+[node name="Gate" type="StaticBody2D" parent="."]
 collision_layer = 16760832
 collision_mask = 0
 
-[node name="FightRoom1" type="ReferenceRect" parent="FightRooms"]
+[node name="FightRoom1" type="ReferenceRect" parent="."]
 script = ExtResource("2_room")
 
-[node name="Spawner1" type="Marker2D" parent="FightRooms/FightRoom1"]
+[node name="Spawner1" type="Marker2D" parent="FightRoom1"]
 script = ExtResource("3_sp")
-path_spawn_parent = NodePath("../../../Level/Characters")
+path_spawn_parent = NodePath("../../../../Players")
 spawn_waves = [[SubResource("wave0")]]
 
-[node name="PlayerDetector" type="Area2D" parent="FightRooms/FightRoom1"]
+[node name="PlayerDetector" type="Area2D" parent="FightRoom1"]
 collision_layer = 0
 monitorable = false
 script = ExtResource("4_det")
