@@ -1,5 +1,6 @@
 extends Control
-## 死亡结算壳：base_stage 在 player_died 后转交 open_screen（本壳不自监听信号，
+## 死亡结算壳：原 base_stage 在 player_died 后转交 open_screen（5b 起壳轨死亡=段重跑，
+## 本壳为休眠件；不自监听信号，
 ## 保持被动）；open 时从 GameEvents 检查点表**清空重建**条目，末条固定"返回标题"。
 ## 时序铁律与暂停壳同款：任何 transition 之前必须先 unpause。
 

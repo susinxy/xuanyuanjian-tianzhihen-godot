@@ -2,7 +2,8 @@ class_name SessionRules
 extends RefCounted
 
 ## 壳与单地点骨架共享的会话规则（S2-M1-B1/D10"重构而非复制"）：
-## BaseStage 与 ChapterShell 双轨并存，本库存放两者逐位同源的真实重复面
+## 原 BaseStage 与 ChapterShell 双轨并存（5b 单轨化：base 已下线），本库存放
+## 当年两轨逐位同源的共享件，现由 ChapterShell 独食
 ## （路径解析/回跳消费/检测器→生成器采集/终点面板接线/回标题/原型重载），
 ## 防两份实现漂移。抽取口径=读 base_stage.gd 实况后仅取真实共享件，
 ## brief 草图的 collect_rooms 与实况房聚合形态不符，裁决弃用（见任务报告）。
@@ -18,8 +19,8 @@ const TITLE_PATH := "res://ui/menus/title_screen.tscn"
 ## - scene_file_path 异于骨架锚点且非空 → 外层文件（场景内实例化根形态）；
 ## - 其余（骨架本体直挂测试树/"包裹层同名"，探针实证不可判=引擎限制）
 ##   → get_path() 去 "::" 前缀切片。
-## skeleton_file：调用方骨架模板文件（BaseStage 传 base_stage.tscn，
-## ChapterShell 传 chapter_shell.tscn——壳根非 BaseStage 实例，锚点各自持有）。
+## skeleton_file：调用方骨架模板文件（ChapterShell 传 chapter_shell.tscn——
+## 壳根非任何实例，锚点自持；原 BaseStage 臂随 5b 退役）。
 static func resolve_scene_path(node: Node, skeleton_file: String) -> String:
 	if node.get_tree().current_scene == node:
 		return node.scene_file_path

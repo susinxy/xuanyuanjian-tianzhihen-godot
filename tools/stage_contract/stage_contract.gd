@@ -24,7 +24,7 @@ const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
 ## 5b 计数=126（A 段 35+B 段壳形 40+C 段壳形 50 系，142→126：base 腿
 ## 退役与 C3.5/C6 面板/C7 死亡界面等转世简并，案卷见 STATUS 5b 条目）。
-const EXPECTED_ASSERTS := 126
+const EXPECTED_ASSERTS := 127
 
 var _fails := 0
 var _finished := false
@@ -74,6 +74,7 @@ func _flow() -> void:
 	_a4_entries()
 	_a5_death_rebuild()
 	_a6_latest_checkpoint()
+	_a8_gameplay_target()
 	await _b1_structure()
 	await _b3_aggregation()
 	await _b5_fixture_jump()
@@ -202,6 +203,17 @@ func _a6_latest_checkpoint() -> void:
 	_check(latest.scene_path == "res://tools/stage_contract/_fake_new.tscn",
 			"A6 pause 跳转目标=注册表尾部（最新）")
 	GameSave.new_profile()   # 表随档案：清账=清表（B4.5-T1 改判）
+
+
+## A8 标题进场合流目标在册（5b 遗留事故判例 2026-09-30：法定样板转世时
+## title 的 GAMEPLAY_SCENE 字符串常量指向已删旧文件，F5→开始游戏=灰屏；
+## 本腿锁"入口指向必存在"，红据=事故现场原样）
+func _a8_gameplay_target() -> void:
+	var ts: GDScript = load("res://ui/menus/title_screen.gd")
+	var consts: Dictionary = ts.get_script_constant_map()
+	var target: String = str(consts.get("GAMEPLAY_SCENE", ""))
+	_check(ResourceLoader.exists(target),
+			"A8 标题 GAMEPLAY_SCENE 目标存在（实际=%s）" % target)
 
 
 ## A7 读档入口腿（B4.5-T2，spec §4；在 _flow 尾执行——C0 存活化后，理由见彼注）：

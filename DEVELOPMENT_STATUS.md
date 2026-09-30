@@ -485,6 +485,18 @@
     ⑥stage_exit 载荷双形态解析（chapter_id 优先）；⑦法典第〇章塌缩单轨五件
     装配序+装配条 1/3/6/7/8/9 改写、手册 §六 改下线案卷、AGENTS Stage
     Structure 重写。**全矩阵 26 跑 RED=0**（20260930_130522）。
+  - **5b 遗留修复批（2026-09-30 用户 F5 灰屏报案）**：真凶=title_screen 的
+    GAMEPLAY_SCENE 字符串常量仍指 5b 已删的 stage_ref_a.tscn（收口扫描只查了
+    base_stage/BaseStage 类与路径、漏扫旧样板**文件名**字符串——判例入 AGENTS
+    判例库候选）；F5 开始游戏→transition 加载不存在文件→change_scene_to_packed
+    (null)→灰屏。三件修复：①常量回正 chapter_ref_a.tscn；②stage_contract 新腿
+    **A8**"标题进场合流目标必须存在"（红绿自闭环：修前 FAIL 打印旧路径原文即
+    事故现场原样，修后 PASS，126→127）；③death_screen/session_rules 两处
+    base 注释措辞转世。真转场链路 headless 活体旁证：探针日志现
+    ChapterShell._ready→swap_in_playable 栈=转场后章节确实在跑；探针轮询自身
+    两坑立案（change_scene_to_packed 的 scene_file_path 为空不能当判据；
+    runner 不存活化会被 unload_current_scene 陪葬——后者 stage_contract C0 判例
+    早录，本次重踩）。全矩阵 26 跑 RED=0（20260930_150014）。
   - **手册严肃化波（2026-09-28，用户批评"操作指导不是随口描述"引出）**：实证
     发现手册建壳步描述的是**编辑器不存在的操作**（"实例化为根"系工程手写形制）
     且 validator 存在豁免洞——另存形章节整份逃 R2，"漏填 chapter_id 假绿"。

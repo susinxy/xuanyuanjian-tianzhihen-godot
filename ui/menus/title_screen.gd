@@ -13,7 +13,7 @@ extends Control
 ## 　· 进场淡入经全局转场层；GAMEPLAY_SCENE 预载的 ResourceLoader.exists 守卫注
 ##     沿用（T5 占位批条款）。
 
-const GAMEPLAY_SCENE := "res://scenes/stages/ref/stage_ref_a.tscn"
+const GAMEPLAY_SCENE := "res://scenes/stages/ref/chapter_ref_a.tscn"
 
 var _entries: VBoxContainer
 var _confirm_dialog: ConfirmationDialog
