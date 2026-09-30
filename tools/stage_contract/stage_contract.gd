@@ -24,7 +24,7 @@ const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 ## 缺壳时整段断言被静默跳过仍会汇总 PASS；跑不满此数=有断言被吞）。
 ## 5b 计数=126（A 段 35+B 段壳形 40+C 段壳形 50 系，142→126：base 腿
 ## 退役与 C3.5/C6 面板/C7 死亡界面等转世简并，案卷见 STATUS 5b 条目）。
-const EXPECTED_ASSERTS := 127
+const EXPECTED_ASSERTS := 128
 
 var _fails := 0
 var _finished := false
@@ -355,7 +355,7 @@ func _b1_structure() -> void:
 
 ## B3' 壳段级聚合：程序段（真房+双生成器+检测器）pack 入壳——实源并集收编、
 ## 部分完成不清段、全清=segment_cleared 恰一次、单段章撞墙=chapter_finished
-## 恰一次（终点面板不自动弹=B7 消费口现状，另腿钉）。
+## 恰一次（章判清自动弹终点面板=2026-09-30 最小消费接线，B3''/C6 钉）。
 func _b3_aggregation() -> void:
 	GameSave.new_profile()
 	var seg_script: Script = load("res://scripts/chapter/stage_content.gd")
@@ -434,8 +434,10 @@ func _b3_aggregation() -> void:
 	_check(cleared == [&"t_seg"],
 			"B3' 段全清 segment_cleared 恰一次载荷=段 id（实际 %s）" % str(cleared))
 	_check(fins[0] == 1, "B3' 单段章判清撞墙 → chapter_finished 恰一次（闩锁）")
-	_check(not shell._end_panel.visible,
-			"B3'' 章判清面板不自动弹=B7 接线前现状即契约")
+	_check(shell._end_panel.visible and get_tree().paused,
+			"B3'' 章判清自动弹终点面板+冻结（2026-09-30 消费接线；"
+			+ "钮可点=B7' ALWAYS 腿续锁）")
+	get_tree().paused = false
 	shell.queue_free()
 	await _frames(2)
 	GameSave.new_profile()
@@ -478,7 +480,7 @@ func _b7_end_panel() -> void:
 	add_child(shell)
 	await _frames(2)
 	_check(not shell._end_panel.visible,
-			"B7' 终点面板初始隐藏（自动弹出等 B7 消费=现状即契约）")
+			"B7' 终点面板 _ready 时刻初始隐藏（弹出时机=章判清，见 B3''/C6）")
 	_check(shell._end_panel.process_mode == Node.PROCESS_MODE_ALWAYS,
 			"B7' 面板 ALWAYS（冻结树里钮可响应——死锁修复锁续立）")
 	var back := shell._end_panel.get_node("PanelBox/BackTitle") as Button
@@ -652,14 +654,18 @@ func _flow_c() -> void:
 	#  过渡把弹墙带送进飞行射程"的 base 时代时序细节，壳轨下带位随相机过渡
 	#  漂移不可稳定复现，2026-09-28 尸检两次红后按影响面裁撤，案卷在此。）
 	await _clear_until_segs(2)
+	# a2 判清 → 推进过场段 a3（A 章=多段推进+出口演示；后继在位=判清不冻结）
+	var advanced3: bool = await _wait_until(func():
+			return shell_a.current_segment_id() == &"seg_a3", 400)
+	_check(advanced3, "C4b 段 a2 判清推进过场段 a3（段清=推进环续证）")
 	var expanded2: bool = await _wait_until(func():
 			return cam.limit_right == 3800, 300)
 	_check(expanded2, "C4b 段 a2 全清 setup 扩权（3800=双 spawner 聚合非单房提前解锁）")
-	var fin1: bool = await _wait_until(func(): return fins_a[0] == 1, 240)
-	_check(fin1, "C4b 章节 A 段清撞墙 → chapter_finished 恰一次")
+	await _frames(30)
+	_check(fins_a[0] == 0, "C4b a3 无生成器永不判清 → 出口前不触章终点（过场段防呆+撞墙腿让位案卷）")
 
 	# —— C5 StageExit 跨章真转场（载荷=chapter_id 解析首验）——
-	_stage_chen().global_position = Vector2(3650, 400)
+	_stage_chen().global_position = Vector2(600, 400)   # a3 过场段出口带（判清前可达）
 	var jumped: bool = await _wait_until(func():
 			return _cs() != null and _cs().scene_file_path == CHAPTER_B, 900)
 	_check(_c_stage_exited == 1, "C5 stage_exited 恰一次（持续重叠防重入）")
@@ -688,8 +694,12 @@ func _flow_c() -> void:
 	await _clear_until_segs(4)
 	var finb: bool = await _wait_until(func(): return fins_b[0] == 1, 240)
 	_check(finb, "C6 B 判清 → chapter_finished(b) 恰一次")
-	_check(not shell_b._end_panel.visible,
-			"C6 面板不自动弹出=B7 消费未接线的现状即契约")
+	_check(shell_b._end_panel.visible and get_tree().paused,
+			"C6 B 判清 → 终点面板自动弹出+树冻结（真章形态消费接线）")
+	# 为后续 C7 回跳环恢复运转：手动收面板解冻（面板自身无"关闭"路径——
+	# 两钮即出路，测试不点钮故显式复位）
+	shell_b._end_panel.visible = false
+	get_tree().paused = false
 
 	# —— C7 暂停菜单回跳环（死亡界面支随 base 退役；回跳链改验壳形）——
 	var pm := _cs().get_node("HudLayer/PauseLayer/PauseMenu") as Control

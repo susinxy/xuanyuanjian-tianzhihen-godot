@@ -131,7 +131,11 @@ func _make_shell(path: String = FIX_CHAPTER) -> ChapterShell:
 	return shell
 
 
+## 拆场纪律（5b 终点面板批补）：拆前显式解冻——面板/链冻结是 SceneTree 全局态，
+## 不随壳 free 复位；漏解冻=残留 paused 把后续流的 SwitchFlow physics 窗永挂
+## （G2→Q1 串雷判例 2026-09-30）。
 func _dismantle(shell: ChapterShell) -> void:
+	get_tree().paused = false
 	shell.queue_free()
 	await _frames(6)
 

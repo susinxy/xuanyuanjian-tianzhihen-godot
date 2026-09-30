@@ -457,6 +457,16 @@ func _maybe_finish_chapter() -> void:
 	# 本行恒恰一次首记（chapter_finished 二次广播结构性不可能）。
 	session.record(GameSave.NS_CHAPTERS_DONE, chapter_id)
 	chapter_finished.emit()
+	# 章终点面板最小消费接线（2026-09-30 用户裁决；完整过场链仍归 B7）：
+	# 面板两钮在 _ready 已由 wire_end_panel 接好——回标题=解冻转场、
+	# 重走一遍=账保留原型重载；冻结全树靠面板 ALWAYS 保活（B7 死锁判例）。
+	_show_end_panel()
+
+
+## 终点面板弹出（原 BaseStage 同名件迁壳）：冻结+显现，闩锁保证本函数每壳至多一次。
+func _show_end_panel() -> void:
+	get_tree().paused = true
+	_end_panel.visible = true
 
 
 ## 在场敌查询（B2-T1 起由 scripts/chapter/switch_flow.gd 经 instance id 调用——

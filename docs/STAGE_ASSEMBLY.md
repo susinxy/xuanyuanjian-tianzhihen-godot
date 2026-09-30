@@ -128,7 +128,8 @@
       （base 房级 room_cleared 聚合随 5b 退役。）
 - [ ] **8. 推进机制只有三种**：房→房 = after_fight_limit 扩权步行串场（同段内）；
       段→段 = 段判清自动推进（壳构造）；跨章 = StageExit 触发件
-      （`next_stage_path` 指向另一章节 .tscn，参考 chapter_ref_a 段尾）。不设第四种。
+      （`next_stage_path` 指向另一章节 .tscn；**必须摆在永不判清的过场段**，
+      参考 seg_ref_a3——末段判清即弹面板冻结，出口失效）。不设第四种。
 - [ ] **9. 背景负档+光照空禁**：段内 Background CanvasLayer `layer` 必须 <0
       （R10 文本执法；BaseStage runtime canary 随 5b 退役）；昼夜三件套壳骨架预置，
       `scene_time_data` 留空=自禁定格白天（装配合法态，非违例）。

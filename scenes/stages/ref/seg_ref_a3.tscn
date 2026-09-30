@@ -1,0 +1,55 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="Script" path="res://scripts/stage_exit.gd" id="2_exit"]
+
+[sub_resource type="RectangleShape2D" id="Rect_ground"]
+size = Vector2(2200, 200)
+
+[sub_resource type="RectangleShape2D" id="Rect_wall"]
+size = Vector2(40, 2600)
+
+[sub_resource type="RectangleShape2D" id="Rect_exitband"]
+size = Vector2(100, 700)
+
+[node name="SegRefA3" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"seg_a3"
+entry_points = {
+&"default": Vector2(300, 600)
+}
+
+[node name="GroundBody" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="GroundBody"]
+position = Vector2(900, 700)
+shape = SubResource("Rect_ground")
+
+[node name="WallL" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="WallL"]
+position = Vector2(-80, 500)
+shape = SubResource("Rect_wall")
+
+[node name="WallR" type="StaticBody2D" parent="."]
+collision_layer = 16760832
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape2D" parent="WallR"]
+position = Vector2(2180, 500)
+shape = SubResource("Rect_wall")
+
+[node name="StageExit" type="Area2D" parent="."]
+position = Vector2(600, 400)
+collision_layer = 0
+monitorable = false
+script = ExtResource("2_exit")
+next_stage_path = "res://scenes/stages/ref/chapter_ref_b.tscn"
+
+[node name="Shape" type="CollisionShape2D" parent="StageExit"]
+position = Vector2(0, 200)
+shape = SubResource("Rect_exitband")

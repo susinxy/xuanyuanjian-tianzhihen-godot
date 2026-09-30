@@ -497,6 +497,18 @@
     两坑立案（change_scene_to_packed 的 scene_file_path 为空不能当判据；
     runner 不存活化会被 unload_current_scene 陪葬——后者 stage_contract C0 判例
     早录，本次重踩）。全矩阵 26 跑 RED=0（20260930_150014）。
+  - **章终点面板接线批（2026-09-30 用户批准"两修一批"之面板项；转场竞态项
+    按用户裁决挂起观察）**：①`_maybe_finish_chapter` 发射 `chapter_finished`
+    后接 `_show_end_panel()`（冻结+显现，原 BaseStage 同名件迁壳）——末段判清
+    自动弹"返回标题/重走一遍"，完整过场链仍归 B7；②演示章节重构：A 章补
+    **过场段 seg_ref_a3**（无 spawner=永不判清）承载 StageExit——真章形态暴露
+    设计定理"**末段判清即冻结，出口件必须摆在永不判清的段**"（原 a2 内嵌出口
+    在冻结后物理不可达，C4b/C5 首跑三红即此），法典条 8/0.2b 口径同批定档；
+    ③stage_contract 翻腿：B3''/C6"面板不弹=现状契约"→"判清自动弹+冻结"
+    （C6 测试尾手动收面板解冻护 C7），127→128；④**interact_contract 拆场
+    串雷修复**：G2 壳终点面板冻结是 SceneTree 全局态，`_dismantle` 漏复位
+    paused → 后续 Q1/Q4/G3 流 SwitchFlow physics 窗永挂六腿红（判例：拆场
+    纪律含显式解冻一行，套件侧非产品缺陷）。全矩阵 26 跑终核见下。
   - **手册严肃化波（2026-09-28，用户批评"操作指导不是随口描述"引出）**：实证
     发现手册建壳步描述的是**编辑器不存在的操作**（"实例化为根"系工程手写形制）
     且 validator 存在豁免洞——另存形章节整份逃 R2，"漏填 chapter_id 假绿"。
