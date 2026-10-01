@@ -10,7 +10,7 @@
 script = ExtResource("1_shell")
 
 [node name="Players" type="Node2D" parent="."]
-metadata/_主角放这里 = "空场地基（5a）：主角三来源之一——把玩家档角色 .tscn 拖进本容器（须带 area2d:player 组），或设壳根 playable_override 槽（推荐正门）。相机由壳自动补挂，无需手摆。"
+metadata/_playable_slot_note = "空场地基（5a）：主角三来源之一——把玩家档角色 .tscn 拖进本容器（须带 area2d:player 组），或设壳根 playable_override 槽（推荐正门）。相机由壳自动补挂，无需手摆。"
 
 [node name="HudLayer" type="CanvasLayer" parent="."]
 layer = 2

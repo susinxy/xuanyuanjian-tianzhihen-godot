@@ -1586,8 +1586,16 @@ signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4�
 |---|---|
 | `CombatSystem` | 战斗判定权威（apply_damage/apply_knockback） |
 | `Events` | 全局事件总线 |
-| `BackgroundLoader` | 异步资源/场景加载 |
-| `ScreenTransitions` | 屏幕过渡动画（Shader 遮罩） |
+| `BackgroundLoader` | 异步资源/场景加载。**S5b 修复批（2026-09-30）**：协程对
+  `_progress` 的读取全面 has 护栏（键被 get_resource 摘除=让位不报错）；
+  **终态信号必达**（成功/失败/被接管三收敛统一发 `loading_finished`）——旧版
+  失败不发信号=await 方永挂（黑屏机理之一，D2） |
+| `ScreenTransitions` | 屏幕过渡动画（Shader 遮罩）。**S5b 修复批**：`transition_to_scene`
+  顺序重排为**先取到资源才拆台**（取空=报错升帘留在原景，黑屏结构性灭绝，D1）；
+  等待面改"播放态轮询+随动画资产缩放的保险丝上限"（被顶掉的动画丢
+  `animation_finished` 信号不再永挂，D4）；防重入闩在**换场完成即放**（回帘期
+  新请求可进，旧版吞请求判例见 transition_contract T5），进度条监听按路径登记
+  统一收口（D3/D5）。回归套=transition_contract 六腿分进程入矩阵名册 |
 | `HitFreeze` | 全局定格（B4.7 起 freeze_frames 默认 0=退役，机制保留）+ **单角色慢放调度器** `apply_character_slow`（协程+代数令牌，通道见 §17） |
 | `QuiverDebugLogger` | 调试日志（可在 project settings 里开关） |
 

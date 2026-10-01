@@ -67,6 +67,15 @@ ROSTER=(
 	"scene|block_parry_contract|tools/block_parry_contract/block_parry_contract.tscn"
 	"scene|spell_save_contract|tools/spell_save_contract/spell_save_contract.tscn"
 	"scene|hit_feedback_contract|tools/hit_feedback_contract/hit_feedback_contract.tscn"
+	# S5b 转场层套（六腿分进程，2026-09-30）：转场层与测试台共用唯一 animator/
+	# loader，腿间串台属台子问题（产品新实现无僵尸协程）——单腿单进程；
+	# R8 红据=旧代码 T1/T2/T3 三档（/tmp/opencode/b48_sync/tc_red_evidence/）
+	"scene|transition_contract_T0|tools/transition_contract/transition_contract.tscn|--only=T0"
+	"scene|transition_contract_T1|tools/transition_contract/transition_contract.tscn|--only=T1"
+	"scene|transition_contract_T2|tools/transition_contract/transition_contract.tscn|--only=T2"
+	"scene|transition_contract_T3|tools/transition_contract/transition_contract.tscn|--only=T3"
+	"scene|transition_contract_T4|tools/transition_contract/transition_contract.tscn|--only=T4"
+	"scene|transition_contract_T5|tools/transition_contract/transition_contract.tscn|--only=T5"
 	"script|blend_domain|tools/blend_domain_test/project_test.gd"
 	"script|contour_sort|tools/contour_sort_test/trace_sort.gd"
 	"script|editor_scripts_check|tools/editor_scripts_check/check.gd"
@@ -171,7 +180,7 @@ lifecycle_ensure() {
 ## 结果写全局 LAST_RC / LAST_PASS_LINE。日志 tee 进 LOG_ROOT。
 run_suite() {
 	local kind="$1" label="$2" path="$3" extra="${4:-}"
-	local logfile="${LOG_ROOT}/${label}${extra:+_fixtures}.log"
+	local logfile="${LOG_ROOT}/${label}${extra:+_fx}.log"
 	local -a cmd
 	if [ "${kind}" = "script" ] || [ "${kind}" = "validator" ]; then
 		# house 惯例：-s 走相对路径（各套头注 "运行：godot --headless --path . -s tools/..." 同源）
@@ -231,17 +240,20 @@ fi
 RESULTS=()
 RED=0
 for row in "${ROSTER[@]}"; do
-	IFS='|' read -r kind label path <<< "${row}"
+	IFS='|' read -r kind label path extra <<< "${row}"
 
 	if [ "${kind}" = "validator" ]; then
 		runs=( "" "--fixtures" )
 	else
-		runs=( "" )
+		# 第四段=套件自定义参数（如 transition_contract 的 --only=T#，S5b）
+		runs=( "${extra:-}" )
 	fi
 
 	for extra in "${runs[@]}"; do
 		tag="${label}"
-		[ -n "${extra}" ] && tag="${label}:fixtures"
+		if [ -n "${extra}" ] && [ "${kind}" = "validator" ]; then
+			tag="${label}:fixtures"
+		fi
 		# --only 过滤：标签须含子串
 		if [ -n "${ONLY}" ] && [[ "${tag}" != *"${ONLY}"* ]]; then
 			continue

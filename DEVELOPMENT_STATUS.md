@@ -438,6 +438,13 @@
     （初版误按"不要关闭"退役了按键，用户当日纠正：只改默认态，按键留作调试对比）。
     契约锁=stage_contract **LC8**（默认值断言，红据：临时改回 false 即响亮红），
     EXPECTED 141→**142**。
+  - **S5b 转场层修复批（2026-09-30，用户"确定问题不等等复现"方法论落地）**：
+    黑屏+偶发 Dictionary 报错读码定档六缺陷（D1-D6，判决书在 PLUGIN_CHANGES 与本套
+    头注）；screen_transitions/background_loader 两文件手术（先取后拆/轮询代信号/
+    闩与收口/终态必达）；新回归套 transition_contract 六腿分进程入矩阵
+    （**31 套=32 跑**）；R8 红据三档=旧代码 T1/T2/T3。判例三则：--quiet 吞 print
+    （缓冲玄学起点）、场景加载帧内搬自己必被拒（C0 须 await 首帧后）、转场闩拖过
+    尾幕=吞后续合法请求（T5 串台定位）。
   - **段施工样板立形（2026-09-28 同日小批，用户提问引出的基建缺口）**：
     `scenes/chapter/segment_template.tscn`——壳轨 StageContent 满配战斗段法定样板
     （几何三墙配方+房三件套含 spar_enemy 一波+Vis 皮肤；红线清单=根节点
