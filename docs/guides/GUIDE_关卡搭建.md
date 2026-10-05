@@ -43,7 +43,8 @@ chapter_1.tscn（壳=剧场本身，空场地基）      seg01_opening.tscn（�
 1. **开模板**：编辑器底部 FileSystem 面板 → `scenes/chapter/` → **双击**
    `chapter_shell.tscn`。
    ✅ 成功判据：左侧场景树出现根节点 `ChapterShell`，下有
-   `Players/Chen(+LevelCamera)`、`HudLayer`、`Ambient`、`Segments` 四棵子树。
+   `Players`（**空容器**，等第 3 步放主角）、`HudLayer`、`Ambient`、`Segments` 四棵子树；
+   相机与主角都是运行时由壳补挂/注入的，模板里看不到它们属于正常。
 2. **另存为你的章**：顶部菜单 **场景 → 场景另存为…**（Scene → Save Scene As…）
    → 在文件对话框里进入 `scenes/stages/<你的章包>/`（没有就右键 → 新建文件夹，
    snake_case 命名，一章一个）→ 文件名 `chapter_1.tscn` → 保存。
@@ -65,8 +66,8 @@ chapter_1.tscn（壳=剧场本身，空场地基）      seg01_opening.tscn（�
 > 相机服务）不会自动进你的章节文件，由工程侧同步（后续批次将提供一键生成面板
 > 免除本代价）。单章生命周期内无影响，放心用。
 
-壳自带玩家+相机+HUD+暂停/死亡/终点面板+昼夜三件套（不挂数据=定格白天），
-**第 1 步里什么都不用摆**。
+壳自带相机（运行时补挂在你放的主角身上）+HUD+暂停/死亡/终点面板+昼夜三件套
+（不挂数据=定格白天）；**玩家不自带**——你在第 3 步填的 `playable_override` 就是主角。
 
 ### 第 2 步｜建第一段（5 分钟）
 1. FileSystem 面板右键 `scenes/chapter/segment_template.tscn` → **复制** →
@@ -77,7 +78,7 @@ chapter_1.tscn（壳=剧场本身，空场地基）      seg01_opening.tscn（�
 3. 想改房间大小：拖 `Room1`（白色虚线框）四边把手 → 然后**手动把 Inspector 里
    `limit_left/top/right/bottom` 改成与 offset 四值同数**（offset=编辑器可视，
    limit=运行时执法，引擎不代你同步）；
-4. 存盘。红线清单全文钉在根节点 Inspector 最底部 `_装配须知`（metadata），
+4. 存盘。红线清单全文钉在根节点 Inspector 最底部 `_assembly_notes`（metadata），
    施工时点开对照。
 
 ### 第 3 步｜段上壳
@@ -125,7 +126,7 @@ chapter_1.tscn（壳=剧场本身，空场地基）      seg01_opening.tscn（�
 
 | 类 | 现成件 | 路径 |
 |---|---|---|
-| 玩家 | 陈靖仇（全动作+格挡真图） | `characters/playable/chen/chen.tscn`（壳已自带，勿重复摆） |
+| 玩家 | 陈靖仇（全动作+格挡真图） | `characters/playable/chen/chen.tscn`（拖进壳根 `playable_override` 当主角） |
 | 敌兵 | 对练敌人（AI 三连段样板） | `characters/enemies/spar_enemy/spar_enemy.tscn` |
 | 被动 NPC | 街头小贩 | `characters/neutrals/street_vendor/street_vendor.tscn` |
 | 法术 | 火球（秘籍学习链已通） | `spells/fire_ball/` |
@@ -134,7 +135,7 @@ chapter_1.tscn（壳=剧场本身，空场地基）      seg01_opening.tscn（�
 | 特效参数 | 命中火花五风格卡 | `scripts/effects/presets/spark_*.tres`（自动路由，无需摆） |
 
 **键位**：J 攻击 / K 格挡弹反 / E 互动 / 1 法术 / L 软边开关（调试）/
-V 特效开关（调试）/ ESC 暂停 / F8 快速重开（调试）。
+V 特效开关（调试）/ ESC 暂停 / R 快速重开（调试）。
 
 ## 四、常见病 → 处方（校验器没拦住的）
 

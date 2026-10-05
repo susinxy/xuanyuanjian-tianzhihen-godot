@@ -25,7 +25,7 @@ b = Vector2(0, 700)
 
 [node name="StageSegment" type="Node2D"]
 script = ExtResource("1_sc")
-metadata/_装配须知 = "本文件=壳轨段施工样板（S2-B4.8 后基建批立形，法源 STAGE_ASSEMBLY 0.2b+0.3）。用法=复制本文件到 scenes/stages/<章包>/ 改名 → ①必改根导出 segment_id（章内唯一）②几何/房/波次按需改③摆进壳的 Segments 下并追加进壳根 segment_scenes。红线：段内禁放任何壳件（玩家/相机/HUD/CanvasModulate）；入口 entry_points.default 必须放第一检测线西侧前场区（脚本默认 (500,600) 即合范本房）；地/墙配方 collision_layer=16760832+mask=0；检测器三掩码配方 layer=0/mask=16760832/monitorable=false；生成器 path_spawn_parent=../../../../Players（段挂壳 Segments 下恒 4 级）；改完必过 tools/stage_validator + headless 冒烟 + F5 三件套。过场/占位段：删三件套留几何+auto_complete=true。"
+metadata/_assembly_notes = "本文件=壳轨段施工样板（S2-B4.8 后基建批立形，法源 STAGE_ASSEMBLY 0.2b+0.3）。用法=复制本文件到 scenes/stages/<章包>/ 改名 → ①必改根导出 segment_id（章内唯一）②几何/房/波次按需改③摆进壳的 Segments 下并追加进壳根 segment_scenes。红线：段内禁放任何壳件（玩家/相机/HUD/CanvasModulate）；入口 entry_points.default 必须放第一检测线西侧前场区（脚本默认 (500,600) 即合范本房）；地/墙配方 collision_layer=16760832+mask=0；检测器三掩码配方 layer=0/mask=16760832/monitorable=false；生成器 path_spawn_parent=../../../../Players（段挂壳 Segments 下恒 4 级）；改完必过 tools/stage_validator + headless 冒烟 + F5 三件套。过场/占位段：删三件套留几何+auto_complete=true。"
 
 [node name="GroundBody" type="StaticBody2D" parent="."]
 collision_layer = 16760832
