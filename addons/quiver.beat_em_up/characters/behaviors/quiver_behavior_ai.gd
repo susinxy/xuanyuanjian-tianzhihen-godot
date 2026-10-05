@@ -104,7 +104,12 @@ func _on_attributes_died() -> void:
 
 ## 最近的玩家阵营角色（找不到返回 null）。
 func closest_target() -> QuiverCharacter:
-	return QuiverCharacterHelper.find_closest_player_to(_character)
+	return QuiverCharacterHelper.find_closest_in_groups(_character, DEFAULT_TARGET_GROUPS)
+
+
+## 索敌组默认值（2026-10 索敌配置批：现状=玩家阵营组；场景导出
+## ai_target_groups 非空时由壳注入覆盖，运行时 add/remove 调临时态）。
+const DEFAULT_TARGET_GROUPS: Array[StringName] = [&"area2d:player"]
 
 
 ## 朝目标写摇杆（单位方向向量），即"追"。

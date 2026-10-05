@@ -15,7 +15,6 @@ quiver.beat_em_up/
 │   ├── quiver_attributes.gd       # 角色数据 Resource（HP、速度、击退等）
 │   ├── quiver_character.gd        # 角色基类（CharacterBody2D）
 │   ├── quiver_character_base.tscn # 角色基础场景（继承用）
-│   ├── quiver_enemy_character.gd  # 敌人基类（继承 QuiverCharacter，增加 AI 状态机引用）【已退役 2026-09-14，仅供考古（§5.0 退役清单）】
 │   ├── quiver_character_skin.gd   # 皮肤基类（信号、朝向、抓取配置）
 │   ├── quiver_character_skin_anim_tree.gd  # AnimationTree 版皮肤（BlendSpace1D）
 │   ├── quiver_character_skin_base.tscn     # 皮肤基础场景
@@ -27,16 +26,14 @@ quiver.beat_em_up/
 │   │   ├── quiver_action_air.gd        # 空中状态基类（重力、落地判定）
 │   │   ├── quiver_action_attack.gd     # 攻击状态基类（连击、输入窗口、冲刺）
 │   │   ├── quiver_action_die.gd        # 死亡状态基类（玩家发 Events.player_died，敌人 queue_free）
-│   │   ├── quiver_action_die_ai.gd     # AI 敌人死亡状态【已退役，同上】
 │   │   ├── ground_actions/
 │   │   │   ├── quiver_action_move.gd       # 地面移动基类（apply velocity + move_and_slide）
 │   │   │   └── move_actions/
 │   │   │       ├── quiver_action_idle.gd       # Idle 状态（读通道，转到 Walk/Run）
 │   │   │       └── quiver_action_locomotion.gd # Walk/Run 通用移动状态（单类，实例配置区分）
 │   │   └── (子目录: air_actions/)
-│   └── ai/  # 【整体已退役 2026-09-14——旧"魔法替身"形态；现行敌人=AI 档角色+QuiverBehaviorAI 小抄，见 §5.0/§6 横幅】
-│       ├── quiver_ai_state_machine.gd  # AI 状态机核心
-│       └── states/               # 所有 AI 行为状态
+│   #（2026-10 考古清剿批：ai/ 目录、quiver_enemy_character、die_ai/follow/
+│   #  idle_ai 已整体删除——见 §5.0；敌人=QuiverCharacter+行为档）
 │
 ├── combat/                       # 战斗系统
 │   ├── quiver_attack_data.gd     # 攻击数据 Resource（伤害、击退、发射向量）
@@ -179,12 +176,15 @@ QuiverBaseCharacter (CharacterBody2D)
 ### 子类约定
 
 - **玩家**: 继承 `QuiverCharacter`，角色脚本只做初始化
-- **敌人**: 继承 `QuiverEnemyCharacter`，增加 `AiStateMachine` 引用，`_ready()` 里
-  `attributes.duplicate(true)` + `reset()`——**断根级共享**（R11 裁决，机制归因
-  b3 收口波实测勘误：隔离由 duplicate 调用本身完成——非导出账本变量
-  `_modifier_records/_modifier_bases` 不走 storage 拷贝通道、副本由 `_init`
-  重造；浅/深对本 tres 零可观测差，"浅拷账本串写"旧述系误诊，`(true)`
-  仅无害保守形。判据=修饰/池/旗标的个体性，红锁=knockout_contract D9）
+- **敌人（行为档 AI）**：同样继承 `QuiverCharacter`（2026-10 考古清剿批：
+  `QuiverEnemyCharacter` 已删），差别=创建面板"控制方式=AI"写 `behavior_mode`
+  整数+挂策略小抄。**账目隔离已结构性下压基类**：`QuiverCharacter._ready` 的
+  `attributes.duplicate(true)`（R11 裁决原住 enemy 壳 :39，机制归因 b3 收口波
+  勘误：隔离由 duplicate 调用本身完成——非导出账本变量 `_modifier_records/
+  _modifier_bases` 不走 storage 拷贝通道、副本由 `_init` 重造；浅/深零可观测差，
+  `(true)` 系无害保守形；判据=修饰/池/旗标个体性，红锁=knockout_contract D9。
+  基类随后既有 `_skin.attributes = attributes` 推送+皮肤 setter 的 group 下发，
+  根/皮同源自动一致——旧"消费方自救双写"魔法判例随之退役（旧形制冗余执行无害）
 
 **attributes 实例隔离案卷（R11，2026-09-23，判例三条）**：
 - **玩家档壳零隔离**：`QuiverCharacter` 及其创建器产物（含 AI 档壳）不做实例
@@ -198,11 +198,11 @@ QuiverBaseCharacter (CharacterBody2D)
 - **`local_to_scene` 是反药（封死勿再试，双写判例）**：皮肤拆独立场景后
   root/skin 各自成份，上面"两引用同源"的既有契约当场破裂，且"一场景一本体"
   也满足不了；处方=显式 duplicate + 双写，隔离点唯一。
-- **创建器 AI 档 × spawner 双头死结**（挂账 B5 设计会前置清单）：AI 档壳恒
-  `extends QuiverCharacter`（缺 :39 式隔离调用）而 `QuiverEnemySpawner.spawn_current_wave()`
-  `instantiate() as QuiverEnemyCharacter` 硬转型（非敌人壳=null）——AI 档角色
-  喂 spawner 两头都死；二选一立案（创建器改产 EnemyCharacter 壳 vs
-  `make_attributes_local()` 显式双写入口）属设计裁决，工程侧不私斗。
+- **创建器 AI 档 × spawner 双头死结**：**已结构性消解（2026-10 考古清剿批）**——
+  隔离下压基类（上条）+ spawner 转型放宽 `as QuiverCharacter` +
+  `QuiverEnemyCharacter` 整类删除；spar_enemy 同步换基类（其 AiStateMachine
+  引用成员随类消亡，行为档小抄本就未用）。当年"二选一立案"的裁决被第三条路
+  （清剿考古件本身）覆盖。
 
 ---
 
@@ -515,11 +515,14 @@ QuiverCharacter
   用途：过场定身、伏击待命、测试发令台等，一律由**外部驱动**，行为子类不自改。
 - **多玩家提醒**：两个 PLAYER_INPUT 行为共存时 push_warning（允许共存便于双打测试）。
 
-**退役清单（文件保留仅供考古，禁止用于新角色）**：`quiver_action_idle_ai.gd`、
-`quiver_action_follow.gd`、`quiver_action_die_ai.gd`、`quiver_enemy_character.gd`、
-`characters/ai/`（11 块 AI 积木状态 + QuiverAiStateMachine）。它们的动机（免键盘动作
+**退役清单（2026-10 考古清剿批：实物已整体删除，案卷见 git 历史与 §6 原文）**：
+`quiver_action_idle_ai.gd`、`quiver_action_follow.gd`、`quiver_action_die_ai.gd`、
+`quiver_enemy_character.gd`、`characters/ai/`（11 块 AI 积木状态 + QuiverAiStateMachine），
+连带 editor 插件 `ai_states_dropdown/`、`create_new_ai_state/` 与 helper 的
+`find_closest_player_to`（写死索敌组的第二实现，防双真相）。它们的动机（免键盘动作
 变体、AI 专用树、受击打断接线）在通道架构下分别由"事件来源隔离 / 小抄直接驱动原树 /
-QuiverBehaviorAI.on_hurt"承接。
+QuiverBehaviorAI.on_hurt"承接。留档动因复盘：该族被宣布退役后仍被 spar_enemy/spawner
+暗线承重（"退役"名实不符即腐烂源），删除才终止歧义。
 
 **宿主资源等待熔断（2026-09-19 补）**：`QuiverBehaviorAI._connect_attributes`
 等宿主 `attributes` 就绪采取**有限重试**（240 帧，到限 `push_error` 放弃）。
@@ -1015,13 +1018,12 @@ B48-T1 行已入 run_matrix ATTEST 表）；数值委托 API（`apply_damage_val
 
 ---
 
-## 6. AI 状态机系统 (`characters/ai/`)
+## 6. AI 状态机系统 (`characters/ai/`)【实物已清剿】
 
-> ⚠️ **本章整体为退役形态考古（2026-09-14 单壳+行为脚本定案，见 §5.0 退役清单）**：
-> `QuiverAiStateMachine` + 11 块积木 + `quiver_enemy_character.gd`/`quiver_action_die_ai.gd`
-> 禁止用于新角色。现行敌人 = `characters/enemies/` AI 档角色（`<name>_ai.gd` extends
-> `QuiverBehaviorAI` 策略小抄，直接驱动动作原树；参照 `spar_enemy`）。sarge/tax_man 等
-> 示例角色均属**上游模板**，本仓不存在。
+> ⚠️ **本子系统全部文件已于 2026-10 考古清剿批删除**（清单见 §5.0）。本章正文保留
+> 为机制描述案卷（"上游原生 AI 形态 + 我们的旧扩展如何运作"），如需恢复实物走 git
+> 历史。现行敌人唯一形态 = `characters/enemies/` AI 档角色（`<name>_ai.gd` extends
+> `QuiverBehaviorAI` 策略小抄，直接驱动动作原树；参照 `spar_enemy`）。
 
 ### 6.1 QuiverAiStateMachine（AI 状态机核心）
 
@@ -1465,15 +1467,17 @@ enum SpawnMode { WALK_TO_POSITION, IN_PLACE }
 @export var target_position: Vector2    # 或使用 Vector2
 ```
 
-`WALK_TO_POSITION`: 在 spawner 位置生成，然后调用 `spawn_ground_to_position()` 走向目标。
 `IN_PLACE`: 直接在目标位置生成。
+`WALK_TO_POSITION`: **退役语义（2026-10 考古清剿批）**——原靠
+`spawn_ground_to_position()` 驱动 AI 积木路由走向目标，积木族随删除；现该模式
+落 spawner 位出生 + 一次性 push_warning，行为档角色出生即由小抄自然接管走位
+（效果等同旧 WALK），无行为档角色原地待命。
 
-**一波多兵的安全性**：靠 `QuiverEnemyCharacter._ready` 的 attributes
-`duplicate(true)` **断根级共享**（R11，§2 案卷；b3 收口波实测：隔离由
-duplicate 调用本身完成，浅/深零可观测差）——同场景实例化 N 只各自独立血/池/
-修饰账本；
-转型 `as QuiverEnemyCharacter` 意味着喂进 spawner 的必须是敌人壳（创建器
-AI 档死结挂 B5，见 §2）。
+**一波多兵的安全性**：靠 `QuiverCharacter._ready` 的 attributes
+`duplicate(true)` **断根级共享**（R11，§2 案卷；2026-10 清剿批由 enemy 壳下压
+基类，全员结构性隔离）——同场景实例化 N 只各自独立血/池/修饰账本；
+spawner 转型放宽 `as QuiverCharacter`，创建器 AI 档产物可直接喂（旧双头死结
+消解，见 §2）。
 
 ### 8.4 QuiverLevelCamera（游戏摄像机）
 
@@ -1744,10 +1748,8 @@ func _parse_begin(object: Object) -> void:
 | 目录 | 激活条件 | 功能 |
 |---|---|---|
 | `create_new_action/` | `QuiverStateMachine` / `QuiverState` 节点（属于 `QuiverCharacter` 的） | 从列表中选择 action state 添加到状态机 |
-| `create_new_ai_state/` | `QuiverAiStateMachine` / `QuiverAiState` 节点 | 创建新的 AI 行为状态 |
 | `create_mirrored_animation/` | 动画节点 | 创建镜像动画（left/right），支持 flip_h、position、rotation、polygon 属性镜像 |
 | `states_dropdown/` | `QuiverActionAttack` 等需要选择其他状态的脚本 | 提供状态下拉列表 |
-| `ai_states_dropdown/` | AI 状态脚本 | 提供 AI 状态下拉列表 |
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`templates/character/character_template.tscn`） | **创建/删除角色** |
 | **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）+ PNG 缩放与备份工具** |

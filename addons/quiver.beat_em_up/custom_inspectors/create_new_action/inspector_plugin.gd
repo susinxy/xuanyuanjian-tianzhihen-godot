@@ -31,17 +31,14 @@ var undo_redo: EditorUndoRedoManager = null
 
 func _can_handle(object) -> bool:
 	var value = false
+	# 2026-10 考古清剿批：AI 状态机族（QuiverAiStateMachine/QuiverAiState）已删除，
+	# 原 AI 排除分支拆线；行为档角色=现行唯一敌人形态（见 PLUGIN_ARCHITECTURE §5.0）。
 	var is_valid_state_machine: bool = (
 			object is QuiverStateMachine
-			and not object is QuiverAiStateMachine
 	)
 	var is_valid_state: bool = (
-			object is QuiverState and 
-			not object is QuiverAiState
-			and not (
-				object is QuiverStateSequence 
-				and object._state_machine is QuiverAiStateMachine
-			)
+			object is QuiverState
+			and not object is QuiverStateSequence
 	)
 	
 	if (is_valid_state_machine or is_valid_state):

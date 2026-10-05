@@ -159,6 +159,11 @@ func _ready() -> void:
 	assert(is_not_base_scene, ERROR_BASE_SCENE_USED_DIRECTLY)
 	
 	if attributes != null:
+		# 共享引用断根（幻影掉血族判例，原 enemy 壳 _ready 独享，2026-10 清剿批
+		# 结构性下压至基类）：同 .tres 多实例按引用共享=一损俱损，本拷贝
+		# 完成个体隔离；_modifier_records/_bases 非导出走 _init 重造，浅/深
+		# 零可观测差，(true) 为无害保守形（红锁 knockout_contract D9 iso_leg）。
+		attributes = attributes.duplicate(true)
 		attributes.character_node = self
 	
 	# 高度层系统：从 project settings 构建层定义

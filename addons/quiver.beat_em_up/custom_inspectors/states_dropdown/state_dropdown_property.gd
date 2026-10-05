@@ -24,7 +24,8 @@ var _options: OptionButton = null
 
 func _ready() -> void:
 	_state = get_edited_object()
-	_state_machine = _state._actions if _state is QuiverAiState else _state._state_machine
+	# 2026-10 考古清剿批：QuiverAiState 分支随 AI 积木族删除，统一走状态机路径。
+	_state_machine = _state._state_machine
 	_add_property_scene()
 	_inititalize_property()
 

@@ -66,15 +66,19 @@ func spawn_current_wave() -> void:
 	
 	for item in _spawn_waves[_current_wave]:
 		var spawn_data := item as QuiverSpawnData
-		var enemy := spawn_data.enemy_scene.instantiate() as QuiverEnemyCharacter
+		var enemy := spawn_data.enemy_scene.instantiate() as QuiverCharacter
 		var enemy_position := spawn_data.get_spawn_position(self)
 		
 		match spawn_data.spawn_mode:
 			QuiverSpawnData.SpawnMode.IN_PLACE:
 				_spawn_enemy(enemy, enemy_position)
 			QuiverSpawnData.SpawnMode.WALK_TO_POSITION:
+				# 2026-10 考古清剿批：显式"走向目标位"路由原系 AI 积木实现
+				# （transition_to ChaseClosestPlayer/GoToPosition），随退役删除。
+				# 现行为档角色出生即按策略小抄自动接管移动，落 spawner 位等
+				# 同旧 WALK 效果；无行为档（纯 QuiverCharacter）则原地待命。
+				push_warning("spawn_mode=WALK_TO_POSITION 历史形制已并入 IN_PLACE：由角色行为档自行走位")
 				_spawn_enemy(enemy, global_position)
-				enemy.spawn_ground_to_position(enemy_position)
 			_:
 				push_error("Unknown spawn_mode: %s | Possible modes: %s"%[
 					spawn_data.spawn_mode, QuiverSpawnData.SpawnMode.keys()
@@ -87,7 +91,7 @@ func spawn_current_wave() -> void:
 
 ### Private Methods -------------------------------------------------------------------------------
 
-func _spawn_enemy(enemy: QuiverEnemyCharacter, p_position: Vector2) -> void:
+func _spawn_enemy(enemy: QuiverCharacter, p_position: Vector2) -> void:
 	enemy.global_position = p_position
 	_spawn_parent.add_child(enemy, true)
 	
@@ -102,7 +106,7 @@ func _spawn_enemy(enemy: QuiverEnemyCharacter, p_position: Vector2) -> void:
 
 func _on_enemy_died(p_instance_id: int) -> void:
 	if _spawned_enemies.has(p_instance_id):
-		var enemy := _spawned_enemies[p_instance_id] as QuiverEnemyCharacter
+		var enemy := _spawned_enemies[p_instance_id] as QuiverCharacter
 		QuiverEditorHelper.disconnect_between(
 				enemy.attributes.health_depleted,
 				_on_enemy_died

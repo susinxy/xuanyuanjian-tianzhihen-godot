@@ -1,5 +1,7 @@
 @tool
-extends QuiverEnemyCharacter
+extends QuiverCharacter
+## （2026-10 考古清剿批：原 extends QuiverEnemyCharacter——该类与 AI 积木族
+##  已整体删除；账目隔离由 QuiverCharacter._ready 结构性承接，reset 本壳已有）
 
 ## Write your doc string for this file here
 
