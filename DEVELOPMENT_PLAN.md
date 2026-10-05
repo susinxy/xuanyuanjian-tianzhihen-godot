@@ -1,6 +1,11 @@
 # 天之痕 ARPG 重制 — MVP 实施计划
 
 > **最后更新**: 2026-08-20
+
+> ⚠️ **本计划已冻结（2026-09-18 起）**：路线现况以 `DEVELOPMENT_STATUS.md` 与
+> `docs/superpowers/specs/2026-09-27-m3-roadmap.md`（最高口径）为准；文中
+> `base_stage`/`stages/stage_XX`/`test_stage` 等形制均已退役（现行=章节壳+段，
+> 2026-09-28 5b 批）。正文保留作历史案卷，勿按其施工。
 > **MVP 目标**: 序章·大雁岭，验证全要素
 
 ---

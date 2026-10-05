@@ -1,7 +1,7 @@
 # 开发状态说明
 
 > **生效日期**: 2026-08-11
-> **最后更新**: 2026-09-18
+> **最后更新**: 2026-10-01（文档整改批 R2 刷新头部与现状口径）
 
 ## 决策：xuanyuan-sword 正式从零开始
 
@@ -14,7 +14,7 @@
 | ~~`characters/playable/chenjianchou_new/`~~ | 已移除（工具开发期临时角色） |
 | ~~`characters/playable/enemy/`~~ | **已退役**（2026-09-14，"魔法替身"旧敌人；职责由 AI 档正式角色 `characters/enemies/spar_enemy/` 承接） |
 | `characters/enemies|allies|neutrals/` | **正式角色内容资产，进 git**（创建器按阵营输出；`spar_enemy`=Run Test 常驻陪练，勿删） |
-| ~~`scenes/test_stage.tscn`~~ | **已随 S1 重建退役**（2026-09-18 删除）：正式地基 = `scenes/base/base_stage.*` + `scenes/stages/ref/` 参考地点 A/B |
+| ~~`scenes/test_stage.tscn`~~ | **已随 S1 重建退役**（2026-09-18 删除）：正式地基当时为 base_stage；**现已再迁（2026-09-28 5b 批）**为章节壳+段——见文末 5a/5b 批次记录与 `docs/STAGE_ASSEMBLY.md` 第〇章 |
 | `addons/quiver.beat_em_up/` | **保留**；上游快照 + 本项目独立扩展（碰撞重构、单壳行为脚本、蒙版/轮廓/缩放工具链等，权威描述见 `docs/PLUGIN_ARCHITECTURE.md`） |
 | `docs/` | **保留**，内含学习资源链接和 README |
 
@@ -26,7 +26,7 @@
 - 统一使用高度层（layers 15-24）作为物理检测通道
 - 统一使用 faction group（`area2d:` 前缀）作为逻辑过滤机制
 - QuiverLevelCamera 添加四方向屏幕边界碰撞（使用高度层 bitmask）
-- 墙壁反弹系统改用 `area2d:wall` faction group 控制
+- 墙壁反弹系统改用 `area2d:wall` faction group 控制（**已再改判**，2026-09-19：伪阵营退役，反弹=四条 WallHitBox 触发带，无 `area2d:wall`）
 
 ### 角色重建（2026-08-16）
 
@@ -139,6 +139,8 @@
   解锁机制化 + player_died→DeathScreen 转交 + R 键 debug 重开）；
   参考地点 `scenes/stages/ref/stage_ref_a|b.tscn`（双房/单房、双生成器聚合、
   StageExit 跨地点、终点面板）；旧 `scenes/test_stage.tscn` 删除
+  （历史形态注：上述 base_stage 与 stage_ref_a/b 已于 2026-09-28 5b 批退役/转世为
+  `chapter_ref_a/b`+`seg_ref_*`，现行地基=章节壳+段）
 - **流程壳三件**：`ui/menus/` title/pause/death（三层节点+open/close 信号+theme
   单点的视觉替换契约，spec §4.6）；`scripts/game_events.gd` 会话检查点总线；
   `scripts/stage_exit.gd` 出口触发件（防重入+`area2d:player` 过滤+全高度层掩码）
@@ -582,6 +584,18 @@
    报错即教学）详见 `docs/superpowers/specs/2026-09-27-m3-roadmap.md`。
 6. 剧情内容按 `story/原创章节大纲_折旗.md`（史实骨架原创底稿）分阶段开发；
    `story/bible.md` 仅作结构参照，不直接投产（版权安全线，见该大纲自检节）
+
+## 内容侧开工与文档整改登记（2026-10-01）
+
+- **第一章已实际开工**：`scenes/stages/xuanyuan-chapter-1/`（stage0 实验场地+燃烧宫殿
+  CG 素材，内容侧 WIP，工程侧不代管不代提交）；`addons/native_video/` mp4 播放件
+  在位未接线（剧情 CG 预留，接线时"视频缺失可跳过/静帧降级"入剧情契约）。
+- **文档整改批（2026-10-01，R0-R4）**：全仓文档审计（4 路并行、逐条带代码证据）后
+  分级处置——R0 急诊（段模板/fixture 中文 metadata 键改 ASCII、关卡篇三处"壳自带
+  玩家"矛盾+F8→R 键勘正）；R1 手册层通俗化（新增 `docs/guides/术语表.md`，三本
+  GUIDE 全文重写，README 立写作守则：人话优先/手册与代码零漂移/工程纪律出正文）；
+  R2 本账本口径刷新；R3 PLUGIN_ARCHITECTURE 纠错；R4 历史案卷盖横幅。审计新发现
+  的工程待办：`after_fight_*` 未导出（Inspector 不可见，内容侧不可调）。
 
 详细架构见:
 - `docs/PLUGIN_ARCHITECTURE.md` — Quiver 插件源码分析（已更新碰撞系统重构 + 轮廓转换工具内容）
