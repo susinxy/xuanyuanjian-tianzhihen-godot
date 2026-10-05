@@ -60,7 +60,10 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
-	if _character.is_in_group("area2d:player"):
+	# 2026-10 接管批：玩家身份=被控者判据（controlled 优先，无壳场景
+	# 回落 area2d:player 现状形）——旁观的原主角之死是普通阵亡，
+	# 不再误触终局；被接管的无阵营标签角色之死照常终局。
+	if QuiverCharacterHelper.is_player_identity(_character):
 		# This was activated in the knockout launch state the player died.
 		Engine.time_scale = 1.0
 		Events.player_died.emit()

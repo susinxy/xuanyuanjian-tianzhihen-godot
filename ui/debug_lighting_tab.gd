@@ -126,10 +126,8 @@ func _on_height_toggled(on: bool) -> void:
 
 
 func _find_player() -> Node:
-	for n in get_tree().get_nodes_in_group("area2d:player"):
-		if n is QuiverCharacter:
-			return n
-	return null
+	# 2026-10 接管批：调试面同样认"当前被控者"
+	return QuiverCharacterHelper.find_player_identity(self)
 
 
 ## dock 拉取制刷新（0.15s）：状态行 + 复选框反映现实

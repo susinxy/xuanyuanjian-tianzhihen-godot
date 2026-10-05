@@ -120,6 +120,12 @@ var _path_collision := NodePath("Collision"):
 
 ## 行为模式：玩家操控 / AI 策略 / 被动站立。非玩家角色由创建器写入场景。
 @export var behavior_mode: BehaviorMode = BehaviorMode.PLAYER_INPUT
+## AI 索敌组配置（2026-10 接管批，用户裁决：策略以数据表达，非硬编码语义）：
+## 决定"本角色找谁打"——纯策略配置，非身份凭证（阵营免疫仍看 area2d:* 根
+## 标签，两维度互不相干）。空=默认（玩家阵营组，现状零变化）；非空=场景
+## 持久覆盖，_attach_behavior 注入行为实例。运行时增删走下方转发 API
+## （临时态，不回写场景文件）；抓手现成：被控者恒挂 &"controlled" 身份组。
+@export var ai_target_groups: Array[StringName] = []
 
 ## AI_POLICY 模式挂载的策略小抄脚本（须为 QuiverBehaviorAI 的子类脚本）。
 ## 未配置时按约定自动加载同目录 `<场景文件名>_ai.gd`；两者皆无则退化为站立并告警。
@@ -351,6 +357,24 @@ func _create_shadow_renderer() -> void:
 	sr.setup(_skin)
 
 
+## 索敌配置注入（2026-10 接管批）：场景导出非空=覆盖行为默认组；两条
+## 行为挂线（通用/策略小抄）共用本入口（policy 分支曾短路注入=契约抓获）。
+func _apply_ai_target_groups() -> void:
+	if behavior is QuiverBehaviorAI and not ai_target_groups.is_empty():
+		(behavior as QuiverBehaviorAI).set_target_groups(ai_target_groups)
+
+
+## 索敌组运行时增删（转发进行为实例；非 AI 档静默 no-op——临时态设计）。
+func add_ai_target_group(tag: StringName) -> void:
+	if behavior is QuiverBehaviorAI:
+		(behavior as QuiverBehaviorAI).add_target_group(tag)
+
+
+func remove_ai_target_group(tag: StringName) -> void:
+	if behavior is QuiverBehaviorAI:
+		(behavior as QuiverBehaviorAI).remove_target_group(tag)
+
+
 ## 按 behavior_mode 实例化行为脚本并挂到本角色下，注入宿主与通道。
 ## AI 档若未配置策略小抄，退化为站立并告警（不崩溃，方便场景调试期）。
 func _attach_behavior() -> void:
@@ -369,6 +393,7 @@ func _attach_behavior() -> void:
 			behavior.name = "Behavior"
 			add_child(behavior)
 			behavior.configure(self, channel)
+			_apply_ai_target_groups()
 			return
 		push_warning("AI_POLICY 模式但未找到策略小抄（导出属性未配置且无约定文件 <场景名>_ai.gd），角色退化为被动站立。")
 		script_path = BEHAVIOR_SCRIPTS[BehaviorMode.PASSIVE]
@@ -378,6 +403,7 @@ func _attach_behavior() -> void:
 	behavior.name = "Behavior"
 	add_child(behavior)
 	behavior.configure(self, channel)
+	_apply_ai_target_groups()
 
 
 ## 约定加载：与场景文件同目录、同名的 `_ai.gd` 即为本角色的策略小抄。

@@ -94,8 +94,9 @@ func _get_configuration_warnings() -> PackedStringArray:
 ### Private Methods -------------------------------------------------------------------------------
 
 func _on_body_entered(body: QuiverCharacter) -> void:
-	# 阵营新体系：玩家身份=根节点持有 area2d:player 标签（创建表单的阵营字段供给）
-	if body != null and body.is_in_group("area2d:player"):
+	# 2026-10 接管批：锁房/开战认"当前被控者"（controlled 优先，无壳回落
+	# area2d:player）——接管谁，触发带就为谁服务。
+	if QuiverCharacterHelper.is_player_identity(body):
 		call_deferred("emit_signal", "player_detected")
 		if is_one_shot:
 			queue_free()

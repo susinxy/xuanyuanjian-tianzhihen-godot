@@ -11,6 +11,13 @@ extends Node2D
 @export var lighting_color: Color = Color.WHITE
 ## 非战斗段（过场/尾声）标记：进段即视为清场推进
 @export var auto_complete := false
+## 段申报·接管（2026-10 被控角色批，读法一严格申报制）：入场时壳先接管
+## 本路径指认的角色（段树内解析）再落位；留空=回正壳初始被控者。跨段连控
+## 需逐段申报（无幽灵延续，见 GUIDE_关卡搭建配方卡）。
+@export_node_path("QuiverCharacter") var control_target_path := NodePath("")
+## 段申报·相机宿主（同批复）：入场镜头挂本路径指认的段内 Node2D（拍 NPC/
+## 物件演出）；留空=回正跟被控角色。运行时即席改挂走壳 set_camera_host()。
+@export_node_path("Node2D") var camera_host_path := NodePath("")
 
 
 func entry_position(entry: StringName) -> Vector2:

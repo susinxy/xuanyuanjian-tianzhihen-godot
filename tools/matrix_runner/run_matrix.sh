@@ -70,6 +70,10 @@ ROSTER=(
 	# S5b 转场层套（六腿分进程，2026-09-30）：转场层与测试台共用唯一 animator/
 	# loader，腿间串台属台子问题（产品新实现无僵尸协程）——单腿单进程；
 	# R8 红据=旧代码 T1/T2/T3 三档（/tmp/opencode/b48_sync/tc_red_evidence/）
+	# 被控角色接管系统契约（2026-10 接管批）：take_control/身份判据/索敌配置/
+	# 段申报回正 35 断言；R8 红据四档（S1 组迁移6红/S2 回正3红/S3 注入1红/
+	# S4 判据4红，/tmp/opencode/b48_sync/cc_red_evidence/）
+	"scene|control_contract|tools/control_contract/control_contract.tscn"
 	"scene|transition_contract_T0|tools/transition_contract/transition_contract.tscn|--only=T0"
 	"scene|transition_contract_T1|tools/transition_contract/transition_contract.tscn|--only=T1"
 	"scene|transition_contract_T2|tools/transition_contract/transition_contract.tscn|--only=T2"

@@ -73,6 +73,10 @@ var _chapter_finished_emitted := false          # chapter_finished 闩锁（恰�
 ## 主角引用（_ready 内 _resolve_playable 落笔；原 @onready 直读 path 的形态
 ## 随 5a 三来源制退役）
 var playable: QuiverCharacter = null
+## 初始被控者存位（2026-10 接管批·读法一"严格申报制"的回正锚）：
+## resolve/override 收口后记录壳申报的被控者；无申报段入场=回正到它。
+## 消亡（旁观阵亡等合法剧情）时回正腿 no-op+告警，不回滚他人。
+var _initial_playable: QuiverCharacter = null
 var _camera: Camera2D = null        # 壳持有相机引用（自动补挂或场上既有件认领）
 @onready var _segments_root: Node2D = $Segments
 @onready var _shell_canvas: CanvasModulate = $Ambient/CanvasModulate
@@ -115,6 +119,8 @@ func _ready() -> void:
 			return
 	if not _resolve_playable():
 		return
+	playable.add_to_group(&"controlled")  # 被控者身份组（接管批：壳维护的唯一活性凭证）
+	_initial_playable = playable
 	_ensure_camera()
 	for sc in segment_scenes:
 		var inst := _instantiate(sc)
@@ -275,6 +281,70 @@ func _descendant_camera(n: Node) -> Camera2D:
 
 ## 运行时换挂相机宿主（公开 API；D2 换角批的先行零件）：reparent 锁全局变换
 ## +补位 current（判例：摘旧宿主会清空 viewport 当前相机指针=锁房链整断）
+## 接管（2026-10 被控角色批，用户裁决三章）：控制权=行为维度，阵营标签
+## （出身维度）不碰——任何 QuiverCharacter 皆可被接管（敌兵战斗语义缺口
+## 如实申报见 STATUS，夺舍玩法待专批）。语义：
+## · 原地交接不瞬移（落位由 enter_segment 继续走，接管先于落位）；
+## · 新体挂 &"controlled" 组+PLAYER_INPUT 行为；旧体摘组+按 old_policy 处置；
+## · old_policy=-1（默认）**行为互换**：旧体继承新体原档位（"你替我站岗"）；
+##   0/1/2 显式指定旧体档位（QuiverCharacter.BehaviorMode）；
+## · 相机自动跟新体（set_camera_host 内建 reparent 保形+current 补位判例）；
+## · 广播 GameEvents.control_switched。目标须在壳管辖树内。
+func take_control(target: QuiverCharacter, old_policy: int = -1) -> bool:
+	if target == null:
+		chapter_error.emit("take_control: 目标为空，拒接")
+		return false
+	if not is_ancestor_of(target):
+		chapter_error.emit("take_control: 目标不在壳管辖树内，拒接")
+		return false
+	if target == playable:
+		return true  # 幂等（段申报重复应用/回正同体时零副作用）
+	var old := playable
+	# 悬垂旧体守卫（control_contract C4 抓获的实缺陷）：上一段
+	# 未判清被丢弃重建时，段内接管目标随段释放——dangling 引用
+	# 摘组/切档=SCRIPT ERROR，按"无旧体"处置。
+	if old != null and not is_instance_valid(old):
+		old = null
+	var inherit := old_policy
+	if inherit < 0:
+		inherit = target.behavior_mode  # 互换=新体原档位（AI 档无小抄者会退化站立+告警，现状语义）
+	target.add_to_group(&"controlled")
+	target.switch_behavior(QuiverCharacter.BehaviorMode.PLAYER_INPUT)
+	set_playable(target)
+	if old != null and old != target:
+		old.remove_from_group(&"controlled")
+		old.switch_behavior(inherit as QuiverCharacter.BehaviorMode)
+	set_camera_host(target)
+	GameEvents.control_switched.emit(old, target)
+	return true
+
+
+## 段申报应用（2026-10 接管批·读法一：严格申报制——每段入场结果只由该段
+## 申报决定，无申报=回正壳初始被控者+相机跟被控者，杜绝"上一段换过人忘了
+## 换回"幽灵态）。时序=先接管后落位（enter_segment 在落位前调用本函数）。
+## 申报路径解析域=段树（演出常态：本段里的 NPC/物件）。
+func _apply_segment_declarations(seg: StageContent) -> void:
+	if seg.control_target_path != NodePath(""):
+		var qc := seg.get_node_or_null(seg.control_target_path) as QuiverCharacter
+		if qc == null:
+			chapter_error.emit("段 control_target_path 失效（须为段树内挂树的 QuiverCharacter）: %s" % seg.control_target_path)
+		else:
+			take_control(qc)
+	elif playable != _initial_playable:
+		if _initial_playable != null and is_instance_valid(_initial_playable) and _initial_playable.is_inside_tree():
+			take_control(_initial_playable)  # 回正（互换语义自动降级现任被控者）
+		else:
+			push_warning("壳初始被控者已消亡（旁观阵亡等剧情）：回正跳过，维持当前被控者")
+	if seg.camera_host_path != NodePath(""):
+		var host := seg.get_node_or_null(seg.camera_host_path) as Node2D
+		if host == null:
+			chapter_error.emit("段 camera_host_path 失效（须为段树内挂树 Node2D）: %s" % seg.camera_host_path)
+		else:
+			set_camera_host(host)
+	else:
+		set_camera_host(playable)
+
+
 func set_camera_host(next: Node2D) -> void:
 	if next == null:
 		chapter_error.emit("set_camera_host: 目标为空，拒挂")
@@ -296,8 +366,11 @@ func set_playable(next: QuiverCharacter) -> void:
 	if next == null:
 		chapter_error.emit("set_playable: 目标为空")
 		return
-	if not next.is_in_group("area2d:player"):
-		chapter_error.emit("set_playable: 目标缺 area2d:player 身份组")
+	if not QuiverCharacterHelper.is_player_identity(next):
+		# 2026-10 接管批：校验放宽为身份判据函数——take_control 先挂
+		# controlled 再入本口（判据在无该组场景回落 area2d:player，
+		# 初始申报/老 fixture 门不变严）。
+		chapter_error.emit("set_playable: 目标非当前玩家身份（无 controlled/area2d:player 组）")
 		return
 	playable = next
 	# 路径存证只在目标已挂树时进行（不在树时 get_path() 报引擎错误——噪音纪律）
@@ -395,6 +468,9 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 		_instances[id] = inst
 	_current = inst
 	_segments_root.add_child(_current)
+	# 先申报后落位（2026-10 接管批）：接管完成才落位——入口点跟
+	# 新被控者走，旧体原地留守；相机/回正同批应用。
+	_apply_segment_declarations(_current)
 	playable.global_position = _current.to_global(
 			_current.entry_position(entry))
 	_suppress_detectors(_current)   # R8/C4：落位既成重叠不得误判为"跨线"

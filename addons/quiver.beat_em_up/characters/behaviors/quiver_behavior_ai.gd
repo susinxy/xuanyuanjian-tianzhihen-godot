@@ -104,12 +104,28 @@ func _on_attributes_died() -> void:
 
 ## 最近的玩家阵营角色（找不到返回 null）。
 func closest_target() -> QuiverCharacter:
-	return QuiverCharacterHelper.find_closest_in_groups(_character, DEFAULT_TARGET_GROUPS)
+	return QuiverCharacterHelper.find_closest_in_groups(_character, _target_groups)
 
 
-## 索敌组默认值（2026-10 索敌配置批：现状=玩家阵营组；场景导出
-## ai_target_groups 非空时由壳注入覆盖，运行时 add/remove 调临时态）。
+## 索敌组配置（2026-10 接管批）：默认=玩家阵营组（现状零漂移）；
+## 来源=角色壳导出 ai_target_groups 非空时注入覆盖；运行时增删=本组方法
+## （单一存放点=行为实例字段，索敌拉取式即时生效，无缓存）。
 const DEFAULT_TARGET_GROUPS: Array[StringName] = [&"area2d:player"]
+
+var _target_groups: Array[StringName] = DEFAULT_TARGET_GROUPS.duplicate()
+
+
+func set_target_groups(tags: Array[StringName]) -> void:
+	_target_groups = tags.duplicate()
+
+
+func add_target_group(tag: StringName) -> void:
+	if not _target_groups.has(tag):
+		_target_groups.append(tag)
+
+
+func remove_target_group(tag: StringName) -> void:
+	_target_groups.erase(tag)
 
 
 ## 朝目标写摇杆（单位方向向量），即"追"。

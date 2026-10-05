@@ -187,14 +187,13 @@ QuiverBaseCharacter (CharacterBody2D)
   根/皮同源自动一致——旧"消费方自救双写"魔法判例随之退役（旧形制冗余执行无害）
 
 **attributes 实例隔离案卷（R11，2026-09-23，判例三条）**：
-- **玩家档壳零隔离**：`QuiverCharacter` 及其创建器产物（含 AI 档壳）不做实例
-  隔离（缺 :39 式 `duplicate()` 调用，与浅/深无关），同 `.tres` 被多实例
-  按引用共享（血/池/姿态旗全是一个对象——真雷在此，b3 收口波实测确认：
-  敌人壳只要保留 duplicate 调用即断根，退回共享引用则当场红）。游戏以
-  `area2d:player` 身份门保证玩家档在场至多一具；确需双实例（测试替身、分身）
-  时消费方自救：`duplicate(true)` 且**双写** `root.attributes`（动作状态的
-  `_on_owner_ready` 缓存源）+ `skin.attributes`（战斗盒 `character_attributes`
-  的 group 推送源）——只写一处=裂脑（block_parry_contract Q 流 A 方实证形制）。
+- **隔离已结构性下压基类（2026-10 考古清剿批改判）**：`QuiverCharacter._ready`
+  的 attributes 分支执行 `duplicate(true)`——所有档（玩家/AI/被动）出生即个体
+  隔离，同 `.tres` 多实例共享引用=幻影掉血族的旧雷从"依赖壳自觉"变为结构免疫
+  （红锁=knockout_contract D9 iso_leg + control_contract 演员双腿）。基类随后既有
+  `_skin.attributes = attributes` 推送与皮肤 setter 的 group 下发，根/皮同源自动
+  一致——**旧"消费方自救双写"形制（duplicate+双写 root/skin）随之退役**，存量
+  调用冗余执行无害（block_parry_contract Q 流形制保留为回归锁）。
 - **`local_to_scene` 是反药（封死勿再试，双写判例）**：皮肤拆独立场景后
   root/skin 各自成份，上面"两引用同源"的既有契约当场破裂，且"一场景一本体"
   也满足不了；处方=显式 duplicate + 双写，隔离点唯一。
@@ -562,9 +561,26 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
 - **约定加载**：AI 档 `ai_policy_script` 导出未配置时，`QuiverCharacter`
   自动加载同目录 `<场景文件名>_ai.gd`（FileAccess 判定，不依赖导入扫描）——创建器因此
   只需替换一个整数 token，无需 ext_resource 手术。
+- **索敌=策略配置字段（2026-10 接管批，用户裁决"策略以数据表达"）**：
+  `QuiverCharacter.ai_target_groups: Array[StringName]`（场景导出，空=行为类默认
+  `[&"area2d:player"]` 现状零漂移）；`_attach_behavior` 两挂线（通用/policy 分支
+  经共同入口 `_apply_ai_target_groups()`——policy 分支曾短路注入=control_contract
+  抓获补修）覆盖默认；运行时 `add/remove_ai_target_group()` 走行为实例
+  （单一存放点=`QuiverBehaviorAI._target_groups`，拉取式即时生效无缓存）；
+  `closest_target()` → helper `find_closest_in_groups(node, groups)`（并集去重+
+  `is QuiverCharacter` 过滤混入战斗盒+排除自己；旧 `find_closest_player_to` 随
+  清剿删除，索敌仅一个实现）。索敌与身份解耦：阵营免疫看 area2d:* 根标签、
+  玩家身份看 controlled 判据（见下条）、打谁看本配置——三维度互不越权。
+- **玩家身份判据（2026-10 接管批）**：`QuiverCharacterHelper.is_player_identity/
+  find_player_identity`——树内存在 `&"controlled"` 组成员（壳 take_control 体系
+  维护，只挂角色根、不经 `add_faction_group` 下发，零阵营副作用）→ 该组唯一权威；
+  不存在（单跑/Run-Test）→ 回落 `area2d:player`（现状兼容形）。消费点：
+  `quiver_action_die` 终局分支、`quiver_player_detector` 锁房（接管谁触发带为谁
+  服务）、游戏侧 `game_hud`/debug 光照页（`find_player_identity`）。
 - **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
   目录/档位（阵营标签与目录解耦：玩家→playable+player、AI→enemies+enemy、
-  被动→neutrals+自名，标签可自由改/多选；索敌按 area2d:player 组查询）；
+  被动→neutrals+自名，标签可自由改/多选；索敌=ai_target_groups 策略配置
+  （默认玩家组，见上条））；
   `CharacterDeleter.delete_character(name, pkg)`。面板新增"控制方式"下拉与阵营联动。
 - **Run Test 生成**：纯逻辑抽出为 `QuiverRunTestSceneBuilder`（RefCounted 静态类，
   headless 可测）`compose()` 统一编排：读 behavior_mode → 玩家档=被测者当主角、

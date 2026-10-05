@@ -100,10 +100,8 @@ func _build_slot(i: int) -> void:
 
 
 func _current_player() -> QuiverCharacter:
-	for n in get_tree().get_nodes_in_group("area2d:player"):
-		if n is QuiverCharacter:
-			return n
-	return null
+	# 2026-10 接管批：跟"当前被控者"（controlled 优先，无壳回落 player 组）
+	return QuiverCharacterHelper.find_player_identity(self)
 
 
 func _refresh_slots() -> void:

@@ -50,3 +50,38 @@ static func find_closest_in_groups(
 
 ### -----------------------------------------------------------------------------------------------
 
+
+## ── 被控角色身份判据（2026-10 接管批，用户裁决三章）──────────────────────
+## 控制权=行为维度（谁挂 PLAYER_INPUT），阵营标签=出身维度，两者解耦——
+## "玩家身份"的唯一权威从写死的 area2d:player 标签迁移为：
+## 树内存在 controlled 组成员（有壳接管体系在管理）→ 该组说了算；
+## 不存在（单跑/Run-Test/无壳场景）→ 回落 area2d:player 现状兼容形
+## （既有场景语义零漂移）。controlled 组只挂角色根本体（不经
+## add_faction_group 下发战斗盒），零阵营免疫副作用。
+const CONTROLLED_GROUP := &"controlled"
+const PLAYER_FACTION_GROUP := &"area2d:player"
+
+
+## 节点是否为"当前玩家身份"（判据见上）。
+static func is_player_identity(node: Node) -> bool:
+	if node == null:
+		return false
+	var tree := node.get_tree()
+	if tree != null and not tree.get_nodes_in_group(CONTROLLED_GROUP).is_empty():
+		return node.is_in_group(CONTROLLED_GROUP)
+	return node.is_in_group(PLAYER_FACTION_GROUP)
+
+
+## 找当前玩家身份的角色本体；歧义（多枚）返回 null，由调用方处置。
+static func find_player_identity(from: Node) -> QuiverCharacter:
+	var tree := from.get_tree()
+	if tree == null:
+		return null
+	var group := CONTROLLED_GROUP
+	if tree.get_nodes_in_group(CONTROLLED_GROUP).is_empty():
+		group = PLAYER_FACTION_GROUP
+	var hits: Array = []
+	for n in tree.get_nodes_in_group(group):
+		if n is QuiverCharacter:
+			hits.append(n)
+	return hits[0] if hits.size() == 1 else null

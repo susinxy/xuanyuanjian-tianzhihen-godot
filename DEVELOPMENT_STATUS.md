@@ -585,7 +585,28 @@
 6. 剧情内容按 `story/原创章节大纲_折旗.md`（史实骨架原创底稿）分阶段开发；
    `story/bible.md` 仅作结构参照，不直接投产（版权安全线，见该大纲自检节）
 
-## 内容侧开工与文档整改登记（2026-10-01）
+## 被控角色接管批（2026-10-01，含前置考古清剿）
+
+- **考古清剿批**：AI 积木族退役件实物删除（`characters/ai/` 13 文件、
+  `QuiverEnemyCharacter`、die_ai/follow/idle_ai、ai 系 editor 插件两族、helper
+  写死索敌函数）；幻影掉血隔离调用结构性下压 `QuiverCharacter._ready`（红锁
+  D9+新契约双腿）；"创建器 AI 档×spawner 双头死结"账目消解（见 ARCH §2/§5.0）。
+- **接管批（用户裁决三章定档）**：控制权=行为维度（接管不碰阵营标签），身份
+  权威=壳引用+`controlled` 活性组（消费点 die/detector/hud 迁移，判据带无壳回落
+  兼容形=现状零漂移）；`ChapterShell.take_control(target, old_policy)` 总装机
+  （默认行为互换；契约 C4 抓获悬垂旧体缺陷→守卫补入生产）；索敌=策略配置字段
+  `ai_target_groups`（场景持久+运行时增删 API，默认玩家组现状不变；policy 分支
+  短路注入由契约 C5 抓获补修）；段申报读法一（`control_target_path`/
+  `camera_host_path` 双导出+先接管后落位+无申报回正）；`GameEvents.control_switched`。
+- **契约**：control_contract 35 断言入矩阵（32 套 33 跑），R8 红据四档；
+  施工期抓获两枚实缺陷（悬垂旧体、policy 短路注入）=契约价值实证。
+- **边界申报**：①敌兵可被接管但出身阵营互免不随控制转移（打不动敌营也挨不到），
+  夺舍玩法需阵营敌意专门设计批；②AI 档互换无约定小抄者退化站立+告警（现状语义）；
+  ③AGENTS 旧"area2d:player=身份暗号/AiStateMachine brain"两段同批勘正。
+- **F5 感官单（待用户）**：段申报接管手感（键位即时跟新体/旧体留守）、无申报段
+  镜头回正、被控者死=终局、旁观原主角死=普通倒下、spar_enemy 刷怪回归（批1 后）。
+
+
 
 - **第一章已实际开工**：`scenes/stages/xuanyuan-chapter-1/`（stage0 实验场地+燃烧宫殿
   CG 素材，内容侧 WIP，工程侧不代管不代提交）；`addons/native_video/` mp4 播放件
