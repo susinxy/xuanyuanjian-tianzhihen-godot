@@ -1365,6 +1365,8 @@ func _can_handle(object: Object) -> bool:
 
 ## 九、模板创建系统
 
+> ⚠️ 本章的 `spells/_template/` 路径与"动画程序化生成"描述已被取代（2026-09-15 产线审计改物化模板、2026-09-17 迁 `templates/spell/`，SpellCreator 走 TemplateCloner 克隆）；现行实况看 `templates/spell/` 目录与 `addons/quiver.beat_em_up/custom_inspectors/create_new_spell/`。本章其余机制章节（§11.1 修饰域、§17 施法两段式）仍是被代码注释引用的活契约，有效。
+
 ### 9.1 法术模板目录结构
 
 模板中只包含**静态文件**。动画相关文件（animation_tree_root.tres、各动画 .tres）

@@ -1,5 +1,11 @@
 # 2.5D 高度层战斗系统 - 设计文档
 
+
+> 活文档指针（2026-10 文档整改批）：本文高度层主体与代码一致，仍是设计参照；两处
+> 落地后改判以他源为准——①击飞裁决已升级为**统一模型**（K vs 每角色抵抗池
+> `knockout_resistance_max`，见 PLUGIN_ARCHITECTURE 与根 AGENTS Combat 节，本文
+> v4.1 的 knockback_weight 定档描述未预见此改判）；②攻击车道窗口现含
+> skin_direction 主轴塌缩列比较（回归锁 `tools/attack_lane_contract/`）。
 > **版本**: 4.2.0  
 > **创建日期**: 2026-08-11  
 > **最后更新**: 2026-08-20  

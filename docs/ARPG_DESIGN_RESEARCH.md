@@ -1,5 +1,7 @@
 # ARPG 设计方法论研究报告
 
+> ⚠️ 方法论调研存档（2026-08；2026-10 盖戳）。文中 SkillData/TagSystem/StatusEffect 等类与示例路径均为**未实施的示意设计**，本仓不存在；实际落地走的是另一条线（QuiverAttributes 修饰域/SpellDefinition 等，见 PLUGIN_ARCHITECTURE）。
+
 > 针对基于 Godot 4 的 2D 俯视角/伪 3D ARPG，主题为中国神话/修仙题材
 > 
 > 参考：GDC 讲座、游戏设计分析、经典 ARPG 系统研究

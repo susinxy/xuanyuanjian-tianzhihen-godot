@@ -1,5 +1,7 @@
 # 附录 F: 实施过程中的技术挑战
 
+> ⚠️ 上篇的当日附录（2026-10 盖戳，修 bug 流水账）。其中 enemy_hurt_handler.gd/enemy_periodic_attack.gd 等旧敌人替身脚本已随 2026-09-14 角色体系重建退役。结论以 AGENTS 判例章与 PLUGIN_ARCHITECTURE 为准。
+
 本文档记录了多方向动画系统实施过程中遇到的技术问题和解决方案。
 
 ## F.1 GDScript setter 参数类型推断问题

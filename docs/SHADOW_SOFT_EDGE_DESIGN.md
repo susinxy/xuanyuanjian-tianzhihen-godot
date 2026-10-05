@@ -1,5 +1,7 @@
 # 阴影柔边（P2）设计：共享离屏缓冲 + 可分离模糊（方案 A，可配置开关）
 
+> ⚠️ 半活案卷（2026-10 盖戳）：§9（ShadowRegion 区域裁剪）仍被 PLUGIN_ARCHITECTURE 引用为权威；但文中"enabled 默认 false、按 L 开启"已改判——**现默认开启**（2026-09-30 裁决）；§3.1 的 base_stage z 例为历史（现行法定档固定 composite_z=-1，见 shadow_soft_edge.gd 与 GUIDE_光照）。
+
 > 版本：v2.2
 > 日期：2026-09-05
 > 状态：已实现（默认关闭），L 键实测开启正常、柔化 OK；新增 §9 投影区域(ShadowRegion) 裁剪，headless 已验证三态；待真关卡遮挡/低配帧率验证

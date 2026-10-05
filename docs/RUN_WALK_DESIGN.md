@@ -1,5 +1,7 @@
 # Run/Walk 地面位移系统设计文档
 
+> ⚠️ 半活案卷（2026-10 盖戳）：xfade_time=0 判例仍被 PLUGIN_ARCHITECTURE 引用。但"Shift 读全局 Input"一节已被 2026-09-14 私有输入通道制取代（现行读 `<character>.channel.is_held("walk")`，见 §5.0/AGENTS 角色体系节）。
+
 > **创建日期**: 2026-08-27
 > **最后更新**: 2026-08-27
 > **状态**: 已实现并验证通过
