@@ -1,8 +1,8 @@
 # Quiver Beat-em-up 插件架构源码分析
 
 > **分析日期**: 2026-08-11
-> **最后更新**: 2026-08-27
-> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构 + 轮廓转换工具 + Walk/Run 移动系统
+> **最后更新**: 2026-10-01（R3 纠错批：幻影条目清除/退役横幅/autoload 补册/通道制代码块回写）
+> **插件版本**: 1.0 (quiver_beat_em_up_plugin.gd) + 高度层系统 + 碰撞系统重构 + 轮廓转换工具 + Walk/Run（私有输入通道制）+ 单壳行为脚本体系 + 统一击退模型（K vs 抵抗池）+ B4.8 格挡点按序列制 + B4.6 攻击轴 + 施法链 + GameSave 账本/影子存档（游戏侧）+ S5b 转场修复
 > **用途**: 记录插件所有系统的设计、实现细节和使用方式
 
 ---
@@ -15,7 +15,7 @@ quiver.beat_em_up/
 │   ├── quiver_attributes.gd       # 角色数据 Resource（HP、速度、击退等）
 │   ├── quiver_character.gd        # 角色基类（CharacterBody2D）
 │   ├── quiver_character_base.tscn # 角色基础场景（继承用）
-│   ├── quiver_enemy_character.gd  # 敌人基类（继承 QuiverCharacter，增加 AI 状态机引用）
+│   ├── quiver_enemy_character.gd  # 敌人基类（继承 QuiverCharacter，增加 AI 状态机引用）【已退役 2026-09-14，仅供考古（§5.0 退役清单）】
 │   ├── quiver_character_skin.gd   # 皮肤基类（信号、朝向、抓取配置）
 │   ├── quiver_character_skin_anim_tree.gd  # AnimationTree 版皮肤（BlendSpace1D）
 │   ├── quiver_character_skin_base.tscn     # 皮肤基础场景
@@ -27,14 +27,14 @@ quiver.beat_em_up/
 │   │   ├── quiver_action_air.gd        # 空中状态基类（重力、落地判定）
 │   │   ├── quiver_action_attack.gd     # 攻击状态基类（连击、输入窗口、冲刺）
 │   │   ├── quiver_action_die.gd        # 死亡状态基类（玩家发 Events.player_died，敌人 queue_free）
-│   │   ├── quiver_action_die_ai.gd     # AI 敌人死亡状态
+│   │   ├── quiver_action_die_ai.gd     # AI 敌人死亡状态【已退役，同上】
 │   │   ├── ground_actions/
 │   │   │   ├── quiver_action_move.gd       # 地面移动基类（apply velocity + move_and_slide）
 │   │   │   └── move_actions/
 │   │   │       ├── quiver_action_idle.gd       # Idle 状态（读通道，转到 Walk/Run）
 │   │   │       └── quiver_action_locomotion.gd # Walk/Run 通用移动状态（单类，实例配置区分）
 │   │   └── (子目录: air_actions/)
-│   └── ai/                       # AI 行为状态机
+│   └── ai/  # 【整体已退役 2026-09-14——旧"魔法替身"形态；现行敌人=AI 档角色+QuiverBehaviorAI 小抄，见 §5.0/§6 横幅】
 │       ├── quiver_ai_state_machine.gd  # AI 状态机核心
 │       └── states/               # 所有 AI 行为状态
 │
@@ -46,7 +46,7 @@ quiver.beat_em_up/
 │       ├── quiver_hit_box.gd     # 攻击判定框（被动，monitoring=false）
 │       ├── quiver_hurt_box.gd    # 受击判定框（主动，monitoring=true，监听 area_entered）
 │       ├── quiver_grab_box.gd    # 抓取判定框
-│       └── quiver_wall_hit_box.gd # 墙面反弹判定框
+│       └── quiver_wall_hit_box.gd # 墙面反弹判定框（注：本文件在上方列表重复一行，系目录树笔误）
 │
 └── utilities/                    # 工具节点 + 全局单例
     ├── custom_nodes/
@@ -76,8 +76,10 @@ quiver.beat_em_up/
 角色脚本**只负责**：
 1. 编辑器模式下禁用所有处理
 2. 运行时 `attributes.reset()`（HP 从满血开始）
-3. `add_to_group("player")`（敌人 AI 通过分组查找玩家）
-4. F6 独立运行时加调试相机
+3. 阵营/身份由**场景根节点**的 `area2d:<标签>` group 承载（创建面板写入；基类只挂全局
+   `quiver_characters` 组，插件**不存在** `add_to_group("player")` 逻辑——旧文勘正，
+   2026-08 前的组名描述，现行见 §7 阵营章）
+4. 跟随相机不是角色脚本职责——正式地点由 ChapterShell 统一补挂（`docs/STAGE_ASSEMBLY.md` 壳章）
 
 **所有 gameplay 代码（移动、攻击、受击、跳跃）都在 StateMachine 的 action states 里，不在角色脚本里。**
 
@@ -643,7 +645,7 @@ var _state_machine: QuiverStateMachine
 ```
 
 **信号自动管理流程**:
-1. `_ready()` → `_register_incoming_connections()`：用 `get_incoming_connections()` 快照所有编辑器里的信号连接 → 立即断开（休眠）
+1. `_ready()` → `_register_incomming_connections()`：用 `get_incoming_connections()` 快照所有编辑器里的信号连接 → 立即断开（休眠）
 2. `enter(msg)` → `_connect_signals()`：重新连接（激活）
 3. `exit()` → `_disconnect_signals()`：断开（休眠）
 
@@ -729,13 +731,14 @@ StateMachine
 **速度控制机制**: 通过 `QuiverAttributes.add_modifier()` 在 enter/exit 时切换速度：
 
 ```gdscript
+# （2026-09 私有输入通道制后的实码形态，此前版本直读 Input.* 为旧文）
 func enter(msg: = {}) -> void:
-    _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+    _move_state._direction = _character.channel.axis      # ← 通道，不碰全局 Input
     super(msg)
     _move_state.enter(msg)
     if _is_walk_mode and _attributes.move_speed > 0:
-        var multiplier: float = float(_attributes.walk_speed) / float(_attributes.move_speed)
-        _attributes.add_modifier(&"locomotion_speed", &"move_speed", "multiply", multiplier)
+        _speed_modifier = float(_attributes.walk_speed) / float(_attributes.move_speed)
+        _attributes.add_modifier(&"locomotion_speed", &"move_speed", "multiply", _speed_modifier)
     _character.velocity = _attributes.move_speed * _move_state._direction
     _skin.transition_to(_move_skin_state)
 
@@ -760,15 +763,18 @@ func exit() -> void:
 
 ```gdscript
 func physics_process(delta: float) -> void:
-    _move_state._direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+    _move_state._direction = _character.channel.axis      # ← 通道
     if not _move_state._direction.is_equal_approx(Vector2.ZERO):
+        var facing := sign(_move_state._direction.x)      # 先 facing_x 再 skin_direction（setter 依赖）
+        if facing != 0 and facing != _skin.facing_x:
+            _skin.facing_x = facing
         _skin.skin_direction = _move_state._direction.normalized()
     _move_state.physics_process(delta)  # Move 层 apply velocity + move_and_slide
     if _move_state._direction.is_equal_approx(Vector2.ZERO):
         _state_machine.transition_to(_path_idle_state)
         return
-    if _path_other_state != "" and Input.is_action_pressed("walk") != _is_walk_mode:
-        _state_machine.transition_to(_path_other_state)
+    if _path_other_state != "" and _character.channel.is_held("walk") != _is_walk_mode:
+        _state_machine.transition_to(_path_other_state)   # ← 通道 is_held，非全局 action
 ```
 
 **条件解读**: `Input.is_action_pressed("walk") != _is_walk_mode`
@@ -865,7 +871,7 @@ rising/falling→触地 Bounce→（活）`Ground/Recovery` 或（死）`Die`。
 **攻击朝向模式（S2-B4.6，2026-09-26）**：角色级两档**地面**攻击定向。
 
 - **数据面**：`QuiverAttributes.AttackAxisMode {FOUR_DIRECTION=0, HORIZONTAL_ONLY=1}`
-  （`quiver_attributes.gd:40` 枚举 + `:126` 导出，代码默认=横模）。档案配置非运行时
+  （`quiver_attributes.gd:40` 枚举 + `:140` 导出，代码默认=横模）。档案配置非运行时
   状态：`reset()` 不清、不进修饰域，写点=创建面板合成器/Inspector 手改；治理法定性
   =合法行为路由旗（注例见根 AGENTS 数值治理法段）。
 - **enter 单点分流**（`quiver_action_attack.gd:89-101`）：横模分支 `:90-95` 出手向恒
@@ -1010,6 +1016,12 @@ B48-T1 行已入 run_matrix ATTEST 表）；数值委托 API（`apply_damage_val
 ---
 
 ## 6. AI 状态机系统 (`characters/ai/`)
+
+> ⚠️ **本章整体为退役形态考古（2026-09-14 单壳+行为脚本定案，见 §5.0 退役清单）**：
+> `QuiverAiStateMachine` + 11 块积木 + `quiver_enemy_character.gd`/`quiver_action_die_ai.gd`
+> 禁止用于新角色。现行敌人 = `characters/enemies/` AI 档角色（`<name>_ai.gd` extends
+> `QuiverBehaviorAI` 策略小抄，直接驱动动作原树；参照 `spar_enemy`）。sarge/tax_man 等
+> 示例角色均属**上游模板**，本仓不存在。
 
 ### 6.1 QuiverAiStateMachine（AI 状态机核心）
 
@@ -1227,7 +1239,8 @@ R7 明令方向门/相位分流绝不前置车道门）**：
 Block.enter 写 `block_started_frame`，蚕食属规则本意"随**相位制**整体消亡——
 弹反窗=防守者**动画时钟**（block_out 段长），与攻击侧时间操纵（慢放/罚站）
 **彻底解耦**，再无"帧窗被蚕食"命题。B4.7 R2 起普攻/格挡/弹反流全局零暂停，
-`_drain_freeze()` 退为保险丝（若 freeze_frames 复活仍先排空）。
+（旧文"先排空在途定格"的 `_drain_freeze()` 系幻影——插件无此函数；HitFreeze 本体只有
+按角色登记的 `_frames_to_wait` 递减。）
 
 **阵营过滤机制**（`area2d:` group；2026-09-17 单一存放点体系）:
 - **数据只存角色根节点**（`groups=["area2d:<标签>", …]`，创建表单写入）；
@@ -1365,6 +1378,9 @@ hurt/knockout 派发；两支现各发 &"block"/&"parry" 专属火花回执，B4
 
 ## 8. Stage 场景工具节点
 
+> 地点装配现行法源=`docs/STAGE_ASSEMBLY.md`（5b 单轨：章节壳+段；base_stage 已退役
+> 2026-09-28）。本章只讲插件工具节点本体。
+
 ### 8.1 QuiverFightRoom（战斗区域摄像头锁定）
 
 **文件**: `utilities/custom_nodes/quiver_fight_room.gd`
@@ -1378,9 +1394,11 @@ hurt/knockout 派发；两支现各发 &"block"/&"parry" 专属火花回执，B4
 @export var zoom: float = 1.0          # 战斗区域的缩放
 @export var transition_duration: float = 0.8  # 摄像头过渡动画时长
 
-# 战后区域（可选，战斗结束后切换到此区域）
-@export var after_fight_limit_*, after_fight_zoom, after_fight_transition_duration
-@export var after_fight_use_new_room: bool
+# 战后区域（可选）：after_fight_* 为带 setter 的普通 var（**非导出**，Inspector
+# 不可见——段模板/参考段经 .tscn 文本序列化预置；内容侧要改找工程侧。R3 勘正旧
+# "@export"笔误，开放导出属工程待办）
+var after_fight_limit_* / after_fight_zoom / after_fight_transition_duration
+var after_fight_use_new_room: bool
 
 func setup_fight_room()       # 战斗开始 → 锁定摄像头
 func setup_after_fight_room() # 战斗结束 → 切换到战后区域
@@ -1599,6 +1617,18 @@ signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4�
 | `HitFreeze` | 全局定格（B4.7 起 freeze_frames 默认 0=退役，机制保留）+ **单角色慢放调度器** `apply_character_slow`（协程+代数令牌，通道见 §17） |
 | `QuiverDebugLogger` | 调试日志（可在 project settings 里开关） |
 
+**游戏侧（非插件）Autoload 另册**（`project.godot` [autoload]；插件文档管辖边界外，
+此处在册防"权威册缺账"）：
+
+| 名称 | 职责 |
+|---|---|
+| `GameEvents` | 游戏层事件总线（与插件 Events 分工：游戏语义事件） |
+| `GameSave` / `SaveSystem` | **账本宪法双件**：GameSave=一切跨档事实的唯一门洞（record/has_record + namespace claim；影子条款=记账即落盘），SaveSystem=其自动影子（帧尾合并 tmp→rename 原子写）。执法=spell_save_contract X 流；法源=根 AGENTS 账本纪律法 |
+| `HitFx` | 命中特效路由（B4.7，五风格参数卡自动路由） |
+| `DebugDock` / `DebugDockTabs` | 调试面板（HUD_DESIGN 定稿，=/+ 唤出） |
+| `DayNightManager` / `ShadowSoftEdge` | 全局光照/阴影单例（GUIDE_光照 + STAGE_ASSEMBLY 光照章） |
+| `Dialogic` | 对话系统（addons/dialogic，S3 批接线中） |
+
 ---
 
 ## 11. 项目设置 (project.godot `[quiver]` 部分)
@@ -1631,6 +1661,10 @@ quiver/beat_em_up/paths/custom_ai_folder = "res://_beat_em_up/ai_states/"
 5. 若父状态是 `QuiverActionGround`，必须**手动调用** `get_parent().enter(msg)` / `get_parent().exit()`
 
 ### 示例：tax_man 的 dash_attack_action.gd
+
+> **上游模板示例**——本仓无 tax_man 与 dash_attack；本段仅作"直接继承
+> QuiverCharacterAction 时的手动父委托"教学，本仓同形态实码参照
+> `_beat_em_up/action_states/quiver_action_cast.gd` 与格挡件。
 
 ```gdscript
 @tool
@@ -1717,6 +1751,12 @@ func _parse_begin(object: Object) -> void:
 | `external_enum/` | 需要选择脚本内枚举的字段 | 解析外部枚举提供下拉 |
 | **`create_new_character/`** | **`CharacterTemplate` 节点**（`templates/character/character_template.tscn`） | **创建/删除角色** |
 | **`height_layers/`** | **`QuiverCharacterSkinAnimTree` 节点** | **扫描动画帧文件名注入高度层轨道 + 轮廓转换工具（Polygon/Capsule/Rectangle）+ PNG 缩放与备份工具** |
+| **`create_new_spell/`** | **`SpellTemplate` 节点**（`templates/spell/spell_template.tscn`） | **创建/删除法术**（SpellCreator：模板克隆+definition/攻击数据合成，参照 fire_ball） |
+| `spell_contour/` | 法术皮肤相关节点 | 法术轮廓转换（角色侧 contour 的法术同族工具） |
+
+另：`_shared/template_cloner.gd`=角色/法术创建共用模板克隆器；
+`utilities/helpers/static/`=静态 helper 族；`custom_overlays/`=编辑器覆盖层（蒙版编辑等）；
+`run_test_scene_builder.gd`=Run Test 场景幂等重建入口（测试法源）；`level_camera/`=QuiverLevelCamera。
 
 ### Height Layers Inspector（新增）
 
