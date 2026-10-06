@@ -117,6 +117,7 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 |---|---|
 | 加一个**宝箱** | 段内实例化 `scenes/chapter/interact_trigger.tscn`（右键段根 → 实例化子节点）→ 摆位（玩家要能站进那个框）→ 改 `prompt_text`（按 E 时显示的提示语）→ 选中 trigger 右键 **添加子节点 → Node** → 属性 Inspector 里"附加脚本"选 `scripts/chapter/reactions/interact_chest.gd`（显示名 InteractChest）→ 填 `chest_id`（本章内唯一，重名校验器点名）。玩家开箱后东西**永久记录**，重玩不复活，全程零代码 |
 | 宝箱给**法术秘籍** | 同上，附加脚本换成 `interact_spell_book.gd`（InteractSpellBook），`spell_id` 填 `fire_ball`（现成法术）。玩家捡起就会放，按 1 释放 |
+| **护送段（有人不能死）** | 段根 `defeat_anchor_path` 填该段里某个角色的路径（如 `Escort`）=本段"剧情不能死的人"：他被怪打死→和你自己阵亡一样触发慢放+回检查点（你操控的角色死了同样算输）。整章全程护送就填壳根同名属性（路径按壳树写，如 `Players/Escort`）；想让怪专打护送对象：给敌人角色的 `ai_target_groups` 填 `defeat_anchor`。跨段护送=逐段申报（同换人操控的规则）。参考：演示章 `scenes/stages/demo_control/` 第二段 |
 | **锁着的门** | 附加脚本换 `interact_gate.gd`（InteractGate）：在 trigger 上填 `requires_flag`（需要的通行证名）；再让某个宝箱的 `grants_flag` 填同一个名——形成"开宝箱→得钥匙→开门"链 |
 | **加一波怪** | 选 `EnemySpawner1` → `spawn_waves` 数组加一项（=追加一波），内层加条目（=这波多几只并发）。每张卡 `enemy_scene` 下拉选角色；`spawn_mode=1` + `use_spawner_position=true` 照段模板抄 |
 | **造一个新敌兵** | 打开 `templates/character/character_template.tscn` → 右侧 Inspector 的创建面板 → "控制方式"选 **AI 自动战斗**（自动进 `characters/enemies/`，自带"待机→靠近→三连段"默认打法）→ 填名字和出生数值 → Create → 回 spawner 的下拉里选它 |

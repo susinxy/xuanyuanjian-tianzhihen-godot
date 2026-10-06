@@ -615,6 +615,26 @@
   `camera_host_path` 双导出+先接管后落位+无申报回正）；`GameEvents.control_switched`。
 - **契约**：control_contract 35 断言入矩阵（32 套 33 跑），R8 红据四档；
   施工期抓获两枚实缺陷（悬垂旧体、policy 短路注入）=契约价值实证。
+  （判据迁移后续见同日锚点批条目：die 消费点已再迁 defeat_bound、launch 漏改修复。）
+
+## 终局锚点批（2026-10-01 同日续，败北演出单门）
+
+- **语义（用户裁决：死亡演出与终局的触发者=可设置维度，与被控角色同款申报）**：
+  败北集合 = {终局锚点 `&"defeat_anchor"`} ∪ {被控者}；helper `is_defeat_bound`
+  唯一判据（无壳无锚无控回落 player 兼容形）。慢放（launch `_should_slow_motion`）
+  与终局（die 分支）**单门同闸**——接管批遗留 launch 写死玩家标签漏网（旁观者
+  之死劫持 `Engine.time_scale` 且无人恢复 / 中立出身被控者之死无演出）双红据
+  S5 术前定档、修复翻转绿，永久锁入 C9。
+- **申报面**：段 `defeat_anchor_path`（段申报优先）+ 壳同名导出（全程兜底）+
+  `add/remove_defeat_anchor`（临时态，入场即被申报重刷——`reapply_defeat_anchor`
+  换段全摘再挂；护送失败 restart 随段重建自然还魂）。
+- **契约**：control_contract 35→55 断言（C9 单门/C10 申报+还魂/C11 申报驱动/
+  C12 ghost 降级/C13 兼容形），R8 红据再三档（S5 术前双红 + S6a 挂锚断 + S6b 摘锚断）。
+- **demo v3**：seg02 摆 Escort+段申报锚——"操控靖仇、小贩不能死、他死你也输"
+  护送语义实机可验（冒烟四项绿：接管/挂锚/回正败北/跨段不残留）。
+- **文档一致性专项**（用户点名，含接管批旧账核对）：AGENTS/ARCH 判据段升级
+  双轨；法典条 13；手册护送配方卡；术语表"终局锚点"；PLUGIN_CHANGES 追加；
+  接管批条目以指针标注（die 曾走 identity）不回改原文。
 - **边界申报**：①敌兵可被接管但出身阵营互免不随控制转移（打不动敌营也挨不到），
   夺舍玩法需阵营敌意专门设计批；②AI 档互换无约定小抄者退化站立+告警（现状语义）；
   ③AGENTS 旧"area2d:player=身份暗号/AiStateMachine brain"两段同批勘正。

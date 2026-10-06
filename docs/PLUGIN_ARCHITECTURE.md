@@ -571,12 +571,19 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   `is QuiverCharacter` 过滤混入战斗盒+排除自己；旧 `find_closest_player_to` 随
   清剿删除，索敌仅一个实现）。索敌与身份解耦：阵营免疫看 area2d:* 根标签、
   玩家身份看 controlled 判据（见下条）、打谁看本配置——三维度互不越权。
-- **玩家身份判据（2026-10 接管批）**：`QuiverCharacterHelper.is_player_identity/
-  find_player_identity`——树内存在 `&"controlled"` 组成员（壳 take_control 体系
-  维护，只挂角色根、不经 `add_faction_group` 下发，零阵营副作用）→ 该组唯一权威；
-  不存在（单跑/Run-Test）→ 回落 `area2d:player`（现状兼容形）。消费点：
-  `quiver_action_die` 终局分支、`quiver_player_detector` 锁房（接管谁触发带为谁
-  服务）、游戏侧 `game_hud`/debug 光照页（`find_player_identity`）。
+- **判据双轨（2026-10 接管批+锚点批）**：
+  ①`is_player_identity/find_player_identity`（互动身份）——树内存在 `&"controlled"`
+  组成员（壳 take_control 维护，只挂角色根、零阵营副作用）→ 该组唯一权威；无壳
+  → 回落 `area2d:player`。消费：`quiver_player_detector` 锁房（接管谁触发带为谁
+  服务）、游戏侧 `game_hud`/debug 光照页。
+  ②`is_defeat_bound`（败北演出集合）= {`&"defeat_anchor"` 锚点们} ∪ {被控者}，
+  皆无回落 `area2d:player`。消费**唯一两闸同源**：`quiver_action_die` 终局分支
+  （time_scale 归位+`Events.player_died`）+ `quiver_action_launch._should_slow_motion`
+  （致死击飞慢放）。案卷：接管批曾让 die 用①而 launch 漏改仍写死玩家标签——
+  倒置双红据（旁观者之死劫持慢放且无人恢复 / 中立出身被控者之死无演出）由锚点批
+  统一入②单门（control_contract C9a/C9b 术前红转绿锁死）。锚=段/壳申报+API
+  临时态（申报驱动换段重刷，`reapply_defeat_anchor`；护送关=锚+索敌配置的零代码
+  组合，法源 STAGE_ASSEMBLY 条 13 + GAMEDESIGN 配方卡）。
 - **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
   目录/档位（阵营标签与目录解耦：玩家→playable+player、AI→enemies+enemy、
   被动→neutrals+自名，标签可自由改/多选；索敌=ai_target_groups 策略配置

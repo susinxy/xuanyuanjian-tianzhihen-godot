@@ -18,6 +18,10 @@ extends Node2D
 ## 段申报·相机宿主（同批复）：入场镜头挂本路径指认的段内 Node2D（拍 NPC/
 ## 物件演出）；留空=回正跟被控角色。运行时即席改挂走壳 set_camera_host()。
 @export_node_path("Node2D") var camera_host_path := NodePath("")
+## 段申报·终局锚点（锚点批）：本段"剧情上不能死的人"（护送对象等）——
+## 其被击飞致死=慢放+终局，与被控者之死同闸（败北集合=锚∪被控）。
+## 留空=改用壳全程锚（壳也留空=仅被控者算败北，默认形态现状零漂移）。
+@export_node_path("QuiverCharacter") var defeat_anchor_path := NodePath("")
 
 
 func entry_position(entry: StringName) -> Vector2:

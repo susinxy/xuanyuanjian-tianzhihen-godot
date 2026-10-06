@@ -60,10 +60,10 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
-	# 2026-10 接管批：玩家身份=被控者判据（controlled 优先，无壳场景
-	# 回落 area2d:player 现状形）——旁观的原主角之死是普通阵亡，
-	# 不再误触终局；被接管的无阵营标签角色之死照常终局。
-	if QuiverCharacterHelper.is_player_identity(_character):
+	# 锚点批单门：败北=defeat_bound（锚点∪被控者，无壳回落 player 兼容形）。
+# 旧接管批曾用 is_player_identity——锚维度加入后演出与终局同闸迁移，
+# 旁观者（既非锚也非控）之死=普通阵亡不劫持时间不触终局。
+	if QuiverCharacterHelper.is_defeat_bound(_character):
 		# This was activated in the knockout launch state the player died.
 		Engine.time_scale = 1.0
 		Events.player_died.emit()

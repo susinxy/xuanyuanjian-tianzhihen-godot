@@ -72,6 +72,28 @@ static func is_player_identity(node: Node) -> bool:
 	return node.is_in_group(PLAYER_FACTION_GROUP)
 
 
+## 败北演出判据（锚点批，用户裁决：死亡演出与终局的触发者约束到一个可
+## 设置维度上）：败北集合 = {终局锚点} ∪ {被控者}——树内两者任一存在即
+## 走集合制；皆无（单跑/Run-Test 无壳）回落 area2d:player 现状兼容形。
+## 消费点唯一：die 终局分支 + launch 慢放门（演出与终局单门同闸）。
+## 与 is_player_identity 分工：identity=互动身份（触发带/HUD 认被控者），
+## defeat_bound=败北演出集合（锚是"剧情不能死的人"，与操作无关）。
+const DEFEAT_ANCHOR_GROUP := &"defeat_anchor"
+
+
+static func is_defeat_bound(node: Node) -> bool:
+	if node == null:
+		return false
+	var tree := node.get_tree()
+	if tree == null:
+		return false
+	var has_anchor := not tree.get_nodes_in_group(DEFEAT_ANCHOR_GROUP).is_empty()
+	var has_controlled := not tree.get_nodes_in_group(CONTROLLED_GROUP).is_empty()
+	if has_anchor or has_controlled:
+		return node.is_in_group(DEFEAT_ANCHOR_GROUP) or node.is_in_group(CONTROLLED_GROUP)
+	return node.is_in_group(PLAYER_FACTION_GROUP)
+
+
 ## 找当前玩家身份的角色本体；歧义（多枚）返回 null，由调用方处置。
 static func find_player_identity(from: Node) -> QuiverCharacter:
 	var tree := from.get_tree()
