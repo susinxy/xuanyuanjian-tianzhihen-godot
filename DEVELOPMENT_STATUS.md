@@ -585,6 +585,16 @@
 6. 剧情内容按 `story/原创章节大纲_折旗.md`（史实骨架原创底稿）分阶段开发；
    `story/bible.md` 仅作结构参照，不直接投产（版权安全线，见该大纲自检节）
 
+## 接管演示章与 .tscn 注释判例（2026-10-01 续）
+
+- **方案 A 交付**：`scenes/stages/demo_control/`（chapter_demo_ctl 单壳+
+  seg01_takeover[段申报接管 street_vendor]+seg02_return[无申报回正演示]），
+  过 validator（9 关违例 0）；headless 冒烟七项全绿（接管/落位容差 40px=
+  物理沉降判例/旧体留守/controlled 迁移/相机跟挂/回正/回正相机）。F5 感官单
+  交用户 Windows 执行（spar_enemy 批1 回归同单）。
+- **新判例入 AGENTS**：`##` 注释行写进 .tscn [node] 属性块=其后属性静默不解析
+  （无报错，本案段申报被吞实锤）；tscn 手术后的说明文字一律代码侧/文件级。
+
 ## 被控角色接管批（2026-10-01，含前置考古清剿）
 
 - **考古清剿批**：AI 积木族退役件实物删除（`characters/ai/` 13 文件、
