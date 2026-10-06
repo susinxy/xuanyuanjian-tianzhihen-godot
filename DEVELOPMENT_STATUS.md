@@ -587,11 +587,16 @@
 
 ## 接管演示章与 .tscn 注释判例（2026-10-01 续）
 
-- **方案 A 交付**：`scenes/stages/demo_control/`（chapter_demo_ctl 单壳+
-  seg01_takeover[段申报接管 street_vendor]+seg02_return[无申报回正演示]），
-  过 validator（9 关违例 0）；headless 冒烟七项全绿（接管/落位容差 40px=
-  物理沉降判例/旧体留守/controlled 迁移/相机跟挂/回正/回正相机）。F5 感官单
-  交用户 Windows 执行（spar_enemy 批1 回归同单）。
+- **方案 A 交付（v2，用户实测两轮反馈修正）**：`scenes/stages/demo_control/`
+  （chapter_demo_ctl 单壳+seg01_takeover[段申报接管 street_vendor]+
+  seg02_return[无申报回正演示]）；v1→v2 修正三处：①tscn 属性块 `##` 注释吞
+  后续属性判例（另条）；②壳改**摆放形**——靖仇实例摆 Players@(250,600) 进镜头
+  （v1 override 注入形出生位=世界原点画外，"旧身体交班/被追杀/死亡不终局"
+  三观察点不可见）；③勘误臆断：小贩为创建器产物**自带完整攻击动画**
+  （attack1/2/air 在库），"无动画=零输出死锁"诊断作废——v1 未走通根因是观察
+  障碍非机制死锁。headless 冒烟九项全绿（接管/摆位/落位/组/相机/回正/回正
+  相机/重建新实例接管/降级腿：初始体消亡时回正跳过维持现被控者）。
+  索敌实验卡（spar_enemy ai_target_groups→[controlled] 一行翻转）待用户发话。
 - **新判例入 AGENTS**：`##` 注释行写进 .tscn [node] 属性块=其后属性静默不解析
   （无报错，本案段申报被吞实锤）；tscn 手术后的说明文字一律代码侧/文件级。
 
