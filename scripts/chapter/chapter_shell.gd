@@ -497,7 +497,7 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 	if _current != null:
 		_remove_current()
 	var inst: StageContent = null
-	if session.is_cleared(id):
+	if session.is_cleared(id, chapter_id):
 		inst = _instances.get(id)
 	if inst == null:
 		inst = _instantiate(_scene_of(id))
@@ -520,7 +520,7 @@ func enter_segment(id: StringName, entry: StringName) -> void:
 	_apply_lighting(_current)
 	segment_entered.emit(id)
 	if _current.auto_complete:
-		session.mark_cleared(id)
+		session.mark_cleared(id, chapter_id)
 		switch_segment.call_deferred()
 
 
@@ -563,7 +563,7 @@ func _maybe_finish_chapter() -> void:
 	if _chapter_finished_emitted:
 		return
 	var sid := current_segment_id()
-	if sid == &"" or not session.is_cleared(sid):
+	if sid == &"" or not session.is_cleared(sid, chapter_id):
 		return
 	_chapter_finished_emitted = true
 	# B4.5-T2 通关事实入账（spec §2 影子条款：记账=自动落盘，内容件零自觉调用；
@@ -677,9 +677,9 @@ func _on_spawner_completed(seg: StageContent) -> void:
 
 
 func _finish_segment(seg: StageContent) -> void:
-	if seg == null or session.is_cleared(seg.segment_id):
+	if seg == null or session.is_cleared(seg.segment_id, chapter_id):
 		return
-	session.mark_cleared(seg.segment_id)
+	session.mark_cleared(seg.segment_id, chapter_id)
 	for room in seg.find_children("*", "ReferenceRect", true, false):
 		if room is QuiverFightRoom:
 			room.setup_after_fight_room()   # 房内解锁演出保留
@@ -710,7 +710,16 @@ func _remove_current() -> void:
 	if _current == null:
 		return
 	var sid := _current.segment_id
-	if session.is_cleared(sid):
+	# 捞人不变量（2026-10 捞人批，用户 F5 纯灰事故定罪）：被控者永不随段
+	# 离场——缓存保活/丢弃重建两腿摘段之前，先把挂在段树内的被控者（含其
+	# 身上 reparent 的相机）捞回壳 Players（保全局变换）。丢弃腿同防"接管
+	# 段 NPC 后重跑随段释放=悬垂灰死"变体；重建段同名新体由申报接管，旧
+	# 获救体让位旁观（不持 controlled）——孪生属剧情注意项（C15b 锁）。
+	if playable != null and is_instance_valid(playable) and _current.is_ancestor_of(playable):
+		var players := get_node_or_null("Players")
+		if players != null:
+			playable.reparent(players, true)
+	if session.is_cleared(sid, chapter_id):
 		_current.get_parent().remove_child(_current)   # 保活在 _instances
 	else:
 		_current.queue_free()

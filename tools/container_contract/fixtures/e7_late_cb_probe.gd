@@ -31,7 +31,7 @@ func _run() -> void:
 	await _frames(20)
 	var chen: QuiverCharacter = shell.playable
 	# 预设判清：摘段腿走"缓存保活"（房间出树不死=迟到回调的活靶）
-	shell.session.mark_cleared(&"seg_a")
+	shell.session.mark_cleared(&"seg_a", shell.chapter_id)  # 捞人批：判清键含章
 	# R7 判例：跨线逐帧扫（瞬移跳变零宽线永不判交）→ 检测器锁房，
 	# delimitate_room 发出 0.8s(≈48 物理帧) tween 在途
 	for x in range(500, 651, 25):

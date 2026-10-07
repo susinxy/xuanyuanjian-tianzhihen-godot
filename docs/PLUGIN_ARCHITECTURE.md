@@ -1650,7 +1650,7 @@ signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4�
 | 名称 | 职责 |
 |---|---|
 | `GameEvents` | 游戏层事件总线（与插件 Events 分工：游戏语义事件） |
-| `GameSave` / `SaveSystem` | **账本宪法双件**：GameSave=一切跨档事实的唯一门洞（record/has_record + namespace claim；影子条款=记账即落盘），SaveSystem=其自动影子（帧尾合并 tmp→rename 原子写）。执法=spell_save_contract X 流；法源=根 AGENTS 账本纪律法 |
+| `GameSave` / `SaveSystem` | **账本宪法双件**：GameSave=一切跨档事实的唯一门洞（record/has_record + namespace claim；影子条款=记账即落盘），SaveSystem=其自动影子（帧尾合并 tmp→rename 原子写）。判清账 `cleared_segments` 键=章组合 `chapter/segment`（2026-10 捞人批：纯段 id 键跨章串扰实锤后补章维度；`mark_cleared/is_cleared` 带 chapter 形参、省略=旧纯键兼容形）。执法=spell_save_contract X 流 + control_contract C15c；法源=根 AGENTS 账本纪律法 + 法典条 15 |
 | `HitFx` | 命中特效路由（B4.7，五风格参数卡自动路由） |
 | `DebugDock` / `DebugDockTabs` | 调试面板（HUD_DESIGN 定稿，=/+ 唤出） |
 | `DayNightManager` / `ShadowSoftEdge` | 全局光照/阴影单例（GUIDE_光照 + STAGE_ASSEMBLY 光照章） |

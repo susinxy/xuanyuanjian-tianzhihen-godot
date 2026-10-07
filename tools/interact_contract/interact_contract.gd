@@ -309,7 +309,7 @@ func _flow_i7() -> void:
 	var inr: bool = await _wait_until(func(): return trig.in_range(), 120)
 	_check(inr, "I7a 前置：出生位与感应盒重叠 → in_range")
 	var seg_inst: int = shell._current.get_instance_id()
-	shell.session.mark_cleared(&"seg_chest")
+	shell.session.mark_cleared(&"seg_chest", shell.chapter_id)
 	shell.switch_segment(&"seg_gate", &"default")
 	var away: bool = await _wait_until(
 			func(): return shell.current_segment_id() == &"seg_gate", 600)
@@ -410,7 +410,7 @@ func _flow_g() -> void:
 			func(): return shell.current_segment_id() == &"seg_it_end", 600)
 	_check(landed, "G2a 倒计时到点自动强推：current=seg_it_end")
 	await _frames(30)   # 盖过链尾信标窗，防"先到后改"漏网
-	_check(shell.session.is_cleared(&"seg_gate"),
+	_check(shell.session.is_cleared(&"seg_gate", shell.chapter_id),
 			"G2b T2 成功腿：赢链把源段（seg_gate）判清")
 	_check(shell.playable.attributes.health_current == 40,
 			"G2c 强推不治疗：残血 40 原样带进下段（F-1 语义穿透船闸）")
@@ -438,7 +438,7 @@ func _flow_g() -> void:
 			"G3b 重跑链赢：落回闸段入口、被顶 force 链零信标")
 	# B4-T1 改判注：本腿"闸段未判清"的前置由 _make_shell 的 new_profile 建档
 	# 供给（旧"新壳=新账"语义已废除，spec §2——清账动作显式化，判据本身不变）
-	_check(not shell.session.is_cleared(&"seg_gate"),
+	_check(not shell.session.is_cleared(&"seg_gate", shell.chapter_id),
 			"G3c 输链不留判清（T2 判词实船集成面：重跑走丢弃重建）")
 	await _frames(300)
 	_check(shell.current_segment_id() == &"seg_gate" and whys == [&"death"],
@@ -460,7 +460,7 @@ func _flow_q1() -> void:
 			func(): return shell.current_segment_id() == &"seg_it_end", 600)
 	_check(landed, "Q1b 窗内 E → force 赢链落尾段（seg_it_end）")
 	await _frames(30)
-	_check(shell.session.is_cleared(&"seg_river"),
+	_check(shell.session.is_cleared(&"seg_river", shell.chapter_id),
  			"Q1c T2 成功腿：赢链把河段（seg_river）判清")
 	_check(shell.playable.attributes.health_current == hp0,
  			"Q1d 成功不掉血：health 原样（hp0==hp_now）")
@@ -562,7 +562,7 @@ func _flow_q5() -> void:
 	var opened: bool = await _wait_until(func(): return qte.window_open, 60)
 	_check(opened, "Q5a 前置：河段循环已跑动（开过窗）")
 	# 第三方判清（绕过 QTE 成功闸）→ 换段离开：_remove_current 走摘树保活腿
-	shell.session.mark_cleared(&"seg_river")
+	shell.session.mark_cleared(&"seg_river", shell.chapter_id)
 	shell.switch_segment(&"seg_it_end", &"default")
 	var away: bool = await _wait_until(
 			func(): return shell.current_segment_id() == &"seg_it_end", 600)

@@ -139,7 +139,7 @@ func _flow_switch() -> void:
 	_check(det_b != null and is_instance_valid(det_b) and det_b.monitoring == true,
 			"E2c 落位窗：有界帧内恢复 monitoring")
 	# E3 清场持久：回 A 前先标记清场 → 缓存复用（刷怪不复出）
-	shell.session.mark_cleared(&"seg_b")
+	shell.session.mark_cleared(&"seg_b", shell.chapter_id)
 	shell.switch_segment(&"seg_a", &"default")
 	await _wait_until(func(): return shell.current_segment_id() == &"seg_a", 600)
 	shell.switch_segment(&"seg_b", &"default")
@@ -350,7 +350,7 @@ func _flow_death() -> void:
 	probe.free()
 	# --- R12 屏蔽窗代际防线（趁检测器未消费）：开窗内二次入场若以"当前值"
 	# 作快照会把 monitoring=false 当原值恢复=静默软锁。
-	shell.session.mark_cleared(&"seg_a")
+	shell.session.mark_cleared(&"seg_a", shell.chapter_id)
 	shell.enter_segment(&"seg_a", &"default")      # 窗 #1（缓存复用=同批检测器）
 	var det_mid := _first_detector(shell._current)
 	_check(det_mid != null and not det_mid.monitoring,
@@ -362,7 +362,8 @@ func _flow_death() -> void:
 			"R12b 双入窗内：检测器最终恢复 monitoring=true（假快照免疫）")
 	# 复原"未清场"（丢弃重建语义有效）：账本私有化后走销账门洞 erase_record
 	# （B4-T1/D-T1-1——合法销账=record 对偶，不开裸字典口）
-	shell.session.erase_record(shell.session.NS_CLEARED, &"seg_a")
+	# 捞人批：判清键含章——erase 必须同键名制（否则清不掉、后续重跑错走缓存腿）
+	shell.session.erase_record(shell.session.NS_CLEARED, StringName(str(shell.chapter_id) + "/seg_a"))
 	var entry_inst_id: int = shell._current.get_instance_id()
 	# --- 真死链：跨线引刷→血尽→knockout→Die→player_died→段重跑
 	# R7 判例：跨线必须逐帧扫（瞬移跳变零宽线永不判交）
@@ -444,7 +445,7 @@ func _flow_death() -> void:
 			and shell.current_segment_id() == src_seg
 			and shell.session.checkpoint_segment() == src_seg,
 			"D5a 重跑链落位：checkpoint=本段入口，被顶 force 链零信标")
-	_check(not shell.session.is_cleared(src_seg),
+	_check(not shell.session.is_cleared(src_seg, shell.chapter_id),
 			"D5b 被顶掉的 force 链不把源段标 cleared（修复前必红）")
 	# --- D5c 对照腿：无竞争 force 链判清照常随落位登记，再入走缓存复用
 	# （实例 id 不变）——证明 b 非"永远无缓存"，成功路径未被搬移破坏。
@@ -458,7 +459,7 @@ func _flow_death() -> void:
 			func(): return shell.current_segment_id() == &"seg_b", 600)
 	await _frames(30)
 	_check(legit_landed and back_landed
-			and shell.session.is_cleared(src_seg)
+			and shell.session.is_cleared(src_seg, shell.chapter_id)
 			and shell._current.get_instance_id() == seg_b_inst,
 			"D5c 对照：赢链判清落位后再入=缓存复用（实例 id 不变）")
 	shell.queue_free()
@@ -540,10 +541,10 @@ func _flow_shellkit() -> void:
 	shell.chapter_finished.connect(func(): finished.append("f"))
 	var failed: Array[String] = []
 	shell.segment_advance_failed.connect(func(r): failed.append(r))
-	shell.session.mark_cleared(&"seg_a")
+	shell.session.mark_cleared(&"seg_a", shell.chapter_id)
 	shell.switch_segment(&"seg_b", &"default")
 	await _wait_until(func(): return shell.current_segment_id() == &"seg_b", 600)
-	shell.session.mark_cleared(&"seg_b")
+	shell.session.mark_cleared(&"seg_b", shell.chapter_id)
 	shell.switch_segment(&"seg_c", &"default")
 	await _wait_until(func(): return shell.current_segment_id() == &"seg_c", 600)
 	_check(shell.current_segment_id() == &"seg_c", "H6a 三段夹具按序推进到终点段")
@@ -551,10 +552,10 @@ func _flow_shellkit() -> void:
 	shell.force_advance_current(&"h6")
 	var neg: bool = await _wait_until(func(): return not failed.is_empty(), 240)
 	_check(neg and failed.size() == 1 and finished.is_empty()
-			and not shell.session.is_cleared(&"seg_c"),
+			and not shell.session.is_cleared(&"seg_c", shell.chapter_id),
 			"H6b 终点强推未判清：仅 advance_failed（不伪判清不广播完成）")
 	# 终点段清且无后继 → chapter_finished 恰一次（B7 过场批消费口）
-	shell.session.mark_cleared(&"seg_c")
+	shell.session.mark_cleared(&"seg_c", shell.chapter_id)
 	shell.switch_segment()
 	await _frames(6)
 	_check(failed.size() == 2 and finished.size() == 1,

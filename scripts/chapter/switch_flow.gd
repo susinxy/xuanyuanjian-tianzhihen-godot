@@ -71,7 +71,7 @@ func _run(target: StringName, entry: StringName, why: StringName,
 	if _gen != shell._transition_gen:
 		return   # I2 语义不变：最新意图胜出，本链连让位带解绑（判清随顶号一并扣下）
 	if mark_src != &"":
-		shell.session.mark_cleared(mark_src)   # T2 终裁落点：链赢才落判清
+		shell.session.mark_cleared(mark_src, shell.chapter_id)   # T2 终裁落点：链赢才落判清（key 含章，捞人批）
 	if revive:
 		shell._revive_playable()
 	shell.enter_segment(target, entry)
