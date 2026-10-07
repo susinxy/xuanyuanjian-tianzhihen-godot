@@ -119,12 +119,10 @@ func _disconnect_signals() -> void:
 
 
 func _should_slow_motion() -> bool:
-	# 锚点批单门：慢放与终局同闸（旧判据写死玩家标签=接管批漏网，旁观者
-	# 之死劫持时间且无人恢复、中立出身被控者之死无演出——双红据见案卷）。
-	var is_bound := QuiverCharacterHelper.is_defeat_bound(_character)
+	var is_player := _character.is_in_group("area2d:player")
 	var is_normal_time := Engine.time_scale == 1.0 
 	var is_dead := _attributes.health_current <= 0
-	return is_bound and is_dead and is_normal_time
+	return is_player and is_dead and is_normal_time
 
 
 func _on_skin_animation_finished() -> void:
@@ -172,7 +170,7 @@ func _get_custom_properties() -> Dictionary:
 #		},
 	}
 	
-	if is_instance_valid(_character) and QuiverCharacterHelper.is_defeat_bound(_character):
+	if is_instance_valid(_character) and _character.is_in_group("area2d:player"):
 		custom_properties["_death_slowdown_speed"] = {
 			default_value = 0.2,
 			type = TYPE_FLOAT,

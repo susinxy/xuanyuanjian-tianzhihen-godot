@@ -1414,7 +1414,7 @@ func flow_resume() -> void:
 	var evs := {"failed": 0, "finished": 0}
 	shell_d.segment_advance_failed.connect(func(_r): evs["failed"] += 1)
 	shell_d.chapter_finished.connect(func(): evs["finished"] += 1)
-	shell_d.session.mark_cleared(&"seg_c", shell_d.chapter_id)
+	shell_d.session.mark_cleared(&"seg_c")
 	shell_d.switch_segment(&"", &"default")   # 终点墙=同步链（container H6 判例，无在途转场）
 	_check(int(evs["finished"]) == 1 and int(evs["failed"]) == 1,
 			"P5b 终点段判清→chapter_finished 恰一次（入账腿挂载点真实到达）")

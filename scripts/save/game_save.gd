@@ -268,24 +268,13 @@ func is_chest_open(id: StringName) -> bool:
 	return has_record(NS_CHESTS, id)
 
 
-## 判清账（捞人批修正：key 含章节维度——纯 segment_id 作键时跨章同 id
-## 串扰（章二清过的 seg01 会让章一误判已清=终点误弹/推进短路）——C15b/C15c
-## 实锤锁）。chapter 传章壳的 chapter_id；省略=旧纯键形（存量合约/单点消费
-## 兼容）。旧档中纯 id 判清记录不迁移（开发档无实档负担，一次性作废，案卷
-## 见 STATUS 捞人批）。
-func mark_cleared(id: StringName, chapter: StringName = &"") -> void:
-	if record(NS_CLEARED, _cleared_key(id, chapter)):
+func mark_cleared(id: StringName) -> void:
+	if record(NS_CLEARED, id):
 		segment_cleared.emit(id)
 
 
-func is_cleared(id: StringName, chapter: StringName = &"") -> bool:
-	return has_record(NS_CLEARED, _cleared_key(id, chapter))
-
-
-func _cleared_key(id: StringName, chapter: StringName) -> StringName:
-	if chapter == &"":
-		return id
-	return StringName(str(chapter) + "/" + str(id))
+func is_cleared(id: StringName) -> bool:
+	return has_record(NS_CLEARED, id)
 
 
 # checkpoint 三字段单独存放（不入 _ledges：非"有无型"账目而是三槽游标）
