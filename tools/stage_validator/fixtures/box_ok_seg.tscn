@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3 expect="none"]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="Script" path="res://scripts/chapter/playfield_box.gd" id="2_box"]
+
+[node name="BoxOkSeg" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"fx_box_ok"
+entry_points = {
+&"default": Vector2(0, 100)
+}
+
+[node name="PlayfieldBox" type="ReferenceRect" parent="."]
+script = ExtResource("2_box")
+offset_left = -200.0
+offset_top = -200.0
+offset_right = 800.0
+offset_bottom = 300.0

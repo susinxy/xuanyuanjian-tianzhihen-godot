@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 expect="R4"]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="2_det"]
+
+[node name="DumbDetector" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"fx_dumb_detector"
+
+[node name="Detector1" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("2_det")
+path_fight_room = NodePath("")

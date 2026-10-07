@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 expect="R3"]
+[gd_scene load_steps=9 format=3 expect="none"]
 
 [ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_base"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd" id="2_room"]
@@ -34,7 +34,7 @@ collision_layer = 0
 monitorable = false
 script = ExtResource("4_det")
 path_fight_room = NodePath("..")
-paths_enemy_spawners = Array[NodePath]([NodePath("../Spawner1")])
+paths_enemy_spawners = Array[NodePath]([NodePath("../Spawner1"), NodePath("../../FightRoom2/Spawner2")])
 
 [node name="StageExit" type="Area2D" parent="."]
 script = ExtResource("7_exit")

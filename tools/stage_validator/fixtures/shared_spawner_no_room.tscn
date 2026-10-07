@@ -1,0 +1,37 @@
+[gd_scene load_steps=6 format=3 expect="R9"]
+
+[ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="2_sp"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="3_det"]
+[ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="4_sd"]
+[ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="5_enemy"]
+
+[sub_resource type="Resource" id="SD_w1"]
+script = ExtResource("4_sd")
+enemy_scene = ExtResource("5_enemy")
+spawn_mode = 1
+use_spawner_position = true
+
+[node name="SharedSpawnerNoRoom" type="Node2D"]
+script = ExtResource("1_sc")
+segment_id = &"fx_shared_spawner_no_room"
+
+[node name="EnemySpawner1" type="Marker2D" parent="."]
+position = Vector2(600, 800)
+script = ExtResource("2_sp")
+path_spawn_parent = NodePath("../../../../Players")
+spawn_waves = [[SubResource("SD_w1")]]
+
+[node name="Detector1" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("3_det")
+paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
+
+[node name="Detector2" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 16760832
+monitorable = false
+script = ExtResource("3_det")
+paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])

@@ -53,4 +53,4 @@ collision_layer = 0
 monitorable = false
 script = ExtResource("4_det")
 path_fight_room = NodePath("..")
-paths_enemy_spawners = Array[NodePath]([NodePath("../../FightRoom1/Spawner1")])
+paths_enemy_spawners = Array[NodePath]([NodePath("../../FightRoom1/Spawner1"), NodePath("../Spawner2")])
