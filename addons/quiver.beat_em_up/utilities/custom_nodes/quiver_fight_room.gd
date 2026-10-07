@@ -81,10 +81,16 @@ var preview_after_room := true:
 #--- private variables - order: export > normal var > onready -------------------------------------
 
 var _ignore_setters := false
+## 备份有效性标（2026-10）：只有真锁过房（setup_fight_room 写过五值）才允许
+## "解锁恢复"——未锁过的房在段清循环里必须静默，否则把初始零值当备份恢复，
+## 覆盖邻房的战后扩权（rigth 笔误修复后"半崩静默"变"真执行"暴露的时序，
+## stage_contract C4b 红绿定档）。
+var _backup_valid := false
+
 var _backup_room := {
 	left = 0,
 	top = 0,
-	rigth = 0,
+	right = 0,  # 2026-10 修复：此键笔误 rigth=上游读 right 永缺→未锁房段判清必半崩
 	bottom = 0,
 	zoom = 1.0
 }
@@ -143,6 +149,7 @@ func setup_fight_room() -> void:
 		return
 	
 	if not after_fight_use_new_room:
+		_backup_valid = true
 		_backup_room.left = camera2D.limit_left
 		_backup_room.top = camera2D.limit_top
 		_backup_room.right = camera2D.limit_right
@@ -173,6 +180,11 @@ func setup_after_fight_room() -> void:
 		_connect_settle_clamp(tween, after_fight_limit_left, after_fight_limit_top,
 				after_fight_limit_right, after_fight_limit_bottom)
 	else:
+		# 缺键防御（2026-10 死亡演出批抓获：本房从未 setup_fight_room 锁过时
+		# _backup_room 无 left/top/... 键——旧形态在此半崩 Invalid access，
+		# GDScript 软中断掩盖了它；无备份=无解锁演出对象，静默跳过即可）
+		if not _backup_valid:
+			return
 		var tween := camera2D.delimitate_room(
 				_backup_room.left, _backup_room.top, _backup_room.right, _backup_room.bottom,
 				_backup_room.zoom, transition_duration

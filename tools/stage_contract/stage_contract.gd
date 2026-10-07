@@ -658,9 +658,14 @@ func _flow_c() -> void:
 	var advanced3: bool = await _wait_until(func():
 			return shell_a.current_segment_id() == &"seg_a3", 400)
 	_check(advanced3, "C4b 段 a2 判清推进过场段 a3（段清=推进环续证）")
-	var expanded2: bool = await _wait_until(func():
-			return cam.limit_right == 3800, 300)
-	_check(expanded2, "C4b 段 a2 全清 setup 扩权（3800=双 spawner 聚合非单房提前解锁）")
+	# C4b 改判（2026-10 死亡演出批 G6）：旧断言"跨段后 3800 仍在位"验的正是
+	# 灰屏病灶（上段扩权残留质押新段）——换段清算生效后改判为正向断言：
+	# a3 入场相机已回宽口初值。聚合时序（单房不提前解锁）由 C4a 实源集=2 +
+	# _on_spawner_completed 全完成门（代码侧）+ 段清推进环共同守护。
+	var reclaimed: bool = await _wait_until(func():
+			return cam.limit_right == 2000 and cam.limit_left == 0, 120)
+	_check(reclaimed, "C4b 换段过场段 a3 相机已清算回宽口初值（G6 随段归零；"+ \
+			"旧形态残留 3800=灰屏病灶已判废）实际 r=%d l=%d" % [cam.limit_right, cam.limit_left])
 	await _frames(30)
 	_check(fins_a[0] == 0, "C4b a3 无生成器永不判清 → 出口前不触章终点（过场段防呆+撞墙腿让位案卷）")
 

@@ -571,12 +571,19 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   `is QuiverCharacter` 过滤混入战斗盒+排除自己；旧 `find_closest_player_to` 随
   清剿删除，索敌仅一个实现）。索敌与身份解耦：阵营免疫看 area2d:* 根标签、
   玩家身份看 controlled 判据（见下条）、打谁看本配置——三维度互不越权。
-- **玩家身份判据（2026-10 接管批）**：`QuiverCharacterHelper.is_player_identity/
-  find_player_identity`——树内存在 `&"controlled"` 组成员（壳 take_control 体系
-  维护，只挂角色根、不经 `add_faction_group` 下发，零阵营副作用）→ 该组唯一权威；
-  不存在（单跑/Run-Test）→ 回落 `area2d:player`（现状兼容形）。消费点：
-  `quiver_action_die` 终局分支、`quiver_player_detector` 锁房（接管谁触发带为谁
-  服务）、游戏侧 `game_hud`/debug 光照页（`find_player_identity`）。
+- **判据双轨（2026-10 接管批+锚点批）**：
+  ①`is_player_identity/find_player_identity`（互动身份）——树内存在 `&"controlled"`
+  组成员（壳 take_control 维护，只挂角色根、零阵营副作用）→ 该组唯一权威；无壳
+  → 回落 `area2d:player`。消费：`quiver_player_detector` 锁房（接管谁触发带为谁
+  服务）、游戏侧 `game_hud`/debug 光照页。
+  ②`is_defeat_bound`（败北演出集合）= {`&"defeat_anchor"` 锚点们} ∪ {被控者}，
+  皆无回落 `area2d:player`。消费**唯一两闸同源**：`quiver_action_die` 终局分支
+  （time_scale 归位+`Events.player_died`）+ `quiver_action_launch._should_slow_motion`
+  （致死击飞慢放）。案卷：接管批曾让 die 用①而 launch 漏改仍写死玩家标签——
+  倒置双红据（旁观者之死劫持慢放且无人恢复 / 中立出身被控者之死无演出）由锚点批
+  统一入②单门（control_contract C9a/C9b 术前红转绿锁死）。锚=段/壳申报+API
+  临时态（申报驱动换段重刷，`reapply_defeat_anchor`；护送关=锚+索敌配置的零代码
+  组合，法源 STAGE_ASSEMBLY 条 13 + GAMEDESIGN 配方卡）。
 - **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
   目录/档位（阵营标签与目录解耦：玩家→playable+player、AI→enemies+enemy、
   被动→neutrals+自名，标签可自由改/多选；索敌=ai_target_groups 策略配置
@@ -1420,6 +1427,9 @@ var after_fight_use_new_room: bool
 
 func setup_fight_room()       # 战斗开始 → 锁定摄像头
 func setup_after_fight_room() # 战斗结束 → 切换到战后区域
+                                #（2026-10 修复：_backup_room 初始化键笔误 rigth
+                                #  致"从未锁房的段判清"读 right 缺键半崩，GDScript
+                                #  软中断掩盖多年——换段无锁演出场景静默丢扩权演出）
 ```
 
 内部调用 `_level_camera.delimitate_room(left, top, right, bottom, zoom, duration)`——
@@ -1499,6 +1509,13 @@ spawner 转型放宽 `as QuiverCharacter`，创建器 AI 档产物可直接喂�
 
 **文件**: `utilities/custom_nodes/level_camera/quiver_level_camera.gd` + `.tscn`
 **类名**: `QuiverLevelCamera`（继承 Camera2D）
+
+**随段清算（2026-10 死亡演出批 G6，用户灰屏事故定罪）**：锁房/战后扩权改的是
+`limit_*×4 + zoom` 五值——属"本段内的局部约定"。相机新增 `capture_room_lock_defaults()`
+（壳每次挂载/认领后捕获初值）与 `reset_room_lock()`（kill 在途 tween+五值归位）；
+壳在每段入场的申报应用头部调用之。不清算的后果=上一段锁房界把新段落位者"质在界外"
+（画面纯灰、人"消失"实为界外活着；control_contract C20 红据复刻/绿灯锁）。弹墙带
+由 `_process` 每帧跟随自动归位，无需存值。
 
 **四个核心职责**:
 1. **屏幕边缘碰撞墙（四方向）**: 每帧更新四个 CollisionShape2D——墙面=
@@ -1643,7 +1660,7 @@ signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4�
 | 名称 | 职责 |
 |---|---|
 | `GameEvents` | 游戏层事件总线（与插件 Events 分工：游戏语义事件） |
-| `GameSave` / `SaveSystem` | **账本宪法双件**：GameSave=一切跨档事实的唯一门洞（record/has_record + namespace claim；影子条款=记账即落盘），SaveSystem=其自动影子（帧尾合并 tmp→rename 原子写）。执法=spell_save_contract X 流；法源=根 AGENTS 账本纪律法 |
+| `GameSave` / `SaveSystem` | **账本宪法双件**：GameSave=一切跨档事实的唯一门洞（record/has_record + namespace claim；影子条款=记账即落盘），SaveSystem=其自动影子（帧尾合并 tmp→rename 原子写）。判清账 `cleared_segments` 键=章组合 `chapter/segment`（2026-10 捞人批：纯段 id 键跨章串扰实锤后补章维度；`mark_cleared/is_cleared` 带 chapter 形参、省略=旧纯键兼容形）。执法=spell_save_contract X 流 + control_contract C15c；法源=根 AGENTS 账本纪律法 + 法典条 15 |
 | `HitFx` | 命中特效路由（B4.7，五风格参数卡自动路由） |
 | `DebugDock` / `DebugDockTabs` | 调试面板（HUD_DESIGN 定稿，=/+ 唤出） |
 | `DayNightManager` / `ShadowSoftEdge` | 全局光照/阴影单例（GUIDE_光照 + STAGE_ASSEMBLY 光照章） |

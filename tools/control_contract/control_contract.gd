@@ -8,7 +8,12 @@ extends Node
 ## · C4 段申报（读法一严格申报制）：入场先接管后落位、无申报段回正初始被控者；
 ## · C5 索敌配置：场景导出注入 + 运行时增删即时生效（helper 通用入口）；
 ## · C6 索敌默认=玩家阵营组（现状等价回归锁）；
-## · C7 拒接形态：空目标/树外目标/同体幂等。
+## · C7 拒接形态：空目标/树外目标/同体幂等；
+## · C9 败北演出单门：旁观者之死不劫持 time_scale/被控者之死慢放+终局+归位
+##   （锚点批；术前双红据 S5=launch 漏改判据的倒置实锤，永久锁）；
+## · C10-C12 终局锚点：段申报挂锚+致死同闸+restart 随段还魂/申报驱动换段全清
+##   +API 临时态/壳级 ghost 降级；C13 无壳回落兼容形（Run-Test 生态锁）。
+## 全数门 EXPECTED=55（锚点批终账，改腿必须同步本数）。
 ## 测试主权法（B2.5）：本体一律 test_actor 替身（Kit 消费只读，缺席=红+处方）。
 ## 落盘卫生（影子条款）：C4 触检查点记账——首行重定向 slot 到本套 scratch，
 ## 永不碰生产档 save_auto.json。
@@ -230,13 +235,398 @@ func _run_all() -> void:
 	# 段重建语义腿（未清段丢弃重建法理）：segX 未判清随段重建，段内 Npc2
 	# 释放——回正腿必须对悬垂旧体免疫（take_control is_instance_valid 守卫，
 	# 本守卫由本契约抓获后补入生产）。
-	_check(not is_instance_valid(declared),
-			"C4 旧被控者随未清段丢弃重建而释放（悬垂守卫前提形态）")
+	_check(is_instance_valid(declared)
+			and declared.get_parent() == shell2.get_node("Players"),
+			"C4 捞人批改判：未清段丢弃时被控者获救收编 Players（不再随段释放；"
+			+ "悬垂守卫仍防其它非被控段内实体路径）")
 	_check(QuiverCharacterHelper.is_player_identity(hero)
 			and shell2._camera != null and shell2._camera.is_current(),
 			"C4 回正后判据/相机链完好（悬垂旧体未拖垮接管链）")
 	shell2.queue_free()
 	await _frames(3)
+
+	# ── C9 败北演出单门（锚点批：慢放+终局= defeat_bound 一个闸）──
+	await _c9_single_gate()
+
+	# ── C10-C12 终局锚点申报面 ──
+	await _c10_anchor_segment()
+
+	# ── C14-C15 段生命周期×被控者（捞人不变量）──
+	await _c14_15_segment_lifecycle()
+
+	# ── C20 相机随段清算（灰屏修复的红灯腿）──
+	await _c20_camera_segment_reset()
+
+
+## C10-C12 锚点申报：段申报挂锚→锚点致死触发慢放+终局（锚与被控同闸）→
+## restart 重建段自然还魂重挂；C11 换无申报段=锚清空（申报驱动+API 临时态
+## 归零）；C12 壳级锚路径失效=降级无锚不崩。
+func _c10_anchor_segment() -> void:
+	Engine.time_scale = 1.0
+	if not _require_kit("C10"):
+		return
+	var guard_seg := Node2D.new()
+	guard_seg.set_script(load(STAGE_SCRIPT))
+	guard_seg.segment_id = &"t_seg_guard"
+	var annie := _mk_actor("Annie")
+	guard_seg.add_child(annie)
+	annie.owner = guard_seg
+	guard_seg.set("defeat_anchor_path", NodePath("Annie"))
+	var gp := PackedScene.new()
+	if gp.pack(guard_seg) != OK:
+		_check(false, "C10 锚点段打包失败")
+		guard_seg.free()
+		return
+	guard_seg.free()
+	var plain := Node2D.new()
+	plain.set_script(load(STAGE_SCRIPT))
+	plain.segment_id = &"t_seg_plain"
+	var pp := PackedScene.new()
+	var pack_plain: bool = pp.pack(plain) == OK
+	plain.free()
+
+	var shell4: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell4.chapter_id = &"t_ctl4"
+	shell4.playable_override = load(Kit.ACTOR_SCENE)
+	shell4.segment_scenes = [gp, pp]
+	add_child(shell4)
+	await _frames(3)
+	var annie2: QuiverCharacter = shell4._current.get_node_or_null("Annie")
+	var hero4: QuiverCharacter = shell4.playable
+	_check(annie2 != null and annie2.is_in_group(&"defeat_anchor"),
+			"C10 段申报入场挂锚（护送对象=不能死的人）")
+	_check(hero4 != null and hero4.is_in_group(&"controlled"),
+			"C10 被控者不受锚点申报影响（维度正交）")
+	_check(QuiverCharacterHelper.is_defeat_bound(hero4)
+			and QuiverCharacterHelper.is_defeat_bound(annie2),
+			"C10 败北集合=锚∪被控 双真")
+	var died := {"n": 0}
+	var cb := func() -> void: died["n"] += 1
+	Events.player_died.connect(cb)
+	annie2.attributes.health_current = 0.0
+	var dir := Vector2(cos(deg_to_rad(-30.0)), sin(deg_to_rad(-30.0)))
+	CombatSystem.apply_knockback(_mk_kd(1200.0, dir), annie2.attributes)
+	var l1 := await _wait_state(annie2, "Air/Knockout/Launch", 90)
+	_check(l1, "C10 锚点破线起飞（演出链物理前提）")
+	await _frames(6)
+	_check(Engine.time_scale < 1.0, "C10 锚点致死触发慢放演出（同闸待遇）实=%s"
+			% str(Engine.time_scale))
+	for _i in range(300):
+		if died["n"] > 0:
+			break
+		await get_tree().physics_frame
+	_check(died["n"] == 1, "C10 锚点死亡终局广播恰一次（实=%d）" % died["n"])
+	Events.player_died.disconnect(cb)
+	Engine.time_scale = 1.0
+	# 终局→段重跑（_on_player_died→restart_segment）→申报段重建=锚点自然还魂
+	await _frames(180)
+	var annie3: QuiverCharacter = shell4._current.get_node_or_null("Annie") if shell4._current != null else null
+	_check(annie3 != null and annie3.is_in_group(&"defeat_anchor"),
+			"C10 护送失败重跑后锚点随段还魂重挂（申报驱动自愈）")
+	var api_t := _mk_actor("ApiT")
+	shell4.get_node("Players").add_child(api_t)
+	await _frames(1)
+	shell4.add_defeat_anchor(api_t)
+	_check(api_t.is_in_group(&"defeat_anchor"), "C11 add_defeat_anchor 运行时挂锚绿")
+	if pack_plain:
+		shell4.enter_segment(&"t_seg_plain", &"default")
+		await _frames(3)
+		_check(shell4.get_tree().get_nodes_in_group(&"defeat_anchor").is_empty(),
+				"C11 无申报段=锚全清（申报驱动，API 临时态换段归零）")
+	shell4.defeat_anchor_path = NodePath("Players/Ghost")
+	shell4.enter_segment(&"t_seg_guard", &"default")
+	await _frames(3)
+	var annie4: QuiverCharacter = shell4._current.get_node_or_null("Annie") if shell4._current != null else null
+	_check(annie4 != null and annie4.is_in_group(&"defeat_anchor"),
+			"C12 壳级失效路径不夺段申报锚（段申报优先腿在位）")
+	shell4.defeat_anchor_path = NodePath("")
+	shell4.enter_segment(&"t_seg_plain", &"default")
+	await _frames(3)
+	_check(QuiverCharacterHelper.is_defeat_bound(shell4.playable)
+			and shell4.get_tree().get_nodes_in_group(&"defeat_anchor").is_empty(),
+			"C12 壳级 ghost 失配=仅被控者算败北（降级形不崩）")
+	shell4.queue_free()
+	await _frames(3)
+
+	# C13 无壳兼容形：裸 player 标签角色=败北集合（Run-Test 生态回归锁）
+	var lone := _mk_actor("Lone")
+	add_child(lone)
+	await _frames(1)
+	_check(QuiverCharacterHelper.is_defeat_bound(lone)
+			and QuiverCharacterHelper.is_player_identity(lone),
+			"C13 无锚无控树=回落 area2d:player 兼容形（单跑零漂移）")
+	lone.queue_free()
+	await _frames(2)
+
+
+## C20 相机随段清算：真撞线锁房（limits/zoom 被 FightRoom 收拢）→ 段清换段 →
+## 相机必须回到出生初值（宽口+zoom1），被控者必须落在视野界内——否则就是
+## 用户实机"尽头变换一下、人消失、纯灰"的结构性成因（旧 limits 把新人质在界外）。
+func _c20_camera_segment_reset() -> void:
+	Engine.time_scale = 1.0
+	if not _require_kit("C20"):
+		return
+	var shellC: ChapterShell = (load("res://scenes/stages/demo_control/chapter_demo_ctl.tscn") as PackedScene).instantiate()
+	shellC.chapter_id = &"t_ctl20"  # 独立章户：C14 已把 demo_ctl 段判清入账，同进程复用必串账
+	add_child(shellC)
+	await _frames(3)
+	var vendC: QuiverCharacter = shellC.playable
+	var camC: Camera2D = shellC._camera
+	_check(vendC != null and camC != null and camC.is_current(), "C20 前置：接管+相机在位")
+	if vendC == null or camC == null:
+		shellC.queue_free()
+		await _frames(2)
+		return
+	# 逐帧扫线（R7 判例：瞬移零宽不判交）→ 真锁房 tween
+	var start_x: float = vendC.global_position.x
+	for x in range(int(start_x), 701, 25):
+		vendC.global_position = Vector2(x, vendC.global_position.y)
+		await get_tree().physics_frame
+	var locked := false
+	for _i in range(120):
+		if camC.limit_left >= 380:
+			locked = true
+			break
+		await get_tree().physics_frame
+	_check(locked and not is_equal_approx(camC.zoom.x, 1.0),
+			"C20 锁房真实发生（limits 收拢+zoom 推近；l=%d z=%.2f）" % [camC.limit_left, camC.zoom.x])
+	# 判清（真怪已由锁房刷出，直接收权=置完成+发信）→ 换段链
+	var spC: QuiverEnemySpawner = shellC._current.get_node_or_null("Room1/EnemySpawner1")
+	if spC != null:
+		spC.is_completed = true
+		spC.all_waves_completed.emit()
+	var in_seg2 := false
+	for _i in range(500):
+		if shellC._current != null and shellC._current.segment_id == &"seg_d02":
+			in_seg2 = true
+			break
+		await get_tree().physics_frame
+	_check(in_seg2, "C20 换段到达第二段")
+	var pl: QuiverCharacter = shellC.playable
+	_check(pl.global_position.x >= float(camC.limit_left) and pl.global_position.x <= float(camC.limit_right),
+			"C20 被控者落在相机可行界内（x=%.0f vs [%d,%d]）——修前红=旧锁房界质在界外（灰屏结构）"
+			% [pl.global_position.x, camC.limit_left, camC.limit_right])
+	_check(is_equal_approx(camC.zoom.x, 1.0) and camC.limit_left <= 0,
+			"C20 换段后相机清算回初值（宽口+常倍率；l=%d z=%.2f）" % [camC.limit_left, camC.zoom.x])
+	shellC.queue_free()
+	await _frames(3)
+
+
+## C14/C15 段生命周期捞人不变量："被控者永不随段离场"——
+## C15a 判清缓存保活腿（demo 纯灰事故根因复刻）；C15b 未清丢弃重跑腿；
+## C14 demo 真实资产全链（旁观者之死无全局慢放+判清换段后仍可操控+锚重挂）。
+func _c14_15_segment_lifecycle() -> void:
+	Engine.time_scale = 1.0
+	if not _require_kit("C15"):
+		return
+
+	# ══ C15a：接管段内 NPC → 判清换段 → 被控者必须仍在树内 ══
+	var segL := _mk_judged_seg(&"t_segl", "NpcD")
+	var pl: PackedScene = _pack(segL)
+	segL.free()
+	var segR := Node2D.new()
+	segR.set_script(load(STAGE_SCRIPT))
+	segR.segment_id = &"t_segr"
+	var pr := PackedScene.new()
+	var pack_r: bool = pr.pack(segR) == OK
+	segR.free()
+	var shell5: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell5.chapter_id = &"t_ctl5"
+	shell5.playable_override = load(Kit.ACTOR_SCENE)
+	shell5.segment_scenes = [pl, pr]
+	add_child(shell5)
+	await _frames(3)
+	var npcd: QuiverCharacter = shell5._current.get_node_or_null("NpcD")
+	var actorE: QuiverCharacter = shell5._initial_playable
+	_check(npcd != null and shell5.playable == npcd, "C15a 段申报接管 NpcD 在位")
+	if npcd == null or not pack_r:
+		shell5.queue_free()
+		await _frames(2)
+		return
+	var sp: QuiverEnemySpawner = shell5._current.get_node_or_null("Room1/EnemySpawner1")
+	_check(sp != null, "C15a 判清件（spawner）在位")
+	if sp == null:
+		shell5.queue_free()
+		await _frames(2)
+		return
+	sp.is_completed = true
+	sp.all_waves_completed.emit()
+	await _frames(160)  # 90 静默窗+落位链
+	_check(npcd.is_inside_tree(),
+			"C15a 判清换段后被控者不随段离场（捞人不变量；修前红据=被 remove_child 收走=纯灰根因）")
+	_check(shell5.playable == actorE and actorE.is_in_group(&"controlled"),
+			"C15a 换段回正成功（ActorE 接管回）实=%s" % str(shell5.playable))
+	_check(not npcd.is_in_group(&"controlled"), "C15a 交班后 NpcD 不再被控")
+	_check(npcd.get_parent() == shell5.get_node("Players"),
+			"C15a 获救被控者收编壳层 Players（不随段进缓存）")
+	shell5.queue_free()
+	await _frames(3)
+
+	# ══ C15b：接管段内 NPC → 死亡重跑（未清丢弃腿）→ 被控者仍活 ══
+	var shell6: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell6.chapter_id = &"t_ctl6"
+	shell6.playable_override = load(Kit.ACTOR_SCENE)
+	shell6.segment_scenes = [pl]
+	add_child(shell6)
+	await _frames(3)
+	var npce := shell6._current.get_node_or_null("NpcD") as QuiverCharacter
+	_check(npce != null and shell6.playable == npce, "C15b 出生段申报接管在位")
+	shell6.restart_segment(&"manual")   # 未判清→丢弃重建腿
+	await _frames(200)
+	_check(npce.is_inside_tree(),
+			"C15b 重跑丢弃腿同样捞人（被控者不随丢弃释放；修前红据=悬垂灰死变体）")
+	var fresh: QuiverCharacter = shell6._current.get_node_or_null("NpcD") if shell6._current != null else null
+	_check(fresh != null and fresh != npce and shell6.playable == fresh,
+			"C15b 重建段新申报体接管（旧获救体让位旁观=孪生锁：fresh=%s old=%s）"
+			% [str(fresh != null), str(npce != null)])
+	# C15c 判清账章维度锁：shell5（t_ctl5）已判清 t_segl 不得串到 shell6（t_ctl6）
+	_check(not shell6.session.is_cleared(&"t_segl", &"t_ctl6")
+			and shell6.session.is_cleared(&"t_segl", &"t_ctl5"),
+			"C15c 判清 key 含章维度：同段 id 跨章不串扰（串扰时 shell6 走缓存腿=本次事故根因之一）")
+	shell6.queue_free()
+	await _frames(3)
+
+	# ══ C14：demo 真实资产全链（用户实机路线永久化）══
+	var shellD: ChapterShell = (load("res://scenes/stages/demo_control/chapter_demo_ctl.tscn") as PackedScene).instantiate()
+	add_child(shellD)
+	await _frames(3)
+	var vendD: QuiverCharacter = shellD.playable
+	var chenD: QuiverCharacter = shellD._initial_playable
+	_check(vendD != null and vendD.name == "Vendor" and Engine.time_scale == 1.0,
+			"C14 demo 出生接管小贩+无慢放残留")
+	if vendD == null or chenD == null:
+		shellD.queue_free()
+		await _frames(2)
+		return
+	# 怪实战打死旁观靖仇：致死击飞走单闸——不得触碰全局时间
+	chenD.attributes.health_current = 0.0
+	var dirD := Vector2(cos(deg_to_rad(-30.0)), sin(deg_to_rad(-30.0)))
+	CombatSystem.apply_knockback(_mk_kd(1200.0, dirD), chenD.attributes)
+	await _frames(6)
+	_check(is_equal_approx(Engine.time_scale, 1.0),
+			"C14 旁观者致死击不劫持全局时间（用户报「慢放」归因=B4.7 攻击方自慢放，非 time_scale）实=%s"
+			% str(Engine.time_scale))
+	var chen_gone := false
+	for _i in range(400):
+		if not is_instance_valid(chenD):
+			chen_gone = true
+			break
+		await get_tree().physics_frame
+	_check(chen_gone, "C14 旁观者之死=普通阵亡离场（queue_free 腿）")
+	# 判清换段（seg01 真 spawner 手动 emit 同款）
+	var spD: QuiverEnemySpawner = shellD._current.get_node_or_null("Room1/EnemySpawner1")
+	if spD != null:
+		spD.is_completed = true
+		spD.all_waves_completed.emit()
+	await _frames(170)
+	_check(shellD._current != null and shellD._current.segment_id == &"seg_d02",
+			"C14 判清推进到第二段（实=%s）" % str(shellD._current.segment_id if shellD._current else null))
+	_check(vendD.is_inside_tree() and shellD.playable == vendD,
+			"C14 换段后小贩仍在场可继续操控（回正扑空降级腿；修前红据=随 seg01 离场=纯灰）")
+	var escD := shellD._current.get_node_or_null("Escort") as QuiverCharacter
+	_check(escD != null and escD.is_in_group(&"defeat_anchor"),
+			"C14 第二段 Escort 锚点重挂（护送幕在位）")
+	_check(is_equal_approx(Engine.time_scale, 1.0), "C14 全程无 time_scale 泄漏")
+	shellD.queue_free()
+	await _frames(3)
+
+
+func _mk_judged_seg(sid: StringName, npc_name: String) -> Node2D:
+	# 判清演示段：Room1+Spawner+Detector+申报接管段内 NPC（stage_contract B3 形制）
+	var seg := Node2D.new()
+	seg.set_script(load(STAGE_SCRIPT))
+	seg.segment_id = sid
+	var room := ReferenceRect.new()
+	room.name = "Room1"
+	room.set_script(load("res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_fight_room.gd"))
+	seg.add_child(room)
+	room.owner = seg
+	var sp := Marker2D.new()
+	sp.name = "EnemySpawner1"
+	sp.set_script(load("res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd"))
+	room.add_child(sp)
+	sp.owner = seg
+	var det := Area2D.new()
+	det.name = "PlayerDetector"
+	det.set_script(load("res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd"))
+	room.add_child(det)
+	det.owner = seg
+	det.path_fight_room = NodePath("../Room1")
+	var sp_paths: Array[NodePath] = [NodePath("../EnemySpawner1")]
+	det.paths_enemy_spawners = sp_paths
+	var npc := _mk_actor(npc_name)
+	seg.add_child(npc)
+	npc.owner = seg
+	seg.set("control_target_path", NodePath(npc_name))
+	return seg
+
+
+## C9 败北演出单门：接管在场时——①旁观者（保留玩家标签）被破线击飞
+## 不得触发全局慢放（术前红据：launch 漏改判据=慢放触发且 die 不恢复=卡慢速）；
+## ②被控者（无玩家标签）被破线击飞必须触发慢放+终局广播+时间恢复
+## （术前红据：漏改期被控者死亡无演出）。
+func _c9_single_gate() -> void:
+	Engine.time_scale = 1.0
+	if not _require_kit("C9"):
+		return
+	var shell3: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shell3.chapter_id = &"t_ctl3"
+	shell3.playable_override = load(Kit.ACTOR_SCENE)
+	add_child(shell3)
+	await _frames(3)
+	var npc := _mk_actor("NpcC")
+	npc.remove_from_group(&"area2d:player")  # 中立出身形：旧判据（标签）必然漏演
+	shell3.get_node("Players").add_child(npc)
+	await _frames(2)
+	_check(shell3.take_control(npc), "C9 接管预备绿")
+	var bystander: QuiverCharacter = shell3._initial_playable
+	_check(bystander != null and not QuiverCharacterHelper.is_player_identity(bystander)
+			and bystander.is_in_group(&"area2d:player"),
+			"C9a 前提：旁观者保留玩家标签但非身份（漏改判据的抓获位）")
+	var dir := Vector2(cos(deg_to_rad(-30.0)), sin(deg_to_rad(-30.0)))
+	bystander.attributes.health_current = 0.0
+	CombatSystem.apply_knockback(_mk_kd(1200.0, dir), bystander.attributes)
+	var l1 := await _wait_state(bystander, "Air/Knockout/Launch", 90)
+	_check(l1, "C9a 旁观者破线起飞（演出链物理前提在位）")
+	await _frames(8)
+	_check(is_equal_approx(Engine.time_scale, 1.0),
+			"C9a 旁观者之死不触发慢放不劫持时间（锚点批单门；术前红据=S5a 卡慢速）实=%s"
+			% str(Engine.time_scale))
+	Engine.time_scale = 1.0
+	var died := {"n": 0}
+	var cb := func() -> void: died["n"] += 1
+	Events.player_died.connect(cb)
+	npc.attributes.health_current = 0.0
+	CombatSystem.apply_knockback(_mk_kd(1200.0, dir), npc.attributes)
+	var l2 := await _wait_state(npc, "Air/Knockout/Launch", 90)
+	_check(l2, "C9b 被控者破线起飞")
+	await _frames(6)
+	_check(Engine.time_scale < 1.0,
+			"C9b 被控者致死击触发慢放演出（术前红据=无演出）实=%s" % str(Engine.time_scale))
+	var dead := false
+	for _i in range(300):
+		if died["n"] > 0:
+			dead = true
+			break
+		await get_tree().physics_frame
+	Events.player_died.disconnect(cb)
+	_check(dead and died["n"] == 1, "C9b 被控者死亡终局广播恰一次（实=%d）" % died["n"])
+	_check(is_equal_approx(Engine.time_scale, 1.0), "C9b 终局后 time_scale 归位")
+	Engine.time_scale = 1.0
+	shell3.queue_free()
+	await _frames(3)
+
+
+func _mk_kd(k: float, v: Vector2) -> QuiverKnockbackData:
+	return QuiverKnockbackData.new(k, CombatSystem.HurtTypes.HIGH, v)
+
+
+func _wait_state(ch: QuiverCharacter, path: String, cap: int) -> bool:
+	for _i in range(cap):
+		if str(ch.state_machine.state_name) == path:
+			return true
+		await get_tree().physics_frame
+	return str(ch.state_machine.state_name) == path
 
 
 ## C4 用：带申报的段（树内 Npc2 + 双申报导出）
@@ -260,7 +650,7 @@ func _pack(seg: Node2D) -> PackedScene:
 
 
 func _report() -> void:
-	var ok := _fails == 0 and _finished and _asserts >= 30
+	var ok := _fails == 0 and _finished and _asserts >= 72  # 全数门：捞人批 C14/C15 后定账（首跑核数校准）
 	print("════════ control-contract: %s ════（断言 %d，红 %d，完成旗=%s）"
 			% ["PASS" if ok else "FAIL", _asserts, _fails, str(_finished)])
 	get_tree().quit(0 if ok else 1)

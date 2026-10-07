@@ -50,6 +50,10 @@ const BAND_REACH_TB := 45.0
 ]
 
 var _tween: Tween
+## 随段清算存值（2026-10 死亡演出批 G6，用户灰屏事故定罪）：锁房/战后扩权
+## 是"本段内的局部约定"，换段一律归零——[limit_left,top,right,bottom,zoom] 五值
+## 由壳在挂载/认领时捕获一次，reset_room_lock 恢复（弹墙带由 _process 自动跟）。
+var _room_lock_defaults: Array = []
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -101,6 +105,24 @@ func _place_collision_limits() -> void:
 
 
 ### Public Methods --------------------------------------------------------------------------------
+
+## 捕获当前为"出生初值"（壳每次挂载/认领相机后调用；重复调用=重新定义初值，无害）。
+func capture_room_lock_defaults() -> void:
+	_room_lock_defaults = [limit_left, limit_top, limit_right, limit_bottom, zoom.x]
+
+
+## 换段清算：杀在途 tween + 五值回初值。未捕获=静默 no-op（Run-Test 等无壳形）。
+func reset_room_lock() -> void:
+	if _room_lock_defaults.is_empty():
+		return
+	if _tween and _tween.is_running():
+		_tween.kill()
+	limit_left = int(_room_lock_defaults[0])
+	limit_top = int(_room_lock_defaults[1])
+	limit_right = int(_room_lock_defaults[2])
+	limit_bottom = int(_room_lock_defaults[3])
+	zoom = Vector2.ONE * float(_room_lock_defaults[4])
+
 
 ## 过渡镜头六参数到目标值。返回本次 Tween，调用方可挂 finished 做落位收尾
 ## （战斗房用它把"锁房期间被扫掠墙落在界外"的玩家钳回界内——扫掠吞人对策）。
