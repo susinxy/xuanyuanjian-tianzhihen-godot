@@ -33,8 +33,12 @@ static func find_closest_in_groups(
 	var candidates: Array[QuiverCharacter] = []
 	for g in groups:
 		for n in node_2d.get_tree().get_nodes_in_group(g):
+			# 将死者不入靶（2026-10 G4）：hp≤0 已在死亡链上的角色不再被索敌
+			# 选中，杜绝"补刀打断死亡演出"的观感与凭据竞态。
 			if n is QuiverCharacter and n != node_2d and not candidates.has(n):
-				candidates.append(n)
+				var cand := n as QuiverCharacter
+				if cand.attributes != null and cand.attributes.health_current > 0.0:
+					candidates.append(n)
 	var best: QuiverCharacter = null
 	var min_d := INF
 	for c in candidates:
@@ -69,6 +73,45 @@ static func is_player_identity(node: Node) -> bool:
 	var tree := node.get_tree()
 	if tree != null and not tree.get_nodes_in_group(CONTROLLED_GROUP).is_empty():
 		return node.is_in_group(CONTROLLED_GROUP)
+	return node.is_in_group(PLAYER_FACTION_GROUP)
+
+
+## 败北演出判据（锚点批，用户裁决：死亡演出与终局的触发者约束到一个可
+## 设置维度上）：败北集合 = {终局锚点} ∪ {被控者}——树内两者任一存在即
+## 走集合制；皆无（单跑/Run-Test 无壳）回落 area2d:player 现状兼容形。
+## 消费点唯一：die 终局分支 + launch 慢放门（演出与终局单门同闸）。
+## 与 is_player_identity 分工：identity=互动身份（触发带/HUD 认被控者），
+## defeat_bound=败北演出集合（锚是"剧情不能死的人"，与操作无关）。
+const DEFEAT_ANCHOR_GROUP := &"defeat_anchor"
+## 慢放集（2026-10 死亡演出批）：独立于结算集的演出挂载——"死了值得给一段
+## 慢镜头的人"。树内无人显式挂本组时**默认跟随结算集**（=现状两事件同角色，
+## 零漂移）；一旦有任何申报则只认申报成员（两功能正交：可只慢不结算、
+## 可只结算不慢）。
+const DEATH_SLOWMO_GROUP := &"death_slowmo"
+
+
+## 慢放判据（申报式）：无申报=跟随 defeat_bound。
+static func is_death_slowmo_bound(node: Node) -> bool:
+	if node == null:
+		return false
+	var tree := node.get_tree()
+	if tree == null:
+		return false
+	if tree.get_nodes_in_group(DEATH_SLOWMO_GROUP).is_empty():
+		return is_defeat_bound(node)
+	return node.is_in_group(DEATH_SLOWMO_GROUP)
+
+
+static func is_defeat_bound(node: Node) -> bool:
+	if node == null:
+		return false
+	var tree := node.get_tree()
+	if tree == null:
+		return false
+	var has_anchor := not tree.get_nodes_in_group(DEFEAT_ANCHOR_GROUP).is_empty()
+	var has_controlled := not tree.get_nodes_in_group(CONTROLLED_GROUP).is_empty()
+	if has_anchor or has_controlled:
+		return node.is_in_group(DEFEAT_ANCHOR_GROUP) or node.is_in_group(CONTROLLED_GROUP)
 	return node.is_in_group(PLAYER_FACTION_GROUP)
 
 

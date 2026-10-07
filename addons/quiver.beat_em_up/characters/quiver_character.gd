@@ -192,6 +192,11 @@ func _ready() -> void:
 	# 输入通道 + 行为脚本：本角色一切动作指令的唯一来源
 	channel = QuiverInputChannel.new()
 	_attach_behavior()
+	# 血尽兜底闸（2026-10 死亡演出批）：不经击退派发的纯伤害死亡（DoT/直伤）
+	# 同样推进死亡链——旧形态 hp0 原地假活无人结算（container D0 旧测试靠追击拳
+	# 掩盖，G4"将死者不入靶"暴露该洞）；击飞/击倒链在途则让位不抢。
+	if attributes != null:
+		attributes.health_depleted.connect(_on_attributes_depleted)
 
 	# 阵营下发：根节点的 area2d:* 标签是唯一存放点，运行时挂到全部战斗盒
 	# （皮肤场景不再存阵营数据——与高度层同款"运行时统一下发"模式）
@@ -284,6 +289,27 @@ func switch_behavior(mode: BehaviorMode) -> void:
 	if channel != null:
 		channel.reset()
 	_attach_behavior()
+
+
+## 血尽兜底闸（见 _ready 挂点注释）：延迟裁决—— CombatSystem 命中派发是
+## "apply_damage（depleted 在此 emit）→ apply_knockback（击飞派发同帧）"的
+## 同一调用栈，立即转 Die 会抢在击飞落地前把人定死、破坏"致死击飞起飞"语义
+## （C9a/C10 红据+container D0 无声退化教训）；等几拍让击飞链自证接手，
+## 无人接手（纯伤害直杀/DoT）才兜底转 Die。
+func _on_attributes_depleted() -> void:
+	if Engine.is_editor_hint():
+		return
+	for _i in range(6):
+		await get_tree().physics_frame
+	if not is_instance_valid(self) or attributes == null \
+			or attributes.health_current > 0.0:
+		return  # 被治疗/复活链改写=本请求作废
+	if attributes.in_knockout or state_machine == null:
+		return  # 击飞链在途（launch→bounce→die 自会收口）
+	var st := str(state_machine.state_name)
+	if st == "Die" or st.contains("Knockout") or st.contains("Bounce"):
+		return
+	state_machine.transition_to("Die")
 
 
 ## 单角色动画时间倍速门面（B4.7）：转发皮肤时间通道（树驱动皮肤=

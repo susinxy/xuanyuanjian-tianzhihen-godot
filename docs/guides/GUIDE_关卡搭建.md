@@ -117,6 +117,8 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 |---|---|
 | 加一个**宝箱** | 段内实例化 `scenes/chapter/interact_trigger.tscn`（右键段根 → 实例化子节点）→ 摆位（玩家要能站进那个框）→ 改 `prompt_text`（按 E 时显示的提示语）→ 选中 trigger 右键 **添加子节点 → Node** → 属性 Inspector 里"附加脚本"选 `scripts/chapter/reactions/interact_chest.gd`（显示名 InteractChest）→ 填 `chest_id`（本章内唯一，重名校验器点名）。玩家开箱后东西**永久记录**，重玩不复活，全程零代码 |
 | 宝箱给**法术秘籍** | 同上，附加脚本换成 `interact_spell_book.gd`（InteractSpellBook），`spell_id` 填 `fire_ball`（现成法术）。玩家捡起就会放，按 1 释放 |
+| **护送段（有人不能死）** | 段根 `defeat_anchor_path` 填该段里某个角色的路径（如 `Escort`）=本段"剧情不能死的人"：他被怪打死→和你自己阵亡一样触发慢放+回检查点（你操控的角色死了同样算输）。整章全程护送就填壳根同名属性（路径按壳树写，如 `Players/Escort`）；想让怪专打护送对象：给敌人角色的 `ai_target_groups` 填 `defeat_anchor`。跨段护送=逐段申报（同换人操控的规则）。参考：演示章 `scenes/stages/demo_control/` 第二段 |
+| **给某人的死亡配慢镜头**（观感待遇，不等于败北） | 段根/壳根 `death_slowmo_paths` 数组填该段里角色路径（如 `Escort`）。填了=他死有慢放演出且不卡世界（动画放完自动恢复）；**整段不填=跟随"不能死名单"**（护送对象和被控角色之死才有慢放）。参考：演示章壳级申报 `Players/Chen`=旁观靖仇之死也有待遇 |
 | **锁着的门** | 附加脚本换 `interact_gate.gd`（InteractGate）：在 trigger 上填 `requires_flag`（需要的通行证名）；再让某个宝箱的 `grants_flag` 填同一个名——形成"开宝箱→得钥匙→开门"链 |
 | **加一波怪** | 选 `EnemySpawner1` → `spawn_waves` 数组加一项（=追加一波），内层加条目（=这波多几只并发）。每张卡 `enemy_scene` 下拉选角色；`spawn_mode=1` + `use_spawner_position=true` 照段模板抄 |
 | **造一个新敌兵** | 打开 `templates/character/character_template.tscn` → 右侧 Inspector 的创建面板 → "控制方式"选 **AI 自动战斗**（自动进 `characters/enemies/`，自带"待机→靠近→三连段"默认打法）→ 填名字和出生数值 → Create → 回 spawner 的下拉里选它 |
@@ -127,7 +129,7 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 | **打完后能继续向右走多远** | 段模板预置了"战后向东放开到 x=1900"。想改成别的数：Inspector 里看不到这四个属性（尚未开放，工程侧待办），**找工程侧改** |
 | **摆个不打的 NPC** | `characters/neutrals/street_vendor/street_vendor.tscn` 直接实例化进段里（站摊型，不追不逃） |
 | **这段镜头拍特定目标**（NPC/物件/被控者） | 选中段根 `StageSegment` → `camera_host_path` 填该段里某节点的**路径**（如 `Npc`）→ 玩家一进这段镜头就挂上去；**下一段没填就自动跟回当前被控角色**（严格申报制，不会"忘了换回来"）。镜头只换"挂谁"，操作照常。想代码即席改：`壳.set_camera_host(节点)` |
-| **这段换人操控**（剧情接管） | 段根 `control_target_path` 填该段里某个角色节点路径（谁都能被接管：友军、小贩，甚至敌兵——敌兵接管后阵营照旧、互相打不动属已知局限，找工程侧立项）→ 进场那刻：新角色变你操控、旧角色留在原地替他原先的立场（行为互换）；**下一段没申报=自动换回壳定的初始角色**。要敌人围攻新被控者：给敌人填索敌组 `ai_target_groups`（默认打玩家标签；填 `controlled` 就打"当前被控者"）。工程细节与局限见 STATUS 接管批案卷 |
+| **这段换人操控**（剧情接管） | 段根 `control_target_path` 填该段里某个角色节点路径（谁都能被接管：友军、小贩，甚至敌兵——敌兵接管后阵营照旧、互相打不动属已知局限，找工程侧立项）→ 进场那刻：新角色变你操控、旧角色留在原地替他原先的立场（行为互换）；**下一段没申报=自动换回壳定的初始角色**。换段时被控角色会自动"跟着你走"（收进壳层，不会连人带镜头消失——捞人批不变量）。要敌人围攻新被控者：给敌人填索敌组 `ai_target_groups`（默认打玩家标签；填 `controlled` 就打"当前被控者"）。工程细节与局限见 STATUS 接管/捞人批案卷 |
 | **跨章出口** | `scripts/stage_exit.gd`——**只能摆在永不打完的过场段**（最后一段打完会弹面板定格，出口就没机会碰到了；抄参考章 `seg_ref_a3.tscn` 的做法） |
 
 ## 三、现成零件清单

@@ -43,11 +43,14 @@ const LEVEL_CAMERA_SCENE := preload(
 ## 挂载目标可配可运行时改）：空=跟 playable；非空=指哪挂哪（演出段跟 NPC 等）。
 ## 换挂公开口=set_camera_host()；宿主下查无相机时壳自动补挂 QuiverLevelCamera。
 @export_node_path("Node2D") var camera_host_path := NodePath("")
-## 终局锚点·全程申报（锚点批，与被控/相机同款申报制）：整章"不能死的人"
+## 终局锚点·全程申报（锚点批；死亡演出批升级数组）：整章"不能死的人"
 ## （路径按壳树写，如 "Players/Guard"）。段申报非空时段申报优先；两者皆空
-## =败北集合仅被控者（默认形态）。运行时增删走 add/remove_defeat_anchor
+## =败北结算集仅被控者（默认形态）。运行时增删走 add/remove_defeat_anchor
 ## （临时态，入场即被下一段申报重刷——与接管回正同一治理模型）。
-@export_node_path("QuiverCharacter") var defeat_anchor_path := NodePath("")
+@export var defeat_anchor_paths: Array[NodePath] = []
+## 死亡慢放集·全程申报（2026-10 死亡演出批 G2）：语义同段级 death_slowmo_paths
+## （空=跟随结算集；段申报非空时段优先）。demo 壳用它示范"靖仇旁观也配演出"。
+@export var death_slowmo_paths: Array[NodePath] = []
 ## 软边合成层 z 的地点侧覆写（5b 自 BaseStage 迁壳；哨兵值=不覆写走壳轨
 ## 法定档 -1，与 ShadowSoftEdge.AUTO_SENTINEL 同步勿改单侧）
 @export var shadow_composite_override: int = -2147483648
@@ -362,21 +365,47 @@ func _apply_segment_declarations(seg: StageContent) -> void:
 ## 壳申报兜底"重挂——API 临时锚随换段归零由本函数天然保证；锚点随未清段
 ## 重建释放后，壳级路径重解析失败=本段无额外锚+告警（不崩，同回正降级腿）。
 func reapply_defeat_anchor(seg: StageContent) -> void:
-	for n in get_tree().get_nodes_in_group(&"defeat_anchor"):
-		(n as Node).remove_from_group(&"defeat_anchor")
-	if seg.defeat_anchor_path != NodePath(""):
-		var qc := seg.get_node_or_null(seg.defeat_anchor_path) as QuiverCharacter
+	_apply_group_declaration(seg, &"defeat_anchor", seg.defeat_anchor_paths,
+			defeat_anchor_paths)
+	_apply_group_declaration(seg, &"death_slowmo", seg.death_slowmo_paths,
+			death_slowmo_paths)
+
+
+## 申报制通用执行（锚点/慢放两集同闸）：全树摘组 → 段申报优先、壳申报兜底
+## → 段内路径按段树解析、壳路径按壳树解析。解析失败：段级响亮红（装配错误），
+## 壳级静默降级+告警（锚/人可合理消亡——同回正降级腿语义）。
+func _apply_group_declaration(seg: StageContent, group: StringName,
+		seg_paths: Array[NodePath], shell_paths: Array[NodePath]) -> void:
+	for n in get_tree().get_nodes_in_group(group):
+		(n as Node).remove_from_group(group)
+	var paths: Array[NodePath] = seg_paths if not seg_paths.is_empty() else shell_paths
+	var from_shell: bool = seg_paths.is_empty()
+	for p in paths:
+		var node: Node = null
+		if from_shell:
+			node = get_node_or_null(p)
+		else:
+			node = seg.get_node_or_null(p)
+		var qc := node as QuiverCharacter
 		if qc == null:
-			chapter_error.emit("段 defeat_anchor_path 失效（须为段树内挂树的 QuiverCharacter）: %s"
-					% seg.defeat_anchor_path)
-		else:
-			qc.add_to_group(&"defeat_anchor")
-	elif defeat_anchor_path != NodePath(""):
-		var qc2 := get_node_or_null(defeat_anchor_path) as QuiverCharacter
-		if qc2 == null:
-			push_warning("壳终局锚点解析失效（锚随段消亡等）：本段无额外锚")
-		else:
-			qc2.add_to_group(&"defeat_anchor")
+			if from_shell:
+				push_warning("壳 %s 申报解析失效（随段消亡等）: %s" % [str(group), p])
+			else:
+				chapter_error.emit("段 %s 申报失效（须为段树内挂树的 QuiverCharacter）: %s"
+						% [str(group), p])
+			continue
+		qc.add_to_group(group)
+
+
+## 慢放集运行时增删（临时态，换段由申报重刷；语义同锚点 API）。
+func add_death_slowmo(char: QuiverCharacter) -> void:
+	if char != null and char.is_inside_tree():
+		char.add_to_group(&"death_slowmo")
+
+
+func remove_death_slowmo(char: QuiverCharacter) -> void:
+	if char != null and is_instance_valid(char):
+		char.remove_from_group(&"death_slowmo")
 
 
 ## 运行时锚点增删（剧情即席；临时态——换段由申报重刷）。挂摘只落角色根本体，

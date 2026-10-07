@@ -576,14 +576,23 @@ BlendSpace2D 落点与节点位置精确重合，引擎永远单动画满权重�
   组成员（壳 take_control 维护，只挂角色根、零阵营副作用）→ 该组唯一权威；无壳
   → 回落 `area2d:player`。消费：`quiver_player_detector` 锁房（接管谁触发带为谁
   服务）、游戏侧 `game_hud`/debug 光照页。
-  ②`is_defeat_bound`（败北演出集合）= {`&"defeat_anchor"` 锚点们} ∪ {被控者}，
-  皆无回落 `area2d:player`。消费**唯一两闸同源**：`quiver_action_die` 终局分支
-  （time_scale 归位+`Events.player_died`）+ `quiver_action_launch._should_slow_motion`
-  （致死击飞慢放）。案卷：接管批曾让 die 用①而 launch 漏改仍写死玩家标签——
-  倒置双红据（旁观者之死劫持慢放且无人恢复 / 中立出身被控者之死无演出）由锚点批
-  统一入②单门（control_contract C9a/C9b 术前红转绿锁死）。锚=段/壳申报+API
-  临时态（申报驱动换段重刷，`reapply_defeat_anchor`；护送关=锚+索敌配置的零代码
-  组合，法源 STAGE_ASSEMBLY 条 13 + GAMEDESIGN 配方卡）。
+  ②`is_defeat_bound`（**结算集**=败北判定）= {`&"defeat_anchor"` 锚点们} ∪
+  {被控者}，皆无回落 `area2d:player`。锚=段/壳数组申报（`defeat_anchor_paths`）
+  +API 临时态，换段申报重刷（`_apply_group_declaration` 通用执行，同回正治理）。
+  ③`is_death_slowmo_bound`（**慢放集**=演出待遇，2026-10 死亡演出批）=申报成员
+  （`death_slowmo_paths`/`add_death_slowmo`）；**树内无申报时跟随②**（默认两事件
+  同角色=现状零漂移；有申报则可正交组合"只慢不输/只输不慢"）。
+- **死亡凭据中枢（2026-10 死亡演出批，住 HitFreeze）**：慢放/结算从"launch、die
+  各查一次集合"（半闸窗口劈叉案卷：控制批 die 用①、launch 漏网写死玩家标签——
+  倒置双红据 C9a/C9b 由锚点批统一，死亡演出批再灭"双查"本身）改为**致死击飞
+  瞬间一次性判定**写票据（`attributes.death_slowmo/death_settle`，非导出、reset
+  清），此后 die 信标/保险丝只消费票据。编排：全局慢放计数（归零才
+  `time_scale=1.0`）、结算压在所有在途慢放之后（pending 并发一次 restart）、
+  `DEATH_FUSE_FRAMES=420` 保险丝（信标万一丢失世界必 ~7s 脱慢放）、非击飞死亡
+  由 **die enter 兜底开据**（法术直杀同样结算；begin 防重合让位 launch）、
+  **尸体保护**（die enter 关受击盒括弧 + `find_closest_in_groups` 跳过 hp≤0 +
+  hurt 终了 hp 复查转 Die 防假活）。契约 control_contract C9/C21-C26 族锁死，
+  红据 A/B/C 档+G6 灰屏复刻 C20 归档 cc_red_evidence/。
 - **创建器**：`CharacterCreator.ControlMode` + `resolve_layout(mode, faction)` 统一裁决
   目录/档位（阵营标签与目录解耦：玩家→playable+player、AI→enemies+enemy、
   被动→neutrals+自名，标签可自由改/多选；索敌=ai_target_groups 策略配置
@@ -1651,7 +1660,7 @@ signal hit_landed(point, style, strength, dir)  # 命中落地回执（B4.7 R4�
   `animation_finished` 信号不再永挂，D4）；防重入闩在**换场完成即放**（回帘期
   新请求可进，旧版吞请求判例见 transition_contract T5），进度条监听按路径登记
   统一收口（D3/D5）。回归套=transition_contract 六腿分进程入矩阵名册 |
-| `HitFreeze` | 全局定格（B4.7 起 freeze_frames 默认 0=退役，机制保留）+ **单角色慢放调度器** `apply_character_slow`（协程+代数令牌，通道见 §17） |
+| `HitFreeze` | 全局定格（B4.7 起 freeze_frames 默认 0=退役，机制保留）+ **单角色慢放调度器** `apply_character_slow`（协程+代数令牌，通道见 §17）+ **死亡演出调度中枢**（2026-10 死亡演出批：begin/finish_death 票据、慢放计数、结算 pending、超时保险丝，§5.0 判据段） |
 | `QuiverDebugLogger` | 调试日志（可在 project settings 里开关） |
 
 **游戏侧（非插件）Autoload 另册**（`project.godot` [autoload]；插件文档管辖边界外，

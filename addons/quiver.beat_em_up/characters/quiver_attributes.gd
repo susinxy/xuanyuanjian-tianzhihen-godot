@@ -156,6 +156,11 @@ var resistance_current := 0.0
 ## 结算弹墙"。墙不再是阵营（皮肤上的 area2d:wall 组与墙盒挂组同批退役），
 ## 走路贴墙免结算由本旗默认 false 保证。
 var in_knockout := false
+## 死亡凭据（2026-10 死亡演出批 G1）：致死击飞的 launch 瞬间一次性写定，
+## "欠不欠慢放/欠不欠结算"此后不再复查组籍（launch/die 双查历史=半闸窗口
+## 劈叉之源，案卷 STATUS 捞人批）。消费方=HitFreeze 调度中枢与 die 状态。
+var death_settle := false
+var death_slowmo := false
 
 ## 出手方向镜像（2026-09-19 车道换轴批）：QuiverActionAttack.enter 在主轴塌缩后
 ## 把皮肤 skin_direction 的快照写到这里，exit/中断清零。受击车道据此选比较轴：
@@ -293,6 +298,9 @@ func reset() -> void:
 	can_be_grabbed = true
 	in_knockout = false
 	skin_direction = Vector2.ZERO
+	# 死亡凭据清零（2026-10 死亡演出批 G1：launch 写、die/保险丝读）
+	death_settle = false
+	death_slowmo = false
 	is_blocking = false
 	block_phase = BlockPhase.NONE
 	block_facing = Vector2.ZERO

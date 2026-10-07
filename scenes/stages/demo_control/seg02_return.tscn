@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/chapter/stage_content.gd" id="1_sc"]
 [ext_resource type="PackedScene" path="res://characters/enemies/spar_enemy/spar_enemy.tscn" id="2_spar"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/quiver_player_detector.gd" id="4_det"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_enemy_spawner.gd" id="5_sp"]
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="6_sd"]
+[ext_resource type="PackedScene" path="res://characters/neutrals/street_vendor/street_vendor.tscn" id="9_esc"]
 
 [sub_resource type="RectangleShape2D" id="Rect_ground"]
 size = Vector2(6200, 200)
@@ -26,6 +27,7 @@ b = Vector2(0, 700)
 [node name="SegD02" type="Node2D"]
 script = ExtResource("1_sc")
 segment_id = &"seg_d02"
+defeat_anchor_paths = Array[NodePath]([NodePath("Escort")])
 entry_points = {
 &"default": Vector2(300, 600)
 }
@@ -94,3 +96,6 @@ paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
 
 [node name="Shape" type="CollisionShape2D" parent="Room1/PlayerDetector"]
 shape = SubResource("Seg_room1")
+
+[node name="Escort" parent="." instance=ExtResource("9_esc")]
+position = Vector2(1250, 600)

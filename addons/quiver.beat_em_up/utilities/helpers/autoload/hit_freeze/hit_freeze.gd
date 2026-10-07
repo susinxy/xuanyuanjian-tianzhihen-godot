@@ -29,6 +29,20 @@ var _frames_to_wait := 0
 ## 恢复笔）。条目由协程尾清除；目标中途释放同样协程尾弃笔。
 var _slow_generations: Dictionary = {}
 
+## ── 死亡演出调度中枢（2026-10 死亡演出批 G1/G3/G5）───────────────────
+## launch 一次性判定写票据（begin_death），die 信标/保险丝消费（finish_death）：
+## · 慢放计数：多人在途叠窗不叠加时钟，归零才恢复；
+## · 结算等全部在途慢放结束（pending 计数；同轮多请求并发一次 restart）；
+## · 超时保险丝 DEATH_FUSE_FRAMES：信标万一丢失，世界也必在 ~7 秒内脱离
+##   慢放，pending 结算随强制清零放行（"等慢放结束"由保险丝本身满足）。
+const DEATH_FUSE_FRAMES := 420
+@export var death_slowdown_speed := 0.2
+
+var _death_tickets := {}
+var _slowmo_active := 0
+var _pending_settles := 0
+var _fuse_left := 0
+
 ### -----------------------------------------------------------------------------------------------
 
 
@@ -39,16 +53,77 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	_frames_to_wait -= 1
-#	print("frames_to_wait: %s"%[_frames_to_wait])
-	if _frames_to_wait <= 0:
-		get_tree().paused = false
+	var idle := true
+	if _frames_to_wait > 0:
+		_frames_to_wait -= 1
+		if _frames_to_wait <= 0:
+			get_tree().paused = false
+		else:
+			idle = false
+	if _slowmo_active > 0:
+		idle = false
+		_fuse_left -= 1
+		if _fuse_left <= 0:
+			_slowmo_active = 0
+			_release_death_time()
+	if idle:
 		set_physics_process(false)
 
 ### -----------------------------------------------------------------------------------------------
 
 
 ### Public Methods --------------------------------------------------------------------------------
+
+## 死亡票据开据（launch 调用；判据由调用方一次性算好传入）。
+func begin_death(char: QuiverCharacter, slowmo: bool, settle: bool) -> void:
+	if char == null or (not slowmo and not settle):
+		return
+	var id := char.get_instance_id()
+	if _death_tickets.has(id):
+		return  # 击飞链已开据不覆盖（die enter 兜底腿对 launch 形态让位）
+	_death_tickets[id] = {"slowmo": slowmo, "settle": settle}
+	if slowmo:
+		_slowmo_active += 1
+		if Engine.time_scale >= 1.0:
+			Engine.time_scale = death_slowdown_speed
+		_fuse_left = DEATH_FUSE_FRAMES
+		set_physics_process(true)
+
+
+## 死亡票据消费（die 终帧信标调用）。返回 true=本角色持结算权（壳体保留，
+## 现状玩家分支语义）；false=普通阵亡（调用方 queue_free）。
+func finish_death(char: QuiverCharacter) -> bool:
+	if char == null or not is_instance_valid(char):
+		return false
+	var id := char.get_instance_id()
+	if not _death_tickets.has(id):
+		return false
+	var ticket: Dictionary = _death_tickets[id]
+	_death_tickets.erase(id)
+	if ticket.slowmo:
+		_slowmo_active = maxi(0, _slowmo_active - 1)
+		if _slowmo_active == 0:
+			_release_death_time()
+	if not ticket.settle:
+		return false
+	if _slowmo_active > 0:
+		_pending_settles += 1
+		return true
+	_settle_now()
+	return true
+
+
+func _release_death_time() -> void:
+	Engine.time_scale = 1.0
+	_fuse_left = 0
+	if _pending_settles > 0:
+		_settle_now()
+
+
+func _settle_now() -> void:
+	_pending_settles = 0
+	Engine.time_scale = 1.0
+	Events.player_died.emit()
 
 func start(custom_wait := INF) -> void:
 	_frames_to_wait = freeze_frames if custom_wait == INF else custom_wait

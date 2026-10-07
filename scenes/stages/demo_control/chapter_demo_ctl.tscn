@@ -1,13 +1,14 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3 uid="uid://da65jdc5awdo4"]
 
 [ext_resource type="PackedScene" path="res://scenes/chapter/chapter_shell.tscn" id="1_shell"]
-[ext_resource type="PackedScene" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
+[ext_resource type="PackedScene" uid="uid://cqh103kassjrt" path="res://characters/playable/chen/chen.tscn" id="2_chen"]
 [ext_resource type="PackedScene" path="res://scenes/stages/demo_control/seg01_takeover.tscn" id="3_seg1"]
 [ext_resource type="PackedScene" path="res://scenes/stages/demo_control/seg02_return.tscn" id="4_seg2"]
 
-[node name="ChapterDemoCtl" instance=ExtResource("1_shell")]
+[node name="ChapterDemoCtl" unique_id=1206282061 instance=ExtResource("1_shell")]
 chapter_id = &"demo_ctl"
+death_slowmo_paths = Array[NodePath]([NodePath("Players/Chen")])
 segment_scenes = Array[PackedScene]([ExtResource("3_seg1"), ExtResource("4_seg2")])
 
-[node name="Chen" parent="Players" instance=ExtResource("2_chen")]
+[node name="Chen" parent="Players" index="0" unique_id=981993655 instance=ExtResource("2_chen")]
 position = Vector2(250, 600)

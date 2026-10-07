@@ -88,6 +88,11 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
+	# 死亡演出批 G4 复查闸：受击结束先验血——hp≤0 不许"假活回 Idle"，转
+	# Die 走完整死亡链（信标/受击盒括弧/凭据消费都在 die 上）。
+	if _attributes != null and _attributes.health_current <= 0.0:
+		_state_machine.transition_to("Die")
+		return
 	_state_machine.transition_to(_path_idle_state)
 	state_finished.emit()
 

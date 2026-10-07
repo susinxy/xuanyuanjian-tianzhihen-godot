@@ -257,6 +257,9 @@ func _run_all() -> void:
 	# ── C20 相机随段清算（灰屏修复的红灯腿）──
 	await _c20_camera_segment_reset()
 
+	# ── C21+ 死亡演出批（凭据/计数/保险丝/尸体保护/两集正交）──
+	await _c21_death_production()
+
 
 ## C10-C12 锚点申报：段申报挂锚→锚点致死触发慢放+终局（锚与被控同闸）→
 ## restart 重建段自然还魂重挂；C11 换无申报段=锚清空（申报驱动+API 临时态
@@ -271,7 +274,8 @@ func _c10_anchor_segment() -> void:
 	var annie := _mk_actor("Annie")
 	guard_seg.add_child(annie)
 	annie.owner = guard_seg
-	guard_seg.set("defeat_anchor_path", NodePath("Annie"))
+	var anchor_paths: Array[NodePath] = [NodePath("Annie")]
+	guard_seg.set("defeat_anchor_paths", anchor_paths)
 	var gp := PackedScene.new()
 	if gp.pack(guard_seg) != OK:
 		_check(false, "C10 锚点段打包失败")
@@ -311,7 +315,7 @@ func _c10_anchor_segment() -> void:
 	await _frames(6)
 	_check(Engine.time_scale < 1.0, "C10 锚点致死触发慢放演出（同闸待遇）实=%s"
 			% str(Engine.time_scale))
-	for _i in range(300):
+	for _i in range(650):
 		if died["n"] > 0:
 			break
 		await get_tree().physics_frame
@@ -333,13 +337,14 @@ func _c10_anchor_segment() -> void:
 		await _frames(3)
 		_check(shell4.get_tree().get_nodes_in_group(&"defeat_anchor").is_empty(),
 				"C11 无申报段=锚全清（申报驱动，API 临时态换段归零）")
-	shell4.defeat_anchor_path = NodePath("Players/Ghost")
+	var ghost_paths: Array[NodePath] = [NodePath("Players/Ghost")]
+	shell4.defeat_anchor_paths = ghost_paths
 	shell4.enter_segment(&"t_seg_guard", &"default")
 	await _frames(3)
 	var annie4: QuiverCharacter = shell4._current.get_node_or_null("Annie") if shell4._current != null else null
 	_check(annie4 != null and annie4.is_in_group(&"defeat_anchor"),
 			"C12 壳级失效路径不夺段申报锚（段申报优先腿在位）")
-	shell4.defeat_anchor_path = NodePath("")
+	shell4.defeat_anchor_paths = []
 	shell4.enter_segment(&"t_seg_plain", &"default")
 	await _frames(3)
 	_check(QuiverCharacterHelper.is_defeat_bound(shell4.playable)
@@ -357,6 +362,190 @@ func _c10_anchor_segment() -> void:
 			"C13 无锚无控树=回落 area2d:player 兼容形（单跑零漂移）")
 	lone.queue_free()
 	await _frames(2)
+
+
+## C21+ 死亡演出批契约族：两功能独立挂集合（目标1/2）、结算等全部慢放（目标2）、
+## 慢放有借有还（目标3：信标/保险丝双归还）、尸体保护（G4）、非击飞死亡兜底开据。
+func _c21_death_production() -> void:
+	Engine.time_scale = 1.0
+	if not _require_kit("C21"):
+		return
+	# —— C21 两集正交：只慢不结算的旁观者 ——
+	var sA := Node2D.new()
+	sA.set_script(load(STAGE_SCRIPT))
+	sA.segment_id = &"t_slowonly"
+	var bye := _mk_actor("Bye")
+	bye.remove_from_group(&"area2d:player")  # 中立出身：无结算权
+	sA.add_child(bye)
+	bye.owner = sA
+	var slow_paths: Array[NodePath] = [NodePath("Bye")]
+	sA.set("death_slowmo_paths", slow_paths)
+	var pa := PackedScene.new()
+	if pa.pack(sA) != OK:
+		_check(false, "C21 打包失败")
+		sA.free()
+		return
+	sA.free()
+	var shellD2: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+	shellD2.chapter_id = &"t_ctl21"
+	shellD2.playable_override = load(Kit.ACTOR_SCENE)
+	shellD2.segment_scenes = [pa]
+	add_child(shellD2)
+	await _frames(3)
+	var bye2: QuiverCharacter = shellD2._current.get_node_or_null("Bye")
+	_check(bye2 != null and bye2.is_in_group(&"death_slowmo"),
+			"C21 慢放集段申报挂接（结算集外角色有演出待遇）")
+	var died21 := {"n": 0}
+	var cb21 := func() -> void: died21["n"] += 1
+	Events.player_died.connect(cb21)
+	bye2.attributes.health_current = 0.0
+	var dir21 := Vector2(cos(deg_to_rad(-30.0)), sin(deg_to_rad(-30.0)))
+	CombatSystem.apply_knockback(_mk_kd(1200.0, dir21), bye2.attributes)
+	var saw_slow := false
+	for _i in range(90):
+		if Engine.time_scale < 1.0:
+			saw_slow = true
+			break
+		await get_tree().physics_frame
+	_check(saw_slow, "C21 只慢不结算者之死触发慢放（待遇由申报决定）")
+	var gone21 := false
+	for _i in range(700):
+		if not is_instance_valid(bye2):
+			gone21 = true
+			break
+		if Engine.time_scale >= 1.0 and _i > 30:
+			break
+		await get_tree().physics_frame
+	await _frames(5)
+	Events.player_died.disconnect(cb21)
+	_check(is_equal_approx(Engine.time_scale, 1.0),
+			"C21 慢放有界：死亡动画结束必归还（实=%s）" % str(Engine.time_scale))
+	_check(died21["n"] == 0, "C21 无结算权者之死不发终局（实=%d）" % died21["n"])
+	shellD2.queue_free()
+	await _frames(3)
+
+	# —— C22 结算等全部在途慢放（中枢 API 级）——
+	var victim1 := _mk_actor("V1")
+	var victim2 := _mk_actor("V2")
+	add_child(victim1)
+	add_child(victim2)
+	await _frames(2)
+	var died22 := {"n": 0}
+	var cb22 := func() -> void: died22["n"] += 1
+	Events.player_died.connect(cb22)
+	HitFreeze.begin_death(victim1, true, true)
+	HitFreeze.begin_death(victim2, true, true)
+	_check(Engine.time_scale < 1.0, "C22 双慢放开窗（时钟压低）")
+	var first_done: bool = HitFreeze.finish_death(victim1)
+	await _frames(2)
+	_check(first_done and died22["n"] == 0,
+			"C22 先完者结算被压在途慢放之后（pending；emit=%d）" % died22["n"])
+	var second_done: bool = HitFreeze.finish_death(victim2)
+	await _frames(2)
+	_check(second_done and died22["n"] == 2 and is_equal_approx(Engine.time_scale, 1.0),
+			"C22 末个慢放清零→时钟归还+双结算请求各发一次（restart 链代际幂等吸收）（emit=%d）"
+			% died22["n"])
+	Events.player_died.disconnect(cb22)
+	victim1.queue_free()
+	victim2.queue_free()
+	await _frames(3)
+
+	# —— C23 超时保险丝（信标丢失的世界也必在 ~7 秒内脱离慢放）——
+	var ghost := _mk_actor("Ghost")
+	add_child(ghost)
+	await _frames(2)
+	HitFreeze.begin_death(ghost, true, false)  # 只慢不放：永不有人 finish
+	_check(Engine.time_scale < 1.0, "C23 保险丝开窗前置")
+	var fuse_seen := 0
+	for _k in range(HitFreeze.DEATH_FUSE_FRAMES + 60):
+		fuse_seen = _k
+		if Engine.time_scale >= 1.0:
+			break
+		await get_tree().physics_frame
+	_check(is_equal_approx(Engine.time_scale, 1.0),
+			"C23 保险丝到期强制归还（第 %d 拍归还；实=%s）" % [fuse_seen, str(Engine.time_scale)])
+	ghost.queue_free()
+	await _frames(3)
+
+	# —— C24 非击飞死亡兜底开据（法术直杀/受击复查进 die 也必须结算）——
+	Engine.time_scale = 1.0
+	if true:
+		var shell24: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+		shell24.chapter_id = &"t_ctl24"
+		shell24.playable_override = load(Kit.ACTOR_SCENE)
+		add_child(shell24)
+		await _frames(3)
+		var pc24: QuiverCharacter = shell24.playable
+		var died24 := {"n": 0}
+		var cb24 := func() -> void: died24["n"] += 1
+		Events.player_died.connect(cb24)
+		pc24.attributes.health_current = 0.0
+		pc24.state_machine.transition_to("Die")  # 不经击飞的直杀形（法术/毒）
+		for _i in range(700):
+			if died24["n"] > 0:
+				break
+			await get_tree().physics_frame
+		Events.player_died.disconnect(cb24)
+		_check(died24["n"] == 1,
+				"C24 非击飞死亡同样结算（die enter 兜底开据；emit=%d）" % died24["n"])
+		# 串行清场：shell24 的持控体不释放会经 controlled 判据污染后续壳的
+		# set_playable 校验（多壳同树并存的契约自扰，先散后立）。
+		shell24.queue_free()
+		await _frames(5)
+		# C25 尸体保护 + C26 hurt 复查闸
+		# C25：击飞致死进 die 后，补刀必须无效果（受击盒括弧）
+		Engine.time_scale = 1.0
+		var shell25: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+		shell25.chapter_id = &"t_ctl25"
+		shell25.playable_override = load(Kit.ACTOR_SCENE)
+		add_child(shell25)
+		await _frames(3)
+		var pc25: QuiverCharacter = shell25.playable
+		pc25.attributes.health_current = 0.0
+		CombatSystem.apply_knockback(_mk_kd(1200.0, dir21), pc25.attributes)
+		var in_die := false
+		for _k in range(500):
+			if str(pc25.state_machine.state_name) == "Die":
+				in_die = true
+				break
+			await get_tree().physics_frame
+		_check(in_die, "C25 前置：弹地后进入 Die 态")
+		await _frames(3)  # set_deferred 生效拍
+		_check(pc25._skin.hurtbox != null and not pc25._skin.hurtbox.monitoring,
+				"C25 死亡期间受击盒关闭（尸体保护 G4：演出不再被补刀打断）")
+		CombatSystem.apply_knockback(_mk_kd(1200.0, dir21), pc25.attributes)
+		await _frames(4)
+		_check(str(pc25.state_machine.state_name) != "Air/Knockout/Launch",
+				"C25 补刀对尸体无效（状态未被再次击飞劫走，信标链保全）")
+		shell25.queue_free()
+		await _frames(3)
+		Engine.time_scale = 1.0
+		# C26 hurt 复查闸：hp≤0 走受击（不破线小 K）不得假活回 Idle——
+		# 必转 Die 完成结算链（旧形态=hurt→Idle 空血假活+无归还+无结算）
+		var shell26: ChapterShell = (load(SHELL_TEMPLATE) as PackedScene).instantiate()
+		shell26.chapter_id = &"t_ctl26"
+		shell26.playable_override = load(Kit.ACTOR_SCENE)
+		add_child(shell26)
+		await _frames(3)
+		var pc26: QuiverCharacter = shell26.playable
+		var died26 := {"n": 0}
+		var cb26 := func() -> void: died26["n"] += 1
+		Events.player_died.connect(cb26)
+		pc26.attributes.health_current = 0.0
+		pc26.attributes.resistance_current = 600.0  # 满池：小 K 走 hurt 分发
+		CombatSystem.apply_knockback(_mk_kd(100.0, Vector2.RIGHT), pc26.attributes)
+		for _k in range(700):
+			if died26["n"] > 0:
+				break
+			await get_tree().physics_frame
+		Events.player_died.disconnect(cb26)
+		_check(died26["n"] == 1,
+				"C26 受击态死亡经复查闸转 Die 完成结算（emit=%d）" % died26["n"])
+		_check(is_equal_approx(Engine.time_scale, 1.0), "C26 全链后时钟已归还")
+		shell26.queue_free()
+		await _frames(3)
+		Engine.time_scale = 1.0
+	Engine.time_scale = 1.0
 
 
 ## C20 相机随段清算：真撞线锁房（limits/zoom 被 FightRoom 收拢）→ 段清换段 →
@@ -502,17 +691,25 @@ func _c14_15_segment_lifecycle() -> void:
 	chenD.attributes.health_current = 0.0
 	var dirD := Vector2(cos(deg_to_rad(-30.0)), sin(deg_to_rad(-30.0)))
 	CombatSystem.apply_knockback(_mk_kd(1200.0, dirD), chenD.attributes)
-	await _frames(6)
-	_check(is_equal_approx(Engine.time_scale, 1.0),
-			"C14 旁观者致死击不劫持全局时间（用户报「慢放」归因=B4.7 攻击方自慢放，非 time_scale）实=%s"
-			% str(Engine.time_scale))
+	# C14 改判（2026-10 死亡演出批）：demo 壳申报 slowmo=[Chen]——旁观靖仇之死
+	# 有慢放待遇（数据决定），但无结算权（不在结算集）；信标归还必在有限拍内。
+	var saw_slow14 := false
+	for _i in range(90):
+		if Engine.time_scale < 1.0:
+			saw_slow14 = true
+			break
+		await get_tree().physics_frame
+	_check(saw_slow14, "C14 慢放申报集内旁观者之死触发慢放（待遇由申报决定）")
 	var chen_gone := false
-	for _i in range(400):
+	for _i in range(700):
 		if not is_instance_valid(chenD):
 			chen_gone = true
 			break
 		await get_tree().physics_frame
-	_check(chen_gone, "C14 旁观者之死=普通阵亡离场（queue_free 腿）")
+	_check(chen_gone, "C14 无结算权者之死=普通阵亡离场（queue_free 腿）")
+	await _frames(5)
+	_check(is_equal_approx(Engine.time_scale, 1.0),
+			"C14 慢放有借有还：旁观演出结束时钟归还（实=%s）" % str(Engine.time_scale))
 	# 判清换段（seg01 真 spawner 手动 emit 同款）
 	var spD: QuiverEnemySpawner = shellD._current.get_node_or_null("Room1/EnemySpawner1")
 	if spD != null:
@@ -650,7 +847,7 @@ func _pack(seg: Node2D) -> PackedScene:
 
 
 func _report() -> void:
-	var ok := _fails == 0 and _finished and _asserts >= 72  # 全数门：捞人批 C14/C15 后定账（首跑核数校准）
+	var ok := _fails == 0 and _finished and _asserts >= 92  # 全数门：捞人批 C14/C15 后定账（首跑核数校准）
 	print("════════ control-contract: %s ════（断言 %d，红 %d，完成旗=%s）"
 			% ["PASS" if ok else "FAIL", _asserts, _fails, str(_finished)])
 	get_tree().quit(0 if ok else 1)

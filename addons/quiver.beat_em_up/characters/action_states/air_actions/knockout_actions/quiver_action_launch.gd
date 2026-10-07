@@ -18,8 +18,6 @@ extends QuiverCharacterAction
 var _skin_state_launch: StringName
 var _skin_state_rising: StringName
 var _path_next_state := "Air/Knockout/MidAir"
-## Value that will be passed to Engine.time_scale on the hit the player dies.
-var _death_slowdown_speed := 0.2
 
 @onready var _knockout_state := get_parent() as QuiverActionAirKnockout
 
@@ -89,8 +87,14 @@ func enter(msg: = {}) -> void:
 	
 	_knockout_state._launch_count += 1
 	
-	if _should_slow_motion():
-		Engine.time_scale = _death_slowdown_speed
+	# 死亡凭据一次性判定（2026-10 死亡演出批 G1）：结算旗=defeat_bound（锚∪被控），
+	# 慢放旗=death_slowmo 申报集（无申报时跟随结算旗=现状"两事件同角色"）。此后
+	# die/保险丝只消费票据不再复查组籍——launch/die 双查在"半闸窗口"案卷里的
+	# 放了慢放不结算/时钟无人归还劈叉，就此结构性灭族。
+	if _attributes.health_current <= 0:
+		var settle := QuiverCharacterHelper.is_defeat_bound(_character)
+		var slowmo := QuiverCharacterHelper.is_death_slowmo_bound(_character)
+		HitFreeze.begin_death(_character, slowmo, settle)
 
 
 func physics_process(delta: float) -> void:
@@ -116,13 +120,6 @@ func _disconnect_signals() -> void:
 		QuiverEditorHelper.disconnect_between(
 				_skin.skin_animation_finished, _on_skin_animation_finished
 		)
-
-
-func _should_slow_motion() -> bool:
-	var is_player := _character.is_in_group("area2d:player")
-	var is_normal_time := Engine.time_scale == 1.0 
-	var is_dead := _attributes.health_current <= 0
-	return is_player and is_dead and is_normal_time
 
 
 func _on_skin_animation_finished() -> void:
@@ -170,7 +167,7 @@ func _get_custom_properties() -> Dictionary:
 #		},
 	}
 	
-	if is_instance_valid(_character) and _character.is_in_group("area2d:player"):
+	if is_instance_valid(_character) and QuiverCharacterHelper.is_defeat_bound(_character):
 		custom_properties["_death_slowdown_speed"] = {
 			default_value = 0.2,
 			type = TYPE_FLOAT,

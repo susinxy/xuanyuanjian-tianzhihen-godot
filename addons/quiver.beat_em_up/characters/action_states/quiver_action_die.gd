@@ -35,11 +35,25 @@ func _ready() -> void:
 
 func enter(msg: = {}) -> void:
 	super(msg)
+	# 尸体保护（2026-10 死亡演出批 G4）：死亡演出开场即摘受击盒——不再被补刀
+	# 打断信标链（用户实机"残余攻击再次打到"定罪）；exit 恢复（括弧式，复活/
+	# 重进链复用防"死后永久隐形"）。
+	if _skin != null and _skin.hurtbox != null:
+		_skin.hurtbox.set_deferred("monitoring", false)
+	# 非击飞死亡兜底开据（2026-10 死亡演出批）：法术直杀/受击复查进 die 等不
+	# 经 launch 的死法同样"一次判定"——慢放旗此刻开=慢放死亡动画本身（目标3
+	# 语义），击飞形态则由 launch 先行开据、此处防重让位。
+	var settle := QuiverCharacterHelper.is_defeat_bound(_character)
+	var slowmo := QuiverCharacterHelper.is_death_slowmo_bound(_character)
+	HitFreeze.begin_death(_character, slowmo, settle)
 	_skin.transition_to(_skin_state)
 
 
 func exit() -> void:
 	super()
+	if _skin != null and is_instance_valid(_skin) and _skin.hurtbox != null:
+		if is_instance_valid(_skin.hurtbox):
+			_skin.hurtbox.set_deferred("monitoring", true)
 
 ### -----------------------------------------------------------------------------------------------
 
@@ -60,14 +74,12 @@ func _disconnect_signals() -> void:
 
 
 func _on_skin_animation_finished() -> void:
-	# 2026-10 接管批：玩家身份=被控者判据（controlled 优先，无壳场景
-	# 回落 area2d:player 现状形）——旁观的原主角之死是普通阵亡，
-	# 不再误触终局；被接管的无阵营标签角色之死照常终局。
-	if QuiverCharacterHelper.is_player_identity(_character):
-		# This was activated in the knockout launch state the player died.
-		Engine.time_scale = 1.0
-		Events.player_died.emit()
-	else:
+	# 锚点批单门：败北=defeat_bound（锚点∪被控者，无壳回落 player 兼容形）。
+# 旧接管批曾用 is_player_identity——锚维度加入后演出与终局同闸迁移，
+# 旁观者（既非锚也非控）之死=普通阵亡不劫持时间不触终局。
+	# 死亡演出批 G1：凭据统计消费（HitFreeze）——不再二次查组籍；时钟归还、
+	# 结算发出、"结算等全部在途慢放"的编排全部收敛中枢。false=无票据普通阵亡。
+	if not HitFreeze.finish_death(_character):
 		_character.queue_free()
 
 ### -----------------------------------------------------------------------------------------------
