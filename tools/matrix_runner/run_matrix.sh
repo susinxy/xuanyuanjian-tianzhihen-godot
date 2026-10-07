@@ -74,6 +74,9 @@ ROSTER=(
 	# 段申报回正 35 断言；R8 红据四档（S1 组迁移6红/S2 回正3红/S3 注入1红/
 	# S4 判据4红，/tmp/opencode/b48_sync/cc_red_evidence/）
 	"scene|control_contract|tools/control_contract/control_contract.tscn"
+	# 盒轨搭建批 T1（2026-10）：PlayfieldBox 装配/封锁/开关/共存 19 断言；
+	# R8 红据=摘墙带 12 红（/tmp/opencode/box_batch/red_no_bands.log）
+	"scene|box_contract|tools/box_contract/box_contract.tscn"
 	"scene|transition_contract_T0|tools/transition_contract/transition_contract.tscn|--only=T0"
 	"scene|transition_contract_T1|tools/transition_contract/transition_contract.tscn|--only=T1"
 	"scene|transition_contract_T2|tools/transition_contract/transition_contract.tscn|--only=T2"
