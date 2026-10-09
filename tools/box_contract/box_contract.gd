@@ -9,7 +9,9 @@ extends Node
 ##   brief 原 30 拍=750px 触不到墙属空转腿，实调 60 拍使红档该腿响亮 FAIL，对账见报告）；
 ## · D 开关独立性：gen_vis/north_wall 各自关闭件消失、余带不受影响；
 ## · E 真角色共存冒烟：test_actor 入场沉降（判例：初速沉降相位随机→宽松界）存活；
-## · F 完成旗（协程静默跳段判例防线）：全序列跑到尾才绿。
+## · F 模板 v2 结构冒烟：load scenes/chapter/segment_template.tscn 实例化，验盒在位
+##   生带、遭遇带无房合法形、锁房件在位/旧手摆几何已退（手改 tscn 判例防线）；
+## · 终旗（完成旗，协程静默跳段判例防线）：全序列跑到尾才绿。
 ## 测试主权法（B2.5）：E 腿一律 test_actor 替身（Kit 消费只读，缺席=红+处方）。
 ## 落盘卫生：本套不写账不记检查点（仅段 fixture+盒组件，无壳无记账件），免重定向。
 ## 【豁免】无——不消费 chen 本体数据。
@@ -18,7 +20,9 @@ const Kit := preload("res://tools/matrix_runner/test_actor_kit.gd")
 const SEG_FIXTURE := "res://tools/box_contract/fixtures/seg_box_min.tscn"
 const PROBE := preload("res://tools/box_contract/probe_body.gd")
 const BOX_RECT := Rect2(-200, -200, 1000, 500)   # fixture 盒矩形（局部=世界，段摆原点）
-const EXPECTED := 19  # 终账门（brief 腿表实数 A10+B2+C1+D3+E2+F1；对账见 T1 报告）
+const EXPECTED := 24  # 终账门（T1 腿表实数 A10+B2+C1+D3+E2+完成旗=19，
+                      # T3 追加 F 模板冒烟 5 → 实测终数 24；brief 的 23 少算完成旗
+                      # 一枚，按"实测终数为准"取紧门 24，对账见 T3 报告）
 
 var _fails := 0
 var _asserts := 0
@@ -138,6 +142,23 @@ func _run_all() -> void:
 		# 腿末清场
 		actor.queue_free()
 		seg3.queue_free()
+		await _frames(3)
+
+	# ── F：模板 v2 结构冒烟（手改 tscn 判例防线：解析错/吞属性当场现形）──
+	var tpl := load("res://scenes/chapter/segment_template.tscn") as PackedScene
+	_check(tpl != null, "F1 模板可实例化（零 Parse Error 族）")
+	if tpl != null:
+		var tpl_seg := tpl.instantiate()
+		add_child(tpl_seg)
+		await _frames(2)
+		var tpl_box := tpl_seg.get_node_or_null(^"PlayfieldBox")
+		_check(tpl_box != null and tpl_box.is_in_group(&"playfield_box"), "F2 盒在位且运行时生带")
+		_check(tpl_box != null and tpl_box.get_node_or_null(^"BandSouth") != null, "F3 四带派生")
+		var enc := tpl_seg.get_node_or_null(^"Encounter1/Detector")
+		_check(enc != null and str(enc.get("path_fight_room")) == "", "F4 遭遇带无房合法形")
+		_check(tpl_seg.get_node_or_null(^"Room1/PlayerDetector") != null \
+				and tpl_seg.get_node_or_null(^"GroundBody") == null, "F5 锁房件在位/旧几何已退")
+		tpl_seg.queue_free()
 		await _frames(3)
 
 	# 收尾拆除本套自生的段（矩阵同轮其他套不受污染）
