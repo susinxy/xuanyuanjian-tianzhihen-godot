@@ -726,14 +726,16 @@
     根 AGENTS Stage Structure 图与矩阵计数（**33 套 = 34 跑**）；spec 状态行与
     §四容器层勘误。`docs/PLUGIN_ARCHITECTURE.md`/根 `PLUGIN_CHANGES.md` **零条目**
     （本批未碰插件，已按规矩头尾查过）。
-- **验证**：validator `--fixtures` 34 fixture / 违例 0；默认模式 9 关 / 违例 0
+- **验证**：validator `--fixtures` 36 fixture / 违例 0；默认模式 9 关 / 违例 0
   （存量盘点零新红）；box_contract 24 断言全绿 rc=0；模板"复制成正式段"加餐腿
   唯一红=设计内必改 `segment_id`。
 - **候选立案（本批不做）**：**R5 深度推导执法**——现 R5 比死字面串
   `../../../../Players`，"段根直属生成器+四级"这类运行时必 null 的层级在旧法下全绿
   （no_room_band 旧形即漏网实例）。修法=按文件内节点层级推导应有前缀再比对；
   牵动两枚靶的 expect 集与 R8 红据重归档，建议随批终核后的"执法升级"专列立项
-  （T3 报告 §五.1/§F3 为案卷）。
+  （T3 报告 §五.1/§F3 为案卷）。**R13⑤ 含盒段须显式写 entry 行**——没写出生点行时
+  校验器看不见默认落位 (500,600)（拖框盖不住该点=落位穿墙带而静态全绿），GUIDE
+  盒配方卡已补盲区话术，执法判据待下批立案。
 - **F5 待验（用户）**：在 `scenes/stages/xuanyuan/chapter-1/`（或任一壳）用 v2 模板
   复制一段真实关——①盒框编辑器可见且 anchors 未动；②跨 x=1580 竖带即刷出
   spar_enemy（世界位 1750,480）；③该波段刷完判清并能推进；④锁房段（Room1）
@@ -742,7 +744,10 @@
 - **红据/探针归档**（controller 裁决沿 cc_red_evidence 既有惯例留 /tmp，不入 git；
   要固化再搬）：`/tmp/opencode/box_batch/red_no_bands.log`（T1 摘墙带 12 红）、
   `/tmp/opencode/box_batch/red_old_law_fixtures.log`（T2 旧法×新 fixtures 7 红）、
-  `/tmp/opencode/box_batch/fix1_f1_probe.log`（T3 修复轮容器层范本运行时自证 B1-B5）。
+  `/tmp/opencode/box_batch/fix1_f1_probe.log`（T3 修复轮容器层范本运行时自证 B1-B5）、
+  `/tmp/opencode/box_batch/red_zero_area_preop.log`（终审收尾波 R8 术前红档：
+  零面积+直挂段根两枚新判例 triggered=[] 双 FAIL，复原后
+  `/tmp/opencode/box_batch/green_fixtures_36.log` 36/违例 0 双档齐）。
 
 
 
