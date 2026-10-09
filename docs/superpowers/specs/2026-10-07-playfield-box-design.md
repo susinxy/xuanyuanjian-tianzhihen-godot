@@ -1,7 +1,8 @@
 # 盒轨搭建批设计（PlayfieldBox：2.5D 可移动区盒子与房 demotion 修法）
 
 - 日期：2026-10-07
-- 状态：**待用户审阅**
+- 状态：**已批准并实施 2026-10-07**（五任务流水：T1 组件+契约 / T2 校验器修法 /
+  T3 模板 v2 / T4 文档 / T5 终核；F5 实机验收待用户）
 - 法源对话：用户三条口径（①fighting room 主要是特写镜头+特殊战斗区，**不是战斗的前提**；
   ②阴影可生成区域功能要一并纳入盒世界观；③"一个盒子对于 2.5D 来说就是一个矩形，
   往里面放组件就是搭建场景"）+ 追加裁决（"为什么要用形状来限制装配？"→ 校验器
@@ -100,12 +101,15 @@ fixtures：`no_room_band` 必红 R4=形状法还在的铁证，修法后绿）�
 StageSegment (StageContent，metadata 配方注重写)
 ├── PlayfieldBox        ← 第一件：拖框=可移动区（范本 x:-80..2000, y:-280..600）
 ├── Room1 (房三件套形)  ← 形态A示范：锁房特写战（房+生成器+检测器 path_fight_room=".."）
-├── Encounter1 (遭遇带形)← 形态B示范：检测器 path_fight_room 空 + 直属生成器 + 触发线色块
+├── Encounter1 (遭遇带形)← 形态B示范：Node2D 带容器内含检测器（path_fight_room 空）+ 生成器 + 触发线色块
 └── VisSign 等
 ```
 - **删除** `GroundBody/WallL/WallR` 与 Vis 场地件（盒派生接管）；
-- 遭遇带生成器挂段根（非房 Control 子→普通 Node2D 坐标语义，雷区 a 不适用，
-  `path_spawn_parent=../../../../Players` 四级白名单不变）；
+- 遭遇带的**生成器与检测器同挂 Node2D 带容器**（容器挂段根；非房 Control 子→
+  普通 Node2D 坐标语义，雷区 a 不适用，`path_spawn_parent=../../../../Players`
+  四级白名单从生成器起算恒成立）（实施勘误：原稿"生成器直挂段根"四级路径解析越界、
+  运行时静默 null=刷怪裸崩，挂检测器之下又会被 one-shot 自删吞掉=推进死锁，
+  见 ledger/T3 报告 §五.1 Ruling）；
 - 过场/占位段配方更新：删两件留盒+`auto_complete=true`。
 
 ## 五、实证雷区增补（入法典第二章）

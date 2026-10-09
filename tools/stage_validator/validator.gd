@@ -69,7 +69,7 @@ extends SceneTree
 ##      （>1 红：双盒=模型破产，一段一界）；②**坐标系契约**（盒节点写 anchor_*/
 ##      scale/position 行=红：ReferenceRect 是 Control，矩形全靠默认 anchors+
 ##      offset 四值，雷区 a 同源）；③**入口在盒**（根 entry_points 各值须落在盒
-##      矩形闭区间，红：落位必穿墙带）；④**房越盒黄**（任一 FightRoom 矩形超出
+##      矩形闭区间（容差 0.5），红：落位必穿墙带）；④**房越盒黄**（任一 FightRoom 矩形超出
 ##      盒界=NOTICE：锁房全景时界外可见不可走，雷 l，多为摆错但不拦）。
 ##      零面积盒（offset 未摆正）=红并早退
 ##   空根守卫（T4 评审意见第 12 条，规则码记 R1 早退——勿与门五 R12 混读）：

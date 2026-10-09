@@ -11,7 +11,7 @@
 
 ```
 chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其中一幕）
- ├─ 主角：你把角色文件拖给壳（见下）           ├─ 地面、墙
+ ├─ 主角：你把角色文件拖给壳（见下）           ├─ 盒子 PlayfieldBox（虚线框=可移动区，第一件）
  ├─ HUD、暂停菜单、死亡界面、章终点面板        ├─ 战斗房（虚线框）+ 刷怪点 + 触发检测器
  ├─ 跟随相机（壳自动装在你放的主角身上）       ├─ 宝箱/秘籍/门 等互动件
  ├─ 昼夜光照（不设置=一直白天）                ├─ 出生点 entry_points
@@ -27,7 +27,8 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 
 两条硬规矩，校验器会拦：
 1. **段里不放壳的东西**（玩家/相机/HUD/昼夜色调节点）；
-2. **段的出生点必须在第一道触发线的左边**（段模板默认值已合法，挪触发线就要挪出生点）。
+2. **段的出生点必须在第一道触发线的左边**（段模板默认值已合法，挪触发线就要挪出生点）；
+   含盒（PlayfieldBox）的段另有一条：**出生点必须落在盒框内**（越界=校验器 R13 红）。
 
 ## 一、第一次搭章（照做即可，约 15 分钟）
 
@@ -65,23 +66,31 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
    粘贴到你的章包目录 → 改名 `seg01.tscn`；
 2. 双击打开，选中根 `StageSegment`，Inspector 里：
    - `segment_id` = `seg01`（本章内唯一；漏了/重了校验器点名 R2）；
-   - `entry_points` 不用动（默认出生点已在触发线左边，合法）；
-3. 想改房间大小：拖 `Room1`（虚线框）的四边把手 → 然后把 Inspector 里
+   - `entry_points` 不用动（默认出生点已在触发线左边且在盒内，合法）；
+3. 场地=盒：模板里已带 `PlayfieldBox`（虚线大框），**拖它的四边把手框住你想让人
+   走的区域**即可——墙不用摆（运行时自动沿盒四边派生，看不见的实体墙+地板色块）。
+   别动 Inspector 里的 anchor 值（校验器点名 R13，见下方盒配方卡）；
+4. 想改房间大小：拖 `Room1`（虚线框）的四边把手 → 然后把 Inspector 里
    `limit_left / limit_top / limit_right / limit_bottom` 四个数**改成和框一致的数**
    （框是给你看的，运行时只认 limit 四个数，引擎不替你对齐——这是最容易忘的一步）；
-4. 想换怪的组成：选中 `Room1/EnemySpawner1`，Inspector 的 `spawn_waves`：
+5. 想换怪的组成：选中 `Room1/EnemySpawner1`，Inspector 的 `spawn_waves`：
    外层一项 = 一波，内层一项 = 这波里的一只怪；每张卡的 `enemy_scene`
    下拉选角色文件（现成的敌兵：`characters/enemies/spar_enemy/spar_enemy.tscn`）；
-5. 存盘。施工红线清单一直钉在这个文件的根节点 Inspector 最底部
+6. 存盘。施工红线清单一直钉在这个文件的根节点 Inspector 最底部
    （`_assembly_notes`），忘了随时点开对照。
 
-段模板里各节点是干什么的（都在场时它们长这样）：
+段模板 v2 里各节点是干什么的（都在场时它们长这样）：
 
 | 节点 | 作用 |
 |---|---|
-| `GroundBody` / `WallL` / `WallR` | 真·物理：地面和左右两堵看不见的实体墙（别删；配方被校验器盯着） |
-| `Room1`（及其下的 `EnemySpawner1`、`PlayerDetector`） | 战斗房：触发线在房左边，玩家撞线→锁镜头刷怪，全灭→向东放行 |
-| `Vis*` 几件 | 纯摆设的示意色块（地板/墙/触发线颜色）+ 一块提示文字，删了不影响玩法 |
+| `PlayfieldBox`（ReferenceRect 挂 `scripts/chapter/playfield_box.gd`） | 真·物理的第一件：框=可移动区闭区间；四面实体墙带+地板色块**运行时由盒派生**（文件里没有墙的条目，想调边界就拖框）。**必留必唯一**（>1 个=校验器 R13 红） |
+| `Room1`（及其下的 `EnemySpawner1`、`PlayerDetector`） | 战斗房（**可选家具**）：触发线在房左边，玩家撞线→锁镜头刷怪，全灭→向东放行 |
+| `Encounter1`（及其下的 `Detector`、`EnemySpawner2`） | 遭遇带示范：Node2D 容器包检测器+刷怪点，**没有房也合法**——跨线就刷怪、镜头不收。想多一条遭遇带照抄这个容器整组摆位 |
+| `Vis*` 几件 | 纯摆设的示意色块（触发线颜色）+ 一块提示文字，删了不影响玩法（地板色块已由盒派生，不用摆） |
+
+> 旧形兼容注：`GroundBody` / `WallL` / `WallR`（手摆的地面与左右实体墙）与
+> `VisFloor/VisWallL/VisWallR` 已从模板退役——**存量段（参考章 ref A/B 等）里它们
+> 依然合法**（校验器 R7 照管其物理配方），**新段勿抄**：场地几何一律交给盒。
 
 ### 第 3 步｜把段挂上壳
 
@@ -113,6 +122,20 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 
 ## 二、任务配方卡（"我想…" → 怎么做）
 
+### 盒配方卡｜段的第一件（三步）
+
+1. **拖盒**：段里 `PlayfieldBox`（复制段模板即自带）→ 拖四边把手框住可行走区域。
+   盒矩形=**可移动区的闭区间**，角色停在边界线上（等价旧"站在地板线上"）。
+   Inspector 里 **anchors 四个值一个都别改**（矩形全靠默认 anchors+offset；改了
+   校验器点名 R13）；盒必须**直挂段根**且**整段只有一个**。
+2. **盒内摆家具**：房（锁镜头特写战）、遭遇带（不锁镜头刷怪）、宝箱/门/NPC 等
+   都往盒里放。出生点 `entry_points.default` 必须落在盒内（越界=红，落位会穿墙带）。
+   想让北/南/东/西某一边不挡人：选中盒，Inspector 取消勾选对应 `north_wall` 等开关
+   （北界常交给相机镜头接管时关掉它，避免"场上无因停步"）。
+3. **查编辑器黄字**：选中盒节点，Inspector 顶部若有黄色警告（"盒矩形坐标系将失配
+   （R13②）：anchors 须保持默认"），说明 anchors 被动过——回第 1 步修。
+   框没摆正（零面积，如 left=right）编辑器不黄，校验器会红（R13）；没黄字再跑校验器兜底。
+
 | 想做的事 | 怎么做 |
 |---|---|
 | 加一个**宝箱** | 段内实例化 `scenes/chapter/interact_trigger.tscn`（右键段根 → 实例化子节点）→ 摆位（玩家要能站进那个框）→ 改 `prompt_text`（按 E 时显示的提示语）→ 选中 trigger 右键 **添加子节点 → Node** → 属性 Inspector 里"附加脚本"选 `scripts/chapter/reactions/interact_chest.gd`（显示名 InteractChest）→ 填 `chest_id`（本章内唯一，重名校验器点名）。玩家开箱后东西**永久记录**，重玩不复活，全程零代码 |
@@ -123,9 +146,9 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 | **加一波怪** | 选 `EnemySpawner1` → `spawn_waves` 数组加一项（=追加一波），内层加条目（=这波多几只并发）。每张卡 `enemy_scene` 下拉选角色；`spawn_mode=1` + `use_spawner_position=true` 照段模板抄 |
 | **造一个新敌兵** | 打开 `templates/character/character_template.tscn` → 右侧 Inspector 的创建面板 → "控制方式"选 **AI 自动战斗**（自动进 `characters/enemies/`，自带"待机→靠近→三连段"默认打法）→ 填名字和出生数值 → Create → 回 spawner 的下拉里选它 |
 | **做一个新法术** | 同样走 Inspector 创建面板（模板 `templates/spell/`，参照现成的 `fire_ball`）。想让玩家学会它 = 摆一个秘籍宝箱（见上两行） |
-| **过场段（不打怪，直接往下走）** | 复制段模板 → 把 `Room1` 整棵删掉 → 根上勾 `auto_complete`（一进段就算打完自动推进）。以后放对话/剧情就走这类段 |
+| **过场段（不打怪，直接往下走）** | 复制段模板 → 把 `Room1` 和 `Encounter1` **两棵都删掉**（**盒留着**，出生点须在盒内）→ 顺手删 `Vis*` 摆设 → 根上勾 `auto_complete`（一进段就算打完自动推进）。以后放对话/剧情就走这类段 |
 | **想让某段有夜晚** | 壳的 `Ambient/DayNightController` 的 `scene_time_data` 挂一份时间数据（现成文件在 `resources/lighting/`：`day_cycle_default.tres` 正式昼夜 / `day_cycle_demo.tres` 60 秒一圈看效果 / `day_neutral.tres` 恒定白天）；想要"每一段固定不同天色"用段根的 `lighting_color`。详见 `GUIDE_光照.md` |
-| **阴影只在场地内**（性能+好看） | 段根加一个 ReferenceRect → 附加脚本 `scripts/shadow_region.gd`（ShadowRegion）→ 框住可行走地面。**两个框不许重叠**（重叠处会双倍变暗）。脚下阴影的柔化效果默认已开，按 L 对比 |
+| **阴影只在场地内**（性能收口/局部去影） | **默认不摆**：没有 ShadowRegion 时阴影按**全区域**生成（现行回退机制），**盒本身就是视觉边界**——新段什么都不用配。只有两种诉求才摆它：①大段想收性能（阴影只算框内）②某块地面故意不去影。摆法：段根加一个 ReferenceRect → 附加脚本 `scripts/shadow_region.gd`（ShadowRegion）→ 框住可行走地面。**两个框不许重叠**（重叠处会双倍变暗）。脚下阴影的柔化效果默认已开，按 L 对比 |
 | **打完后能继续向右走多远** | 段模板预置了"战后向东放开到 x=1900"。想改成别的数：Inspector 里看不到这四个属性（尚未开放，工程侧待办），**找工程侧改** |
 | **摆个不打的 NPC** | `characters/neutrals/street_vendor/street_vendor.tscn` 直接实例化进段里（站摊型，不追不逃） |
 | **这段镜头拍特定目标**（NPC/物件/被控者） | 选中段根 `StageSegment` → `camera_host_path` 填该段里某节点的**路径**（如 `Npc`）→ 玩家一进这段镜头就挂上去；**下一段没填就自动跟回当前被控角色**（严格申报制，不会"忘了换回来"）。镜头只换"挂谁"，操作照常。想代码即席改：`壳.set_camera_host(节点)` |
@@ -154,7 +177,8 @@ chapter_1.tscn（壳 = 整章共用的东西）          seg01.tscn（段 = 其�
 | 出生瞬间被"瞬移" | 出生点在触发线右边，开局第一帧就被拉进锁房 | 出生点挪回触发线左边几十像素 |
 | 撞进触发带不刷怪 | 刷怪点的 `path_spawn_parent` 被改过，或 `enemy_scene` 没选 | 改回段模板原值 `../../../../Players`；重选角色文件 |
 | 怪全灭但不推进 | 检测器的 `paths_enemy_spawners` 数组漏了某个刷怪点 | 把本房所有 spawner 都列进这个数组 |
-| 走路被弹开+掉血 | 地面/墙的物理配方被改了 | `collision_layer=16760832`、`collision_mask=0` 改回 |
+| 走路被弹开+掉血（**旧形段**：文件里手摆的 GroundBody/Wall 在） | 地面/墙的物理配方被改了 | `collision_layer=16760832`、`collision_mask=0` 改回（校验器 R7 会拦） |
+| 走路被弹开+掉血（**新形段**：段里有 PlayfieldBox） | 墙带由盒运行时派生，**文件里根本没有墙**，改不到配方——多为盒框摆太小/太浅，或角色被击飞撞界（掉 5 血只在击飞时，是设计） | 拖大盒框；需要更厚的封锁带就调 `band_depth`（默认 400）；某一边不该挡人就关对应单边开关。别去文件里找墙 |
 | 角色脚下阴影有两层 | KeyLight 的 `shadow_enabled` 被勾上了 | 取消勾选（这个灯不产阴影，阴影另有系统） |
 | 按 E 宝箱没反应 | 三查：人没站进框 / trigger 下没挂反应子节点 / 子节点没附加脚本 | 逐个补 |
 | 背景图把角色盖住了 | 背景 CanvasLayer 的 `layer` 写了 0 或正数 | 改成负数（如 -1） |

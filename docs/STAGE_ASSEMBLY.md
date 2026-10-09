@@ -4,8 +4,8 @@
 > 转世壳形、validator base 臂退役、法定样板转世 chapter_ref_a/b 壳段四件）。
 > 一切地点=章节壳+段。
 
-> S1 立法的装配法典：**要造新地点 → 直接看第〇章食谱**；第一章八条与第二、三章
-> 是干完活后的审稿清单。**新关卡必过校验器才有 F5 资格**（流程法律）：
+> S1 立法的装配法典：**要造新地点 → 直接看第〇章食谱**；第一章装配十一条、后续各批
+> 补充条款（至条 17）与第二、三章是干完活后的审稿清单。**新关卡必过校验器才有 F5 资格**（流程法律）：
 > `godot --headless --path . -s tools/stage_validator/validator.gd`
 > （在施章节可在目录放 `.wip` 空文件整树豁免扫描并打 NOTICE——执法针对成品地点，
 > WIP 中间态不替回归矩阵红灯背书。）
@@ -41,13 +41,20 @@
    `playable_override` 放主角（**推荐正门**：拖玩家档角色 .tscn；Players 下
    摆实例=来源②；多角色用 `playable_path` 裁决③——空场/歧义运行必红+R14 静态拦）；
    `segment_scenes`=段数组（顺序=推进序）；`camera_host_path` 一般留空；
-3. **建段**：复制 `scenes/chapter/segment_template.tscn` 改件——`segment_id`
+3. **建段**：复制 `scenes/chapter/segment_template.tscn`（v2：盒+双形态示范）改件——`segment_id`
    （章内唯一）；`entry_points.default` **必须放第一检测线西侧前场区**（几何承重墙，
-   雷区 i 的容器化）；房三件套字段卡见 0.3（房直接挂段根，生成器
-   `path_spawn_parent=../../../../Players` 段挂壳 Segments 下恒 4 级）；
-4. **场地几何**：地面/左右实体墙 StaticBody 直挂段根（配方 `collision_layer=
-   16760832`、`mask=0`，雷区 c——R7 全树执法）；背景/道具摆段内（Background
-   CanvasLayer `layer` 必须 <0，R10）；
+   雷区 i 的容器化；含盒段另受 R13③ 入口在盒硬查）；房三件套/遭遇带字段卡见 0.3
+   （房与带容器均直接挂段根，生成器 `path_spawn_parent=../../../../Players`
+   段挂壳 Segments 下恒 4 级）；
+4. **场地几何=摆盒（盒轨批 2026-10-07，法源 spec 2026-10-07-playfield-box）**：
+   段的第一件家具=拖 `PlayfieldBox`（`scripts/chapter/playfield_box.gd`，
+   ReferenceRect 形制，范本 x:-80..2000、y:-280..600）——框矩形（段局部坐标，
+   anchors 勿动，offset 四值即盒界）=**可移动区闭区间**；四边实体墙带+地板色块
+   由盒**运行时派生**（外贴不吃可行走面积，配方 layer=16760832/mask=0 与 R7
+   同款但**不落 .tscn 文本**，校验器管辖外）。单边可关（`north_wall` 等，北界
+   常交相机动态带接管时关，雷 k）；`band_depth` 默认 400。**新段禁手摆场地几何**；
+   旧形手摆地面/墙 StaticBody=兼容通道（仅存量段，R7 照管，ref/demo 不迁移判例
+   在册，新段勿抄）。背景/道具摆段内（Background CanvasLayer `layer` 必须 <0，R10）；
 5. **光照可选**：壳 `Ambient/DayNightController.scene_time_data`（起步件
    `resources/lighting/day_neutral|day_cycle_default.tres`，留空=定格白天；
    demo 档=60 秒快循环）；段根 `lighting_color`=入场画布色；性能需要时段内摆
@@ -76,6 +83,26 @@
 - `is_one_shot` 默认 true 可不写（重复触发房属未立法需求，先回设计会）；
 - 触发线用竖 SegmentShape（样板 a=(0,-400) b=(0,700)），放点在玩家必经之路。
 
+**遭遇带字段卡（无房合法形，盒轨批 2026-10-07；范本=段模板 v2 `Encounter1` +
+fixture `no_room_band.tscn`——房 demotion 后的核心示范，条 17）**
+
+```
+段根
+└── EncounterN（Node2D 带容器，位置随意——整条带可一拖就走）
+    ├── Detector（Area2D + quiver_player_detector.gd）
+    │   —— 三掩码配方同款；**不写 path_fight_room 行**（吃导出默认=空）=无房合法形
+    └── EnemySpawnerN（Marker2D + quiver_enemy_spawner.gd）
+        —— path_spawn_parent = NodePath("../../../../Players")（四级，从生成器起算恒成立）
+```
+
+- **带容器不可省**：生成器直挂段根+四级路径=运行时非法形（`get_node_or_null` 静默
+  null→刷怪即裸崩；实施勘误实锤，见 T3 报告 §五.1 与 spec §四勘误注）；生成器挂
+  检测器之下同样不行（`is_one_shot` 检测器触发后 `queue_free` 自己会连坐吞掉子树
+  生成器→段永不判清=推进死锁）；
+- 检测器 `path_fight_room` 空**且** spawner 列表也空=R4 哑检测器红；带内生成器
+  不被任何检测器引用=R4 孤儿生成器红（波永不刷）；
+- R13③ 入口在盒、R9 共引查重等对遭遇带一视同仁（判据已去房化）。
+
 **光照与阴影（骨架预置件 + 可选 ShadowRegion）**
 - `Ambient/DayNightController`：唯一要动的导出是 `scene_time_data`（null=自禁）；
   `point_lights_paths` 留给灯笼类场景道具（DUSK/NIGHT 自动开关）；
@@ -90,6 +117,8 @@
 双敌聚合）→ 换名换 `chapter_id`/`segment_id`（撞键=检查点合并回跳错位）→
 改几何/波次/出口 → 校验器。**纪律：复制免手续不免审稿——装配十一条+雷区仍逐条过**
 （validator 只保红线，手感布局它不管）。
+**新段一律以 `scenes/chapter/segment_template.tscn` v2 为底**（盒+锁房/遭遇带
+双形态示范；ref 段是旧形手摆几何的存量兼容样本，勿作为新段场地几何的抄本）。
 
 ### 0.5 验收三件套
 
@@ -97,10 +126,12 @@
 2. 冒烟：`godot --headless --path . res://scenes/stages/<包>/<你的地点>.tscn` 跑 ~8 秒零 SCRIPT ERROR；
 3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、穿线开战、
    段全清→自动推进/章终点、死亡→段重跑复位、暂停回跳含本章。
+   （新段（v2 模板底）此处验的是**盒界**：四边贴界停步、击飞反弹不穿带；
+   左右实体墙+弹墙带现由盒运行时派生，文件里改不到——查盒框。）
 （stage_contract 的 126 断言只绑 chapter_ref A/B 两台法定壳段样板（含 A负B正 光照
  对偶锁 LC 组）；新章节由以上三件套+回归时顺扫的校验器保护。）
 
-## 一、装配十一条（校验器 R1-R12 的法律来源）
+## 一、装配十一条（校验器规则的法律来源；R8 随 5b 退役，R13 法源=文末条 17）
 
 - [ ] **1. 相机=壳的服务（5b 起自动）**：壳解析主角后自动补挂 LevelCamera
       到其名下并掌电流；`camera_host_path` 可改挂任意节点（演出段跟 NPC），
@@ -115,7 +146,9 @@
 - [ ] **4. 碰撞配层走高度层**：Collisions 的 StaticBody `collision_layer` 配
       高度层（全段=16760832，bit15-24），**障碍层 2 允许出现**（校验器 R7
       只执 12 位）；**禁手配旧层 3/4 掩码**（屏限/顶限归相机高度层，由
-      LevelCamera 运行时接管，上游旧制勿抄）。
+      LevelCamera 运行时接管，上游旧制勿抄）。盒轨批注：新段场地几何=摆
+      PlayfieldBox（墙带运行时派生不落文本，本条 R7 只照管旧形手摆几何/存量段），
+      房 demotion 见条 17。
 - [ ] **5. 波次数据形态**：`spawn_waves` 用插件自定义 Inspector 填
       （波=QuiverSpawnData 数组）；敌人场景引用必须盘上存在（校验器 R6）。
 - [ ] **6. 检查点约定**：壳根 `chapter_id`+段 `segment_id` 双键，进章/进段即以
@@ -236,6 +269,16 @@
       撞墙清零先于带命中，
       镜像拿到恒 0 输入；`mirror_axis` 按墙面朝向配（竖墙 UP、横墙 RIGHT）。
       参考实现=quiver_level_camera；几何锁=knockout_contract D8。
+- [ ] **k. 盒南北界与相机动态带是两层墙**（盒轨批，法源 spec §五）：相机
+      ScreenLimits 上下带跟随视口（锁房 zoom-fit 时=房矩形，常态=可视高），
+      盒南北墙是静态外贴，**可走竖界=两者较紧者**。盒竖向范围大于常态视口时，
+      角色先撞相机的"隐形场界"（无感停步，0.5 验收"上下边缘 2/3 档"即此）——
+      盒墙在视野外则永不被撞（无害）；**盒竖向范围明显小于视口**才会撞出
+      "场上无因停步"观感（对策：关对应单边墙 `north_wall/south_wall`，
+      或把房矩形铺满盒的可视诉求）。
+- [ ] **l. 房矩形越出盒界**（盒轨批，法源 spec §五；R13④ 黄判据）：锁房全景
+      （zoom-fit 房）时界外地面可见但不可走——要么收房进盒，要么视为有意的
+      "远景装饰"（黄警告不拦）。段模板 v2 的 Room1 已收界进盒（bottom 600）。
 
 ## 三、上游禁抄项（template-beat-em-up 旧制，本项目已有替代）
 
@@ -291,3 +334,20 @@
   段 id 仅章内唯一（R2），纯 id 全局键=跨章串扰（章二清过的 seg01 令章一误判
   已清→缓存腿错走/终点误弹）——C15b/C15c 双腿锁；旧档纯 id 判清记录一次性作废
   （开发期无实档负担）。
+
+## 盒轨批补充条款（2026-10-07，PlayfieldBox 与房 demotion）
+
+- **条 17 盒轨（法源 spec 2026-10-07-playfield-box；校验器 R13 执法）**：
+  **法理两行**——①校验只罚**机械死锁/静默失败**（双盒、坐标系失配、入口穿墙、
+  哑检测器、孤儿生成器、共引争波），**不罚配方形状**（摆不摆房、锁不锁镜、
+  刷不刷遭遇怪完全自由）；②**房=可选的特写镜头/锁战家具**，开战与战斗不依赖房
+  （R3 降黄=纯特写房合法、R4 接线化、R9 去房化三改同批，见 0.3 遭遇带字段卡）。
+  **R13 四查**（管辖=含 `playfield_box.gd` 的段文件，旧形无盒段不查=兼容通道）——
+  ①**盒唯一**（>1 红：双盒=模型破产，一段一界）；②**坐标系契约**（盒必须直挂
+  段根；盒节点写 `anchor_*`/`scale`/`position` 行=红：ReferenceRect 是 Control，
+  矩形全靠默认 anchors+offset 四值=段局部坐标，雷区 a 同源；零面积盒红并早退）；③**入口在盒**
+  （根 `entry_points` 各值须落在盒矩形闭区间，红：落位必穿墙带）；④**房越盒黄**
+  （任一 FightRoom 矩形超出盒界=NOTICE：锁房全景时界外可见不可走，雷 l，多为
+  摆错但不拦）。盒导出面与墙带派生语义见 0.2 步 4；组件契约细则在 spec §二
+  （`band_depth` 默认 400、`gen_bands`/四单边开关/`gen_vis`，均运行时派生不落文本）。
+  纯特写房的自动解锁时机=机制缺口，本批法放行、待立项（spec 非目标）。
