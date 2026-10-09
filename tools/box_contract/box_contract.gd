@@ -33,7 +33,7 @@ func _ready() -> void:
 	await _run_all()
 	# 完成旗（协程静默跳段判例的防线）：全序列跑到尾才绿
 	_finished = true
-	_check(_finished, "F 全序列执行完成")
+	_check(_finished, "终旗腿 全序列执行完成")
 	_report()
 
 

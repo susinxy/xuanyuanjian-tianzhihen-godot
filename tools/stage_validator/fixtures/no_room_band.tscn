@@ -16,15 +16,17 @@ use_spawner_position = true
 script = ExtResource("1_sc")
 segment_id = &"fx_no_room_band"
 
-[node name="EnemySpawner1" type="Marker2D" parent="."]
-position = Vector2(600, 800)
-script = ExtResource("2_sp")
-path_spawn_parent = NodePath("../../../../Players")
-spawn_waves = [[SubResource("SD_w1")]]
+[node name="Band1" type="Node2D" parent="."]
 
-[node name="Detector1" type="Area2D" parent="."]
+[node name="Detector1" type="Area2D" parent="Band1"]
 collision_layer = 0
 collision_mask = 16760832
 monitorable = false
 script = ExtResource("3_det")
 paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
+
+[node name="EnemySpawner1" type="Marker2D" parent="Band1"]
+position = Vector2(600, 800)
+script = ExtResource("2_sp")
+path_spawn_parent = NodePath("../../../../Players")
+spawn_waves = [[SubResource("SD_w1")]]
