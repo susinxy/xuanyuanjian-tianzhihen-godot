@@ -101,7 +101,7 @@ fixtures：`no_room_band` 必红 R4=形状法还在的铁证，修法后绿）�
 StageSegment (StageContent，metadata 配方注重写)
 ├── PlayfieldBox        ← 第一件：拖框=可移动区（范本 x:-80..2000, y:-280..600）
 ├── Room1 (房三件套形)  ← 形态A示范：锁房特写战（房+生成器+检测器 path_fight_room=".."）
-├── Encounter1 (遭遇带形)← 形态B示范：Node2D 带容器内含检测器（path_fight_room 空）+ 生成器 + 触发线色块
+├── Encounter1 (遭遇带形)← 形态B示范：Node2D 带容器内含检测器（path_fight_room 空）+ 生成器（触发线色块 VisEncLine 挂段根）
 └── VisSign 等
 ```
 - **删除** `GroundBody/WallL/WallR` 与 Vis 场地件（盒派生接管）；
