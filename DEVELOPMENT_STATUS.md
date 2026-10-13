@@ -764,3 +764,16 @@
 详细架构见:
 - `docs/PLUGIN_ARCHITECTURE.md` — Quiver 插件源码分析（已更新碰撞系统重构 + 轮廓转换工具内容）
 - `docs/TEMPLATE_IMPLEMENTATION.md` — template-beat-em-up 实际实现参考（原版碰撞系统，用于对比）
+
+## 法术说明书补账批（2026-10-09，纯文档，M3 铁律欠账清偿）
+- **交付**：新建 `docs/guides/GUIDE_法术.md`（造→摆→学→放四步全流程、definition
+  14 项+弹体命中 4 项字段表、施放八道门"按 1 没反应"判据表、秘籍件配方卡、排障速查）；
+  法典新**条 18**（裁决甲：新档=空账，每正式章早期段必须摆第一本《秘籍》，范例
+  `tools/spell_save_contract/fixtures/seg_b4_manual.tscn`）；术语表补四词条
+  （法术槽/两段式引导/秘籍分户/spells_known 户）。
+- **核读定档的现行事实**：蓝量无回复渠道（`mana_current` 全仓零写除扣与重建归位），
+  内容侧按"一命一管蓝"规划；同学科槽位去重（`learn_spell` spell_id 拒收）；
+  秘籍判重退场（学过即出生隐身）与宝箱空箱语义分道。
+- **验证口径**：零代码/零场景改动面→不跑全矩阵（提效纪律第四条），字段名/路径/键位
+  逐条对源核读（spell_definition/spell_manager/spell_creator/widget/hud/attributes）。
+- **待用户**：章一摆第一本秘籍（甲裁决首个消费者）；F5 无需本批专项。
