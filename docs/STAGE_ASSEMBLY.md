@@ -42,7 +42,7 @@
    摆实例=来源②；多角色用 `playable_path` 裁决③——空场/歧义运行必红+R14 静态拦）；
    `segment_scenes`=段数组（顺序=推进序）；`camera_host_path` 一般留空；
 3. **建段**：复制 `scenes/chapter/segment_template.tscn`（v2：盒+双形态示范）改件——`segment_id`
-   （章内唯一）；`entry_points.default` **必须放第一检测线西侧前场区**（几何承重墙，
+   （章内唯一）；`entry_points.default` **必须放第一触发区（矩形）西侧外面的前场区**（几何承重墙，
    雷区 i 的容器化；含盒段另受 R13③ 入口在盒硬查）；房三件套/遭遇带字段卡见 0.3
    （房与带容器均直接挂段根，生成器 `path_spawn_parent=../../../../Players`
    段挂壳 Segments 下恒 4 级）；
@@ -81,7 +81,9 @@
 - 掩码配方三件套：`collision_layer = 0`、`collision_mask = 16760832`、`monitorable = false`（雷区 b）；
 - `path_fight_room = NodePath("..")`；`paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1"), ...])` ——列**全本房**生成器，跨房重引=R9 红；
 - `is_one_shot` 默认 true 可不写（重复触发房属未立法需求，先回设计会）；
-- 触发线用竖 SegmentShape（样板 a=(0,-400) b=(0,700)），放点在玩家必经之路。
+- 触发区用矩形 RectangleShape（样板 100×880，铺满盒可走深度、西边贴旧竖线位=触发时机
+  不变）；**四向进入均触发**（上下左右任一边走进矩形、以及出生在矩形内部都算进入）——
+  入口点务必留在其西侧外，否则出生即开战；旧竖线段形制仍合法（存量段兼容，不再新摆）。
 
 **遭遇带字段卡（无房合法形，盒轨批 2026-10-07；范本=段模板 v2 `Encounter1` +
 fixture `no_room_band.tscn`——房 demotion 后的核心示范，条 17）**
@@ -124,7 +126,7 @@ fixture `no_room_band.tscn`——房 demotion 后的核心示范，条 17）**
 
 1. 校验器：默认扫 `scenes/stages/**`，你的地点出现在 `违例 0` 里；
 2. 冒烟：`godot --headless --path . res://scenes/stages/<包>/<你的地点>.tscn` 跑 ~8 秒零 SCRIPT ERROR；
-3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、穿线开战、
+3. Windows F5：走/打左右墙（弹回+掉 5 血只在击飞时）、上下边缘 2/3 档、进入触发区开战、
    段全清→自动推进/章终点、死亡→段重跑复位、暂停回跳含本章。
    （新段（v2 模板底）此处验的是**盒界**：四边贴界停步——击飞撞盒=**停而不反弹、
    不掉 5 血**（盒只造 StaticBody2D 实体墙带，无 WallHitBox/mirror/伤害）；
@@ -237,7 +239,7 @@ fixture `no_room_band.tscn`——房 demotion 后的核心示范，条 17）**
 
 - [ ] **a. FightRoom 是 Control**：其子节点（检测器/生成器/落点 Marker）坐标是
       **房局部坐标**，世界坐标 = 房间 offset + 局部值。按世界坐标直填 = 检测器
-      飘出房外、玩家永远踩不到触发线。
+      飘出房外、玩家永远踩不到触发区。
 - [ ] **b. 检测器/出口件掩码配方**：`collision_layer=0`、
       `collision_mask=16760832`（全高度层，玩家身体动态持有）、
       `monitorable=false`。少一项检测器静默失灵（玩家组 body 进不了区域）。
