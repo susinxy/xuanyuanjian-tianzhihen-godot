@@ -8,9 +8,8 @@
 [ext_resource type="Script" path="res://addons/quiver.beat_em_up/utilities/custom_nodes/enemy_spawner/quiver_spawn_data.gd" id="6_sd"]
 [ext_resource type="Script" path="res://scripts/chapter/playfield_box.gd" id="7_box"]
 
-[sub_resource type="SegmentShape2D" id="Seg_room1"]
-a = Vector2(0, -400)
-b = Vector2(0, 700)
+[sub_resource type="RectangleShape2D" id="Rect_det1"]
+size = Vector2(100, 880)
 
 [sub_resource type="Resource" id="SD_w1"]
 script = ExtResource("6_sd")
@@ -18,9 +17,8 @@ enemy_scene = ExtResource("2_spar")
 spawn_mode = 1
 use_spawner_position = true
 
-[sub_resource type="SegmentShape2D" id="Seg_enc"]
-a = Vector2(0, -400)
-b = Vector2(0, 440)
+[sub_resource type="RectangleShape2D" id="Rect_det2"]
+size = Vector2(100, 880)
 
 [sub_resource type="Resource" id="SD_w2"]
 script = ExtResource("6_sd")
@@ -30,7 +28,7 @@ use_spawner_position = true
 
 [node name="StageSegment" type="Node2D"]
 script = ExtResource("1_sc")
-metadata/_assembly_notes = "盒轨段样板（法源 spec 2026-10-07-playfield-box + 法典条 17）：①第一件=拖 PlayfieldBox 框（=可移动区闭区间，anchors 勿动，offset 即段局部坐标）②盒内摆家具（房=可选特写/锁战；遭遇带=无房刷怪合法形；触发件/NPC/宝箱平级）③必改 segment_id；入口默认 (500,600) 须落盒内。墙带由盒运行时派生（手摆场地几何=新段禁用，旧段兼容）。红线：段内禁壳件；生成器 path_spawn_parent 恒四级；检测器三掩码配方；改完 validator+冒烟+F5 三件套。过场段：删两件留盒+auto_complete=true。"
+metadata/_assembly_notes = "盒轨段样板（法源 spec 2026-10-07-playfield-box + 法典条 17）：①第一件=拖 PlayfieldBox 框（=可移动区闭区间，anchors 勿动，offset 即段局部坐标）②盒内摆家具（房=可选特写/锁战；遭遇带=无房刷怪合法形；触发件/NPC/宝箱平级）③必改 segment_id；入口默认 (500,600) 须落盒内且在触发矩形西侧外面（四向进入均触发，出生在区内=出生即开战）。墙带由盒运行时派生（手摆场地几何=新段禁用，旧段兼容）。红线：段内禁壳件；生成器 path_spawn_parent 恒四级；检测器三掩码配方+触发区用矩形（样板 100×880 铺满盒深度）；改完 validator+冒烟+F5 三件套。过场段：删两件留盒+auto_complete=true。"
 
 [node name="PlayfieldBox" type="ReferenceRect" parent="."]
 offset_left = -80.0
@@ -65,7 +63,7 @@ path_spawn_parent = NodePath("../../../../Players")
 spawn_waves = [[SubResource("SD_w1")]]
 
 [node name="PlayerDetector" type="Area2D" parent="Room1"]
-position = Vector2(240, 400)
+position = Vector2(290, 440)
 collision_layer = 0
 collision_mask = 16760832
 monitorable = false
@@ -74,12 +72,12 @@ path_fight_room = NodePath("..")
 paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner1")])
 
 [node name="Shape" type="CollisionShape2D" parent="Room1/PlayerDetector"]
-shape = SubResource("Seg_room1")
+shape = SubResource("Rect_det1")
 
 [node name="Encounter1" type="Node2D" parent="."]
 
 [node name="Detector" type="Area2D" parent="Encounter1"]
-position = Vector2(1580, 160)
+position = Vector2(1630, 160)
 collision_layer = 0
 collision_mask = 16760832
 monitorable = false
@@ -87,7 +85,7 @@ script = ExtResource("4_det")
 paths_enemy_spawners = Array[NodePath]([NodePath("../EnemySpawner2")])
 
 [node name="Shape" type="CollisionShape2D" parent="Encounter1/Detector"]
-shape = SubResource("Seg_enc")
+shape = SubResource("Rect_det2")
 
 [node name="EnemySpawner2" type="Marker2D" parent="Encounter1"]
 position = Vector2(1750, 480)
@@ -96,10 +94,10 @@ path_spawn_parent = NodePath("../../../../Players")
 spawn_waves = [[SubResource("SD_w2")]]
 
 [node name="VisEncLine" type="Polygon2D" parent="."]
-metadata/vis_skin_note = "视觉皮肤（B2-T3 惯例）：Vis* 全为纯装饰（触发线带/段名牌；地板色块已由 PlayfieldBox 运行时派生），供人眼感知布局，勿挂逻辑，投产可整组删除"
+metadata/vis_skin_note = "视觉皮肤（B2-T3 惯例）：Vis* 全为纯装饰（触发区带/段名牌；地板色块已由 PlayfieldBox 运行时派生），供人眼感知布局，勿挂逻辑，投产可整组删除"
 z_index = -5
 color = Color(0.2, 1, 0.35, 0.55)
-polygon = PackedVector2Array(1572, -240, 1588, -240, 1588, 600, 1572, 600)
+polygon = PackedVector2Array(1580, -280, 1720, -280, 1720, 600, 1580, 600)
 
 [node name="VisSign" type="Label" parent="."]
 position = Vector2(1050, -140)
